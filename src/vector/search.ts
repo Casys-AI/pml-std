@@ -138,7 +138,7 @@ export class VectorSearch {
 
       try {
         return await this.keywordSearchFallback(query, topK, minScore);
-      } catch (fallbackError) {
+      } catch (_fallbackError) {
         // Both methods failed - throw VectorSearchError
         throw new VectorSearchError(
           `Both vector and keyword search failed: ${error}`,

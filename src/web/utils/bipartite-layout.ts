@@ -141,10 +141,10 @@ export function computeBipartitePositions(
     let moved = false;
 
     for (let i = 0; i < allNodes.length; i++) {
-      const [idA, posA] = allNodes[i];
+      const [_idA, posA] = allNodes[i];
 
       for (let j = i + 1; j < allNodes.length; j++) {
-        const [idB, posB] = allNodes[j];
+        const [_idB, posB] = allNodes[j];
 
         const dx = posB.x - posA.x;
         const dy = posB.y - posA.y;
@@ -153,7 +153,7 @@ export function computeBipartitePositions(
         if (dist < minDist && dist > 0) {
           // Push apart
           const overlap = (minDist - dist) / 2;
-          const nx = dx / dist;
+          const _nx = dx / dist;
           const ny = dy / dist;
 
           // Only move in Y to preserve bipartite structure
