@@ -1,8 +1,10 @@
 /**
- * Unit tests for GraphRAGEngine metrics methods - Story 6.3
+ * Unit tests for GraphRAGEngine metrics methods - Story 6.3, ADR-048
  *
- * Tests critiques pour valider getMetrics(), getAdaptiveAlpha() et autres
+ * Tests critiques pour valider getMetrics(), getAdaptiveAlpha() et localAlpha
  * méthodes utilisées par le MetricsPanel dashboard.
+ *
+ * ADR-048: getAdaptiveAlpha() is deprecated, use localAlpha from getMetrics() instead.
  */
 
 import { assert, assertEquals, assertExists } from "@std/assert";
@@ -21,10 +23,12 @@ async function createTestDb(): Promise<PGliteClient> {
 }
 
 // =============================================================================
-// getAdaptiveAlpha() Tests
+// getAdaptiveAlpha() Tests (DEPRECATED - backward compatibility)
+// ADR-048: These tests remain for backward compatibility.
+// Use localAlpha from getMetrics() for new code.
 // =============================================================================
 
-Deno.test("GraphRAGEngine.getAdaptiveAlpha - empty graph returns 1.0", async () => {
+Deno.test("GraphRAGEngine.getAdaptiveAlpha - empty graph returns 1.0 (deprecated)", async () => {
   const db = await createTestDb();
   const engine = new GraphRAGEngine(db);
   await engine.syncFromDatabase();
@@ -333,6 +337,93 @@ Deno.test("GraphRAGEngine.getMetrics - with graph data", async () => {
   assert(metrics.current.adaptiveAlpha < 1.0);
   assertEquals(metrics.current.communitiesCount, 1);
   assertEquals(metrics.current.pagerankTop10.length, 2);
+
+  await db.close();
+});
+
+// =============================================================================
+// localAlpha Tests (ADR-048)
+// =============================================================================
+
+Deno.test("GraphRAGEngine.getMetrics - localAlpha is undefined without traces", async () => {
+  const db = await createTestDb();
+  const engine = new GraphRAGEngine(db);
+  await engine.syncFromDatabase();
+
+  const metrics = await engine.getMetrics("24h");
+
+  // Without algorithm traces, localAlpha should be undefined
+  assertEquals(metrics.current.localAlpha, undefined, "localAlpha should be undefined without traces");
+
+  await db.close();
+});
+
+Deno.test("GraphRAGEngine.getMetrics - localAlpha structure is correct with traces", async () => {
+  const db = await createTestDb();
+  const engine = new GraphRAGEngine(db);
+  await engine.syncFromDatabase();
+
+  // Insert test algorithm traces with local alpha data
+  await db.query(`
+    INSERT INTO algorithm_traces (algorithm_mode, target_type, params, signals, final_score, decision)
+    VALUES
+      ('active_search', 'tool', '{"alpha": 0.65}', '{"graphDensity": 0.1, "alphaAlgorithm": "embeddings_hybrides", "coldStart": false}', 0.85, 'accepted'),
+      ('active_search', 'tool', '{"alpha": 0.70}', '{"graphDensity": 0.1, "alphaAlgorithm": "embeddings_hybrides", "coldStart": false}', 0.80, 'accepted'),
+      ('passive_suggestion', 'tool', '{"alpha": 0.80}', '{"graphDensity": 0.1, "alphaAlgorithm": "heat_diffusion", "coldStart": false}', 0.75, 'accepted'),
+      ('passive_suggestion', 'capability', '{"alpha": 0.90}', '{"graphDensity": 0.1, "alphaAlgorithm": "heat_hierarchical", "coldStart": true}', 0.70, 'accepted')
+  `);
+
+  const metrics = await engine.getMetrics("24h");
+
+  // localAlpha should now exist
+  assertExists(metrics.current.localAlpha, "localAlpha should exist with traces");
+
+  const la = metrics.current.localAlpha!;
+
+  // Verify structure
+  assertEquals(typeof la.avgAlpha, "number", "avgAlpha should be a number");
+  assertExists(la.byMode, "byMode should exist");
+  assertEquals(typeof la.byMode.activeSearch, "number");
+  assertEquals(typeof la.byMode.passiveSuggestion, "number");
+  assertExists(la.algorithmDistribution, "algorithmDistribution should exist");
+  assertEquals(typeof la.coldStartPercentage, "number");
+
+  // Verify values
+  assert(la.avgAlpha >= 0.5 && la.avgAlpha <= 1.0, `avgAlpha should be in [0.5, 1.0], got ${la.avgAlpha}`);
+  assert(la.byMode.activeSearch > 0, "activeSearch alpha should be > 0");
+  assert(la.byMode.passiveSuggestion > 0, "passiveSuggestion alpha should be > 0");
+  assertEquals(la.algorithmDistribution.embeddingsHybrides, 2, "Should have 2 embeddings_hybrides traces");
+  assertEquals(la.algorithmDistribution.heatDiffusion, 1, "Should have 1 heat_diffusion trace");
+  assertEquals(la.algorithmDistribution.heatHierarchical, 1, "Should have 1 heat_hierarchical trace");
+  assert(la.coldStartPercentage >= 0 && la.coldStartPercentage <= 100, "coldStartPercentage should be 0-100");
+
+  await db.close();
+});
+
+Deno.test("GraphRAGEngine.getMetrics - localAlpha avgAlpha is in valid range", async () => {
+  const db = await createTestDb();
+  const engine = new GraphRAGEngine(db);
+  await engine.syncFromDatabase();
+
+  // Insert traces with various alpha values
+  await db.query(`
+    INSERT INTO algorithm_traces (algorithm_mode, target_type, params, signals, final_score, decision)
+    VALUES
+      ('active_search', 'tool', '{"alpha": 0.5}', '{"graphDensity": 0.5, "alphaAlgorithm": "embeddings_hybrides"}', 0.9, 'accepted'),
+      ('active_search', 'tool', '{"alpha": 1.0}', '{"graphDensity": 0.0, "alphaAlgorithm": "bayesian", "coldStart": true}', 0.6, 'accepted')
+  `);
+
+  const metrics = await engine.getMetrics("24h");
+
+  assertExists(metrics.current.localAlpha);
+  const la = metrics.current.localAlpha!;
+
+  // avgAlpha should be between 0.5 and 1.0
+  assert(la.avgAlpha >= 0.5, `avgAlpha should be >= 0.5, got ${la.avgAlpha}`);
+  assert(la.avgAlpha <= 1.0, `avgAlpha should be <= 1.0, got ${la.avgAlpha}`);
+
+  // Average of 0.5 and 1.0 should be 0.75
+  assertEquals(la.avgAlpha, 0.75, "avgAlpha should be 0.75 (average of 0.5 and 1.0)");
 
   await db.close();
 });

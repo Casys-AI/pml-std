@@ -343,6 +343,7 @@ export interface GraphMetricsResponse {
     nodeCount: number;
     edgeCount: number;
     density: number;
+    /** @deprecated Use localAlpha instead (ADR-048) */
     adaptiveAlpha: number;
     communitiesCount: number;
     pagerankTop10: Array<{ toolId: string; score: number }>;
@@ -350,6 +351,26 @@ export interface GraphMetricsResponse {
     capabilitiesCount?: number;
     embeddingsCount?: number;
     dependenciesCount?: number;
+    /** ADR-048: Local adaptive alpha statistics from recent traces */
+    localAlpha?: {
+      /** Average alpha across all recent traces */
+      avgAlpha: number;
+      /** Average alpha by mode */
+      byMode: {
+        activeSearch: number;
+        passiveSuggestion: number;
+      };
+      /** Algorithm usage distribution */
+      algorithmDistribution: {
+        embeddingsHybrides: number;
+        heatDiffusion: number;
+        heatHierarchical: number;
+        bayesian: number;
+        none: number;
+      };
+      /** Cold start percentage */
+      coldStartPercentage: number;
+    };
   };
 
   /** Time series data for charts */

@@ -67,6 +67,10 @@ export interface AlgorithmSignals {
   graphDensity: number;
   spectralClusterMatch: boolean;
   adamicAdar?: number;
+  // ADR-048: Local adaptive alpha signals
+  localAlpha?: number;
+  alphaAlgorithm?: "embeddings_hybrides" | "heat_diffusion" | "heat_hierarchical" | "bayesian" | "none";
+  coldStart?: boolean;
 }
 
 /**
@@ -129,6 +133,43 @@ export interface AlgorithmMetrics {
     accepted: number;
     rejectedByThreshold: number;
     filteredByReliability: number;
+  };
+}
+
+/**
+ * Alpha statistics for ADR-048 (camelCase - internal TypeScript)
+ */
+export interface AlphaStats {
+  /** Average alpha by mode */
+  avgAlphaByMode: {
+    activeSearch: number;
+    passiveSuggestion: number;
+  };
+  /** Alpha distribution histogram (buckets: 0.5-0.6, 0.6-0.7, 0.7-0.8, 0.8-0.9, 0.9-1.0) */
+  alphaDistribution: {
+    bucket05_06: number;
+    bucket06_07: number;
+    bucket07_08: number;
+    bucket08_09: number;
+    bucket09_10: number;
+  };
+  /** Algorithm usage distribution */
+  algorithmDistribution: {
+    embeddingsHybrides: number;
+    heatDiffusion: number;
+    heatHierarchical: number;
+    bayesian: number;
+    none: number;
+  };
+  /** Cold start statistics */
+  coldStartStats: {
+    total: number;
+    percentage: number;
+  };
+  /** Alpha impact on scores (correlation-like metric) */
+  alphaImpact: {
+    lowAlphaAvgScore: number; // avg score when alpha < 0.7
+    highAlphaAvgScore: number; // avg score when alpha >= 0.7
   };
 }
 
@@ -455,6 +496,179 @@ export class AlgorithmTracer {
           filteredByReliability: 0,
         },
       };
+    }
+  }
+
+  /**
+   * Get alpha statistics (ADR-048)
+   *
+   * Returns statistics about local adaptive alpha usage:
+   * - Average alpha by mode (active_search vs passive_suggestion)
+   * - Alpha distribution histogram
+   * - Algorithm usage distribution
+   * - Cold start statistics
+   * - Alpha impact on scores
+   *
+   * @param windowHours - Query window (default: 24 hours)
+   * @returns AlphaStats with comprehensive alpha metrics
+   */
+  async getAlphaStats(windowHours: number = 24): Promise<AlphaStats> {
+    const emptyStats: AlphaStats = {
+      avgAlphaByMode: { activeSearch: 0, passiveSuggestion: 0 },
+      alphaDistribution: {
+        bucket05_06: 0,
+        bucket06_07: 0,
+        bucket07_08: 0,
+        bucket08_09: 0,
+        bucket09_10: 0,
+      },
+      algorithmDistribution: {
+        embeddingsHybrides: 0,
+        heatDiffusion: 0,
+        heatHierarchical: 0,
+        bayesian: 0,
+        none: 0,
+      },
+      coldStartStats: { total: 0, percentage: 0 },
+      alphaImpact: { lowAlphaAvgScore: 0, highAlphaAvgScore: 0 },
+    };
+
+    try {
+      // 1. Average alpha by mode
+      const avgAlphaResult = await this.db.query(`
+        SELECT
+          algorithm_mode,
+          AVG((params->>'alpha')::float) as avg_alpha
+        FROM algorithm_traces
+        WHERE timestamp > NOW() - INTERVAL '${windowHours} hours'
+        AND params->>'alpha' IS NOT NULL
+        GROUP BY algorithm_mode
+      `);
+
+      const avgAlphaByMode = { activeSearch: 0, passiveSuggestion: 0 };
+      for (const row of avgAlphaResult) {
+        if (row.algorithm_mode === "active_search") {
+          avgAlphaByMode.activeSearch = Number(row.avg_alpha) || 0;
+        } else if (row.algorithm_mode === "passive_suggestion") {
+          avgAlphaByMode.passiveSuggestion = Number(row.avg_alpha) || 0;
+        }
+      }
+
+      // 2. Alpha distribution histogram
+      const distributionResult = await this.db.query(`
+        SELECT
+          CASE
+            WHEN (params->>'alpha')::float >= 0.5 AND (params->>'alpha')::float < 0.6 THEN 'bucket05_06'
+            WHEN (params->>'alpha')::float >= 0.6 AND (params->>'alpha')::float < 0.7 THEN 'bucket06_07'
+            WHEN (params->>'alpha')::float >= 0.7 AND (params->>'alpha')::float < 0.8 THEN 'bucket07_08'
+            WHEN (params->>'alpha')::float >= 0.8 AND (params->>'alpha')::float < 0.9 THEN 'bucket08_09'
+            WHEN (params->>'alpha')::float >= 0.9 AND (params->>'alpha')::float <= 1.0 THEN 'bucket09_10'
+          END as bucket,
+          COUNT(*) as count
+        FROM algorithm_traces
+        WHERE timestamp > NOW() - INTERVAL '${windowHours} hours'
+        AND params->>'alpha' IS NOT NULL
+        GROUP BY bucket
+      `);
+
+      const alphaDistribution = {
+        bucket05_06: 0,
+        bucket06_07: 0,
+        bucket07_08: 0,
+        bucket08_09: 0,
+        bucket09_10: 0,
+      };
+
+      for (const row of distributionResult) {
+        const bucket = row.bucket as keyof typeof alphaDistribution;
+        if (bucket && bucket in alphaDistribution) {
+          alphaDistribution[bucket] = Number(row.count) || 0;
+        }
+      }
+
+      // 3. Algorithm usage distribution
+      const algorithmResult = await this.db.query(`
+        SELECT
+          signals->>'alphaAlgorithm' as algorithm,
+          COUNT(*) as count
+        FROM algorithm_traces
+        WHERE timestamp > NOW() - INTERVAL '${windowHours} hours'
+        AND signals->>'alphaAlgorithm' IS NOT NULL
+        GROUP BY signals->>'alphaAlgorithm'
+      `);
+
+      const algorithmDistribution = {
+        embeddingsHybrides: 0,
+        heatDiffusion: 0,
+        heatHierarchical: 0,
+        bayesian: 0,
+        none: 0,
+      };
+
+      const algorithmMapping: Record<string, keyof typeof algorithmDistribution> = {
+        embeddings_hybrides: "embeddingsHybrides",
+        heat_diffusion: "heatDiffusion",
+        heat_hierarchical: "heatHierarchical",
+        bayesian: "bayesian",
+        none: "none",
+      };
+
+      for (const row of algorithmResult) {
+        const key = algorithmMapping[row.algorithm as string];
+        if (key) {
+          algorithmDistribution[key] = Number(row.count) || 0;
+        }
+      }
+
+      // 4. Cold start statistics
+      const coldStartResult = await this.db.query(`
+        SELECT
+          COUNT(*) as total,
+          COUNT(*) FILTER (WHERE (signals->>'coldStart')::boolean = true) as cold_start_count
+        FROM algorithm_traces
+        WHERE timestamp > NOW() - INTERVAL '${windowHours} hours'
+      `);
+
+      const total = Number(coldStartResult[0]?.total) || 0;
+      const coldStartCount = Number(coldStartResult[0]?.cold_start_count) || 0;
+      const coldStartStats = {
+        total: coldStartCount,
+        percentage: total > 0 ? (coldStartCount / total) * 100 : 0,
+      };
+
+      // 5. Alpha impact on scores
+      const alphaImpactResult = await this.db.query(`
+        SELECT
+          CASE
+            WHEN (params->>'alpha')::float < 0.7 THEN 'low'
+            ELSE 'high'
+          END as alpha_level,
+          AVG(final_score) as avg_score
+        FROM algorithm_traces
+        WHERE timestamp > NOW() - INTERVAL '${windowHours} hours'
+        AND params->>'alpha' IS NOT NULL
+        GROUP BY alpha_level
+      `);
+
+      const alphaImpact = { lowAlphaAvgScore: 0, highAlphaAvgScore: 0 };
+      for (const row of alphaImpactResult) {
+        if (row.alpha_level === "low") {
+          alphaImpact.lowAlphaAvgScore = Number(row.avg_score) || 0;
+        } else if (row.alpha_level === "high") {
+          alphaImpact.highAlphaAvgScore = Number(row.avg_score) || 0;
+        }
+      }
+
+      return {
+        avgAlphaByMode,
+        alphaDistribution,
+        algorithmDistribution,
+        coldStartStats,
+        alphaImpact,
+      };
+    } catch (error) {
+      logger.error("Failed to get alpha stats", { error });
+      return emptyStats;
     }
   }
 

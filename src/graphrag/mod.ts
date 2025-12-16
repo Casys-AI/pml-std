@@ -31,6 +31,10 @@ export type { EmbeddingModelFactory, IEmbeddingModel, SyncResult } from "./workf
 export { SpectralClusteringManager } from "./spectral-clustering.ts";
 export type { ClusterableCapability, ClusterAssignment } from "./spectral-clustering.ts";
 
+// Local adaptive alpha (ADR-048)
+export { LocalAlphaCalculator } from "./local-alpha.ts";
+export type { AlphaMode, NodeType, LocalAlphaResult, HeatWeights } from "./local-alpha.ts";
+
 // Core types
 export type {
   DAGStructure,

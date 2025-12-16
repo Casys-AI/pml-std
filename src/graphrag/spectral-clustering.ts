@@ -54,6 +54,9 @@ interface ClusterCache {
   key: string;
   assignments: ClusterAssignment;
   pageRankScores: Map<string, number>;
+  spectralEmbedding: number[][] | null; // ADR-048: For local alpha calculation
+  toolIndex: Map<string, number>; // ADR-048: Node ID to index mapping
+  capabilityIndex: Map<string, number>; // ADR-048: Node ID to index mapping
   createdAt: number;
 }
 
@@ -73,6 +76,7 @@ export class SpectralClusteringManager {
   private adjacencyMatrix: Matrix | null = null;
   private clusterAssignments: ClusterAssignment | null = null;
   private pageRankScores: Map<string, number> = new Map();
+  private spectralEmbedding: number[][] | null = null; // ADR-048: For local alpha calculation
 
   // Issue #7: Cache for cluster assignments
   private static cache: ClusterCache | null = null;
@@ -107,6 +111,10 @@ export class SpectralClusteringManager {
     if (SpectralClusteringManager.isCacheValid(key)) {
       this.clusterAssignments = SpectralClusteringManager.cache!.assignments;
       this.pageRankScores = new Map(SpectralClusteringManager.cache!.pageRankScores);
+      // ADR-048: Restore spectral embedding and indices for local alpha
+      this.spectralEmbedding = SpectralClusteringManager.cache!.spectralEmbedding;
+      this.toolIndex = new Map(SpectralClusteringManager.cache!.toolIndex);
+      this.capabilityIndex = new Map(SpectralClusteringManager.cache!.capabilityIndex);
 
       logger.debug("Restored cluster assignments from cache", {
         tools: tools.length,
@@ -318,6 +326,9 @@ export class SpectralClusteringManager {
       embedding.push(row);
     }
 
+    // ADR-048: Store spectral embedding for local alpha calculation
+    this.spectralEmbedding = embedding;
+
     // Simple K-means clustering on the embedding
     const labels = this.kMeans(embedding, kEffective);
 
@@ -369,6 +380,10 @@ export class SpectralClusteringManager {
       key,
       assignments: this.clusterAssignments,
       pageRankScores: new Map(this.pageRankScores),
+      // ADR-048: Cache spectral embedding and indices for local alpha
+      spectralEmbedding: this.spectralEmbedding,
+      toolIndex: new Map(this.toolIndex),
+      capabilityIndex: new Map(this.capabilityIndex),
       createdAt: Date.now(),
     };
 
@@ -754,5 +769,59 @@ export class SpectralClusteringManager {
    */
   getClusterCount(): number {
     return this.clusterAssignments?.clusterCount ?? 0;
+  }
+
+  // ===========================================================================
+  // ADR-048: Methods for Local Alpha Calculation
+  // ===========================================================================
+
+  /**
+   * Get spectral embedding row for a node (ADR-048)
+   *
+   * Returns the eigenvector-based embedding for a tool or capability,
+   * used by LocalAlphaCalculator for Embeddings Hybrides algorithm.
+   *
+   * @param nodeId - Tool or capability ID
+   * @returns Embedding vector or null if not found
+   */
+  getEmbeddingRow(nodeId: string): number[] | null {
+    if (!this.spectralEmbedding) return null;
+
+    // Check tool index first
+    const toolIdx = this.toolIndex.get(nodeId);
+    if (toolIdx !== undefined && toolIdx < this.spectralEmbedding.length) {
+      return [...this.spectralEmbedding[toolIdx]];
+    }
+
+    // Then capability index
+    const capIdx = this.capabilityIndex.get(nodeId);
+    if (capIdx !== undefined && capIdx < this.spectralEmbedding.length) {
+      return [...this.spectralEmbedding[capIdx]];
+    }
+
+    return null;
+  }
+
+  /**
+   * Get node index in the adjacency matrix (ADR-048)
+   *
+   * @param nodeId - Tool or capability ID
+   * @returns Index or -1 if not found
+   */
+  getNodeIndex(nodeId: string): number {
+    const toolIdx = this.toolIndex.get(nodeId);
+    if (toolIdx !== undefined) return toolIdx;
+
+    const capIdx = this.capabilityIndex.get(nodeId);
+    if (capIdx !== undefined) return capIdx;
+
+    return -1;
+  }
+
+  /**
+   * Check if spectral embedding has been computed (ADR-048)
+   */
+  hasEmbedding(): boolean {
+    return this.spectralEmbedding !== null && this.spectralEmbedding.length > 0;
   }
 }

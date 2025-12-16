@@ -19,6 +19,7 @@ export type {
   AlgorithmParams,
   AlgorithmSignals,
   AlgorithmTraceRecord,
+  AlphaStats, // ADR-048: Alpha statistics
   DecisionType,
   TargetType,
   TraceInput,

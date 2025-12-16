@@ -32,6 +32,8 @@ import type { GraphEvent } from "./events.ts";
 import type { TraceEvent } from "../sandbox/types.ts";
 // Story 6.5: EventBus integration (ADR-036)
 import { eventBus } from "../events/mod.ts";
+// ADR-048: Local adaptive alpha
+import { LocalAlphaCalculator, type AlphaMode, type NodeType } from "./local-alpha.ts";
 
 // Extract exports from Graphology packages
 const { DirectedGraph } = graphologyPkg as any;
@@ -51,10 +53,39 @@ export class GraphRAGEngine {
   private communities: Record<string, string> = {};
   private eventTarget: EventTarget;
   private listenerMap: Map<(event: GraphEvent) => void, EventListener> = new Map();
+  private localAlphaCalculator: LocalAlphaCalculator | null = null; // ADR-048
 
   constructor(private db: PGliteClient) {
     this.graph = new DirectedGraph({ allowSelfLoops: false });
     this.eventTarget = new EventTarget();
+    this.initLocalAlphaCalculator(); // ADR-048
+  }
+
+  /**
+   * Initialize LocalAlphaCalculator with dependencies (ADR-048)
+   */
+  private initLocalAlphaCalculator(): void {
+    this.localAlphaCalculator = new LocalAlphaCalculator({
+      graph: this.graph,
+      spectralClustering: null, // Will be set by DAGSuggester if available
+      getSemanticEmbedding: (_nodeId: string) => null, // Requires VectorSearch, set externally
+      getObservationCount: (nodeId: string) => this.getNodeObservationCount(nodeId),
+      getParent: (_nodeId: string, _parentType: NodeType) => null, // Set by DAGSuggester
+      getChildren: (_nodeId: string, _childType: NodeType) => [], // Set by DAGSuggester
+    });
+  }
+
+  /**
+   * Get observation count for a node (ADR-048)
+   * Uses edge weight sum as proxy for observations
+   */
+  private getNodeObservationCount(nodeId: string): number {
+    if (!this.graph.hasNode(nodeId)) return 0;
+    let totalWeight = 0;
+    this.graph.forEachEdge(nodeId, (_edge: string, attrs: any) => {
+      totalWeight += attrs.weight || 1;
+    });
+    return Math.floor(totalWeight);
   }
 
   /**
@@ -1541,20 +1572,26 @@ export class GraphRAGEngine {
         return [];
       }
 
-      // 3. Calculate adaptive alpha based on graph density (ADR-015)
-      // More semantic weight when graph is sparse (cold start)
-      const alpha = Math.max(0.5, 1.0 - density * 2);
+      // 3. Calculate adaptive alpha (ADR-048: local per tool, fallback to global)
+      // Global alpha for logging and fallback
+      const globalAlpha = Math.max(0.5, 1.0 - density * 2);
 
       log.debug(
-        `[searchToolsHybrid] alpha=${
-          alpha.toFixed(2)
+        `[searchToolsHybrid] globalAlpha=${
+          globalAlpha.toFixed(2)
         }, expansion=${expansionMultiplier}x (density=${density.toFixed(4)}, edges=${edgeCount})`,
       );
 
-      // 3. Compute hybrid scores for each candidate
+      // 4. Compute hybrid scores for each candidate with local alpha (ADR-048)
       const results: HybridSearchResult[] = semanticResults.map((result) => {
         const graphScore = this.computeGraphRelatedness(result.toolId, contextTools);
-        const finalScore = alpha * result.score + (1 - alpha) * graphScore;
+
+        // ADR-048: Use local alpha per tool (Active Search mode)
+        const localAlpha = this.localAlphaCalculator
+          ? this.localAlphaCalculator.getLocalAlpha("active", result.toolId, "tool", contextTools)
+          : globalAlpha;
+
+        const finalScore = localAlpha * result.score + (1 - localAlpha) * graphScore;
 
         const hybridResult: HybridSearchResult = {
           toolId: result.toolId,
@@ -1570,11 +1607,11 @@ export class GraphRAGEngine {
         return hybridResult;
       });
 
-      // 4. Sort by final score (descending) and limit
+      // 5. Sort by final score (descending) and limit
       results.sort((a, b) => b.finalScore - a.finalScore);
       const topResults = results.slice(0, limit);
 
-      // 5. Add related tools if requested
+      // 6. Add related tools if requested
       if (includeRelated) {
         for (const result of topResults) {
           result.relatedTools = [];
@@ -1665,6 +1702,26 @@ export class GraphRAGEngine {
   }
 
   /**
+   * Get the underlying Graphology graph instance (ADR-048)
+   *
+   * Used by LocalAlphaCalculator and other components that need
+   * direct access to graph structure.
+   */
+  getGraph(): any {
+    return this.graph;
+  }
+
+  /**
+   * Get the LocalAlphaCalculator instance (ADR-048)
+   *
+   * Returns the calculator for components that need to compute local alpha
+   * (e.g., DAGSuggester for passive suggestions).
+   */
+  getLocalAlphaCalculator(): LocalAlphaCalculator | null {
+    return this.localAlphaCalculator;
+  }
+
+  /**
    * Get top N tools by PageRank - public version for metrics (Story 6.3)
    */
   getPageRankTop(n: number): Array<{ toolId: string; score: number }> {
@@ -1701,16 +1758,20 @@ export class GraphRAGEngine {
       this.db.query("SELECT COUNT(*) as cnt FROM tool_dependency").then(r => Number(r[0]?.cnt) || 0).catch(() => 0),
     ]);
 
+    // ADR-048: Fetch local alpha stats from recent traces
+    const localAlphaStats = await this.getLocalAlphaStats(startDate);
+
     const current = {
       nodeCount: this.graph.order,
       edgeCount: this.graph.size,
       density: this.getDensity(),
-      adaptiveAlpha: this.getAdaptiveAlpha(),
+      adaptiveAlpha: this.getAdaptiveAlpha(), // @deprecated - kept for backward compatibility
       communitiesCount: this.getCommunitiesCount(),
       pagerankTop10: this.getTopPageRank(10),
       capabilitiesCount: capCount,
       embeddingsCount: embCount,
       dependenciesCount: depCount,
+      localAlpha: localAlphaStats, // ADR-048
     };
 
     // Fetch time series data
@@ -1731,6 +1792,68 @@ export class GraphRAGEngine {
       period,
       algorithm,
     };
+  }
+
+  /**
+   * Get local alpha statistics from recent traces (ADR-048)
+   *
+   * Queries algorithm_traces to compute:
+   * - Average alpha across all traces
+   * - Average alpha by mode (active_search vs passive_suggestion)
+   * - Algorithm distribution (which alpha algorithm was used)
+   * - Cold start percentage
+   *
+   * @param startDate - Start date for the query window
+   * @returns Local alpha statistics or undefined if no data
+   */
+  private async getLocalAlphaStats(startDate: Date): Promise<GraphMetricsResponse["current"]["localAlpha"]> {
+    const isoDate = startDate.toISOString();
+
+    try {
+      // Query alpha stats from algorithm_traces
+      const result = await this.db.query(`
+        SELECT
+          AVG((params->>'alpha')::float) as avg_alpha,
+          AVG((params->>'alpha')::float) FILTER (WHERE algorithm_mode = 'active_search') as avg_alpha_active,
+          AVG((params->>'alpha')::float) FILTER (WHERE algorithm_mode = 'passive_suggestion') as avg_alpha_passive,
+          COUNT(*) as total,
+          COUNT(*) FILTER (WHERE (signals->>'coldStart')::boolean = true) as cold_start_count,
+          COUNT(*) FILTER (WHERE signals->>'alphaAlgorithm' = 'embeddings_hybrides') as emb_hybrides,
+          COUNT(*) FILTER (WHERE signals->>'alphaAlgorithm' = 'heat_diffusion') as heat_diff,
+          COUNT(*) FILTER (WHERE signals->>'alphaAlgorithm' = 'heat_hierarchical') as heat_hier,
+          COUNT(*) FILTER (WHERE signals->>'alphaAlgorithm' = 'bayesian') as bayesian,
+          COUNT(*) FILTER (WHERE signals->>'alphaAlgorithm' = 'none' OR signals->>'alphaAlgorithm' IS NULL) as none_algo
+        FROM algorithm_traces
+        WHERE timestamp >= $1
+        AND params->>'alpha' IS NOT NULL
+      `, [isoDate]);
+
+      const row = result[0];
+      if (!row || Number(row.total) === 0) {
+        return undefined; // No data
+      }
+
+      const total = Number(row.total) || 1;
+
+      return {
+        avgAlpha: Number(row.avg_alpha) || 0.75,
+        byMode: {
+          activeSearch: Number(row.avg_alpha_active) || 0,
+          passiveSuggestion: Number(row.avg_alpha_passive) || 0,
+        },
+        algorithmDistribution: {
+          embeddingsHybrides: Number(row.emb_hybrides) || 0,
+          heatDiffusion: Number(row.heat_diff) || 0,
+          heatHierarchical: Number(row.heat_hier) || 0,
+          bayesian: Number(row.bayesian) || 0,
+          none: Number(row.none_algo) || 0,
+        },
+        coldStartPercentage: (Number(row.cold_start_count) / total) * 100,
+      };
+    } catch (error) {
+      log.error(`[getLocalAlphaStats] Failed: ${error}`);
+      return undefined;
+    }
   }
 
   /**

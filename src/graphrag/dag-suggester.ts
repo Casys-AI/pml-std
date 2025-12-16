@@ -15,6 +15,7 @@ import type { CapabilityMatcher } from "../capabilities/matcher.ts";
 import type { Capability, CapabilityMatch } from "../capabilities/types.ts";
 import type { CapabilityStore } from "../capabilities/capability-store.ts";
 import { type ClusterableCapability, SpectralClusteringManager } from "./spectral-clustering.ts";
+import { LocalAlphaCalculator, type AlphaMode, type NodeType } from "./local-alpha.ts";
 import type {
   CompletedTask,
   DAGStructure,
@@ -41,6 +42,7 @@ export class DAGSuggester {
   private capabilityStore: CapabilityStore | null = null; // Story 7.4 - Strategic discovery
   private spectralClustering: SpectralClusteringManager | null = null; // Story 7.4 - Cluster boost
   private algorithmTracer: AlgorithmTracer | null = null; // Story 7.6 - Algorithm tracing
+  private localAlphaCalculator: LocalAlphaCalculator | null = null; // ADR-048 - Local adaptive alpha
 
   constructor(
     private graphEngine: GraphRAGEngine,
@@ -112,6 +114,26 @@ export class DAGSuggester {
   setAlgorithmTracer(tracer: AlgorithmTracer): void {
     this.algorithmTracer = tracer;
     log.debug("[DAGSuggester] Algorithm tracing enabled");
+  }
+
+  /**
+   * Set local alpha calculator (ADR-048)
+   *
+   * Enables local adaptive alpha for passive suggestions.
+   * The calculator uses different algorithms based on mode and node type.
+   *
+   * @param calculator - LocalAlphaCalculator instance
+   */
+  setLocalAlphaCalculator(calculator: LocalAlphaCalculator): void {
+    this.localAlphaCalculator = calculator;
+    log.debug("[DAGSuggester] Local adaptive alpha enabled");
+  }
+
+  /**
+   * Get local alpha calculator (for GraphRAGEngine integration)
+   */
+  getLocalAlphaCalculator(): LocalAlphaCalculator | null {
+    return this.localAlphaCalculator;
   }
 
   /**
@@ -215,9 +237,47 @@ export class DAGSuggester {
         }`,
       );
 
-      // Story 7.6: Log trace for each candidate in suggestDAG (fire-and-forget)
+      // ADR-048: Calculate local alpha for each candidate
       const graphDensity = this.graphEngine.getGraphDensity();
+      const candidateAlphas: Array<{ toolId: string; alpha: number; algorithm: string; coldStart: boolean }> = [];
+
       for (const candidate of rankedCandidates) {
+        if (this.localAlphaCalculator) {
+          const alphaResult = this.localAlphaCalculator.getLocalAlphaWithBreakdown(
+            "active",
+            candidate.toolId,
+            "tool",
+            contextTools,
+          );
+          candidateAlphas.push({
+            toolId: candidate.toolId,
+            alpha: alphaResult.alpha,
+            algorithm: alphaResult.algorithm,
+            coldStart: alphaResult.coldStart,
+          });
+        } else {
+          // Fallback to default alpha if no calculator
+          candidateAlphas.push({
+            toolId: candidate.toolId,
+            alpha: 0.75,
+            algorithm: "none",
+            coldStart: false,
+          });
+        }
+      }
+
+      // Calculate average alpha for confidence calculation
+      const avgAlpha = candidateAlphas.length > 0
+        ? candidateAlphas.reduce((sum, c) => sum + c.alpha, 0) / candidateAlphas.length
+        : 0.75;
+
+      log.debug(`[suggestDAG] Average local alpha: ${avgAlpha.toFixed(2)} across ${candidateAlphas.length} candidates`);
+
+      // Story 7.6: Log trace for each candidate in suggestDAG (fire-and-forget)
+      for (let i = 0; i < rankedCandidates.length; i++) {
+        const candidate = rankedCandidates[i];
+        const alphaInfo = candidateAlphas[i];
+
         this.algorithmTracer?.logTrace({
           algorithmMode: "active_search",
           targetType: "tool",
@@ -227,9 +287,13 @@ export class DAGSuggester {
             pagerank: candidate.pageRank,
             graphDensity,
             spectralClusterMatch: false, // N/A for tool selection
+            // ADR-048: Local alpha signals
+            localAlpha: alphaInfo.alpha,
+            alphaAlgorithm: alphaInfo.algorithm as "embeddings_hybrides" | "heat_diffusion" | "heat_hierarchical" | "bayesian" | "none",
+            coldStart: alphaInfo.coldStart,
           },
           params: {
-            alpha: 0.8, // Hybrid: 80% finalScore
+            alpha: alphaInfo.alpha, // ADR-048: Use local alpha
             reliabilityFactor: 1.0, // No reliability filter for tools
             structuralBoost: 0.2, // PageRank contribution
           },
@@ -254,6 +318,7 @@ export class DAGSuggester {
               graphScore: candidate.graphScore,
               pagerank: candidate.pageRank,
               adamicAdar: candidate.adamicAdar,
+              localAlpha: alphaInfo.alpha,
             },
             finalScore: candidate.combinedScore,
             threshold: 0.5,
@@ -273,17 +338,18 @@ export class DAGSuggester {
       // 4. Extract dependency paths for explainability
       const dependencyPaths = this.extractDependencyPaths(rankedCandidates.map((c) => c.toolId));
 
-      // 5. Calculate confidence (adjusted for hybrid search)
+      // 5. Calculate confidence (adjusted for hybrid search with local alpha - ADR-048)
       const { confidence, semanticScore, pageRankScore, pathStrength } = this
         .calculateConfidenceHybrid(
           rankedCandidates,
           dependencyPaths,
+          avgAlpha,
         );
 
       log.info(
         `Confidence: ${confidence.toFixed(2)} (semantic: ${semanticScore.toFixed(2)}, pageRank: ${
           pageRankScore.toFixed(2)
-        }, pathStrength: ${pathStrength.toFixed(2)}) for intent: "${intent.text}"`,
+        }, pathStrength: ${pathStrength.toFixed(2)}, avgAlpha: ${avgAlpha.toFixed(2)}) for intent: "${intent.text}"`,
       );
 
       // 6. Find alternatives from same community (Graphology)
@@ -397,46 +463,47 @@ export class DAGSuggester {
   // Use calculateConfidenceHybrid() and generateRationaleHybrid() instead
 
   /**
-   * Get adaptive weights for confidence calculation based on graph density (ADR-026)
+   * Get adaptive weights for confidence calculation based on local alpha (ADR-048)
    *
-   * In cold start (sparse graph), semantic search is more reliable than graph metrics.
-   * As the graph matures with more edges, PageRank and paths become more meaningful.
+   * Replaces global density-based approach (ADR-026) with local adaptive alpha.
+   * Alpha indicates trust in graph signals:
+   * - alpha = 0.5 → high trust in graph → use more graph weight
+   * - alpha = 1.0 → low trust in graph → rely on semantic
    *
-   * Density thresholds:
-   * - <0.01 (cold start): Trust semantic heavily (85%)
-   * - <0.10 (growing): Balanced approach (65%)
-   * - >=0.10 (mature): Full graph integration (55%)
+   * Weight formula (linear interpolation based on alpha):
+   * - hybrid: 0.55 + (alpha - 0.5) * 0.60 → [0.55, 0.85]
+   * - pageRank: 0.30 - (alpha - 0.5) * 0.50 → [0.05, 0.30]
+   * - path: 0.15 - (alpha - 0.5) * 0.10 → [0.10, 0.15]
    *
+   * @param avgAlpha - Average local alpha across candidates (0.5-1.0)
    * @returns Weight configuration for confidence calculation
    */
-  private getAdaptiveWeights(): { hybrid: number; pageRank: number; path: number } {
-    const density = this.graphEngine.getGraphDensity();
+  private getAdaptiveWeightsFromAlpha(avgAlpha: number): { hybrid: number; pageRank: number; path: number } {
+    // Clamp alpha to valid range
+    const alpha = Math.max(0.5, Math.min(1.0, avgAlpha));
+    const factor = (alpha - 0.5) * 2; // Normalize to 0-1 range
 
-    if (density < 0.01) {
-      // Cold start: trust semantic heavily, minimal weight on empty graph metrics
-      log.debug(`[DAGSuggester] Cold start weights (density=${density.toFixed(4)})`);
-      return { hybrid: 0.85, pageRank: 0.05, path: 0.10 };
-    } else if (density < 0.10) {
-      // Growing graph: balanced approach
-      log.debug(`[DAGSuggester] Growing graph weights (density=${density.toFixed(4)})`);
-      return { hybrid: 0.65, pageRank: 0.20, path: 0.15 };
-    } else {
-      // Mature graph: current formula (original ADR-022)
-      log.debug(`[DAGSuggester] Mature graph weights (density=${density.toFixed(4)})`);
-      return { hybrid: 0.55, pageRank: 0.30, path: 0.15 };
-    }
+    // Linear interpolation: high alpha → trust semantic, low alpha → trust graph
+    const hybrid = 0.55 + factor * 0.30;     // [0.55, 0.85]
+    const pageRank = 0.30 - factor * 0.25;   // [0.05, 0.30]
+    const path = 0.15 - factor * 0.05;       // [0.10, 0.15]
+
+    log.debug(`[DAGSuggester] Adaptive weights from alpha=${alpha.toFixed(2)}: hybrid=${hybrid.toFixed(2)}, pageRank=${pageRank.toFixed(2)}, path=${path.toFixed(2)}`);
+
+    return { hybrid, pageRank, path };
   }
 
   /**
-   * Calculate confidence for hybrid search candidates (ADR-022, ADR-026)
+   * Calculate confidence for hybrid search candidates (ADR-022, ADR-048)
    *
    * Uses the already-computed hybrid finalScore which includes both semantic and graph scores.
    * This provides a more accurate confidence since graph context is already factored in.
    *
-   * ADR-026: Uses adaptive weights based on graph density to handle cold start better.
+   * ADR-048: Uses adaptive weights based on local alpha (replaces ADR-026 global density).
    *
    * @param candidates - Ranked candidates with hybrid scores
    * @param dependencyPaths - Extracted dependency paths
+   * @param avgAlpha - Average local alpha across candidates (0.5-1.0)
    * @returns Confidence breakdown
    */
   private calculateConfidenceHybrid(
@@ -448,6 +515,7 @@ export class DAGSuggester {
       combinedScore: number;
     }>,
     dependencyPaths: DependencyPath[],
+    avgAlpha: number = 0.75,
   ): { confidence: number; semanticScore: number; pageRankScore: number; pathStrength: number } {
     if (candidates.length === 0) {
       return { confidence: 0, semanticScore: 0, pageRankScore: 0, pathStrength: 0 };
@@ -466,8 +534,8 @@ export class DAGSuggester {
       ? dependencyPaths.reduce((sum, p) => sum + (p.confidence || 0.5), 0) / dependencyPaths.length
       : 0.5;
 
-    // ADR-026: Use adaptive weights based on graph density
-    const weights = this.getAdaptiveWeights();
+    // ADR-048: Use adaptive weights based on local alpha
+    const weights = this.getAdaptiveWeightsFromAlpha(avgAlpha);
     const confidence = hybridScore * weights.hybrid + pageRankScore * weights.pageRank +
       pathStrength * weights.path;
 
@@ -726,6 +794,7 @@ export class DAGSuggester {
 
       // 3. Query community members (Louvain algorithm)
       const graphDensity = this.graphEngine.getGraphDensity();
+      const contextToolsList = Array.from(executedTools);
       const communityMembers = this.graphEngine.findCommunityMembers(lastToolId);
       for (const memberId of communityMembers.slice(0, 5)) {
         if (seenTools.has(memberId) || executedTools.has(memberId)) continue;
@@ -736,14 +805,17 @@ export class DAGSuggester {
         const aaScore = this.graphEngine.adamicAdarBetween(lastToolId, memberId);
         const baseConfidence = this.calculateCommunityConfidence(memberId, lastToolId, pageRank);
 
+        // ADR-048: Apply local alpha adjustment
+        const alphaResult = this.applyLocalAlpha(baseConfidence, memberId, "tool", contextToolsList);
+
         // Story 4.1e: Apply episodic learning adjustments
-        const adjusted = this.adjustConfidenceFromEpisodes(baseConfidence, memberId, episodeStats);
+        const adjusted = this.adjustConfidenceFromEpisodes(alphaResult.confidence, memberId, episodeStats);
         if (!adjusted) continue; // Excluded due to high failure rate
 
         predictions.push({
           toolId: memberId,
           confidence: adjusted.confidence,
-          reasoning: `Same community as ${lastToolId} (PageRank: ${(pageRank * 100).toFixed(1)}%)`,
+          reasoning: `Same community as ${lastToolId} (PageRank: ${(pageRank * 100).toFixed(1)}%, α=${alphaResult.alpha.toFixed(2)})`,
           source: "community",
         });
         seenTools.add(memberId);
@@ -758,9 +830,12 @@ export class DAGSuggester {
             adamicAdar: aaScore,
             graphDensity,
             spectralClusterMatch: false, // N/A for tool predictions
+            // ADR-048: Local alpha signals
+            localAlpha: alphaResult.alpha,
+            alphaAlgorithm: alphaResult.algorithm as "heat_diffusion" | "heat_hierarchical" | "bayesian" | "none",
           },
           params: {
-            alpha: 0.4, // Base community confidence
+            alpha: alphaResult.alpha, // ADR-048: Local adaptive alpha
             reliabilityFactor: 1.0,
             structuralBoost: 0,
           },
@@ -784,9 +859,12 @@ export class DAGSuggester {
 
         const baseConfidence = this.calculateCooccurrenceConfidence(edgeData, recencyBoost);
 
+        // ADR-048: Apply local alpha adjustment
+        const alphaResult = this.applyLocalAlpha(baseConfidence, neighborId, "tool", contextToolsList);
+
         // Story 4.1e: Apply episodic learning adjustments
         const adjusted = this.adjustConfidenceFromEpisodes(
-          baseConfidence,
+          alphaResult.confidence,
           neighborId,
           episodeStats,
         );
@@ -797,7 +875,7 @@ export class DAGSuggester {
           confidence: adjusted.confidence,
           reasoning: `Historical co-occurrence (60%) + Community (30%) + Recency (${
             (recencyBoost * 100).toFixed(0)
-          }%)`,
+          }%) + α=${alphaResult.alpha.toFixed(2)}`,
           source: "co-occurrence",
         });
         seenTools.add(neighborId);
@@ -810,9 +888,12 @@ export class DAGSuggester {
             cooccurrence: edgeData?.weight ?? 0,
             graphDensity,
             spectralClusterMatch: false, // N/A for tool predictions
+            // ADR-048: Local alpha signals
+            localAlpha: alphaResult.alpha,
+            alphaAlgorithm: alphaResult.algorithm as "heat_diffusion" | "heat_hierarchical" | "bayesian" | "none",
           },
           params: {
-            alpha: 0.6, // Base edge weight contribution
+            alpha: alphaResult.alpha, // ADR-048: Local adaptive alpha
             reliabilityFactor: 1.0,
             structuralBoost: recencyBoost,
           },
@@ -827,7 +908,7 @@ export class DAGSuggester {
       // Kept for Active Hybrid Search only.
 
       // 5. Story 7.4: Query capabilities matching context tools
-      const contextToolsList = Array.from(executedTools);
+      // contextToolsList already defined above (line 751)
       const capabilityPredictions = await this.predictCapabilities(
         contextToolsList,
         seenTools,
@@ -1095,6 +1176,55 @@ export class DAGSuggester {
   }
 
   /**
+   * Apply local alpha to adjust graph-based confidence (ADR-048)
+   *
+   * For passive suggestions, local alpha modulates how much we trust graph signals:
+   * - alpha = 0.5 → full trust in graph → no adjustment
+   * - alpha = 1.0 → low trust in graph → reduce confidence by 50%
+   *
+   * Formula: adjustedConfidence = baseConfidence * (1.5 - alpha)
+   *
+   * @param baseConfidence - Confidence from graph signals
+   * @param targetId - Target node ID
+   * @param nodeType - Type of node (tool, capability, meta)
+   * @param contextNodes - Context nodes for heat calculation
+   * @returns Object with adjusted confidence and alpha used
+   */
+  private applyLocalAlpha(
+    baseConfidence: number,
+    targetId: string,
+    nodeType: NodeType,
+    contextNodes: string[] = [],
+  ): { confidence: number; alpha: number; algorithm: string } {
+    // If no calculator configured, return unchanged
+    if (!this.localAlphaCalculator) {
+      return { confidence: baseConfidence, alpha: 0.75, algorithm: "none" };
+    }
+
+    const result = this.localAlphaCalculator.getLocalAlphaWithBreakdown(
+      "passive",
+      targetId,
+      nodeType,
+      contextNodes,
+    );
+
+    // Apply alpha adjustment: higher alpha = less trust in graph
+    // graphTrustFactor ranges from 1.0 (alpha=0.5) to 0.5 (alpha=1.0)
+    const graphTrustFactor = 1.5 - result.alpha;
+    const adjustedConfidence = Math.min(0.95, baseConfidence * graphTrustFactor);
+
+    log.debug(
+      `[DAGSuggester] Local alpha applied: ${targetId} base=${baseConfidence.toFixed(2)} alpha=${result.alpha.toFixed(2)} → ${adjustedConfidence.toFixed(2)} (${result.algorithm})`,
+    );
+
+    return {
+      confidence: adjustedConfidence,
+      alpha: result.alpha,
+      algorithm: result.algorithm,
+    };
+  }
+
+  /**
    * Calculate confidence for community-based prediction
    *
    * @param toolId - Target tool
@@ -1215,9 +1345,12 @@ export class DAGSuggester {
         // discoveryScore is in [0, ~1.5], map to [0.4, 0.85]
         const baseConfidence = Math.min(0.85, 0.4 + (discoveryScore * 0.30));
 
+        // ADR-048: Apply local alpha adjustment for capability
+        const alphaResult = this.applyLocalAlpha(baseConfidence, capabilityToolId, "capability", contextTools);
+
         // Apply episodic learning adjustments
         const adjusted = this.adjustConfidenceFromEpisodes(
-          baseConfidence,
+          alphaResult.confidence,
           capabilityToolId,
           episodeStats,
         );
@@ -1231,7 +1364,7 @@ export class DAGSuggester {
             (match.overlapScore * 100).toFixed(0)
           }% overlap${
             clusterBoost > 0 ? `, +${(clusterBoost * 100).toFixed(0)}% cluster boost` : ""
-          })`,
+          }, α=${alphaResult.alpha.toFixed(2)})`,
           source: "capability",
           capabilityId: capability.id,
         });
@@ -1245,9 +1378,12 @@ export class DAGSuggester {
             successRate: capability.successRate,
             graphDensity: this.graphEngine.getGraphDensity(),
             spectralClusterMatch: clusterBoost > 0,
+            // ADR-048: Local alpha signals
+            localAlpha: alphaResult.alpha,
+            alphaAlgorithm: alphaResult.algorithm as "heat_diffusion" | "heat_hierarchical" | "bayesian" | "none",
           },
           params: {
-            alpha: 0.3, // Overlap contribution
+            alpha: alphaResult.alpha, // ADR-048: Local adaptive alpha
             reliabilityFactor: 1.0,
             structuralBoost: clusterBoost,
           },
@@ -1699,6 +1835,10 @@ export class DAGSuggester {
       // Initialize spectral clustering if not already done
       if (!this.spectralClustering) {
         this.spectralClustering = new SpectralClusteringManager();
+        // ADR-048: Sync to LocalAlphaCalculator on first init
+        if (this.localAlphaCalculator) {
+          this.localAlphaCalculator.setSpectralClustering(this.spectralClustering);
+        }
       }
 
       // Collect all tools used by capabilities
@@ -1730,6 +1870,11 @@ export class DAGSuggester {
         // Compute PageRank and save to cache
         this.spectralClustering.computeHypergraphPageRank(clusterableCapabilities);
         this.spectralClustering.saveToCache(toolsArray, clusterableCapabilities);
+
+        // ADR-048: Sync spectral clustering to LocalAlphaCalculator for Embeddings Hybrides
+        if (this.localAlphaCalculator) {
+          this.localAlphaCalculator.setSpectralClustering(this.spectralClustering);
+        }
       }
 
       // Identify active cluster

@@ -1,7 +1,9 @@
 /**
- * Integration tests for /api/metrics endpoint - Story 6.3
+ * Integration tests for /api/metrics endpoint - Story 6.3, ADR-048
  *
  * Tests the metrics API endpoint served by the Casys PML gateway server.
+ *
+ * ADR-048: adaptiveAlpha is deprecated, use localAlpha instead for new code.
  */
 
 import { assert, assertEquals, assertExists } from "@std/assert";
@@ -185,7 +187,8 @@ Deno.test("GET /api/metrics - pagerank_top_10 is sorted descending", async () =>
   await db.close();
 });
 
-Deno.test("GET /api/metrics - adaptive_alpha in valid range", async () => {
+// ADR-048: This test remains for backward compatibility (adaptiveAlpha is deprecated)
+Deno.test("GET /api/metrics - adaptive_alpha in valid range (deprecated)", async () => {
   const db = await createTestDb();
   const { graphEngine } = await createMockGateway(db);
 
@@ -248,6 +251,110 @@ Deno.test("GET /api/metrics - success_rate is percentage (0-100)", async () => {
     metrics.period.workflowsSuccessRate <= 100,
     "Success rate should be <= 100",
   );
+
+  await db.close();
+});
+
+// =============================================================================
+// localAlpha Tests (ADR-048)
+// =============================================================================
+
+Deno.test("GET /api/metrics - localAlpha is undefined without algorithm traces", async () => {
+  const db = await createTestDb();
+  const { graphEngine } = await createMockGateway(db);
+
+  const metrics = await graphEngine.getMetrics("24h");
+
+  // Without algorithm traces, localAlpha should be undefined
+  assertEquals(metrics.current.localAlpha, undefined);
+
+  await db.close();
+});
+
+Deno.test("GET /api/metrics - localAlpha structure with traces", async () => {
+  const db = await createTestDb();
+  const { graphEngine } = await createMockGateway(db);
+
+  // Insert test algorithm traces with local alpha data
+  await db.query(`
+    INSERT INTO algorithm_traces (algorithm_mode, target_type, params, signals, final_score, decision)
+    VALUES
+      ('active_search', 'tool', '{"alpha": 0.65}', '{"graphDensity": 0.1, "alphaAlgorithm": "embeddings_hybrides", "coldStart": false}', 0.85, 'accepted'),
+      ('passive_suggestion', 'tool', '{"alpha": 0.80}', '{"graphDensity": 0.1, "alphaAlgorithm": "heat_diffusion", "coldStart": false}', 0.75, 'accepted')
+  `);
+
+  const metrics = await graphEngine.getMetrics("24h");
+
+  // localAlpha should now exist
+  assertExists(metrics.current.localAlpha, "localAlpha should exist with traces");
+
+  const la = metrics.current.localAlpha!;
+
+  // Verify structure
+  assertEquals(typeof la.avgAlpha, "number");
+  assertExists(la.byMode);
+  assertExists(la.algorithmDistribution);
+  assertEquals(typeof la.coldStartPercentage, "number");
+
+  // Verify values are in valid ranges
+  assert(la.avgAlpha >= 0.5 && la.avgAlpha <= 1.0, `avgAlpha should be in [0.5, 1.0]`);
+  assert(la.coldStartPercentage >= 0 && la.coldStartPercentage <= 100, "coldStartPercentage should be 0-100");
+
+  await db.close();
+});
+
+Deno.test("GET /api/metrics - localAlpha byMode values", async () => {
+  const db = await createTestDb();
+  const { graphEngine } = await createMockGateway(db);
+
+  // Insert traces with different modes
+  await db.query(`
+    INSERT INTO algorithm_traces (algorithm_mode, target_type, params, signals, final_score, decision)
+    VALUES
+      ('active_search', 'tool', '{"alpha": 0.60}', '{"graphDensity": 0.1, "alphaAlgorithm": "embeddings_hybrides"}', 0.85, 'accepted'),
+      ('active_search', 'tool', '{"alpha": 0.70}', '{"graphDensity": 0.1, "alphaAlgorithm": "embeddings_hybrides"}', 0.80, 'accepted'),
+      ('passive_suggestion', 'tool', '{"alpha": 0.85}', '{"graphDensity": 0.1, "alphaAlgorithm": "heat_diffusion"}', 0.75, 'accepted'),
+      ('passive_suggestion', 'capability', '{"alpha": 0.95}', '{"graphDensity": 0.1, "alphaAlgorithm": "heat_hierarchical"}', 0.70, 'accepted')
+  `);
+
+  const metrics = await graphEngine.getMetrics("24h");
+
+  assertExists(metrics.current.localAlpha);
+  const la = metrics.current.localAlpha!;
+
+  // activeSearch average: (0.60 + 0.70) / 2 = 0.65
+  assertEquals(la.byMode.activeSearch, 0.65, "activeSearch alpha should be average of 0.60 and 0.70");
+
+  // passiveSuggestion average: (0.85 + 0.95) / 2 = 0.90
+  assertEquals(la.byMode.passiveSuggestion, 0.90, "passiveSuggestion alpha should be average of 0.85 and 0.95");
+
+  await db.close();
+});
+
+Deno.test("GET /api/metrics - localAlpha algorithmDistribution", async () => {
+  const db = await createTestDb();
+  const { graphEngine } = await createMockGateway(db);
+
+  // Insert traces with different algorithms
+  await db.query(`
+    INSERT INTO algorithm_traces (algorithm_mode, target_type, params, signals, final_score, decision)
+    VALUES
+      ('active_search', 'tool', '{"alpha": 0.65}', '{"graphDensity": 0.1, "alphaAlgorithm": "embeddings_hybrides"}', 0.85, 'accepted'),
+      ('active_search', 'tool', '{"alpha": 0.65}', '{"graphDensity": 0.1, "alphaAlgorithm": "embeddings_hybrides"}', 0.85, 'accepted'),
+      ('passive_suggestion', 'tool', '{"alpha": 0.80}', '{"graphDensity": 0.1, "alphaAlgorithm": "heat_diffusion"}', 0.75, 'accepted'),
+      ('passive_suggestion', 'capability', '{"alpha": 0.90}', '{"graphDensity": 0.1, "alphaAlgorithm": "heat_hierarchical"}', 0.70, 'accepted'),
+      ('active_search', 'tool', '{"alpha": 1.0}', '{"graphDensity": 0.0, "alphaAlgorithm": "bayesian", "coldStart": true}', 0.60, 'accepted')
+  `);
+
+  const metrics = await graphEngine.getMetrics("24h");
+
+  assertExists(metrics.current.localAlpha);
+  const la = metrics.current.localAlpha!;
+
+  assertEquals(la.algorithmDistribution.embeddingsHybrides, 2);
+  assertEquals(la.algorithmDistribution.heatDiffusion, 1);
+  assertEquals(la.algorithmDistribution.heatHierarchical, 1);
+  assertEquals(la.algorithmDistribution.bayesian, 1);
 
   await db.close();
 });
