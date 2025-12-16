@@ -51,7 +51,7 @@ export default function DangerZoneIsland() {
       });
       const data = await res.json();
       if (data.success) {
-        window.location.href = "/";
+        globalThis.location.href = "/";
       } else {
         alert("Error: " + (data.error || "Unknown error"));
       }

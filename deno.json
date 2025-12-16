@@ -41,6 +41,8 @@
     "prod:build": "cd src/web && vite build",
     "deploy:dashboard": "git pull origin main && cd src/web && vite build && sudo systemctl restart casys-dashboard",
     "deploy:all": "git pull origin main && cd src/web && vite build && sudo systemctl restart casys-dashboard casys-api",
+    "rebuild:dashboard": "cd src/web && vite build && sudo systemctl restart casys-dashboard",
+    "rebuild:all": "cd src/web && vite build && sudo systemctl restart casys-dashboard casys-api",
     "test": "deno test --allow-all --unstable-worker-options --unstable-broadcast-channel --unstable-kv --no-check",
     "test:unit": "deno task test:unit:fast && deno task test:unit:slow",
     "test:unit:fast": "deno test --allow-all --unstable-worker-options --unstable-broadcast-channel --unstable-kv --no-check --parallel tests/unit/vector/ tests/unit/graphrag/ tests/unit/context/ tests/unit/telemetry/ tests/unit/db/ tests/unit/cli/ tests/unit/events/ tests/unit/health/ tests/unit/learning/ tests/unit/errors/ tests/unit/utils/ tests/unit/lib/ tests/unit/mcp/ tests/unit/web/",

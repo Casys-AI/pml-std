@@ -74,7 +74,7 @@ const DEFAULT_PANEL_HEIGHT = 300;
 
 // Get max height dynamically (SSR-safe)
 const getMaxPanelHeight = () =>
-  typeof window !== "undefined" ? window.innerHeight * 0.8 : DEFAULT_MAX_HEIGHT;
+  typeof window !== "undefined" ? globalThis.innerHeight * 0.8 : DEFAULT_MAX_HEIGHT;
 
 export default function CodePanel({
   capability,
@@ -117,7 +117,7 @@ export default function CodePanel({
       // Ctrl/Cmd+C to copy when panel is focused
       if ((e.ctrlKey || e.metaKey) && e.key === "c" && capability?.codeSnippet) {
         // Only copy if no text is selected
-        const selection = window.getSelection();
+        const selection = globalThis.getSelection();
         if (!selection || selection.toString().length === 0) {
           handleCopy();
         }

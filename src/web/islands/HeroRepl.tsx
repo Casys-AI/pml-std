@@ -112,7 +112,8 @@ function highlightCode(code: string): preact.JSX.Element[] {
 
     // Add newline except for last line
     if (lineIndex < lines.length - 1) {
-      elements.push(<span key={key++}>{"\n"}</span>);
+      elements.push(<span key={key++}>
+</span>);
     }
 
     return <span key={lineIndex}>{elements}</span>;

@@ -29,7 +29,7 @@ function NavItem({
       e.preventDefault();
       toggleSection(item.href);
       // Navigate to the section index page
-      window.location.href = item.href;
+      globalThis.location.href = item.href;
     }
   };
 
