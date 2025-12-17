@@ -233,7 +233,8 @@ export class PMLGatewayServer {
 
       if (!params?.name) {
         transaction.finish();
-        return formatMCPToolError("Missing required parameter: 'name'");
+        // Use JSON-RPC error format for validation errors (INVALID_PARAMS)
+        return formatMCPError(MCPErrorCodes.INVALID_PARAMS, "Missing required parameter: 'name'");
       }
 
       const { name, arguments: args } = params;
@@ -327,6 +328,8 @@ export class PMLGatewayServer {
 
     const client = this.mcpClients.get(serverId);
     if (!client) {
+      // Use tool error format so the agent sees the error in conversation
+      log.error(`[MCP_TOOL_ERROR] Unknown MCP server: ${serverId}`);
       return formatMCPToolError(
         `Unknown MCP server: ${serverId}`,
         { available_servers: Array.from(this.mcpClients.keys()) },

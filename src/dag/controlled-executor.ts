@@ -1034,14 +1034,17 @@ export class ControlledExecutor extends ParallelExecutor {
       layerIdx,
       this.state,
     );
-    // null = save failed, "" = no manager (already checked above)
-    if (!checkpointId) return null;
+    // "" = no manager (already checked above)
+    if (checkpointId === "") return null;
+
+    // null = save failed - emit event with "failed-" prefix for observability
+    const finalCheckpointId = checkpointId ?? `failed-${workflowId}-layer${layerIdx}`;
 
     const checkpointEvent: ExecutionEvent = {
       type: "checkpoint",
       timestamp: Date.now(),
       workflowId,
-      checkpointId,
+      checkpointId: finalCheckpointId,
       layerIndex: layerIdx,
     };
     await this.eventStream.emit(checkpointEvent);

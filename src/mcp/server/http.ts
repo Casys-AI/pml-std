@@ -89,11 +89,19 @@ export async function handleJsonRpcRequest(
 
     if (method === "tools/list") {
       const result = await deps.handleListTools({ params });
+      // Check if handler returned an error (e.g., { error: { code, message } })
+      if (result && typeof result === "object" && "error" in result) {
+        return { jsonrpc: "2.0", id, error: (result as { error: unknown }).error };
+      }
       return { jsonrpc: "2.0", id, result };
     }
 
     if (method === "tools/call") {
       const result = await deps.handleCallTool({ params }, userId);
+      // Check if handler returned an error (e.g., { error: { code, message } })
+      if (result && typeof result === "object" && "error" in result) {
+        return { jsonrpc: "2.0", id, error: (result as { error: unknown }).error };
+      }
       return { jsonrpc: "2.0", id, result };
     }
 

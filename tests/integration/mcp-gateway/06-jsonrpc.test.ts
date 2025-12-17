@@ -253,6 +253,7 @@ Deno.test({
 
 Deno.test({
   name: "JSONRPC-007: User context propagation",
+  ignore: !Deno.env.get("GITHUB_CLIENT_ID"), // Skip in local mode - requires cloud auth setup
   sanitizeResources: false,
   sanitizeOps: false,
 }, async () => {
@@ -470,10 +471,14 @@ Deno.test({
 
     const body = await response.json();
 
-    assertExists(body.error, "Non-existent tool should return error");
+    // Tool execution errors are returned as MCP tool errors (in result.content)
+    // so the agent can see them in conversation, not as JSON-RPC protocol errors
+    assertExists(body.result, "Should have result with tool error");
+    assertEquals(body.result.isError, true, "Should be marked as error");
+    assertExists(body.result.content, "Should have content array");
     assert(
-      body.error.code === -32602 || body.error.code === -32603,
-      "Should be INVALID_PARAMS or INTERNAL_ERROR",
+      body.result.content[0].text.includes("Unknown MCP server"),
+      "Error message should mention unknown server",
     );
 
     console.log("  ✓ Tool execution failure returns proper error");

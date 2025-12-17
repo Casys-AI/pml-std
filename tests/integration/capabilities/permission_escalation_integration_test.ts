@@ -477,14 +477,15 @@ Deno.test({
 });
 
 Deno.test({
-  name: "PermissionEscalationHandler - returns not handled for security-critical",
+  name: "PermissionEscalationHandler - sandbox-escape permissions go through HIL (3-axis model)",
   async fn() {
     const db = await createTestDb();
     const embeddingModel = getMockEmbedding();
     const capStore = new CapabilityStore(db, embeddingModel);
     const auditStore = new PermissionAuditStore(db);
 
-    const mockHilCallback = async () => ({ approved: true });
+    // Mock HIL callback that rejects sandbox-escape permissions
+    const mockHilCallback = async () => ({ approved: false, feedback: "Sandbox-escape rejected" });
     const handler = new PermissionEscalationHandler(capStore, auditStore, mockHilCallback);
 
     try {
@@ -495,7 +496,8 @@ Deno.test({
         success: true,
       });
 
-      // Try to escalate for 'run' permission (security-critical)
+      // Try to escalate for 'run' permission (sandbox-escape)
+      // In 3-axis model, this goes through HIL instead of being hard-blocked
       const result = await handler.handlePermissionError(
         cap.id,
         "minimal",
@@ -503,9 +505,15 @@ Deno.test({
         "exec-security",
       );
 
-      assertEquals(result.handled, false);
-      assertEquals(result.approved, false);
-      assertEquals(result.error?.includes("security-critical"), true);
+      // New behavior: handled=true (went through HIL), approved=false (HIL rejected)
+      assertEquals(result.handled, true, "Sandbox-escape should go through HIL");
+      assertEquals(result.approved, false, "HIL should reject sandbox-escape without toolConfig");
+      assertEquals(result.feedback, "Sandbox-escape rejected");
+
+      // Verify audit log recorded the rejection
+      const logs = await auditStore.getAuditLogForCapability(cap.id);
+      assertEquals(logs.length, 1);
+      assertEquals(logs[0].approved, false);
     } finally {
       await cleanupTestDb(db);
     }
