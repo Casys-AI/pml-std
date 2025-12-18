@@ -417,16 +417,16 @@ Deno.test("Execution Learning - createOrUpdateEdge with sequence edge type", asy
   assertEquals(edgeAttrs.weight, 0.35); // 0.5 × 0.7 (inferred)
 });
 
-Deno.test("Execution Learning - createOrUpdateEdge with alternative edge type", async () => {
+Deno.test("Execution Learning - createOrUpdateEdge with provides edge type", async () => {
   const graph = new DirectedGraph() as ExecutionLearningGraph;
   graph.addNode("A", {});
   graph.addNode("B", {});
 
-  await createOrUpdateEdge(graph, "A", "B", "alternative");
+  await createOrUpdateEdge(graph, "A", "B", "provides");
 
   const edgeAttrs = graph.getEdgeAttributes("A", "B");
-  assertEquals(edgeAttrs.edge_type, "alternative");
-  assertEquals(edgeAttrs.weight, 0.42); // 0.6 × 0.7 (inferred)
+  assertEquals(edgeAttrs.edge_type, "provides");
+  assertEquals(Math.round((edgeAttrs.weight as number) * 100) / 100, 0.49); // 0.7 × 0.7 (inferred) - Story 10.3
 });
 
 Deno.test("Execution Learning - createOrUpdateEdge emits correct event data", async () => {
@@ -580,9 +580,9 @@ Deno.test("Execution Learning - createOrUpdateEdge weight calculation precision"
   graph.addNode("A", {});
   graph.addNode("B", {});
 
-  await createOrUpdateEdge(graph, "A", "B", "alternative");
+  await createOrUpdateEdge(graph, "A", "B", "provides");
 
   const edgeAttrs = graph.getEdgeAttributes("A", "B");
-  // alternative: 0.6, inferred: 0.7, weight: 0.6 × 0.7 = 0.42
-  assertEquals(edgeAttrs.weight, 0.42);
+  // provides: 0.7, inferred: 0.7, weight: 0.7 × 0.7 = 0.49 (Story 10.3)
+  assertEquals(Math.round((edgeAttrs.weight as number) * 100) / 100, 0.49);
 });

@@ -268,12 +268,12 @@ export class HypergraphBuilder {
         continue;
       }
 
-      // Validate edge_type
+      // Validate edge_type (Story 10.3: added "provides")
       const rawEdgeType = dep.edge_type || "dependency";
-      const edgeType = ["contains", "sequence", "dependency", "alternative"].includes(
+      const edgeType = ["contains", "sequence", "dependency", "alternative", "provides"].includes(
         rawEdgeType,
       )
-        ? (rawEdgeType as "contains" | "sequence" | "dependency" | "alternative")
+        ? (rawEdgeType as "contains" | "sequence" | "dependency" | "alternative" | "provides")
         : "dependency";
 
       // Validate edge_source

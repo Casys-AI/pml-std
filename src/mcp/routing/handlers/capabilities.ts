@@ -262,8 +262,8 @@ export async function handleCreateDependency(
       );
     }
 
-    // Validate edge_type
-    const validEdgeTypes = ["contains", "sequence", "dependency", "alternative"];
+    // Validate edge_type (Story 10.3: added "provides")
+    const validEdgeTypes = ["contains", "sequence", "dependency", "alternative", "provides"];
     if (!validEdgeTypes.includes(body.edge_type)) {
       return errorResponse(
         `Invalid edge_type. Must be one of: ${validEdgeTypes.join(", ")}`,

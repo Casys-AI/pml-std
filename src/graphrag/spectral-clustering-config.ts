@@ -20,11 +20,13 @@ const log = getLogger("default");
 
 /**
  * Edge type weights for capability relationships
+ * Story 10.3: Added "provides" for data flow relationships
  */
 export interface SpectralEdgeWeights {
   dependency: number;
   contains: number;
   alternative: number;
+  provides: number;
   sequence: number;
 }
 
@@ -96,6 +98,7 @@ interface SpectralEdgeWeightsFile {
   dependency?: number;
   contains?: number;
   alternative?: number;
+  provides?: number;
   sequence?: number;
 }
 
@@ -147,6 +150,7 @@ export const DEFAULT_SPECTRAL_CLUSTERING_CONFIG: SpectralClusteringConfig = {
     dependency: 1.0,
     contains: 0.8,
     alternative: 0.6,
+    provides: 0.7, // Story 10.3: Data flow (between contains and sequence)
     sequence: 0.5,
   },
   cache: {
@@ -213,6 +217,7 @@ function validateSpectralClusteringConfig(config: SpectralClusteringConfig): voi
   checkRange("edgeWeights.dependency", config.edgeWeights.dependency, 0, 2);
   checkRange("edgeWeights.contains", config.edgeWeights.contains, 0, 2);
   checkRange("edgeWeights.alternative", config.edgeWeights.alternative, 0, 2);
+  checkRange("edgeWeights.provides", config.edgeWeights.provides, 0, 2);
   checkRange("edgeWeights.sequence", config.edgeWeights.sequence, 0, 2);
 
   // Cache
@@ -261,6 +266,7 @@ function toSpectralClusteringConfig(file: SpectralClusteringFileConfig): Spectra
       dependency: file.edge_weights?.dependency ?? d.edgeWeights.dependency,
       contains: file.edge_weights?.contains ?? d.edgeWeights.contains,
       alternative: file.edge_weights?.alternative ?? d.edgeWeights.alternative,
+      provides: file.edge_weights?.provides ?? d.edgeWeights.provides,
       sequence: file.edge_weights?.sequence ?? d.edgeWeights.sequence,
     },
     cache: {

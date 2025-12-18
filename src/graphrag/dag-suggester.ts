@@ -236,16 +236,22 @@ export class DAGSuggester {
       // Generate rationale
       const rationale = generateRationaleHybrid(rankedCandidates, dependencyPaths, this.scoringConfig);
 
-      // Return with warning if low confidence
+      // Reject if confidence too low (no matching tools)
+      if (confidence < this.scoringConfig.thresholds.suggestionReject) {
+        log.info(`Confidence ${confidence.toFixed(2)} below rejection threshold (${this.scoringConfig.thresholds.suggestionReject}), returning null`);
+        return null;
+      }
+
+      // Return with warning if below suggestion floor but above rejection threshold
       if (confidence < this.scoringConfig.thresholds.suggestionFloor) {
-        log.info(`Confidence below threshold (${confidence.toFixed(2)}), returning suggestion with warning`);
+        log.info(`Confidence below floor (${confidence.toFixed(2)}), returning suggestion with warning`);
         return {
           dagStructure,
           confidence,
           rationale,
           dependencyPaths,
           alternatives,
-          warning: "Low confidence suggestion - graph is in cold start mode. Confidence may improve with usage.",
+          warning: "Low confidence suggestion - results may not be relevant. Confidence may improve with usage.",
         };
       }
 

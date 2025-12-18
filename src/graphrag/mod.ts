@@ -35,6 +35,21 @@ export type { ClusterableCapability, ClusterAssignment } from "./spectral-cluste
 export { LocalAlphaCalculator } from "./local-alpha.ts";
 export type { AlphaMode, NodeType, LocalAlphaResult, HeatWeights } from "./local-alpha.ts";
 
+// Provides edge calculator (Story 10.3)
+export {
+  areTypesCompatible,
+  computeCoverage,
+  createFieldMapping,
+  createProvidesEdges,
+  findDirectProvidesEdge,
+  getToolProvidesEdges,
+  getToolProvidesEdgesFull,
+  persistProvidesEdges,
+  syncAllProvidesEdges,
+  syncProvidesEdgesForTool,
+  type ConsumerInputs,
+} from "./provides-edge-calculator.ts";
+
 // Core types
 export type {
   DAGStructure,
@@ -42,7 +57,11 @@ export type {
   ExecutionMode,
   ExecutionRecord,
   ExecutionResult,
+  FieldMapping,
   GraphStats,
+  JSONSchema,
+  ProvidesCoverage,
+  ProvidesEdge,
   SpeculativeMetrics,
   SuggestedDAG,
   Task,

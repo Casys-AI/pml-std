@@ -48,6 +48,7 @@ export interface DagScoringWeights {
 }
 
 export interface DagScoringThresholds {
+  suggestionReject: number;
   suggestionFloor: number;
   dependencyThreshold: number;
   replanThreshold: number;
@@ -160,6 +161,7 @@ interface DagScoringFileConfig {
     pagerank_rationale_threshold?: number;
   };
   thresholds?: {
+    suggestion_reject?: number;
     suggestion_floor?: number;
     dependency_threshold?: number;
     replan_threshold?: number;
@@ -251,7 +253,8 @@ export const DEFAULT_DAG_SCORING_CONFIG: DagScoringConfig = {
     pagerankRationaleThreshold: 0.01,
   },
   thresholds: {
-    suggestionFloor: 0.50,
+    suggestionReject: 0.60,
+    suggestionFloor: 0.65,
     dependencyThreshold: 0.50,
     replanThreshold: 0.50,
     contextSearch: 0.30,
@@ -433,6 +436,7 @@ function toDagScoringConfig(file: DagScoringFileConfig): DagScoringConfig {
       pagerankRationaleThreshold: file.weights?.pagerank_rationale_threshold ?? d.weights.pagerankRationaleThreshold,
     },
     thresholds: {
+      suggestionReject: file.thresholds?.suggestion_reject ?? d.thresholds.suggestionReject,
       suggestionFloor: file.thresholds?.suggestion_floor ?? d.thresholds.suggestionFloor,
       dependencyThreshold: file.thresholds?.dependency_threshold ?? d.thresholds.dependencyThreshold,
       replanThreshold: file.thresholds?.replan_threshold ?? d.thresholds.replanThreshold,

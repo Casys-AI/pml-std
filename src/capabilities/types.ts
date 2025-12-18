@@ -292,12 +292,16 @@ export interface PermissionAuditLogEntry {
 /**
  * Edge types for capability dependencies
  * Same vocabulary as tool_dependency for consistency
+ *
+ * Story 10.3: Added "provides" for data flow relationships.
+ * Note: "alternative" kept for backward compatibility with existing data.
  */
 export type CapabilityEdgeType =
   | "contains" // Composition: capability A includes capability B
   | "sequence" // Temporal order: A then B
   | "dependency" // Explicit DAG dependency
-  | "alternative"; // Same intent, different implementation
+  | "alternative" // Same intent, different implementation (deprecated)
+  | "provides"; // Data flow: A's output feeds B's input (Story 10.3)
 
 /**
  * Edge sources for capability dependencies
@@ -330,6 +334,67 @@ export interface CreateCapabilityDependencyInput {
   toCapabilityId: string;
   edgeType: CapabilityEdgeType;
   edgeSource?: CapabilityEdgeSource;
+}
+
+// ============================================
+// Static Structure Types (Story 10.1)
+// ============================================
+
+/**
+ * Static structure node types for capability analysis
+ *
+ * Nodes represent elements discovered during static code analysis:
+ * - task: MCP tool call (e.g., mcp.filesystem.read_file)
+ * - decision: Control flow (if/else, switch, ternary)
+ * - capability: Nested capability call
+ * - fork: Parallel execution start (Promise.all/allSettled)
+ * - join: Parallel execution end
+ */
+export type StaticStructureNode =
+  | { id: string; type: "task"; tool: string }
+  | { id: string; type: "decision"; condition: string }
+  | { id: string; type: "capability"; capabilityId: string }
+  | { id: string; type: "fork" }
+  | { id: string; type: "join" };
+
+/**
+ * Coverage level for "provides" edges (data flow)
+ *
+ * Based on intersection of provider outputs and consumer inputs:
+ * - strict: Provider outputs cover ALL required inputs of consumer
+ * - partial: Provider outputs cover SOME required inputs
+ * - optional: Provider outputs only cover optional inputs
+ */
+export type ProvidesCoverage = "strict" | "partial" | "optional";
+
+/**
+ * Static structure edge types
+ *
+ * Edges represent relationships between nodes:
+ * - sequence: Temporal order (A awaited before B)
+ * - provides: Data flow (A's output feeds B's input)
+ * - conditional: Branch from decision node
+ * - contains: Hierarchy (capability contains tools)
+ */
+export interface StaticStructureEdge {
+  from: string;
+  to: string;
+  type: "sequence" | "provides" | "conditional" | "contains";
+  /** For conditional edges: branch outcome ("true", "false", "case:value") */
+  outcome?: string;
+  /** For provides edges: coverage level */
+  coverage?: ProvidesCoverage;
+}
+
+/**
+ * Complete static structure of a capability
+ *
+ * Represents the control flow and data flow graph extracted
+ * from static code analysis (before execution).
+ */
+export interface StaticStructure {
+  nodes: StaticStructureNode[];
+  edges: StaticStructureEdge[];
 }
 
 /**
@@ -520,13 +585,14 @@ export interface HierarchicalEdge {
 /**
  * Tech-spec: Capability-to-capability dependency edge (hyperedge)
  * Represents relationships between capabilities in the hypergraph
+ * Story 10.3: Added "provides" for data flow relationships
  */
 export interface CapabilityDependencyEdge {
   data: {
     id: string;
     source: string; // "cap-{uuid1}"
     target: string; // "cap-{uuid2}"
-    edgeType: "contains" | "sequence" | "dependency" | "alternative";
+    edgeType: "contains" | "sequence" | "dependency" | "alternative" | "provides";
     edgeSource: "template" | "inferred" | "observed";
     observedCount: number;
   };

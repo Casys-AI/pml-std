@@ -9,7 +9,8 @@
 export { CapabilityStore } from "./capability-store.ts";
 export { CapabilityMatcher } from "./matcher.ts";
 export { SchemaInferrer } from "./schema-inferrer.ts";
-export { PermissionInferrer } from "./permission-inferrer.ts";
+export { StaticStructureBuilder } from "./static-structure-builder.ts";
+export { PermissionInferrer, getToolPermissionConfig } from "./permission-inferrer.ts";
 export type { InferredPermissions, DetectedPattern, PatternCategory } from "./permission-inferrer.ts";
 export { CapabilityCodeGenerator } from "./code-generator.ts";
 export { CapabilityExecutor } from "./executor.ts";
@@ -50,7 +51,12 @@ export type {
   HypergraphResponseInternal,
   JSONSchema,
   PermissionAuditLogEntry, // Story 7.7c - Permission escalation audit
+  PermissionConfig, // Story 10.1 - For getToolPermissionConfig return type
   PermissionEscalationRequest, // Story 7.7c - HIL permission escalation
   PermissionSet, // Story 7.7a - Permission set profiles
+  ProvidesCoverage, // Story 10.1 - Static structure coverage
   SaveCapabilityInput,
+  StaticStructure, // Story 10.1 - Static code analysis
+  StaticStructureEdge, // Story 10.1 - Static structure edges
+  StaticStructureNode, // Story 10.1 - Static structure nodes
 } from "./types.ts";

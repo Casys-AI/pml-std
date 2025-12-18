@@ -21,11 +21,13 @@ import type {
   CreateCapabilityDependencyInput,
   PermissionSet,
   SaveCapabilityInput,
+  StaticStructure,
 } from "./types.ts";
 import { hashCode } from "./hash.ts";
 import { getLogger } from "../telemetry/logger.ts";
 import type { SchemaInferrer } from "./schema-inferrer.ts";
 import type { PermissionInferrer } from "./permission-inferrer.ts";
+import type { StaticStructureBuilder } from "./static-structure-builder.ts";
 // Story 6.5: EventBus integration (ADR-036)
 import { eventBus } from "../events/mod.ts";
 
@@ -66,10 +68,12 @@ export class CapabilityStore {
     private embeddingModel: EmbeddingModel,
     private schemaInferrer?: SchemaInferrer,
     private permissionInferrer?: PermissionInferrer,
+    private staticStructureBuilder?: StaticStructureBuilder,
   ) {
     logger.debug("CapabilityStore initialized", {
       schemaInferrerEnabled: !!schemaInferrer,
       permissionInferrerEnabled: !!permissionInferrer,
+      staticStructureBuilderEnabled: !!staticStructureBuilder,
     });
   }
 
@@ -140,13 +144,35 @@ export class CapabilityStore {
       }
     }
 
-    // Build dag_structure with tools used and invocations (for graph analysis)
-    const dagStructure = {
+    // Build static structure from code (Story 10.1)
+    let staticStructure: StaticStructure | undefined;
+    if (this.staticStructureBuilder) {
+      try {
+        staticStructure = await this.staticStructureBuilder.buildStaticStructure(code);
+        logger.debug("Static structure built for capability", {
+          codeHash,
+          nodeCount: staticStructure.nodes.length,
+          edgeCount: staticStructure.edges.length,
+        });
+      } catch (error) {
+        logger.warn("Static structure analysis failed, continuing without", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    // Build dag_structure with tools used, invocations, and static structure (for graph analysis)
+    const dagStructure: Record<string, unknown> = {
       type: "code_execution",
       tools_used: toolsUsed || [],
       tool_invocations: toolInvocations || [], // Detailed invocations with timestamps
       intent_text: intent,
     };
+
+    // Story 10.1: Add static_structure to dag_structure if available
+    if (staticStructure && (staticStructure.nodes.length > 0 || staticStructure.edges.length > 0)) {
+      dagStructure.static_structure = staticStructure;
+    }
 
     // Generate pattern_hash (required by existing schema, distinct from code_hash)
     // Use code_hash as pattern_hash to ensure uniqueness per code snippet
@@ -281,6 +307,48 @@ export class CapabilityStore {
           usageCount: capability.usageCount,
         },
       });
+    }
+
+    // Story 10.1: Create CapabilityDependency records for nested capability calls
+    if (staticStructure) {
+      const capabilityNodes = staticStructure.nodes.filter(
+        (node): node is { id: string; type: "capability"; capabilityId: string } =>
+          node.type === "capability",
+      );
+
+      for (const capNode of capabilityNodes) {
+        // Try to find the called capability by name (capabilityId is the function name)
+        // Search for capabilities with matching name
+        try {
+          const calledCapabilities = await this.db.query(
+            `SELECT pattern_id FROM workflow_pattern
+             WHERE name ILIKE $1 OR code_hash IS NOT NULL
+             LIMIT 1`,
+            [`%${capNode.capabilityId}%`],
+          );
+
+          if (calledCapabilities.length > 0) {
+            const calledCapabilityId = calledCapabilities[0].pattern_id as string;
+            await this.addDependency({
+              fromCapabilityId: capability.id,
+              toCapabilityId: calledCapabilityId,
+              edgeType: "contains",
+              edgeSource: "inferred",
+            });
+            logger.debug("Created CapabilityDependency from static analysis", {
+              fromCapabilityId: capability.id,
+              toCapabilityId: calledCapabilityId,
+              calledCapabilityName: capNode.capabilityId,
+            });
+          }
+        } catch (error) {
+          logger.warn("Failed to create CapabilityDependency", {
+            capabilityId: capability.id,
+            calledCapabilityName: capNode.capabilityId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
     }
 
     return capability;
@@ -645,10 +713,12 @@ export class CapabilityStore {
 
   /**
    * Edge type weights for confidence score calculation
+   * Story 10.3: Added "provides" for data flow relationships
    */
   private static readonly EDGE_TYPE_WEIGHTS: Record<CapabilityEdgeType, number> = {
     dependency: 1.0,
     contains: 0.8,
+    provides: 0.7, // Data flow (A's output feeds B's input)
     alternative: 0.6,
     sequence: 0.5,
   };

@@ -55,12 +55,20 @@ export interface NodeAttributes {
 }
 
 /**
- * Edge attributes (ADR-041)
+ * Edge attributes (ADR-041, ADR-050, Story 10.3)
+ *
+ * Edge types per ADR-050:
+ * - dependency: Explicit DAG dependency from templates (weight: 1.0)
+ * - contains: Parent-child hierarchy (weight: 0.8)
+ * - provides: Data flow - A's output feeds B's input (weight: 0.7) [Story 10.3]
+ * - sequence: Temporal order between siblings (weight: 0.5)
+ * - alternative: DEPRECATED - kept for backward compatibility with existing
+ *   persisted data. New edges should use "provides" for data flow relationships.
  */
 export interface EdgeAttributes {
   weight: number;
   count: number;
-  edge_type: "dependency" | "contains" | "alternative" | "sequence";
+  edge_type: "dependency" | "contains" | "alternative" | "sequence" | "provides";
   edge_source: "observed" | "inferred" | "template";
   source?: string;
   relationship?: string;
@@ -250,6 +258,18 @@ export class GraphStore {
     });
 
     return edges;
+  }
+
+  /**
+   * Get edges filtered by type (Story 10.3)
+   *
+   * @param edgeType - Edge type to filter by (dependency, contains, provides, sequence, alternative)
+   * @returns Array of edges with the specified type
+   */
+  getEdgesByType(
+    edgeType: EdgeAttributes["edge_type"],
+  ): Array<{ source: string; target: string; attributes: EdgeAttributes }> {
+    return this.getEdges().filter((edge) => edge.attributes.edge_type === edgeType);
   }
 
   /**

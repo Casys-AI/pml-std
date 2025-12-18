@@ -77,6 +77,7 @@ export async function handleSearchTools(
     tool_id: result.toolId,
     server_id: result.serverId,
     description: result.description,
+    input_schema: result.schema?.inputSchema,
     semantic_score: result.semanticScore,
     graph_score: result.graphScore,
     final_score: result.finalScore,

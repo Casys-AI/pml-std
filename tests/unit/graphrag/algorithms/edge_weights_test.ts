@@ -24,7 +24,7 @@ import {
 Deno.test("Edge Weights - EDGE_TYPE_WEIGHTS constant has all types", () => {
   assertEquals(EDGE_TYPE_WEIGHTS.dependency, 1.0);
   assertEquals(EDGE_TYPE_WEIGHTS.contains, 0.8);
-  assertEquals(EDGE_TYPE_WEIGHTS.alternative, 0.6);
+  assertEquals(EDGE_TYPE_WEIGHTS.provides, 0.7); // Story 10.3: replaced alternative with provides
   assertEquals(EDGE_TYPE_WEIGHTS.sequence, 0.5);
 });
 
@@ -64,14 +64,14 @@ Deno.test("Edge Weights - getEdgeWeight with contains + inferred", () => {
   assertEquals(Math.round(weight * 100) / 100, 0.56);
 });
 
-Deno.test("Edge Weights - getEdgeWeight with alternative + observed", () => {
-  const weight = getEdgeWeight("alternative", "observed");
-  assertEquals(weight, 0.6); // 0.6 × 1.0
+Deno.test("Edge Weights - getEdgeWeight with provides + observed", () => {
+  const weight = getEdgeWeight("provides", "observed");
+  assertEquals(weight, 0.7); // 0.7 × 1.0 (Story 10.3)
 });
 
-Deno.test("Edge Weights - getEdgeWeight with alternative + inferred", () => {
-  const weight = getEdgeWeight("alternative", "inferred");
-  assertEquals(weight, 0.42); // 0.6 × 0.7
+Deno.test("Edge Weights - getEdgeWeight with provides + inferred", () => {
+  const weight = getEdgeWeight("provides", "inferred");
+  assertEquals(Math.round(weight * 100) / 100, 0.49); // 0.7 × 0.7 (Story 10.3)
 });
 
 Deno.test("Edge Weights - getEdgeWeight with sequence + observed", () => {
@@ -157,6 +157,6 @@ Deno.test("Edge Weights - calculateInitialWeight with template source", () => {
 Deno.test("Edge Weights - calculateInitialWeight for all edge types with inferred", () => {
   assertEquals(calculateInitialWeight("dependency"), 0.7);
   assertEquals(Math.round(calculateInitialWeight("contains") * 100) / 100, 0.56);
-  assertEquals(calculateInitialWeight("alternative"), 0.42);
+  assertEquals(Math.round(calculateInitialWeight("provides") * 100) / 100, 0.49); // Story 10.3
   assertEquals(calculateInitialWeight("sequence"), 0.35);
 });

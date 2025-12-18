@@ -12,10 +12,10 @@
  *
  * - dependency: Explicit DAG dependencies from templates
  * - contains: Parent-child hierarchy (capability → tool)
- * - alternative: Same intent, different implementation
+ * - provides: Data flow (A's output feeds B's input) (Story 10.3)
  * - sequence: Temporal order between siblings
  */
-export type EdgeType = "dependency" | "contains" | "alternative" | "sequence";
+export type EdgeType = "dependency" | "contains" | "provides" | "sequence";
 
 /**
  * Edge sources indicating confidence level
@@ -30,11 +30,12 @@ export type EdgeSource = "observed" | "inferred" | "template";
  * Edge type weights for algorithms
  *
  * Higher weight = stronger relationship = preferred in path finding
+ * ADR-050: alternative removed (not used), provides added (Story 10.3)
  */
 export const EDGE_TYPE_WEIGHTS: Record<EdgeType, number> = {
   dependency: 1.0,   // Explicit DAG from templates
   contains: 0.8,     // Parent-child hierarchy (capability → tool)
-  alternative: 0.6,  // Same intent, different implementation
+  provides: 0.7,     // Data flow (A's output feeds B's input) (Story 10.3)
   sequence: 0.5,     // Temporal order between siblings
 };
 
