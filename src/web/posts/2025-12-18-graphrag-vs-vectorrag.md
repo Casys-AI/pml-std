@@ -192,16 +192,22 @@ Here's what most articles miss: **you can't use the same algorithm for tools and
 When searching for tools, we **combine weak signals**. A tool that scores moderately on semantics AND graph context is probably relevant.
 
 **Active Search (user intent):**
-```
-Score = α × SemanticScore + (1-α) × GraphScore
-```
+
+<div class="formula-scroll">
+
+`Score = α × SemanticScore + (1-α) × GraphScore`
+
+</div>
 
 Where α adapts **per node** based on embedding coherence—comparing semantic (BGE-M3) vs structural (spectral) embeddings.
 
 **Passive Suggestion (workflow context):**
-```
-Score = 0.6 × CoOccurrence + 0.3 × CommunityBoost + 0.1 × Recency
-```
+
+<div class="formula-scroll">
+
+`Score = 0.6 × CoOccurrence + 0.3 × CommunityBoost + 0.1 × Recency`
+
+</div>
 
 Uses Louvain clustering for community detection and heat diffusion to propagate confidence.
 
@@ -210,16 +216,22 @@ Uses Louvain clustering for community detection and heat diffusion to propagate 
 Capabilities require **higher confidence**. A capability with great semantic match but poor reliability? Disqualified.
 
 **Active Match (user intent):**
-```
-Score = SemanticSimilarity × ReliabilityFactor
-```
+
+<div class="formula-scroll">
+
+`Score = SemanticSimilarity × ReliabilityFactor`
+
+</div>
 
 If reliability < 0.5, the score becomes 0. One bad factor vetoes the whole match.
 
 **Strategic Discovery (workflow context):**
-```
-Score = ToolsOverlap × (1 + SpectralClusteringBoost)
-```
+
+<div class="formula-scroll">
+
+`Score = ToolsOverlap × (1 + SpectralClusteringBoost)`
+
+</div>
 
 - `ToolsOverlap`: How many capability tools are already in use
 - `SpectralClusteringBoost`: Whether capability is in same graph cluster as current context

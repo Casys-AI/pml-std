@@ -159,6 +159,7 @@ export default function BlogIndex({ data }: { data: { posts: Post[] } }) {
             font-family: var(--font-sans);
             display: flex;
             flex-direction: column;
+            overflow-x: hidden;
           }
 
           .container {

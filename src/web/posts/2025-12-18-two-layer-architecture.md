@@ -33,30 +33,7 @@ One graph can't serve both well. So we built two.
 
 ## The Two Layers
 
-```mermaid
-graph TD
-    subgraph "Strategic Layer (Capabilities)"
-        S1[Git Workflow]
-        S2[Test Suite]
-        S3[Deploy Pipeline]
-        S1 --> S3
-        S2 --> S3
-    end
-
-    subgraph "Tactical Layer (Tools)"
-        T1[git_commit]
-        T2[git_push]
-        T3[jest_run]
-        T4[docker_build]
-        T5[aws_deploy]
-    end
-
-    S1 -.->|contains| T1
-    S1 -.->|contains| T2
-    S2 -.->|contains| T3
-    S3 -.->|contains| T4
-    S3 -.->|contains| T5
-```
+![Two-Layer Architecture](excalidraw:src/web/assets/diagrams/two-layers.excalidraw)
 
 ### Tactical Layer: Fast Decisions
 
@@ -94,24 +71,7 @@ graph TD
 
 ## How They Work Together
 
-```mermaid
-sequenceDiagram
-    participant U as User Query
-    participant S as Strategic Layer
-    participant T as Tactical Layer
-    participant E as Execution
-
-    U->>S: "Deploy my app"
-    S->>S: Find matching capability
-    S->>T: "Execute Deploy Pipeline"
-    T->>T: Suggest tool sequence
-    T->>E: docker_build
-    E-->>T: Success
-    T->>E: aws_deploy
-    E-->>T: Success
-    T-->>S: Pipeline complete
-    S-->>U: Done
-```
+![Workflow Sequence](excalidraw:src/web/assets/diagrams/workflow-sequence.excalidraw)
 
 ### The Flow
 
@@ -149,14 +109,7 @@ When strategic fails (no matching capability), tactical can still suggest indivi
 
 **Graceful degradation:**
 
-```mermaid
-graph TD
-    Q[Query] --> S{Strategic Match?}
-    S -->|Yes| C[Use Capability]
-    S -->|No| T{Tactical Match?}
-    T -->|Yes| I[Use Individual Tools]
-    T -->|No| F[Ask User]
-```
+![Graceful Degradation](excalidraw:src/web/assets/diagrams/graceful-degradation.excalidraw)
 
 ### 4. Different Optimization Targets
 
@@ -181,23 +134,7 @@ The layers aren't isolated. They share information:
 - PageRank scores boost important tools
 - Dependency edges prevent invalid sequences
 
-```mermaid
-graph LR
-    subgraph "Tactical"
-        T1[Co-occurrence]
-        T2[Sequences]
-    end
-
-    subgraph "Strategic"
-        S1[Capabilities]
-        S2[Dependencies]
-    end
-
-    T1 -->|feeds| S1
-    T2 -->|feeds| S2
-    S1 -->|constrains| T1
-    S2 -->|constrains| T2
-```
+![Cross-Layer Communication](excalidraw:src/web/assets/diagrams/cross-layer-communication.excalidraw)
 
 ## The Scaling Benefit
 

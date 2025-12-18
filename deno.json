@@ -140,7 +140,9 @@
     "change-case": "npm:change-case@^5.4.0",
     "mathjs": "npm:mathjs@^14.0.0",
     "mnemonist": "npm:mnemonist@^0.39.0",
-    "simple-statistics": "npm:simple-statistics@^7.8.0"
+    "simple-statistics": "npm:simple-statistics@^7.8.0",
+    "satori": "npm:satori@^0.12.1",
+    "@resvg/resvg-wasm": "npm:@resvg/resvg-wasm@^2.6.2"
   },
   "compilerOptions": {
     "strict": true,

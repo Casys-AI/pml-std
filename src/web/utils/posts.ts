@@ -176,31 +176,42 @@ async function preprocessMarkdown(markdown: string): Promise<string> {
 
   for (const match of mermaidMatches) {
     const [fullMatch, code] = match;
-    const url = createKrokiUrl("mermaid", code.trim());
-    // Replace with simple markdown image
+    // Inject dark theme if no theme is already defined
+    let mermaidCode = code.trim();
+    if (!mermaidCode.includes("%%{init:") && !mermaidCode.includes("%%{ init:")) {
+      mermaidCode = `%%{init: {'theme': 'dark'}}%%\n${mermaidCode}`;
+    }
+    const url = createKrokiUrl("mermaid", mermaidCode);
+    // Replace with simple markdown image (scroll wrapper added post-GFM in processContent)
     const replacement = `![Mermaid Diagram](${url})`;
     markdown = markdown.replace(fullMatch, replacement);
-    console.log(`[preprocessMarkdown] Replaced mermaid with image`);
+    console.log(`[preprocessMarkdown] Replaced mermaid with image (dark theme injected)`);
   }
 
   return markdown;
 }
 
 async function processContent(html: string): Promise<string> {
-  // Replace mermaid code blocks with Kroki images
+  // Replace mermaid code blocks with Kroki images (fallback if preprocessMarkdown didn't catch them)
   let result = html.replace(
     /<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/g,
     (_match, code) => {
       // Unescape HTML entities
-      const unescaped = code
+      let unescaped = code
         .replace(/&lt;/g, "<")
         .replace(/&gt;/g, ">")
         .replace(/&amp;/g, "&")
         .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'");
+        .replace(/&#39;/g, "'")
+        .trim();
 
-      const url = createKrokiUrl("mermaid", unescaped.trim());
-      return `<div class="diagram-container" style="display: flex; justify-content: center; margin: 2rem 0;"><img src="${url}" alt="Mermaid Diagram" loading="lazy" /></div>`;
+      // Inject dark theme if no theme is already defined
+      if (!unescaped.includes("%%{init:") && !unescaped.includes("%%{ init:")) {
+        unescaped = `%%{init: {'theme': 'dark'}}%%\n${unescaped}`;
+      }
+
+      const url = createKrokiUrl("mermaid", unescaped);
+      return `<img src="${url}" alt="Mermaid Diagram" loading="lazy" />`;
     },
   );
 
@@ -223,7 +234,7 @@ async function processContent(html: string): Promise<string> {
       if (unescaped.startsWith("{") && unescaped.includes('"type": "excalidraw"')) {
         try {
           const url = createKrokiUrl("excalidraw", unescaped);
-          return `<div class="diagram-container" style="display: flex; justify-content: center; margin: 2rem 0;"><img src="${url}" alt="Excalidraw Diagram" loading="lazy" /></div>`;
+          return `<img src="${url}" alt="Excalidraw Diagram" loading="lazy" />`;
         } catch (error) {
           console.error("Error creating Excalidraw diagram:", error);
           return match;
@@ -232,6 +243,15 @@ async function processContent(html: string): Promise<string> {
 
       // Not an Excalidraw diagram, return original
       return match;
+    },
+  );
+
+  // Wrap all kroki.io images with scrollable container for mobile responsiveness
+  // This runs AFTER GFM rendering, so custom HTML won't be stripped
+  result = result.replace(
+    /<img\s+([^>]*src="https:\/\/kroki\.io\/[^"]*"[^>]*)>/g,
+    (_match, attrs) => {
+      return `<div class="diagram-scroll"><img ${attrs} /></div>`;
     },
   );
 

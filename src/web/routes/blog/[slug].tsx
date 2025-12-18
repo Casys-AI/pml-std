@@ -39,6 +39,15 @@ export default function BlogPost({ data }: { data: { post: Post } }) {
         <meta property="og:title" content={post.title} />
         <meta property="og:description" content={post.snippet} />
         <meta property="og:type" content="article" />
+        <meta property="og:image" content={`https://pml.casys.ai/blog/og/${post.slug}.png`} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:url" content={`https://pml.casys.ai/blog/${post.slug}`} />
+        <meta property="og:site_name" content="Casys PML" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={post.title} />
+        <meta name="twitter:description" content={post.snippet} />
+        <meta name="twitter:image" content={`https://pml.casys.ai/blog/og/${post.slug}.png`} />
         <meta property="article:published_time" content={post.date.toISOString()} />
         <meta property="article:author" content={post.author} />
         {post.tags.map((tag) => <meta property="article:tag" content={tag} key={tag} />)}
@@ -192,6 +201,7 @@ export default function BlogPost({ data }: { data: { post: Post } }) {
             font-family: var(--font-sans);
             display: flex;
             flex-direction: column;
+            overflow-x: hidden;
           }
 
           /* Reading Progress */
@@ -406,6 +416,19 @@ export default function BlogPost({ data }: { data: { post: Post } }) {
             color: #ce9178;
           }
 
+          /* Formula wrapper for horizontal scroll on overflow */
+          .markdown-body .formula-scroll {
+            display: block;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 0.5rem 0;
+            margin: 0.5rem 0;
+          }
+
+          .markdown-body .formula-scroll code {
+            white-space: nowrap;
+          }
+
           /* Code blocks - Container styling with VS Code Dark+ */
           .markdown-body pre,
           .markdown-body pre[class*="language-"],
@@ -575,30 +598,64 @@ export default function BlogPost({ data }: { data: { post: Post } }) {
           }
 
           /* ═══════════════════════════════════════════════════════════════
-             MERMAID DIAGRAMS - Parchment container for dark mode readability
+             MERMAID/KROKI DIAGRAMS - Scrollable container for dark mode
              ═══════════════════════════════════════════════════════════════ */
-          /* Target all diagram images directly via src (Kroki URLs) */
-          .markdown-body img[src*="kroki.io"],
-          .markdown-body img[alt*="Diagram"],
-          .markdown-body img[alt*="Mermaid"],
-          .markdown-body img[alt*="Excalidraw"] {
-            display: block;
-            max-width: 100%;
-            height: auto;
-            margin: 2.5rem auto;
-            padding: 2rem;
-            background: linear-gradient(
-              135deg,
-              #faf8f5 0%,
-              #f5f0e8 50%,
-              #faf6f0 100%
-            );
+          /* Wrapper for horizontal scroll on wide diagrams */
+          .markdown-body .diagram-scroll-wrapper {
+            overflow-x: auto;
+            margin: 2.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-elevated);
             border-radius: 12px;
-            border: 1px solid rgba(255, 184, 111, 0.3);
+            border: 1px solid rgba(255, 184, 111, 0.2);
             box-shadow:
               0 4px 24px rgba(0, 0, 0, 0.4),
-              0 1px 3px rgba(255, 184, 111, 0.1),
-              inset 0 1px 0 rgba(255, 255, 255, 0.5);
+              0 1px 3px rgba(255, 184, 111, 0.1);
+          }
+
+          /* Scrollable diagram wrapper for mobile */
+          .markdown-body .diagram-scroll {
+            overflow-x: auto;
+            margin: 2rem 0;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 0.5rem;
+            text-align: center;
+          }
+
+          /* Target all diagram images in scroll wrapper */
+          .markdown-body .diagram-scroll img {
+            display: inline-block;
+            width: auto;
+            height: auto;
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 1rem;
+            background: var(--bg-elevated);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 184, 111, 0.2);
+            box-shadow:
+              0 4px 24px rgba(0, 0, 0, 0.4),
+              0 1px 3px rgba(255, 184, 111, 0.1);
+          }
+
+          /* Desktop: constrain diagram width */
+          @media (min-width: 768px) {
+            .markdown-body .diagram-scroll {
+              overflow-x: visible;
+            }
+
+            .markdown-body .diagram-scroll img {
+              width: auto;
+              max-width: min(100%, 800px);
+              min-width: auto;
+              padding: 1.5rem;
+            }
+          }
+
+          /* Wide diagrams: allow natural width with scroll */
+          .markdown-body .diagram-wide img {
+            max-width: none;
+            min-width: 600px;
           }
 
           /* Container styles for diagram-container class (legacy support) */
@@ -606,24 +663,20 @@ export default function BlogPost({ data }: { data: { post: Post } }) {
             display: flex;
             justify-content: center;
             align-items: center;
+            overflow-x: auto;
             margin: 2.5rem 0;
-            padding: 2rem;
-            background: linear-gradient(
-              135deg,
-              #faf8f5 0%,
-              #f5f0e8 50%,
-              #faf6f0 100%
-            );
+            padding: 1.5rem;
+            background: var(--bg-elevated);
             border-radius: 12px;
-            border: 1px solid rgba(255, 184, 111, 0.3);
+            border: 1px solid rgba(255, 184, 111, 0.2);
             box-shadow:
               0 4px 24px rgba(0, 0, 0, 0.4),
-              0 1px 3px rgba(255, 184, 111, 0.1),
-              inset 0 1px 0 rgba(255, 255, 255, 0.5);
+              0 1px 3px rgba(255, 184, 111, 0.1);
           }
 
           .markdown-body .diagram-container img {
-            max-width: 100%;
+            max-width: none;
+            width: auto;
             height: auto;
             padding: 0;
             margin: 0;
@@ -831,38 +884,41 @@ export default function BlogPost({ data }: { data: { post: Post } }) {
               display: none;
             }
 
-            /* Diagrams mobile */
+            /* Diagrams mobile - scrollable */
             .markdown-body img[src*="kroki.io"],
             .markdown-body img[alt*="Diagram"],
             .markdown-body img[alt*="Mermaid"],
             .markdown-body img[alt*="Excalidraw"],
             .markdown-body .diagram-container {
               margin: 1.5rem -1rem;
-              padding: 1.25rem;
+              padding: 1rem;
               border-radius: 0;
               border-left: none;
               border-right: none;
+              max-width: none;
+              min-width: auto;
+              overflow-x: auto;
             }
 
-            /* Tables mobile - horizontal scroll */
+            /* Tables mobile - clean contained style */
             .markdown-body table {
-              display: block;
+              display: table;
+              width: 100%;
               overflow-x: auto;
               -webkit-overflow-scrolling: touch;
-              margin: 1.5rem -1rem;
-              border-radius: 0;
-              border-left: none;
-              border-right: none;
+              margin: 1.5rem 0;
+              border-radius: 8px;
+              border: 1px solid var(--border-strong);
             }
 
             .markdown-body th,
             .markdown-body td {
-              padding: 0.75rem 1rem;
-              font-size: 0.875rem;
+              padding: 0.625rem 0.75rem;
+              font-size: 0.8125rem;
             }
 
             .markdown-body th {
-              font-size: 0.7rem;
+              font-size: 0.6875rem;
             }
           }
         `}
