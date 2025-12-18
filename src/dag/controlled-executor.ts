@@ -449,7 +449,10 @@ export class ControlledExecutor extends ParallelExecutor {
         results.push({
           taskId: event.taskId,
           status: "success",
-          output: { executionTimeMs: event.executionTimeMs },
+          output: {
+            executionTimeMs: event.executionTimeMs,
+            result: event.result,
+          },
           executionTimeMs: event.executionTimeMs,
         });
       } else if (event.type === "task_error") {

@@ -4,6 +4,7 @@ import { Head } from "fresh/runtime";
 import { PRISM_THEME_CSS } from "../../utils/prism-theme.ts";
 import { formatDate, getPost, type Post } from "../../utils/posts.ts";
 import ArchitectureDiagram from "../../components/ArchitectureDiagram.tsx";
+import MobileMenu from "../../islands/MobileMenu.tsx";
 
 export const handler = {
   async GET(ctx: any) {
@@ -64,6 +65,7 @@ export default function BlogPost({ data }: { data: { post: Post } }) {
               <a href="/" class="nav-link">Home</a>
               <a href="/docs" class="nav-link">Docs</a>
               <a href="/blog" class="nav-link nav-link-active">Blog</a>
+              <MobileMenu />
             </nav>
           </div>
         </header>
@@ -469,6 +471,243 @@ export default function BlogPost({ data }: { data: { post: Post } }) {
             margin: 3rem 0;
           }
 
+          /* ═══════════════════════════════════════════════════════════════
+             DETAILS/SUMMARY - Collapsible sections with clear affordance
+             ═══════════════════════════════════════════════════════════════ */
+          .markdown-body details {
+            margin: 1.5rem 0;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-strong);
+            border-radius: 8px;
+            overflow: hidden;
+            transition: border-color 0.2s ease;
+          }
+
+          .markdown-body details:hover {
+            border-color: rgba(255, 184, 111, 0.4);
+          }
+
+          .markdown-body details[open] {
+            border-color: var(--accent);
+            box-shadow: 0 2px 12px rgba(255, 184, 111, 0.1);
+          }
+
+          .markdown-body summary {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            cursor: pointer;
+            font-weight: 500;
+            color: var(--text);
+            background: linear-gradient(
+              180deg,
+              rgba(255, 184, 111, 0.08) 0%,
+              rgba(255, 184, 111, 0.03) 100%
+            );
+            border-bottom: 1px solid transparent;
+            transition: all 0.2s ease;
+            list-style: none;
+          }
+
+          .markdown-body summary::-webkit-details-marker {
+            display: none;
+          }
+
+          /* Chevron indicator */
+          .markdown-body summary::before {
+            content: "▶";
+            font-size: 0.65rem;
+            color: var(--accent);
+            transition: transform 0.2s ease;
+            flex-shrink: 0;
+          }
+
+          .markdown-body details[open] summary::before {
+            transform: rotate(90deg);
+          }
+
+          .markdown-body summary:hover {
+            background: linear-gradient(
+              180deg,
+              rgba(255, 184, 111, 0.12) 0%,
+              rgba(255, 184, 111, 0.06) 100%
+            );
+          }
+
+          .markdown-body details[open] summary {
+            border-bottom: 1px solid var(--border);
+          }
+
+          /* Content area */
+          .markdown-body details > *:not(summary) {
+            padding: 0 1.25rem;
+          }
+
+          .markdown-body details > *:last-child {
+            padding-bottom: 1.25rem;
+          }
+
+          .markdown-body details > p:first-of-type {
+            padding-top: 1rem;
+          }
+
+          /* Click hint on hover */
+          .markdown-body summary::after {
+            content: "cliquer pour ouvrir";
+            margin-left: auto;
+            font-size: 0.7rem;
+            font-weight: 400;
+            color: var(--text-dim);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+          }
+
+          .markdown-body summary:hover::after {
+            opacity: 1;
+          }
+
+          .markdown-body details[open] summary::after {
+            content: "";
+          }
+
+          /* ═══════════════════════════════════════════════════════════════
+             MERMAID DIAGRAMS - Parchment container for dark mode readability
+             ═══════════════════════════════════════════════════════════════ */
+          /* Target all diagram images directly via src (Kroki URLs) */
+          .markdown-body img[src*="kroki.io"],
+          .markdown-body img[alt*="Diagram"],
+          .markdown-body img[alt*="Mermaid"],
+          .markdown-body img[alt*="Excalidraw"] {
+            display: block;
+            max-width: 100%;
+            height: auto;
+            margin: 2.5rem auto;
+            padding: 2rem;
+            background: linear-gradient(
+              135deg,
+              #faf8f5 0%,
+              #f5f0e8 50%,
+              #faf6f0 100%
+            );
+            border-radius: 12px;
+            border: 1px solid rgba(255, 184, 111, 0.3);
+            box-shadow:
+              0 4px 24px rgba(0, 0, 0, 0.4),
+              0 1px 3px rgba(255, 184, 111, 0.1),
+              inset 0 1px 0 rgba(255, 255, 255, 0.5);
+          }
+
+          /* Container styles for diagram-container class (legacy support) */
+          .markdown-body .diagram-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 2.5rem 0;
+            padding: 2rem;
+            background: linear-gradient(
+              135deg,
+              #faf8f5 0%,
+              #f5f0e8 50%,
+              #faf6f0 100%
+            );
+            border-radius: 12px;
+            border: 1px solid rgba(255, 184, 111, 0.3);
+            box-shadow:
+              0 4px 24px rgba(0, 0, 0, 0.4),
+              0 1px 3px rgba(255, 184, 111, 0.1),
+              inset 0 1px 0 rgba(255, 255, 255, 0.5);
+          }
+
+          .markdown-body .diagram-container img {
+            max-width: 100%;
+            height: auto;
+            padding: 0;
+            margin: 0;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+          }
+
+          /* ═══════════════════════════════════════════════════════════════
+             TABLES - Editorial refined style with accent borders
+             ═══════════════════════════════════════════════════════════════ */
+          .markdown-body table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin: 2rem 0;
+            font-size: 0.9375rem;
+            background: var(--bg-elevated);
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border-strong);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+          }
+
+          .markdown-body thead {
+            background: linear-gradient(
+              180deg,
+              rgba(255, 184, 111, 0.12) 0%,
+              rgba(255, 184, 111, 0.06) 100%
+            );
+          }
+
+          .markdown-body th {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--accent);
+            padding: 1rem 1.25rem;
+            text-align: left;
+            border-bottom: 2px solid rgba(255, 184, 111, 0.25);
+            white-space: nowrap;
+          }
+
+          .markdown-body td {
+            padding: 0.875rem 1.25rem;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+            line-height: 1.6;
+          }
+
+          .markdown-body tbody tr:last-child td {
+            border-bottom: none;
+          }
+
+          /* Alternating row colors for readability */
+          .markdown-body tbody tr:nth-child(even) {
+            background: rgba(255, 255, 255, 0.02);
+          }
+
+          /* Hover effect */
+          .markdown-body tbody tr {
+            transition: background 0.15s ease;
+          }
+
+          .markdown-body tbody tr:hover {
+            background: rgba(255, 184, 111, 0.05);
+          }
+
+          /* First column emphasis for definition tables */
+          .markdown-body td:first-child {
+            color: var(--text);
+            font-weight: 500;
+          }
+
+          /* Code in tables */
+          .markdown-body td code,
+          .markdown-body th code {
+            font-size: 0.8125rem;
+            padding: 0.15em 0.4em;
+          }
+
           /* Article Footer */
           .article-footer {
             margin-top: 3rem;
@@ -553,7 +792,9 @@ export default function BlogPost({ data }: { data: { post: Post } }) {
           @media (max-width: 768px) {
             .header { padding: 1rem; }
             .logo-text { display: none; }
-            .nav { gap: 1rem; }
+            .nav { gap: 0.75rem; }
+            /* Hide desktop nav on mobile - MobileMenu handles navigation */
+            .nav-link { display: none; }
             .article-main { padding: 2rem 1rem; }
             .article-title { font-size: 1.75rem; }
             .article-snippet { font-size: 1rem; }
@@ -576,6 +817,52 @@ export default function BlogPost({ data }: { data: { post: Post } }) {
             .markdown-body pre[class*="language-"] code {
               font-size: 11px !important;
               -webkit-overflow-scrolling: touch;
+            }
+
+            /* Details mobile */
+            .markdown-body details {
+              margin: 1rem -1rem;
+              border-radius: 0;
+              border-left: none;
+              border-right: none;
+            }
+
+            .markdown-body summary::after {
+              display: none;
+            }
+
+            /* Diagrams mobile */
+            .markdown-body img[src*="kroki.io"],
+            .markdown-body img[alt*="Diagram"],
+            .markdown-body img[alt*="Mermaid"],
+            .markdown-body img[alt*="Excalidraw"],
+            .markdown-body .diagram-container {
+              margin: 1.5rem -1rem;
+              padding: 1.25rem;
+              border-radius: 0;
+              border-left: none;
+              border-right: none;
+            }
+
+            /* Tables mobile - horizontal scroll */
+            .markdown-body table {
+              display: block;
+              overflow-x: auto;
+              -webkit-overflow-scrolling: touch;
+              margin: 1.5rem -1rem;
+              border-radius: 0;
+              border-left: none;
+              border-right: none;
+            }
+
+            .markdown-body th,
+            .markdown-body td {
+              padding: 0.75rem 1rem;
+              font-size: 0.875rem;
+            }
+
+            .markdown-body th {
+              font-size: 0.7rem;
             }
           }
         `}

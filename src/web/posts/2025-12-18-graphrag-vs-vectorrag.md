@@ -8,7 +8,8 @@ tags:
   - rag
   - knowledge-graph
   - embeddings
-snippet: "Vector databases find similar content. Graph databases find related concepts. For AI agents, you need both—similarity for discovery, structure for orchestration."
+  - superhypergraph
+snippet: "Vector databases find similar content. Graph databases find related concepts. For AI agents, you need both—and a structure that goes beyond simple graphs."
 format: article
 language: en
 author: Erwan Lee Pesle
@@ -79,50 +80,180 @@ graph TD
 - Intent matching
 - Fuzzy similarity
 
-## Why AI Agents Need Both
+---
 
-Consider this query: *"I want to ship my code to production"*
+## Beyond Simple Graphs: The SuperHyperGraph
 
-**VectorRAG alone:**
-- Finds tools with similar descriptions
-- Returns: `deploy`, `release`, `ship`, `publish`
-- Doesn't know which order to use them
+Here's where most "GraphRAG" articles stop. But for AI agents that orchestrate complex workflows, **simple graphs aren't enough**.
 
-**GraphRAG alone:**
-- Knows `build` → `test` → `deploy` sequence
-- But can't match "ship to production" to `deploy`
-- User said "ship", not "deploy"
+### The Problem With Regular Graphs
 
-**Both together:**
-1. VectorRAG matches intent → finds `deploy` capability
-2. GraphRAG retrieves structure → gets full sequence with dependencies
+A standard graph connects pairs of nodes. A hypergraph can connect N nodes in one edge. But what happens when you need to express:
+
+> *"The Deploy capability contains the Build capability, which itself contains compile, link, and test tools"*
+
+That's **recursive nesting**—a capability containing capabilities containing tools. Neither graphs nor hypergraphs can represent this cleanly.
+
+### Enter the n-SuperHyperGraph
+
+Think of it like Russian nesting dolls for your workflow structure:
+
+```
+Standard Graph     →  Hypergraph           →  SuperHyperGraph
+(pairs only)          (N nodes per edge)      (recursive nesting)
+  A ── B               {A, B, C, D, E}         {{A,B}, {C, {D,E}}}
+```
+
+In PML, we use an **unbounded SuperHyperGraph** with natural hierarchy levels:
+
+| Level | What It Represents | Example |
+|-------|-------------------|---------|
+| 0 | **Tools** | `read_file`, `parse_json`, `http_post` |
+| 1 | **Capabilities** | "Parse Config" = {read_file, parse_json} |
+| 2+ | **Meta-Capabilities** | "Deploy" = {Build, Test, Release} |
+| n | **Emergent compositions** | No depth limit |
 
 ```mermaid
 graph TD
-    subgraph "Step 1: Vector (Intent)"
-        Q[Query] --> V[Vector Search]
-        V --> M[Match: deploy capability]
+    subgraph "Level 2: Meta-Capability"
+        Deploy[Deploy Full Stack]
     end
 
-    subgraph "Step 2: Graph (Structure)"
-        M --> G[Graph Lookup]
-        G --> S[Full Sequence]
-        G --> D[Dependencies]
-        G --> C[Confidence scores]
+    subgraph "Level 1: Capabilities"
+        Build[Build]
+        Test[Test]
+        Release[Release]
     end
+
+    subgraph "Level 0: Tools"
+        T1[npm_install]
+        T2[tsc_compile]
+        T3[jest_run]
+        T4[docker_build]
+        T5[aws_push]
+    end
+
+    Deploy -->|contains| Build
+    Deploy -->|contains| Test
+    Deploy -->|contains| Release
+
+    Build -->|contains| T1
+    Build -->|contains| T2
+    Test -->|contains| T3
+    Release -->|contains| T4
+    Release -->|contains| T5
 ```
 
-## Our Hybrid Architecture
+<details>
+<summary><strong>Technical Deep Dive: Edge Types & DAG Constraints</strong></summary>
 
-In Casys PML, we use both at different stages:
+Not all relationships are equal. PML uses 4 edge types with different cycle rules (following DASH constraints from Fujita 2025):
 
-| Stage | Method | Why |
-|-------|--------|-----|
-| **Discovery** | Vector similarity | Match intent to tools/capabilities |
-| **Ranking** | Graph PageRank | Importance based on usage |
-| **Sequencing** | Graph traversal | Find execution order |
-| **Clustering** | Graph spectral | Detect capability boundaries |
-| **Boosting** | Graph co-occurrence | Prefer tools that work together |
+| Edge Type | Allows Cycles? | Purpose |
+|-----------|----------------|---------|
+| `contains` | **No** (strict DAG) | Composition hierarchy |
+| `dependency` | **No** (strict DAG) | Execution prerequisites |
+| `provides` | Yes | Data flow between tools |
+| `sequence` | Yes | Temporal co-occurrence patterns |
+
+**Why the difference?**
+- `contains` cycles are logical impossibilities (A contains B contains A?)
+- `dependency` cycles create deadlocks
+- `provides` and `sequence` represent observed patterns, not constraints
+
+</details>
+
+---
+
+## Tools vs Capabilities: A Critical Distinction
+
+Most RAG articles treat "tools" as a monolith. But there are two fundamentally different things to discover:
+
+| Aspect | Tools | Capabilities |
+|--------|-------|--------------|
+| **Source** | MCP servers (external) | Learned from execution (emergent) |
+| **Scope** | Single atomic operation | Workflow composition |
+| **Complexity** | Fixed | Recursive (can nest) |
+| **Discovery** | "Find me a tool that does X" | "Find me a workflow that achieves Y" |
+| **Example** | `github:create_issue` | "Bug Triage" = {search, analyze, create_issue, notify} |
+
+**Key insight:** Tools are **given**. Capabilities are **learned**.
+
+When an agent successfully completes a multi-tool workflow, that pattern becomes a reusable capability—stored with its intent, constituent tools, and reliability score.
+
+---
+
+## Discovery Algorithms: Different Formulas for Different Targets
+
+Here's what most articles miss: **you can't use the same algorithm for tools and capabilities**.
+
+### Tool Discovery: Additive Formulas (Permissive)
+
+When searching for tools, we **combine weak signals**. A tool that scores moderately on semantics AND graph context is probably relevant.
+
+**Active Search (user intent):**
+```
+Score = α × SemanticScore + (1-α) × GraphScore
+```
+
+Where α adapts **per node** based on embedding coherence—comparing semantic (BGE-M3) vs structural (spectral) embeddings.
+
+**Passive Suggestion (workflow context):**
+```
+Score = 0.6 × CoOccurrence + 0.3 × CommunityBoost + 0.1 × Recency
+```
+
+Uses Louvain clustering for community detection and heat diffusion to propagate confidence.
+
+### Capability Discovery: Multiplicative Formulas (Strict)
+
+Capabilities require **higher confidence**. A capability with great semantic match but poor reliability? Disqualified.
+
+**Active Match (user intent):**
+```
+Score = SemanticSimilarity × ReliabilityFactor
+```
+
+If reliability < 0.5, the score becomes 0. One bad factor vetoes the whole match.
+
+**Strategic Discovery (workflow context):**
+```
+Score = ToolsOverlap × (1 + SpectralClusteringBoost)
+```
+
+- `ToolsOverlap`: How many capability tools are already in use
+- `SpectralClusteringBoost`: Whether capability is in same graph cluster as current context
+
+<details>
+<summary><strong>Why Multiplicative for Capabilities?</strong></summary>
+
+Capabilities represent **proven patterns**. Suggesting an unreliable capability wastes user time and erodes trust.
+
+With additive formulas, a capability could score high despite having 20% success rate (great semantics + graph context compensate). Multiplicative formulas prevent this:
+
+```
+Additive:   0.9 (semantic) + 0.1 (reliability) = 1.0  ✗ misleading
+Multiplicative: 0.9 × 0.2 = 0.18  ✓ honest
+```
+
+Tools don't need this strictness—a tool can be relevant even if rarely used. But suggesting a failing workflow? That's harmful.
+
+</details>
+
+---
+
+## The Complete Hybrid Architecture
+
+Putting it all together:
+
+| Stage | Method | Target | Formula Type |
+|-------|--------|--------|--------------|
+| **Intent Match** | Vector similarity | Tools & Capabilities | — |
+| **Tool Ranking** | Hybrid (Vector + Graph) | Tools | Additive |
+| **Capability Match** | Semantic × Reliability | Capabilities | Multiplicative |
+| **Sequencing** | Graph traversal | Both | DAG constraints |
+| **Clustering** | Spectral analysis | Capabilities | SuperHyperGraph |
+| **Boosting** | Co-occurrence | Tools | Additive |
 
 ### The Flow
 
@@ -130,57 +261,60 @@ In Casys PML, we use both at different stages:
 sequenceDiagram
     participant U as User Query
     participant V as Vector Index
-    participant G as Graph
+    participant G as SuperHyperGraph
     participant R as Results
 
     U->>V: "Deploy my app"
     V->>V: Embed query
-    V->>G: Top candidates
-    G->>G: PageRank filter
-    G->>G: Add related tools
-    G->>G: Check dependencies
-    G->>R: Ordered, scored results
+
+    rect rgb(240, 248, 255)
+        Note over V,G: Tool Discovery (Additive)
+        V->>G: Tool candidates
+        G->>G: PageRank + Community
+        G-->>R: Ranked tools
+    end
+
+    rect rgb(255, 248, 240)
+        Note over V,G: Capability Discovery (Multiplicative)
+        V->>G: Capability candidates
+        G->>G: Reliability filter (×)
+        G->>G: Spectral clustering
+        G-->>R: Qualified capabilities
+    end
+
+    R->>R: Merge & dedupe
+    R->>U: Ordered results
 ```
 
-### Scoring Formulas
-
-We use different formulas for different modes:
-
-**Active Search (user query):**
-```
-Score = α × SemanticScore + (1-α) × GraphScore
-```
-Where α is computed **per node** using embedding coherence—comparing semantic (BGE-M3) vs structural (spectral) embeddings.
-
-**Passive Suggestion (next tool):**
-```
-Score = 0.6 × CoOccurrence + 0.3 × CommunityBoost + 0.1 × Recency
-```
-Uses **heat diffusion** to propagate confidence from context to candidates.
-
-**Cold start (<5 observations):** Bayesian fallback with high α (trust semantics only until we have enough graph data).
+---
 
 ## When To Use What
 
-| Situation | Primary | Secondary |
-|-----------|---------|-----------|
-| New tool, never seen before | Vector | — |
-| Known tool, finding sequence | Graph | Vector (fallback) |
+| Situation | Primary Method | Secondary |
+|-----------|----------------|-----------|
+| New tool, never seen | Vector only | — |
+| Known tool, finding sequence | Graph traversal | Vector (fallback) |
 | Ambiguous query | Vector | Graph (structure) |
-| Execution planning | Graph | Vector (alternatives) |
-| Capability discovery | Both equally | — |
+| Execution planning | Graph DAG | Vector (alternatives) |
+| Capability discovery | Multiplicative match | — |
+| Tool suggestion in workflow | Additive scoring | Community boost |
+
+---
 
 ## The Bottom Line
 
-Don't pick sides. Use both:
+Don't pick sides. But don't stop at "use both" either.
 
-- **Vectors** give you semantic understanding
-- **Graphs** give you structural knowledge
-- **Together** they give you intelligent orchestration
+For AI agents that orchestrate real workflows:
+
+1. **Vectors** give you semantic understanding
+2. **Graphs** give you structural knowledge
+3. **SuperHyperGraphs** give you recursive composition
+4. **Different formulas** for different targets—permissive for tools, strict for capabilities
 
 The question isn't "GraphRAG or VectorRAG?"
 
-It's "How do I combine them effectively?"
+It's "How do I structure *both* to match *what* I'm discovering?"
 
 ---
 
@@ -188,5 +322,7 @@ It's "How do I combine them effectively?"
 
 - Lewis, P. et al. (2020). "Retrieval-Augmented Generation." NeurIPS.
 - Microsoft Research. (2024). "GraphRAG: Unlocking LLM discovery on narrative private data."
+- Smarandache, F. (2019). "n-SuperHyperGraph and Plithogenic n-SuperHyperGraph." Neutrosophic Sets and Systems.
+- Fujita, S. et al. (2025). "DASH: Directed Acyclic SuperHyperGraph for AI Agent Orchestration."
 
-#GraphRAG #VectorRAG #Hybrid #AIArchitecture
+#GraphRAG #VectorRAG #SuperHyperGraph #AIArchitecture #Hybrid

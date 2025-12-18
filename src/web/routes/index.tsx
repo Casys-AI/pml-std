@@ -15,6 +15,7 @@ import {
   ThreeLoopIllustration,
 } from "../components/FeatureIllustrations.tsx";
 import { HeroRepl } from "../islands/HeroRepl.tsx";
+import MobileMenu from "../islands/MobileMenu.tsx";
 
 // Feature flag - set to true to show auth UI (Sign in, Dashboard links)
 const SHOW_AUTH = false;
@@ -192,6 +193,8 @@ export default function LandingPage({ data }: { data: LandingPageData }) {
                     Local Mode
                   </span>
                 ))}
+              {/* Mobile Menu - hamburger + drawer */}
+              <MobileMenu />
             </nav>
           </div>
         </header>
@@ -1705,9 +1708,10 @@ export default function LandingPage({ data }: { data: LandingPageData }) {
             }
 
             .nav {
-              gap: 1rem;
+              gap: 0.75rem;
             }
 
+            /* Hide desktop nav links on mobile - MobileMenu handles navigation */
             .nav-link:not(.nav-link-github) {
               display: none;
             }

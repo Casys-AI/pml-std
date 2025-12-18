@@ -2,6 +2,7 @@
 import { page } from "fresh";
 import { Head } from "fresh/runtime";
 import { formatDate, getPosts, type Post } from "../../utils/posts.ts";
+import MobileMenu from "../../islands/MobileMenu.tsx";
 
 export const handler = {
   async GET(_ctx: any) {
@@ -58,6 +59,7 @@ export default function BlogIndex({ data }: { data: { posts: Post[] } }) {
                   <path d="M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z" />
                 </svg>
               </a>
+              <MobileMenu />
             </nav>
           </div>
         </header>
@@ -493,7 +495,9 @@ export default function BlogIndex({ data }: { data: { posts: Post[] } }) {
           @media (max-width: 768px) {
             .header { padding: 1rem; }
             .logo-text { display: none; }
-            .nav { gap: 1rem; }
+            .nav { gap: 0.75rem; }
+            /* Hide desktop nav on mobile - MobileMenu handles navigation */
+            .nav-link:not(.nav-link-rss) { display: none; }
             .blog-main { padding: 4rem 0 2rem; }
             .blog-title { font-size: 2rem; }
             .post-card { padding: 1.5rem; }
