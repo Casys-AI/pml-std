@@ -1,0 +1,179 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentcards.dev/schemas/spectral-clustering.schema.json",
+  "title": "Spectral Clustering Configuration",
+  "description": "Configuration for bipartite graph clustering of tool-capability relationships. Used by SpectralClusteringManager.",
+  "type": "object",
+  "properties": {
+    "edge_weights": {
+      "type": "object",
+      "description": "Weights for capability-to-capability edges by relationship type",
+      "properties": {
+        "dependency": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "default": 1.0,
+          "description": "Weight for direct dependency edges"
+        },
+        "contains": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "default": 0.8,
+          "description": "Weight for contains (meta-capability) edges"
+        },
+        "alternative": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "default": 0.6,
+          "description": "Weight for alternative capability edges"
+        },
+        "provides": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "default": 0.7,
+          "description": "Weight for data flow edges (A's output feeds B's input) - Story 10.3"
+        },
+        "sequence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "default": 0.5,
+          "description": "Weight for sequential workflow edges"
+        }
+      },
+      "required": ["dependency", "contains", "alternative", "provides", "sequence"],
+      "additionalProperties": false
+    },
+    "cache": {
+      "type": "object",
+      "description": "Cache settings to avoid expensive O(n³) recomputation",
+      "properties": {
+        "ttl_minutes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60,
+          "default": 5,
+          "description": "Cache time-to-live in minutes"
+        }
+      },
+      "required": ["ttl_minutes"],
+      "additionalProperties": false
+    },
+    "edges": {
+      "type": "object",
+      "description": "Edge filtering thresholds",
+      "properties": {
+        "min_confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.3,
+          "description": "Minimum confidence score to include cap→cap edge"
+        }
+      },
+      "required": ["min_confidence"],
+      "additionalProperties": false
+    },
+    "cluster_detection": {
+      "type": "object",
+      "description": "Automatic cluster count detection parameters",
+      "properties": {
+        "max_eigenvalues": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 50,
+          "default": 10,
+          "description": "Maximum eigenvalues to examine for eigengap"
+        },
+        "min_clusters": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "default": 2,
+          "description": "Minimum number of clusters"
+        },
+        "max_clusters": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 20,
+          "default": 5,
+          "description": "Maximum number of clusters"
+        }
+      },
+      "required": ["max_eigenvalues", "min_clusters", "max_clusters"],
+      "additionalProperties": false
+    },
+    "kmeans": {
+      "type": "object",
+      "description": "K-means clustering parameters",
+      "properties": {
+        "max_iterations": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 1000,
+          "default": 100,
+          "description": "Maximum K-means iterations"
+        }
+      },
+      "required": ["max_iterations"],
+      "additionalProperties": false
+    },
+    "cluster_boost": {
+      "type": "object",
+      "description": "Boost factors for capabilities in active cluster",
+      "properties": {
+        "same_cluster": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.5,
+          "description": "Full boost for capability in same cluster as context"
+        },
+        "partial_multiplier": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.25,
+          "description": "Multiplier for partial overlap boost"
+        }
+      },
+      "required": ["same_cluster", "partial_multiplier"],
+      "additionalProperties": false
+    },
+    "pagerank": {
+      "type": "object",
+      "description": "Hypergraph PageRank parameters",
+      "properties": {
+        "damping_factor": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.85,
+          "description": "PageRank damping factor (1 - teleport probability)"
+        },
+        "max_iterations": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 1000,
+          "default": 100,
+          "description": "Maximum power iteration steps"
+        },
+        "convergence_threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.01,
+          "default": 0.000001,
+          "description": "Stop iteration when change below this threshold"
+        }
+      },
+      "required": ["damping_factor", "max_iterations", "convergence_threshold"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["edge_weights", "cache", "edges", "cluster_detection", "kmeans", "cluster_boost", "pagerank"],
+  "additionalProperties": false
+}

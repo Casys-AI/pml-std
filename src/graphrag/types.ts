@@ -224,6 +224,13 @@ export interface PredictedNode {
    * Capability ID if source is "capability" (Story 7.4)
    */
   capabilityId?: string;
+  /**
+   * Inferred arguments for speculative execution
+   *
+   * Populated from previous task results using ProvidesEdge field mappings.
+   * When set, enables real speculative execution instead of placeholder preparation.
+   */
+  arguments?: Record<string, unknown>;
 }
 
 /**

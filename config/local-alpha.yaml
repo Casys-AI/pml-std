@@ -1,0 +1,111 @@
+# yaml-language-server: $schema=local-alpha.schema.json
+# Local Adaptive Alpha Configuration (ADR-048)
+#
+# Controls semantic vs graph balance per-node for DAG suggestions.
+# Alpha determines how much we trust the graph structure vs pure semantic similarity:
+#   - alpha = 1.0 → Pure semantic (ignore graph structure entirely)
+#   - alpha = 0.5 → Maximum graph influence (equal weight semantic/graph)
+#
+# Four algorithms compute alpha based on context:
+#   1. Embeddings Hybrides (active search) - compares semantic vs structural embeddings
+#   2. Heat Diffusion (passive tools) - propagates "heat" through graph connectivity
+#   3. Heat Diffusion Hierarchical (passive capabilities) - adds parent/child propagation
+#   4. Bayesian (cold start) - explicit uncertainty when few observations exist
+
+# =============================================================================
+# ALPHA BOUNDS
+# =============================================================================
+# These define the hard limits for alpha values across all algorithms.
+# Tighter bounds = more predictable behavior, wider = more adaptive.
+
+alpha_min: 0.5    # Floor: maximum graph influence allowed
+alpha_max: 1.0    # Ceiling: pure semantic (no graph influence)
+
+# =============================================================================
+# ALPHA SCALING FACTOR
+# =============================================================================
+# Controls how aggressively alpha decreases when confidence is high.
+# Formula: alpha = max(alpha_min, alpha_max - confidence * alpha_scaling_factor)
+#
+# Higher value (e.g., 0.8) → alpha drops faster with confidence → more graph influence
+# Lower value (e.g., 0.3) → alpha drops slower → stays closer to semantic
+
+alpha_scaling_factor: 0.5
+
+# =============================================================================
+# COLD START (Bayesian Algorithm)
+# =============================================================================
+# When a node has few observations, we can't trust graph statistics.
+# Bayesian algorithm interpolates from prior (don't trust graph) to target (trust graph).
+#
+# Formula: alpha = prior_alpha * (1 - confidence) + target_alpha * confidence
+#          where confidence = observations / threshold
+
+cold_start:
+  threshold: 5          # Minimum observations before exiting cold start
+                        # Lower = trust graph sooner, higher = more conservative
+  prior_alpha: 1.0      # Starting alpha (pure semantic - safest default)
+  target_alpha: 0.7     # Alpha when exiting cold start (slight graph influence)
+
+# =============================================================================
+# HEAT DIFFUSION (Passive Suggestion - Tools)
+# =============================================================================
+# Computes "heat" for each node based on graph connectivity.
+# Well-connected nodes get more heat → lower alpha → trust graph more.
+#
+# Heat formula: heat = intrinsic_weight * node_heat + neighbor_weight * avg_neighbor_heat
+# Path connectivity uses common_neighbor_factor for indirect connections (Adamic-Adar style).
+
+heat_diffusion:
+  intrinsic_weight: 0.6       # Weight of node's own connectivity (degree-based)
+  neighbor_weight: 0.4        # Weight of neighbors' connectivity (propagation)
+  common_neighbor_factor: 0.2 # Bonus per common neighbor when no direct edge exists
+                              # Higher = value indirect connections more
+
+# =============================================================================
+# HIERARCHY WEIGHTS (Passive Suggestion - Capabilities)
+# =============================================================================
+# For capability/meta nodes, heat combines three sources:
+#   - intrinsic: node's own graph connectivity
+#   - neighbor: heat from graph neighbors (same level)
+#   - hierarchy: heat from parent/children in Tool→Capability→Meta hierarchy
+#
+# Sum of weights MUST equal 1.0 for each node type.
+# Different node types have different weight profiles:
+#   - Tools: mostly intrinsic (leaf nodes, direct usage)
+#   - Capabilities: balanced (middle of hierarchy)
+#   - Meta: mostly hierarchy (abstract, defined by children)
+
+hierarchy:
+  tool:       { intrinsic: 0.5, neighbor: 0.3, hierarchy: 0.2 }
+  capability: { intrinsic: 0.3, neighbor: 0.4, hierarchy: 0.3 }
+  meta:       { intrinsic: 0.2, neighbor: 0.2, hierarchy: 0.6 }
+
+# =============================================================================
+# HIERARCHY INHERITANCE FACTORS
+# =============================================================================
+# Controls top-down heat propagation in the hierarchy.
+# When computing a child's hierarchy heat, it inherits a fraction of its parent's heat.
+#
+# Lower values = children are more independent from parents
+# Higher values = parent reputation strongly influences children
+
+hierarchy_inheritance:
+  meta_to_capability: 0.7   # Capability inherits 70% of meta-capability parent's heat
+  capability_to_tool: 0.5   # Tool inherits 50% of capability parent's heat
+
+# =============================================================================
+# STRUCTURAL CONFIDENCE WEIGHTS
+# =============================================================================
+# Combines multiple heat signals into a single "structural confidence" score.
+# This score is then used to compute alpha via the scaling factor.
+#
+# Sum should equal 1.0 for normalized confidence.
+#   - target_heat: how well-connected is the candidate node itself?
+#   - context_heat: how well-connected are the context nodes (current session)?
+#   - path_heat: how strong is the connection between context and target?
+
+structural_confidence:
+  target_heat: 0.4    # Weight of target node's connectivity
+  context_heat: 0.3   # Weight of context nodes' average connectivity
+  path_heat: 0.3      # Weight of path strength (direct edges or common neighbors)

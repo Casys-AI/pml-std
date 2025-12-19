@@ -1,0 +1,198 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentcards.dev/schemas/local-alpha.schema.json",
+  "title": "Local Alpha Configuration",
+  "description": "Configuration for Local Adaptive Alpha Calculator (ADR-048). Controls semantic vs graph balance per-node for DAG suggestions.",
+  "type": "object",
+  "properties": {
+    "alpha_min": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0.5,
+      "description": "Minimum alpha value (maximum graph influence). Must be less than alpha_max."
+    },
+    "alpha_max": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 1.0,
+      "description": "Maximum alpha value (pure semantic, no graph influence). Must be greater than alpha_min."
+    },
+    "alpha_scaling_factor": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0.5,
+      "description": "How aggressively alpha decreases with confidence. Formula: alpha = max(alpha_min, alpha_max - confidence * alpha_scaling_factor)"
+    },
+    "cold_start": {
+      "type": "object",
+      "description": "Bayesian cold start settings for nodes with few observations",
+      "properties": {
+        "threshold": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 5,
+          "description": "Minimum observations before exiting cold start and trusting graph statistics"
+        },
+        "prior_alpha": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1.0,
+          "description": "Initial alpha for new nodes (typically 1.0 = pure semantic)"
+        },
+        "target_alpha": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.7,
+          "description": "Target alpha when exiting cold start"
+        }
+      },
+      "required": ["threshold", "prior_alpha", "target_alpha"],
+      "additionalProperties": false
+    },
+    "heat_diffusion": {
+      "type": "object",
+      "description": "Heat diffusion weights for passive tool suggestions",
+      "properties": {
+        "intrinsic_weight": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.6,
+          "description": "Weight of node's own connectivity (degree-based heat)"
+        },
+        "neighbor_weight": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.4,
+          "description": "Weight of neighbors' connectivity (propagated heat)"
+        },
+        "common_neighbor_factor": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.2,
+          "description": "Bonus per common neighbor for indirect connections (Adamic-Adar style)"
+        }
+      },
+      "required": ["intrinsic_weight", "neighbor_weight", "common_neighbor_factor"],
+      "additionalProperties": false
+    },
+    "hierarchy": {
+      "type": "object",
+      "description": "Hierarchical heat weights by node type. Each set of weights must sum to 1.0.",
+      "properties": {
+        "tool": {
+          "$ref": "#/$defs/hierarchy_weights",
+          "description": "Weights for tool nodes (leaf level)"
+        },
+        "capability": {
+          "$ref": "#/$defs/hierarchy_weights",
+          "description": "Weights for capability nodes (middle level)"
+        },
+        "meta": {
+          "$ref": "#/$defs/hierarchy_weights",
+          "description": "Weights for meta-capability nodes (top level)"
+        }
+      },
+      "required": ["tool", "capability", "meta"],
+      "additionalProperties": false
+    },
+    "hierarchy_inheritance": {
+      "type": "object",
+      "description": "Top-down heat inheritance factors in the hierarchy",
+      "properties": {
+        "meta_to_capability": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.7,
+          "description": "Fraction of meta-capability heat inherited by capabilities"
+        },
+        "capability_to_tool": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.5,
+          "description": "Fraction of capability heat inherited by tools"
+        }
+      },
+      "required": ["meta_to_capability", "capability_to_tool"],
+      "additionalProperties": false
+    },
+    "structural_confidence": {
+      "type": "object",
+      "description": "Weights for combining heat signals into structural confidence. Should sum to 1.0.",
+      "properties": {
+        "target_heat": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.4,
+          "description": "Weight of target node's connectivity"
+        },
+        "context_heat": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.3,
+          "description": "Weight of context nodes' average connectivity"
+        },
+        "path_heat": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.3,
+          "description": "Weight of path strength between context and target"
+        }
+      },
+      "required": ["target_heat", "context_heat", "path_heat"],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "alpha_min",
+    "alpha_max",
+    "alpha_scaling_factor",
+    "cold_start",
+    "heat_diffusion",
+    "hierarchy",
+    "hierarchy_inheritance",
+    "structural_confidence"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "hierarchy_weights": {
+      "type": "object",
+      "description": "Heat source weights for a node type. intrinsic + neighbor + hierarchy should equal 1.0.",
+      "properties": {
+        "intrinsic": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Weight of node's own graph connectivity"
+        },
+        "neighbor": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Weight of heat from graph neighbors"
+        },
+        "hierarchy": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Weight of heat from parent/children in hierarchy"
+        }
+      },
+      "required": ["intrinsic", "neighbor", "hierarchy"],
+      "additionalProperties": false
+    }
+  }
+}

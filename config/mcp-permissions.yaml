@@ -1,0 +1,207 @@
+# MCP Tool Permission Mappings
+#
+# Two formats supported:
+#
+# 1. Shorthand (backward compatible):
+#    github:
+#      permissionSet: network-api
+#      isReadOnly: false
+#
+# 2. Explicit (recommended for new entries):
+#    numpy:
+#      scope: minimal        # minimal|readonly|filesystem|network-api|mcp-standard
+#      ffi: true             # Allow FFI (native calls via Deno.dlopen)
+#      run: false            # Allow subprocess (Deno.Command)
+#      approvalMode: auto    # hil = ask human, auto = trust & auto-approve
+#
+# Shorthand defaults: scope=permissionSet, ffi=false, run=false, approvalMode=hil
+#
+# Permission Scopes (from ADR-035):
+#   - minimal: No permissions (pure computation)
+#   - readonly: Read files only (./data)
+#   - filesystem: Read + write to /tmp
+#   - network-api: Network access only
+#   - mcp-standard: Standard MCP permissions (read, /tmp write, network)
+#
+# Note: 'trusted' is deprecated - use explicit format with approvalMode: auto
+# Unknown tools default to: mcp-standard (secure fallback)
+
+# Filesystem tools - local file operations
+filesystem:
+  permissionSet: filesystem
+  isReadOnly: false
+
+fs:
+  permissionSet: filesystem
+  isReadOnly: false
+
+# Network API tools - external service calls
+github:
+  permissionSet: network-api
+  isReadOnly: false
+
+slack:
+  permissionSet: network-api
+  isReadOnly: false
+
+tavily:
+  permissionSet: network-api
+  isReadOnly: false
+
+api:
+  permissionSet: network-api
+  isReadOnly: false
+
+# Mixed/container tools - need broader permissions
+kubernetes:
+  permissionSet: mcp-standard
+  isReadOnly: false
+
+docker:
+  permissionSet: mcp-standard
+  isReadOnly: false
+
+# Database tools
+postgres:
+  permissionSet: network-api
+  isReadOnly: false
+
+sqlite:
+  permissionSet: filesystem
+  isReadOnly: false
+
+# Search/AI tools
+# Note: brave-search requires bracket notation mcp["brave-search"]
+# which AST parser handles differently - use underscore version
+brave_search:
+  permissionSet: network-api
+  isReadOnly: false
+
+# Memory/context tools
+# Note: Even local memory tools need mcp-standard since they're MCP calls
+memory:
+  permissionSet: mcp-standard
+  isReadOnly: true
+
+context7:
+  permissionSet: network-api
+  isReadOnly: true
+
+# Playwright/browser automation
+playwright:
+  permissionSet: mcp-standard
+  isReadOnly: false
+
+# Sequential thinking - pure computation
+sequential-thinking:
+  permissionSet: minimal
+  isReadOnly: true
+
+# Exa search - network API
+exa:
+  permissionSet: network-api
+  isReadOnly: true
+
+# Magic (21st.dev) - network API
+magic:
+  permissionSet: network-api
+  isReadOnly: true
+
+# Fetch - network API
+fetch:
+  permissionSet: network-api
+  isReadOnly: true
+
+# =============================================================================
+# PRIMITIVES (lib/mcp-tools.ts) - 94 tools across 15 categories
+# =============================================================================
+
+# Text manipulation - pure computation
+text:
+  permissionSet: minimal
+  isReadOnly: true
+
+# JSON operations - pure computation
+json:
+  permissionSet: minimal
+  isReadOnly: true
+
+# Math operations - pure computation
+math:
+  permissionSet: minimal
+  isReadOnly: true
+
+# DateTime operations - pure computation
+datetime:
+  permissionSet: minimal
+  isReadOnly: true
+
+# Crypto operations (hash, uuid, base64) - pure computation
+crypto:
+  permissionSet: minimal
+  isReadOnly: true
+
+# Collection operations (map, filter, sort) - pure computation
+collections:
+  permissionSet: minimal
+  isReadOnly: true
+
+# Data generation (fake_name, lorem) - pure computation
+data:
+  permissionSet: minimal
+  isReadOnly: true
+
+# Validation (email, url, pattern) - pure computation
+validation:
+  permissionSet: minimal
+  isReadOnly: true
+
+# Format (number, bytes, duration) - pure computation
+format:
+  permissionSet: minimal
+  isReadOnly: true
+
+# Transform (csv_parse, xml) - pure computation
+transform:
+  permissionSet: minimal
+  isReadOnly: true
+
+# Compare (diff, levenshtein, similarity) - pure computation
+compare:
+  permissionSet: minimal
+  isReadOnly: true
+
+# Algo (binary_search, group_aggregate, top_n) - pure computation
+algo:
+  permissionSet: minimal
+  isReadOnly: true
+
+# State (KV store with TTL) - in-memory, no persistence
+state:
+  permissionSet: minimal
+  isReadOnly: false
+
+# HTTP helpers (build_url, parse_url, headers) - pure computation (no actual network)
+http:
+  permissionSet: minimal
+  isReadOnly: true
+
+# Virtual filesystem (in-memory Map, no real disk access)
+vfs:
+  permissionSet: minimal
+  isReadOnly: false
+
+# Note: 'vfs' (virtual filesystem) is in-memory only, no real disk access
+# The real filesystem MCP server is defined above as 'filesystem'
+
+# =============================================================================
+# FFI-ENABLED TOOLS (explicit format with sandbox escape permissions)
+# =============================================================================
+
+# Plots MCP (mcp-plots) - Generate visualizations (line, bar, scatter, etc.)
+# Requires Python + uvx to be installed on the host
+plots:
+  scope: filesystem
+  ffi: true
+  run: false
+  approvalMode: auto

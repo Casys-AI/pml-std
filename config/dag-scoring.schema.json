@@ -1,0 +1,472 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentcards.dev/schemas/dag-scoring.schema.json",
+  "title": "DAG Scoring Configuration",
+  "description": "Configuration for DAG suggestion scoring, confidence calculation, and ranking. Used by DAGSuggester.",
+  "type": "object",
+  "properties": {
+    "limits": {
+      "type": "object",
+      "description": "Candidate selection limits at each stage",
+      "properties": {
+        "hybrid_search_candidates": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "default": 10,
+          "description": "Initial candidates from hybrid search"
+        },
+        "ranked_candidates": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20,
+          "default": 5,
+          "description": "Top-k after ranking"
+        },
+        "community_members": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20,
+          "default": 5,
+          "description": "Max community members to consider"
+        },
+        "alternatives": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "default": 3,
+          "description": "Alternative tools from same community"
+        },
+        "replan_candidates": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20,
+          "default": 5,
+          "description": "Candidates for replanning"
+        },
+        "replan_top": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "default": 3,
+          "description": "Top-k for replanning insertion"
+        },
+        "episode_retrieval": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 10,
+          "description": "Historical episodes to retrieve"
+        },
+        "capability_matches": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20,
+          "default": 3,
+          "description": "Capability matches for strategic discovery"
+        },
+        "context_search": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20,
+          "default": 5,
+          "description": "Context-based capability search limit"
+        },
+        "max_path_length": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 10,
+          "default": 4,
+          "description": "Max hops for dependency path extraction"
+        }
+      },
+      "required": ["hybrid_search_candidates", "ranked_candidates", "community_members", "alternatives"],
+      "additionalProperties": false
+    },
+    "weights": {
+      "type": "object",
+      "description": "Signal combination weights",
+      "properties": {
+        "candidate_ranking": {
+          "type": "object",
+          "properties": {
+            "hybrid_score": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.8,
+              "description": "Weight of hybrid score in ranking"
+            },
+            "pagerank": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.2,
+              "description": "Weight of PageRank in ranking"
+            }
+          },
+          "required": ["hybrid_score", "pagerank"],
+          "additionalProperties": false
+        },
+        "confidence_base": {
+          "type": "object",
+          "properties": {
+            "hybrid": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.55
+            },
+            "pagerank": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.30
+            },
+            "path": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.15
+            }
+          },
+          "required": ["hybrid", "pagerank", "path"],
+          "additionalProperties": false
+        },
+        "confidence_scaling": {
+          "type": "object",
+          "properties": {
+            "hybrid_delta": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.30
+            },
+            "pagerank_delta": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.25
+            },
+            "path_delta": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.05
+            }
+          },
+          "required": ["hybrid_delta", "pagerank_delta", "path_delta"],
+          "additionalProperties": false
+        },
+        "pagerank_rationale_threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.01
+        }
+      },
+      "required": ["candidate_ranking", "confidence_base", "confidence_scaling"],
+      "additionalProperties": false
+    },
+    "thresholds": {
+      "type": "object",
+      "description": "Decision boundaries",
+      "properties": {
+        "suggestion_floor": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.50,
+          "description": "Below this: add warning to suggestion"
+        },
+        "dependency_threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.50,
+          "description": "For dependency inference"
+        },
+        "replan_threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.50,
+          "description": "Min confidence for replanning"
+        },
+        "context_search": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.30,
+          "description": "Min overlap for capability search"
+        },
+        "alternative_success_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.70,
+          "description": "Min success rate for alternatives"
+        }
+      },
+      "required": ["suggestion_floor", "dependency_threshold"],
+      "additionalProperties": false
+    },
+    "caps": {
+      "type": "object",
+      "description": "Upper and lower bounds",
+      "properties": {
+        "max_confidence": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 1,
+          "default": 0.95,
+          "description": "Never exceed this confidence"
+        },
+        "edge_confidence_floor": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.30,
+          "description": "Min confidence for edge-based prediction"
+        },
+        "edge_weight_max": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.60,
+          "description": "Max edge weight contribution"
+        },
+        "default_node_confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.60,
+          "description": "Default when no data"
+        },
+        "final_score_minimum": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.40,
+          "description": "Min score for capability injection"
+        }
+      },
+      "required": ["max_confidence", "edge_confidence_floor", "edge_weight_max"],
+      "additionalProperties": false
+    },
+    "hop_confidence": {
+      "type": "object",
+      "description": "Confidence decay by path length",
+      "properties": {
+        "hop_1": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.95
+        },
+        "hop_2": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.80
+        },
+        "hop_3": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.65
+        },
+        "hop_4_plus": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.50
+        }
+      },
+      "required": ["hop_1", "hop_2", "hop_3", "hop_4_plus"],
+      "additionalProperties": false
+    },
+    "community": {
+      "type": "object",
+      "description": "Community-based prediction scoring",
+      "properties": {
+        "base_confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.40
+        },
+        "pagerank_boost_cap": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.20
+        },
+        "edge_weight_boost_cap": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.25
+        },
+        "adamic_adar_boost_cap": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.10
+        }
+      },
+      "required": ["base_confidence", "pagerank_boost_cap", "edge_weight_boost_cap", "adamic_adar_boost_cap"],
+      "additionalProperties": false
+    },
+    "cooccurrence": {
+      "type": "object",
+      "description": "Co-occurrence prediction scoring",
+      "properties": {
+        "count_boost_factor": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.05
+        },
+        "count_boost_cap": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.20
+        },
+        "recency_boost": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.10
+        },
+        "recency_boost_cap": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.10
+        }
+      },
+      "required": ["count_boost_factor", "count_boost_cap", "recency_boost"],
+      "additionalProperties": false
+    },
+    "episodic": {
+      "type": "object",
+      "description": "Episodic learning adjustments",
+      "properties": {
+        "success_boost_factor": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.20
+        },
+        "success_boost_cap": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.15
+        },
+        "failure_penalty_factor": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.25
+        },
+        "failure_penalty_cap": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.15
+        },
+        "failure_exclusion_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.50
+        },
+        "adjustment_log_threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.01
+        }
+      },
+      "required": ["success_boost_factor", "success_boost_cap", "failure_penalty_factor", "failure_penalty_cap", "failure_exclusion_rate"],
+      "additionalProperties": false
+    },
+    "alternatives": {
+      "type": "object",
+      "description": "Alternative capability scoring",
+      "properties": {
+        "score_multiplier": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.90
+        },
+        "penalty_factor": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.90
+        }
+      },
+      "required": ["score_multiplier"],
+      "additionalProperties": false
+    },
+    "capability": {
+      "type": "object",
+      "description": "Capability confidence mapping",
+      "properties": {
+        "confidence_floor": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.40
+        },
+        "confidence_ceiling": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.85
+        },
+        "score_scaling": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.30
+        }
+      },
+      "required": ["confidence_floor", "confidence_ceiling", "score_scaling"],
+      "additionalProperties": false
+    },
+    "defaults": {
+      "type": "object",
+      "description": "Fallback values",
+      "properties": {
+        "alpha": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.75
+        },
+        "path_confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.50
+        },
+        "pagerank_weight": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.30
+        }
+      },
+      "required": ["alpha", "path_confidence"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["limits", "weights", "thresholds", "caps", "hop_confidence", "community", "cooccurrence", "episodic", "capability", "defaults"],
+  "additionalProperties": false
+}

@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=spectral-clustering.schema.json
+# Spectral Clustering Configuration
+#
+# Controls bipartite graph clustering for tool-capability relationships.
+# Used by SpectralClusteringManager for Strategic Discovery Mode (ADR-038).
+#
+# Story 7.4: Spectral Clustering, ADR-042: Capability Dependencies
+
+# =============================================================================
+# EDGE TYPE WEIGHTS
+# =============================================================================
+# Weights for capability-to-capability edges based on relationship type.
+# Higher weight = stronger clustering affinity.
+
+edge_weights:
+  dependency: 1.0       # Direct dependency (strongest connection)
+  contains: 0.8         # Meta-capability containing sub-capabilities
+  alternative: 0.6      # Interchangeable capabilities
+  sequence: 0.5         # Sequential workflow relationship
+
+# =============================================================================
+# CACHE SETTINGS
+# =============================================================================
+# TTL-based caching to avoid O(n³) recomputation on every DAG suggestion.
+# Issue #7 fix.
+
+cache:
+  ttl_minutes: 5        # Cache time-to-live in minutes
+
+# =============================================================================
+# EDGE FILTERING
+# =============================================================================
+# Thresholds for including edges in the clustering graph.
+
+edges:
+  min_confidence: 0.3   # Min confidence score to include cap→cap edge
+
+# =============================================================================
+# CLUSTER DETECTION
+# =============================================================================
+# Parameters for automatic cluster count detection using eigengap heuristic.
+
+cluster_detection:
+  max_eigenvalues: 10   # Max eigenvalues to examine for eigengap
+  min_clusters: 2       # Minimum number of clusters
+  max_clusters: 5       # Maximum number of clusters
+
+# =============================================================================
+# K-MEANS CLUSTERING
+# =============================================================================
+# Parameters for the K-means algorithm used on spectral embeddings.
+
+kmeans:
+  max_iterations: 100   # Maximum K-means iterations
+
+# =============================================================================
+# CLUSTER BOOST
+# =============================================================================
+# Boost factors for capabilities in active cluster (AC#3).
+# Applied when a capability is in the same cluster as context tools.
+
+cluster_boost:
+  same_cluster: 0.5     # Full boost for capability in same cluster as context
+  partial_multiplier: 0.25  # Multiplier for partial overlap (tools in cluster / total)
+
+# =============================================================================
+# PAGERANK
+# =============================================================================
+# Hypergraph PageRank parameters for capability importance scoring (AC#3b).
+
+pagerank:
+  damping_factor: 0.85  # Standard PageRank damping (1 - teleport probability)
+  max_iterations: 100   # Maximum power iteration steps
+  convergence_threshold: 0.000001  # Stop when change < this (1e-6)

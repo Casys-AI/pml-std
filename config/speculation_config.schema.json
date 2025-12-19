@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentcards.dev/schemas/speculation_config.schema.json",
+  "title": "Speculation Configuration",
+  "description": "Configuration for speculative execution behavior (Story 3.5-2, ADR-006)",
+  "type": "object",
+  "properties": {
+    "enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable/disable speculation globally"
+    },
+    "confidence_threshold": {
+      "type": "number",
+      "minimum": 0.40,
+      "maximum": 0.90,
+      "default": 0.70,
+      "description": "Minimum confidence for speculation. Higher = more conservative."
+    },
+    "max_concurrent_speculations": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10,
+      "default": 3,
+      "description": "Maximum concurrent speculations (resource limit)"
+    },
+    "speculation_timeout": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 300000,
+      "default": 10000,
+      "description": "Speculation timeout in milliseconds"
+    },
+    "adaptive": {
+      "type": "object",
+      "description": "Adaptive threshold settings",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable auto-adjustment of threshold based on hit/miss ratio"
+        },
+        "min_threshold": {
+          "type": "number",
+          "minimum": 0.40,
+          "maximum": 0.90,
+          "default": 0.40,
+          "description": "Minimum allowed threshold (ADR-006)"
+        },
+        "max_threshold": {
+          "type": "number",
+          "minimum": 0.40,
+          "maximum": 0.90,
+          "default": 0.90,
+          "description": "Maximum allowed threshold (ADR-006)"
+        }
+      },
+      "required": ["enabled", "min_threshold", "max_threshold"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["enabled", "confidence_threshold", "max_concurrent_speculations", "speculation_timeout", "adaptive"],
+  "additionalProperties": false
+}
