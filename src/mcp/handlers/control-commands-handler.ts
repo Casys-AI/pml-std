@@ -38,53 +38,7 @@ import {
   type ExecutorContext,
 } from "../../dag/execution/workerbridge-executor.ts";
 import type { ToolDefinition } from "../../sandbox/types.ts";
-import type { DAGStructure } from "../../graphrag/types.ts";
-
-/**
- * Build tool definitions from DAG tasks for WorkerBridge context
- *
- * Story 10.5 AC10: Extract tool definitions for RPC tracing.
- */
-async function buildToolDefinitionsFromDAG(
-  dag: DAGStructure,
-  deps: WorkflowHandlerDependencies,
-): Promise<ToolDefinition[]> {
-  const toolDefs: ToolDefinition[] = [];
-  const seenTools = new Set<string>();
-
-  for (const task of dag.tasks) {
-    if (!task.tool || seenTools.has(task.tool)) continue;
-    seenTools.add(task.tool);
-
-    const [serverId, toolName] = task.tool.split(":");
-    if (!serverId || !toolName) continue;
-
-    const client = deps.mcpClients.get(serverId);
-    if (!client) continue;
-
-    try {
-      const tools = await client.listTools();
-      const toolSchema = tools.find((t) => t.name === toolName);
-      if (toolSchema) {
-        toolDefs.push({
-          server: serverId,
-          name: toolName,
-          description: toolSchema.description ?? "",
-          inputSchema: toolSchema.inputSchema as Record<string, unknown>,
-        });
-      }
-    } catch {
-      toolDefs.push({
-        server: serverId,
-        name: toolName,
-        description: "",
-        inputSchema: {},
-      });
-    }
-  }
-
-  return toolDefs;
-}
+import { buildToolDefinitionsFromDAG } from "./shared/tool-definitions.ts";
 
 /**
  * Create tool executor using WorkerBridge for 100% traceability

@@ -338,7 +338,7 @@ export function createServeCommand() {
           capabilityStore,
           adaptiveThresholdManager,
           {
-            name: "cai",
+            name: "pml",
             version: "1.0.0",
             enableSpeculative: options.speculative,
             defaultToolLimit: 10,
@@ -352,6 +352,7 @@ export function createServeCommand() {
               persistence: false,
             },
           },
+          embeddingModel, // Story 10.7: Pass for SHGAT scoring
         );
 
         // Connect gateway to tool tracking callback (Story 3.7)

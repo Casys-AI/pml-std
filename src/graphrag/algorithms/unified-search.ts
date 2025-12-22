@@ -18,6 +18,7 @@
  */
 
 import { computeGraphRelatedness } from "./adamic-adar.ts";
+import type { LocalAlphaCalculator, NodeType } from "../local-alpha.ts";
 
 /**
  * Node type in the unified hypergraph
@@ -47,11 +48,15 @@ export interface UnifiedSearchGraph {
   order: number;
   size: number;
   hasNode(nodeId: string): boolean;
+  hasEdge(source: string, target: string): boolean;
   neighbors(nodeId: string): string[];
   inNeighbors(nodeId: string): string[];
   outNeighbors(nodeId: string): string[];
   degree(nodeId: string): number;
   getEdgeAttributes(source: string, target: string): Record<string, unknown>;
+  // ADR-048: Additional methods for LocalAlphaCalculator compatibility
+  getEdgeAttribute?(source: string, target: string, name: string): number | undefined;
+  forEachNode?(callback: (node: string) => void): void;
 }
 
 /**
@@ -81,8 +86,12 @@ export interface UnifiedSearchOptions {
   minScore?: number;
   /** Context nodes for graph relatedness */
   contextNodes?: string[];
-  /** Override alpha (0-1), otherwise calculated adaptively */
+  /** Override alpha (0-1), otherwise calculated adaptively. Takes precedence over localAlphaCalculator. */
   alpha?: number;
+  /** LocalAlphaCalculator for per-node alpha (ADR-048). Used when alpha is not set. */
+  localAlphaCalculator?: LocalAlphaCalculator | null;
+  /** Alpha mode for LocalAlphaCalculator: 'active' uses EmbeddingsHybrides, 'passive' uses HeatDiffusion */
+  alphaMode?: "active" | "passive";
   /** Reliability thresholds */
   reliability?: ReliabilityConfig;
   /** Transitive reliability lookup (for capabilities with dependencies) */
@@ -112,6 +121,14 @@ export const DEFAULT_RELIABILITY_CONFIG: ReliabilityConfig = {
   boostThreshold: 0.9,
   boostFactor: 1.2,
 };
+
+/**
+ * Global score cap (ADR-038)
+ *
+ * Prevents any single result from dominating by capping final scores.
+ * This ensures diverse results and prevents over-confidence.
+ */
+export const GLOBAL_SCORE_CAP = 0.95;
 
 /**
  * Unified search result
@@ -194,7 +211,7 @@ export function computeUnifiedScore(
 ): ScoreBreakdown {
   const hybridBeforeReliability = alpha * semanticScore + (1 - alpha) * graphScore;
   const combinedReliability = reliabilityFactor * transitiveReliability;
-  const final = Math.min(hybridBeforeReliability * combinedReliability, 0.95); // Cap at 0.95
+  const final = Math.min(hybridBeforeReliability * combinedReliability, GLOBAL_SCORE_CAP);
 
   return {
     semantic: semanticScore,
@@ -239,6 +256,7 @@ export async function unifiedSearch(
     minScore = 0.5,
     contextNodes = [],
     alpha: overrideAlpha,
+    localAlphaCalculator,
     reliability = DEFAULT_RELIABILITY_CONFIG,
     getTransitiveReliability,
   } = options;
@@ -252,8 +270,8 @@ export async function unifiedSearch(
     return [];
   }
 
-  // 2. Calculate adaptive alpha (or use override)
-  const alpha = overrideAlpha ?? calculateAdaptiveAlpha(graph);
+  // 2. Calculate global alpha as fallback (used if no localAlphaCalculator and no override)
+  const globalAlpha = overrideAlpha ?? calculateAdaptiveAlpha(graph);
 
   // 3. Score each candidate
   const results: UnifiedSearchResult[] = [];
@@ -274,11 +292,19 @@ export async function unifiedSearch(
       transitiveReliability = await getTransitiveReliability(nodeId);
     }
 
+    // ADR-048: Use local alpha per node if LocalAlphaCalculator is available
+    let nodeAlpha = globalAlpha;
+    if (overrideAlpha === undefined && localAlphaCalculator) {
+      // Map UnifiedNodeType to NodeType for LocalAlphaCalculator
+      const nodeType: NodeType = node.type === "tool" ? "tool" : "capability";
+      nodeAlpha = localAlphaCalculator.getLocalAlpha("active", nodeId, nodeType, contextNodes);
+    }
+
     // Compute unified score
     const breakdown = computeUnifiedScore(
       semanticScore,
       graphScore,
-      alpha,
+      nodeAlpha,
       reliabilityFactor,
       transitiveReliability
     );
@@ -291,7 +317,7 @@ export async function unifiedSearch(
       semanticScore: Math.round(semanticScore * 100) / 100,
       graphScore: Math.round(graphScore * 100) / 100,
       reliabilityFactor: Math.round(breakdown.reliabilityFactor * breakdown.transitiveReliability * 100) / 100,
-      alpha: Math.round(alpha * 100) / 100,
+      alpha: Math.round(nodeAlpha * 100) / 100,
       finalScore: Math.round(breakdown.final * 100) / 100,
       serverId: node.serverId,
     });
@@ -361,6 +387,8 @@ export function createMockGraph(
     order: allNodes.size,
     size: edges.length,
     hasNode: (nodeId: string) => allNodes.has(nodeId),
+    hasEdge: (source: string, target: string) =>
+      adjacency.get(source)?.has(target) || false,
     neighbors: (nodeId: string) => [
       ...(adjacency.get(nodeId) || []),
       ...(reverseAdjacency.get(nodeId) || []),
@@ -372,5 +400,13 @@ export function createMockGraph(
     getEdgeAttributes: (source: string, target: string) => ({
       weight: edgeWeights.get(`${source}:${target}`) || 0,
     }),
+    // ADR-048: Additional methods for LocalAlphaCalculator compatibility
+    getEdgeAttribute: (source: string, target: string, name: string) => {
+      if (name === "weight") return edgeWeights.get(`${source}:${target}`);
+      return undefined;
+    },
+    forEachNode: (callback: (node: string) => void) => {
+      for (const node of allNodes) callback(node);
+    },
   };
 }

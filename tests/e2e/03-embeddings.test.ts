@@ -40,7 +40,7 @@ Deno.test({
         await storeSchemas(db, "filesystem", tools);
 
         const result = await db.query(
-          `SELECT COUNT(*) as count FROM mcp_tool`,
+          `SELECT COUNT(*) as count FROM tool_schema`,
         );
         assert(result[0].count > 0, "Tools should be stored");
       });
@@ -131,7 +131,7 @@ Deno.test({
         );
 
         const toolCount = await db.query(
-          `SELECT COUNT(*) as count FROM mcp_tool`,
+          `SELECT COUNT(*) as count FROM tool_schema`,
         );
 
         assertEquals(
@@ -145,20 +145,21 @@ Deno.test({
         // Clear existing embeddings
         await db.query(`DELETE FROM tool_embedding`);
 
-        // Add more tools
+        // Add more tools using tool_schema
         for (let i = 0; i < 10; i++) {
+          const toolId = `test-server:test_tool_${i}`;
           await db.query(
             `
-          INSERT INTO mcp_tool (server_id, tool_name, tool_schema)
-          VALUES ($1, $2, $3)
+          INSERT INTO tool_schema (tool_id, server_id, name, description, input_schema)
+          VALUES ($1, $2, $3, $4, $5)
+          ON CONFLICT (tool_id) DO UPDATE SET description = EXCLUDED.description
         `,
             [
+              toolId,
               "test-server",
               `test_tool_${i}`,
-              JSON.stringify({
-                name: `test_tool_${i}`,
-                description: `Test tool number ${i} for testing`,
-              }),
+              `Test tool number ${i} for testing`,
+              JSON.stringify({ type: "object" }),
             ],
           );
         }

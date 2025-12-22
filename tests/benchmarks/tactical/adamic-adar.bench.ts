@@ -4,6 +4,14 @@
  * Benchmarks for Adamic-Adar similarity computation.
  * Tests pairwise and batch similarity calculations.
  *
+ * NOTE (ADR-050): Adamic-Adar is NO LONGER used in Search mode (no context).
+ * It is only relevant for Prediction mode where context nodes are available.
+ * In Search mode, the formula is now: score = semantic × reliability
+ *
+ * See:
+ * - ADR-050: Unified Search Simplification
+ * - shgat-drdsp-prediction.bench.ts for Prediction benchmarks
+ *
  * Run: deno bench --allow-all tests/benchmarks/tactical/adamic-adar.bench.ts
  *
  * @module tests/benchmarks/tactical/adamic-adar

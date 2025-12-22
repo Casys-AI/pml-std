@@ -253,11 +253,12 @@ function mapEdgeData(edge: GraphEdge): Record<string, unknown> {
  *
  * Query params:
  * - include_tools: Include tool nodes (default: true)
+ * - include_orphans: Include orphan tools with no parent capabilities (default: false for perf)
  * - min_success_rate: Filter by minimum success rate (0-1)
  * - min_usage: Filter by minimum usage count
  */
 export async function handleGraphHypergraph(
-  _req: Request,
+  req: Request,
   url: URL,
   ctx: RouteContext,
   corsHeaders: Record<string, string>,
@@ -274,6 +275,10 @@ export async function handleGraphHypergraph(
     if (includeToolsParam !== null) {
       options.includeTools = includeToolsParam === "true";
     }
+
+    // Performance: Default to false to avoid sending 450+ orphan tool nodes
+    const includeOrphansParam = url.searchParams.get("include_orphans");
+    options.includeOrphans = includeOrphansParam === "true"; // Default false for perf
 
     const minSuccessRateParam = url.searchParams.get("min_success_rate");
     if (minSuccessRateParam) {
@@ -316,11 +321,44 @@ export async function handleGraphHypergraph(
       },
     };
 
-    return jsonResponse(response, 200, corsHeaders);
+    // Generate ETag from response content hash for caching
+    const responseBody = JSON.stringify(response);
+    const etag = `"${await generateETag(responseBody)}"`;
+
+    // Check If-None-Match header for conditional GET
+    const ifNoneMatch = req.headers.get("If-None-Match");
+    if (ifNoneMatch === etag) {
+      return new Response(null, {
+        status: 304,
+        headers: { ...corsHeaders, "ETag": etag },
+      });
+    }
+
+    return new Response(responseBody, {
+      status: 200,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json",
+        "ETag": etag,
+        "Cache-Control": "private, max-age=5", // 5s cache, revalidate with ETag
+      },
+    });
   } catch (error) {
     log.error(`Hypergraph generation failed: ${error}`);
     return errorResponse(`Failed to build hypergraph: ${error}`, 500, corsHeaders);
   }
+}
+
+/**
+ * Generate a short ETag hash from response body
+ */
+async function generateETag(body: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(body);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  // Use first 16 bytes for shorter ETag
+  return hashArray.slice(0, 16).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
 /**

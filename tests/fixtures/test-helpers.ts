@@ -113,6 +113,8 @@ interface ToolSchema {
 /**
  * Store mock tool schemas in database
  *
+ * Story 11.0: Now uses tool_schema only (mcp_tool removed)
+ *
  * @param db - Database instance
  * @param serverId - MCP server ID
  * @param schemas - Tool schemas to store
@@ -125,18 +127,7 @@ export async function storeSchemas(
   for (const schema of schemas) {
     const toolId = `${serverId}:${schema.name}`;
 
-    // Insert into mcp_tool table (for compatibility)
-    await db.query(
-      `
-      INSERT INTO mcp_tool (server_id, tool_name, tool_schema)
-      VALUES ($1, $2, $3)
-      ON CONFLICT (server_id, tool_name)
-      DO UPDATE SET tool_schema = EXCLUDED.tool_schema
-    `,
-      [serverId, schema.name, JSON.stringify(schema)],
-    );
-
-    // Insert into tool_schema table (for VectorSearch)
+    // Insert into tool_schema table (unified table for all tool storage)
     await db.query(
       `
       INSERT INTO tool_schema (tool_id, server_id, name, description, input_schema)

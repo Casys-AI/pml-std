@@ -114,7 +114,7 @@ Deno.test("E2E 07: MCP gateway integration", async (t) => {
 
     await t.step("8. Test tool filtering by server", async () => {
       const allToolsResult = await db.query(
-        `SELECT DISTINCT server_id FROM mcp_tool`,
+        `SELECT DISTINCT server_id FROM tool_schema`,
       );
 
       const serverIds = allToolsResult.map((r: any) => r.server_id);

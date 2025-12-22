@@ -4,9 +4,14 @@
  * Unified discovery API for tools and capabilities.
  * Implements Active Search mode from ADR-038.
  *
- * Algorithms used:
- * - Tools: Hybrid Search (α × semantic + (1-α) × graph)
- * - Capabilities: Capability Match (semantic × reliabilityFactor)
+ * Algorithm (AC12-13 Unified Scoring Formula):
+ * score = semanticScore × reliabilityFactor
+ *
+ * This simplifies the formula for pml_discover (search without context)
+ * where graph relatedness (Adamic-Adar) returns 0 anyway.
+ *
+ * For tools: successRate defaults to 1.0 (cold start favorable)
+ * For capabilities: successRate from capability.successRate
  *
  * @module mcp/handlers/discover-handler
  */
@@ -20,6 +25,12 @@ import { formatMCPSuccess } from "../server/responses.ts";
 import { addBreadcrumb, captureError, startTransaction } from "../../telemetry/sentry.ts";
 import type { HybridSearchResult } from "../../graphrag/types.ts";
 import type { CapabilityMatch } from "../../capabilities/types.ts";
+import {
+  calculateReliabilityFactor,
+  DEFAULT_RELIABILITY_CONFIG,
+  GLOBAL_SCORE_CAP,
+  type ReliabilityConfig,
+} from "../../graphrag/algorithms/unified-search.ts";
 
 /**
  * Discover request arguments
@@ -71,10 +82,34 @@ interface DiscoverResponse {
   meta: {
     query: string;
     filter_type: string;
-    total_found: number;
+    total_found: number;      // Total matches before limit
+    returned_count: number;   // Actual results returned after limit
     tools_count: number;
     capabilities_count: number;
   };
+}
+
+/**
+ * Compute unified discover score (AC12-13)
+ *
+ * Formula: score = semanticScore × reliabilityFactor
+ *
+ * This is the simplified formula for pml_discover (Active Search without context).
+ * Graph relatedness (Adamic-Adar) is not used because contextNodes is empty.
+ *
+ * @param semanticScore - Vector similarity score (0-1)
+ * @param successRate - Success rate (0-1), defaults to 1.0 for tools
+ * @param config - Reliability thresholds configuration
+ * @returns Final score capped at 0.95
+ */
+export function computeDiscoverScore(
+  semanticScore: number,
+  successRate: number = 1.0,
+  config: ReliabilityConfig = DEFAULT_RELIABILITY_CONFIG,
+): number {
+  const reliabilityFactor = calculateReliabilityFactor(successRate, config);
+  const rawScore = semanticScore * reliabilityFactor;
+  return Math.min(rawScore, GLOBAL_SCORE_CAP);
 }
 
 /**
@@ -100,14 +135,14 @@ export async function handleDiscover(
   try {
     const params = args as DiscoverArgs;
 
-    // Validate required intent parameter
-    if (!params.intent || typeof params.intent !== "string") {
+    // Validate required intent parameter (must be non-empty string)
+    if (!params.intent || typeof params.intent !== "string" || !params.intent.trim()) {
       transaction.finish();
       return {
         content: [{
           type: "text",
           text: JSON.stringify({
-            error: "Missing required parameter: 'intent'",
+            error: "Missing or empty required parameter: 'intent'",
           }),
         }],
       };
@@ -116,7 +151,7 @@ export async function handleDiscover(
     const intent = params.intent;
     const filterType = params.filter?.type ?? "all";
     const minScore = params.filter?.minScore ?? 0.0;
-    const limit = Math.min(params.limit ?? 10, 50); // Max 50
+    const limit = Math.min(params.limit ?? 1, 50); // Default 1, Max 50
     const includeRelated = params.include_related ?? false;
 
     transaction.setData("intent", intent);
@@ -167,7 +202,8 @@ export async function handleDiscover(
       meta: {
         query: intent,
         filter_type: filterType,
-        total_found: results.length,
+        total_found: results.length,  // Before limit
+        returned_count: limitedResults.length,  // After limit
         tools_count: toolsCount,
         capabilities_count: capabilitiesCount,
       },
@@ -199,7 +235,13 @@ export async function handleDiscover(
 }
 
 /**
- * Search tools using hybrid search (ADR-038 §2.1)
+ * Search tools using unified scoring (AC12-13)
+ *
+ * For pml_discover (Active Search without context), we use simplified formula:
+ * score = semanticScore × reliabilityFactor
+ *
+ * Tools default to successRate=1.0 (cold start favorable).
+ * Graph relatedness is not used since contextNodes is empty.
  */
 async function searchTools(
   intent: string,
@@ -212,17 +254,22 @@ async function searchTools(
     vectorSearch,
     intent,
     limit,
-    [], // contextTools - could be enhanced later
+    [], // contextTools - empty for pml_discover
     includeRelated,
   );
 
   return hybridResults.map((result) => {
+    // AC12: Apply unified formula: score = semantic × reliability
+    // Tools don't have successRate yet, default to 1.0 (cold start favorable)
+    const toolSuccessRate = 1.0;
+    const unifiedScore = computeDiscoverScore(result.semanticScore, toolSuccessRate);
+
     const item: DiscoverResultItem = {
       type: "tool",
       id: result.toolId,
       name: extractToolName(result.toolId),
       description: result.description,
-      score: result.finalScore,
+      score: unifiedScore, // Use unified score instead of finalScore
       server_id: result.serverId,
       input_schema: result.schema?.inputSchema as Record<string, unknown> | undefined,
     };
@@ -241,7 +288,15 @@ async function searchTools(
 }
 
 /**
- * Search capabilities using capability matcher (ADR-038 §3.1)
+ * Search capabilities using CapabilityMatcher (AC12-13)
+ *
+ * The CapabilityMatcher already applies the unified formula:
+ * score = semanticScore × reliabilityFactor × transitiveReliability
+ *
+ * Transitive reliability (ADR-042 §3) propagates through dependencies:
+ * if A depends on B, A's reliability = min(A.successRate, B.successRate)
+ *
+ * We use match.score directly which includes all reliability factors.
  */
 async function searchCapability(
   intent: string,
@@ -253,12 +308,15 @@ async function searchCapability(
     return null;
   }
 
+  // AC12-13: CapabilityMatcher.findMatch() already computes:
+  // score = semanticScore × reliabilityFactor × transitiveReliability
+  // See matcher.ts:187-188 and computeTransitiveReliability() for implementation
   return {
     type: "capability",
     id: match.capability.id,
     name: match.capability.name ?? match.capability.id.substring(0, 8),
     description: match.capability.description ?? "Learned capability",
-    score: match.score,
+    score: match.score, // Already includes reliability + transitive
     code_snippet: match.capability.codeSnippet,
     success_rate: match.capability.successRate,
     usage_count: match.capability.usageCount,

@@ -391,15 +391,24 @@ export class DenoSandboxExecutor {
       const intent = context?.intent as string | undefined;
       if (this.capabilityStore && intent) {
         try {
-          await this.capabilityStore.saveCapability({
+          const { trace } = await this.capabilityStore.saveCapability({
             code,
             intent,
             durationMs: Math.round(executionTimeMs),
             success: true,
             toolsUsed: [], // No tools in basic execute()
+            // Story 11.2: Include traceData for execution trace persistence
+            traceData: {
+              initialContext: (context ?? {}) as Record<string, import("../capabilities/types.ts").JsonValue>,
+              executedPath: [], // No tool traces in basic execute()
+              decisions: [],
+              taskResults: [], // No tools in basic execute()
+              userId: (context?.userId as string) ?? "local",
+            },
           });
           logger.debug("Capability saved via eager learning (execute)", {
             intent: intent.substring(0, 50),
+            traceId: trace?.id,
           });
         } catch (capError) {
           // Don't fail execution if capability storage fails

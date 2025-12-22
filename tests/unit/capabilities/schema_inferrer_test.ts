@@ -301,14 +301,8 @@ Deno.test("SchemaInferrer - unknown type fallback", async () => {
 Deno.test("SchemaInferrer - infer type from MCP tool schema in DB", async () => {
   const db = await setupTestDb();
 
-  // Insert mock MCP server first
-  await db.query(
-    `INSERT INTO mcp_server (server_id, server_name)
-     VALUES ($1, $2)`,
-    ["test-server", "Test Server"],
-  );
-
-  // Insert mock tool schema (simulates real MCP tool)
+  // Insert mock tool schema directly (mcp_server table was removed in migration 019)
+  // tool_schema.server_id is just a TEXT field without FK constraint
   await db.query(
     `INSERT INTO tool_schema (server_id, tool_id, name, input_schema)
      VALUES ($1, $2, $3, $4)`,
@@ -439,7 +433,7 @@ Deno.test({
     if (args.debug === true) console.log(content);
   `;
 
-  const capability = await store.saveCapability({
+  const { capability } = await store.saveCapability({
     code,
     intent: "Read file with debug option",
     durationMs: 100,

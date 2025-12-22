@@ -2,6 +2,7 @@
  * E2E Test 01: Initialization and Migrations
  *
  * Tests database initialization, migrations, and schema setup.
+ * Story 11.0: Updated to use tool_schema instead of mcp_tool/mcp_server.
  */
 
 import { assert, assertEquals } from "jsr:@std/assert@1";
@@ -22,27 +23,17 @@ Deno.test("E2E 01: Database initialization and migrations", async (t) => {
       assert(db, "Database should be initialized");
     });
 
-    await t.step("3. Verify mcp_server table exists", async () => {
+    await t.step("3. Verify tool_schema table exists", async () => {
       const result = await db.query(`
         SELECT EXISTS (
           SELECT FROM information_schema.tables
-          WHERE table_name = 'mcp_server'
+          WHERE table_name = 'tool_schema'
         )
       `);
       assertEquals(result[0].exists, true);
     });
 
-    await t.step("4. Verify mcp_tool table exists", async () => {
-      const result = await db.query(`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables
-          WHERE table_name = 'mcp_tool'
-        )
-      `);
-      assertEquals(result[0].exists, true);
-    });
-
-    await t.step("5. Verify tool_embedding table exists", async () => {
+    await t.step("4. Verify tool_embedding table exists", async () => {
       const result = await db.query(`
         SELECT EXISTS (
           SELECT FROM information_schema.tables
@@ -52,7 +43,7 @@ Deno.test("E2E 01: Database initialization and migrations", async (t) => {
       assertEquals(result[0].exists, true);
     });
 
-    await t.step("6. Verify pgvector extension is enabled", async () => {
+    await t.step("5. Verify pgvector extension is enabled", async () => {
       const result = await db.query(`
         SELECT EXISTS (
           SELECT FROM pg_extension
@@ -62,7 +53,7 @@ Deno.test("E2E 01: Database initialization and migrations", async (t) => {
       assertEquals(result[0].exists, true);
     });
 
-    await t.step("7. Verify HNSW index exists on embeddings", async () => {
+    await t.step("6. Verify HNSW index exists on embeddings", async () => {
       const result = await db.query(`
         SELECT indexname
         FROM pg_indexes
@@ -72,56 +63,34 @@ Deno.test("E2E 01: Database initialization and migrations", async (t) => {
       assert(result.length > 0, "HNSW index should exist");
     });
 
-    await t.step("8. Test basic insert into mcp_server", async () => {
+    await t.step("7. Test basic insert into tool_schema", async () => {
+      const toolId = "test-server:test_tool";
       await db.query(
         `
-        INSERT INTO mcp_server (server_id, server_name, connection_info)
-        VALUES ($1, $2, $3)
-      `,
-        ["test-server", "Test Server", JSON.stringify({ test: true })],
-      );
-
-      const result = await db.query(
-        `SELECT * FROM mcp_server WHERE server_id = $1`,
-        ["test-server"],
-      );
-
-      assertEquals(result.length, 1);
-      assertEquals(result[0].server_id, "test-server");
-    });
-
-    await t.step("9. Test basic insert into mcp_tool", async () => {
-      await db.query(
-        `
-        INSERT INTO mcp_tool (server_id, tool_name, tool_schema)
-        VALUES ($1, $2, $3)
+        INSERT INTO tool_schema (tool_id, server_id, name, description, input_schema)
+        VALUES ($1, $2, $3, $4, $5)
       `,
         [
+          toolId,
           "test-server",
           "test_tool",
-          JSON.stringify({
-            name: "test_tool",
-            description: "A test tool",
-          }),
+          "A test tool",
+          JSON.stringify({ type: "object" }),
         ],
       );
 
       const result = await db.query(
-        `SELECT * FROM mcp_tool WHERE tool_name = $1`,
-        ["test_tool"],
+        `SELECT * FROM tool_schema WHERE tool_id = $1`,
+        [toolId],
       );
 
       assertEquals(result.length, 1);
-      assertEquals(result[0].tool_name, "test_tool");
+      assertEquals(result[0].name, "test_tool");
+      assertEquals(result[0].server_id, "test-server");
     });
 
-    await t.step("10. Test vector insert into tool_embedding", async () => {
-      // Get tool ID
-      const toolResult = await db.query(
-        `SELECT id FROM mcp_tool WHERE tool_name = $1`,
-        ["test_tool"],
-      );
-      const toolId = toolResult[0].id;
+    await t.step("8. Test vector insert into tool_embedding", async () => {
+      const toolId = "test-server:test_tool";
 
       // Create a test vector (1024 dimensions for BGE-M3)
       const testVector = Array(1024).fill(0).map((_, i) => i / 1024);
@@ -141,6 +110,26 @@ Deno.test("E2E 01: Database initialization and migrations", async (t) => {
 
       assertEquals(result.length, 1);
       assert(result[0].embedding, "Embedding should be stored");
+    });
+
+    await t.step("9. Verify tool_dependency table exists", async () => {
+      const result = await db.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables
+          WHERE table_name = 'tool_dependency'
+        )
+      `);
+      assertEquals(result[0].exists, true);
+    });
+
+    await t.step("10. Verify workflow_pattern table exists", async () => {
+      const result = await db.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables
+          WHERE table_name = 'workflow_pattern'
+        )
+      `);
+      assertEquals(result[0].exists, true);
     });
   } finally {
     // Cleanup

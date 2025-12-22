@@ -36,17 +36,41 @@ import type { GraphSnapshot } from "./core/graph-store.ts";
 export type { GraphSnapshot };
 
 // Extracted modules
-import { computePageRank, getTopPageRankNodes, getAveragePageRank } from "./algorithms/pagerank.ts";
-import { detectCommunities, findCommunityMembers as findCommunityMembersAlgo, getCommunityCount } from "./algorithms/louvain.ts";
+import { computePageRank, getAveragePageRank, getTopPageRankNodes } from "./algorithms/pagerank.ts";
+import {
+  detectCommunities,
+  findCommunityMembers as findCommunityMembersAlgo,
+  getCommunityCount,
+} from "./algorithms/louvain.ts";
 import { findShortestPath } from "./algorithms/pathfinding.ts";
 import { buildDAG as buildDAGFromGraph } from "./dag/builder.ts";
-import { updateFromCodeExecution as updateFromCodeExecutionImpl, createOrUpdateEdge } from "./dag/execution-learning.ts";
-import { computeAdamicAdar, adamicAdarBetween, computeGraphRelatedness, getNeighbors } from "./algorithms/adamic-adar.ts";
-import { getEdgeWeight, EDGE_TYPE_WEIGHTS, EDGE_SOURCE_MODIFIERS } from "./algorithms/edge-weights.ts";
-import { syncGraphFromDatabase, persistEdgesToDatabase, persistWorkflowExecution } from "./sync/db-sync.ts";
+import {
+  createOrUpdateEdge,
+  updateFromCodeExecution as updateFromCodeExecutionImpl,
+} from "./dag/execution-learning.ts";
+import {
+  adamicAdarBetween,
+  computeAdamicAdar,
+  computeGraphRelatedness,
+  getNeighbors,
+} from "./algorithms/adamic-adar.ts";
+import {
+  EDGE_SOURCE_MODIFIERS,
+  EDGE_TYPE_WEIGHTS,
+  getEdgeWeight,
+} from "./algorithms/edge-weights.ts";
+import {
+  persistEdgesToDatabase,
+  persistWorkflowExecution,
+  syncGraphFromDatabase,
+} from "./sync/db-sync.ts";
 import { GraphEventEmitter } from "./sync/event-emitter.ts";
-import { searchToolsHybrid as hybridSearch, calculateAdaptiveAlpha, calculateGraphDensity } from "./search/hybrid-search.ts";
-import { searchToolsForAutocomplete, parseToolId } from "./search/autocomplete.ts";
+import {
+  calculateAdaptiveAlpha,
+  calculateGraphDensity,
+  searchToolsHybrid as hybridSearch,
+} from "./search/hybrid-search.ts";
+import { parseToolId, searchToolsForAutocomplete } from "./search/autocomplete.ts";
 import { collectMetrics } from "./metrics/collector.ts";
 import { LocalAlphaCalculator, type NodeType } from "./local-alpha.ts";
 
@@ -148,6 +172,28 @@ export class GraphRAGEngine {
     return findCommunityMembersAlgo(this.communities, toolId);
   }
 
+  // === Tool Metadata ===
+
+  /**
+   * Get tool node metadata (name, serverId, metadata including schema)
+   */
+  getToolNode(
+    toolId: string,
+  ):
+    | { name: string; serverId: string; description: string; schema?: { inputSchema?: unknown } }
+    | null {
+    if (!this.graph.hasNode(toolId)) return null;
+    const attrs = this.graph.getNodeAttributes(toolId);
+    // Extract description from metadata or generate from tool name
+    const metadata = attrs.metadata as Record<string, unknown> | undefined;
+    return {
+      name: attrs.name as string ?? toolId.split(":")[1] ?? toolId,
+      serverId: attrs.serverId as string ?? toolId.split(":")[0] ?? "unknown",
+      description: (metadata?.description as string) ?? `Tool: ${attrs.name ?? toolId}`,
+      schema: metadata?.schema as { inputSchema?: unknown } | undefined,
+    };
+  }
+
   // === Edge Weights (ADR-041) ===
 
   getEdgeWeight(edgeType: string, edgeSource: string): number {
@@ -177,7 +223,13 @@ export class GraphRAGEngine {
         const depTask = execution.dagStructure.tasks.find((t: Task) => t.id === depTaskId);
         if (!depTask || depTask.tool === task.tool) continue;
 
-        await createOrUpdateEdge(this.graph, depTask.tool, task.tool, "dependency", this.eventEmitter);
+        await createOrUpdateEdge(
+          this.graph,
+          depTask.tool,
+          task.tool,
+          "dependency",
+          this.eventEmitter,
+        );
       }
     }
 
@@ -207,7 +259,9 @@ export class GraphRAGEngine {
 
   // === Graph Accessors ===
 
-  getEdgeCount(): number { return this.graph.size; }
+  getEdgeCount(): number {
+    return this.graph.size;
+  }
   getEdgeData(from: string, to: string) {
     if (!this.graph.hasEdge(from, to)) return null;
     const attrs = this.graph.getEdgeAttributes(from, to);
@@ -219,22 +273,33 @@ export class GraphRAGEngine {
     };
   }
 
-  async addEdge(from: string, to: string, attrs: { weight: number; count: number; source?: string }) {
+  async addEdge(
+    from: string,
+    to: string,
+    attrs: { weight: number; count: number; source?: string },
+  ) {
     if (!this.graph.hasNode(from)) this.graph.addNode(from, { type: "tool" });
     if (!this.graph.hasNode(to)) this.graph.addNode(to, { type: "tool" });
     if (this.graph.hasEdge(from, to)) {
       this.graph.setEdgeAttribute(from, to, "weight", attrs.weight);
       this.graph.setEdgeAttribute(from, to, "count", attrs.count);
     } else {
-      this.graph.addEdge(from, to, { weight: attrs.weight, count: attrs.count, source: attrs.source ?? "manual" });
+      this.graph.addEdge(from, to, {
+        weight: attrs.weight,
+        count: attrs.count,
+        source: attrs.source ?? "manual",
+      });
     }
   }
 
   getEdges() {
-    const edges: Array<{ source: string; target: string; attributes: Record<string, unknown> }> = [];
-    this.graph.forEachEdge((_edge: string, attrs: Record<string, unknown>, source: string, target: string) => {
-      edges.push({ source, target, attributes: { ...attrs } });
-    });
+    const edges: Array<{ source: string; target: string; attributes: Record<string, unknown> }> =
+      [];
+    this.graph.forEachEdge(
+      (_edge: string, attrs: Record<string, unknown>, source: string, target: string) => {
+        edges.push({ source, target, attributes: { ...attrs } });
+      },
+    );
     return edges;
   }
 
@@ -260,7 +325,13 @@ export class GraphRAGEngine {
       for (const [from, to] of template.edges) {
         if (this.graph.hasNode(from) && this.graph.hasNode(to) && !this.graph.hasEdge(from, to)) {
           const weight = EDGE_TYPE_WEIGHTS["dependency"] * EDGE_SOURCE_MODIFIERS["template"];
-          this.graph.addEdge(from, to, { count: 1, weight, source: "template", edge_type: "dependency", edge_source: "template" });
+          this.graph.addEdge(from, to, {
+            count: 1,
+            weight,
+            source: "template",
+            edge_type: "dependency",
+            edge_source: "template",
+          });
           edgesAdded++;
         }
       }
@@ -285,16 +356,41 @@ export class GraphRAGEngine {
   getGraphSnapshot(): GraphSnapshot {
     const nodes = this.graph.nodes().map((toolId: string) => {
       const { server, name: label } = parseToolId(toolId);
-      return { id: toolId, label, server, pagerank: this.pageRanks[toolId] || 0, degree: this.graph.degree(toolId), communityId: this.communities[toolId] };
+      return {
+        id: toolId,
+        label,
+        server,
+        pagerank: this.pageRanks[toolId] || 0,
+        degree: this.graph.degree(toolId),
+        communityId: this.communities[toolId],
+      };
     });
 
     const edges = this.graph.edges().map((edgeKey: string) => {
       const edge = this.graph.getEdgeAttributes(edgeKey);
-      return { source: this.graph.source(edgeKey), target: this.graph.target(edgeKey), confidence: edge.weight ?? 0, observed_count: edge.count ?? 0, edge_type: edge.edge_type ?? "sequence", edge_source: edge.edge_source ?? "inferred" };
+      return {
+        source: this.graph.source(edgeKey),
+        target: this.graph.target(edgeKey),
+        confidence: edge.weight ?? 0,
+        observed_count: edge.count ?? 0,
+        edge_type: edge.edge_type ?? "sequence",
+        edge_source: edge.edge_source ?? "inferred",
+      };
     });
 
-    const density = this.graph.order > 1 ? this.graph.size / (this.graph.order * (this.graph.order - 1)) : 0;
-    return { nodes, edges, metadata: { total_nodes: nodes.length, total_edges: edges.length, density, last_updated: new Date().toISOString() } };
+    const density = this.graph.order > 1
+      ? this.graph.size / (this.graph.order * (this.graph.order - 1))
+      : 0;
+    return {
+      nodes,
+      edges,
+      metadata: {
+        total_nodes: nodes.length,
+        total_edges: edges.length,
+        density,
+        last_updated: new Date().toISOString(),
+      },
+    };
   }
 
   searchToolsForAutocomplete(query: string, limit = 10) {
@@ -303,7 +399,14 @@ export class GraphRAGEngine {
 
   // === Hybrid Search ===
 
-  async searchToolsHybrid(vectorSearch: VectorSearch, query: string, limit = 10, contextTools: string[] = [], includeRelated = false, minScore?: number): Promise<HybridSearchResult[]> {
+  async searchToolsHybrid(
+    vectorSearch: VectorSearch,
+    query: string,
+    limit = 10,
+    contextTools: string[] = [],
+    includeRelated = false,
+    minScore?: number,
+  ): Promise<HybridSearchResult[]> {
     return hybridSearch(vectorSearch, this.graph, this.pageRanks, query, {
       limit,
       minScore,
@@ -316,13 +419,27 @@ export class GraphRAGEngine {
 
   // === Metrics ===
 
-  getAdaptiveAlpha(): number { return calculateAdaptiveAlpha(this.graph); }
-  getGraphDensity(): number { return calculateGraphDensity(this.graph); }
-  getGraph(): any { return this.graph; }
-  getLocalAlphaCalculator(): LocalAlphaCalculator | null { return this.localAlphaCalculator; }
-  setAlgorithmTracer(tracer: AlgorithmTracer): void { this.algorithmTracer = tracer; }
-  getPageRankTop(n: number) { return getTopPageRankNodes(this.pageRanks, n); }
-  getTotalCommunities(): number { return getCommunityCount(this.communities); }
+  getAdaptiveAlpha(): number {
+    return calculateAdaptiveAlpha(this.graph);
+  }
+  getGraphDensity(): number {
+    return calculateGraphDensity(this.graph);
+  }
+  getGraph(): any {
+    return this.graph;
+  }
+  getLocalAlphaCalculator(): LocalAlphaCalculator | null {
+    return this.localAlphaCalculator;
+  }
+  setAlgorithmTracer(tracer: AlgorithmTracer): void {
+    this.algorithmTracer = tracer;
+  }
+  getPageRankTop(n: number) {
+    return getTopPageRankNodes(this.pageRanks, n);
+  }
+  getTotalCommunities(): number {
+    return getCommunityCount(this.communities);
+  }
 
   async getMetrics(range: MetricsTimeRange): Promise<GraphMetricsResponse> {
     return collectMetrics(this.db, {

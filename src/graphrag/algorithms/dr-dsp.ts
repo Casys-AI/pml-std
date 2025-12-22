@@ -19,7 +19,8 @@
 
 import { getLogger } from "../../telemetry/logger.ts";
 
-const log = getLogger("default");
+const _log = getLogger("default");
+void _log; // Mark as intentionally unused for now
 
 // ============================================================================
 // Types
@@ -96,7 +97,6 @@ export class DRDSP {
 
   // B-tree for shortest path tracking
   private bTree: Map<string, BTreeNode> = new Map();
-  private sourceNode: string | null = null;
 
   constructor(hyperedges: Hyperedge[] = []) {
     for (const edge of hyperedges) {
@@ -153,7 +153,6 @@ export class DRDSP {
   findShortestHyperpath(source: string, target: string): HyperpathResult {
     // Reset B-tree
     this.bTree.clear();
-    this.sourceNode = source;
 
     // Initialize target with distance 0
     this.bTree.set(target, {

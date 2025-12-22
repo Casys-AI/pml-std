@@ -427,6 +427,10 @@ export class StaticStructureBuilder {
 
   /**
    * Handle Promise.all / Promise.allSettled for parallel execution
+   *
+   * Supports two patterns:
+   * 1. Promise.all([mcp.a(), mcp.b(), ...]) - explicit array
+   * 2. Promise.all(arr.map(x => mcp.tool({...x}))) - map over array
    */
   private handlePromiseAll(
     n: Record<string, unknown>,
@@ -440,8 +444,32 @@ export class StaticStructureBuilder {
     // SWC wraps arguments in { spread, expression } structure
     const firstArg = args[0];
     const arrayArg = (firstArg?.expression as Record<string, unknown>) ?? firstArg;
-    if (arrayArg?.type !== "ArrayExpression") return;
 
+    // Pattern 1: Direct ArrayExpression - Promise.all([a, b, c])
+    if (arrayArg?.type === "ArrayExpression") {
+      this.handlePromiseAllArray(arrayArg, nodes, position, parentScope);
+      return;
+    }
+
+    // Pattern 2: map() call - Promise.all(arr.map(fn))
+    if (arrayArg?.type === "CallExpression") {
+      const mapResult = this.handlePromiseAllMap(arrayArg, nodes, position, parentScope);
+      if (mapResult) return;
+    }
+
+    // Fallback: try to find MCP calls in the expression
+    this.findNodes(arrayArg, nodes, position, parentScope);
+  }
+
+  /**
+   * Handle Promise.all with direct array: Promise.all([mcp.a(), mcp.b()])
+   */
+  private handlePromiseAllArray(
+    arrayArg: Record<string, unknown>,
+    nodes: InternalNode[],
+    position: number,
+    parentScope?: string,
+  ): void {
     const elements = arrayArg.elements as Array<Record<string, unknown>> | undefined;
     if (!elements || elements.length === 0) return;
 
@@ -469,6 +497,106 @@ export class StaticStructureBuilder {
       position: position + elements.length + 1,
       parentScope,
     });
+  }
+
+  /**
+   * Handle Promise.all with map: Promise.all(arr.map(x => mcp.tool({...x})))
+   *
+   * If arr is a literal array, unrolls into N parallel tasks.
+   * Otherwise, creates a single "loop" representation.
+   *
+   * @returns true if handled, false otherwise
+   */
+  private handlePromiseAllMap(
+    callExpr: Record<string, unknown>,
+    nodes: InternalNode[],
+    position: number,
+    parentScope?: string,
+  ): boolean {
+    const callee = callExpr.callee as Record<string, unknown> | undefined;
+    if (!callee || callee.type !== "MemberExpression") return false;
+
+    // Check if it's a .map() call
+    const prop = callee.property as Record<string, unknown> | undefined;
+    if (prop?.type !== "Identifier" || prop?.value !== "map") return false;
+
+    // Get the array being mapped over
+    const arrayObj = callee.object as Record<string, unknown> | undefined;
+
+    // Get the callback function
+    const mapArgs = callExpr.arguments as Array<Record<string, unknown>> | undefined;
+    if (!mapArgs || mapArgs.length === 0) return false;
+
+    const callbackArg = mapArgs[0];
+    const callback = (callbackArg?.expression as Record<string, unknown>) ?? callbackArg;
+
+    // Must be arrow function or function expression
+    if (callback?.type !== "ArrowFunctionExpression" && callback?.type !== "FunctionExpression") {
+      return false;
+    }
+
+    // Extract callback body (where MCP calls are)
+    const callbackBody = callback.body as Record<string, unknown> | undefined;
+    if (!callbackBody) return false;
+
+    // Check if array is a literal (can unroll)
+    if (arrayObj?.type === "ArrayExpression") {
+      const elements = arrayObj.elements as Array<Record<string, unknown>> | undefined;
+      if (elements && elements.length > 0) {
+        // Unroll: create N parallel tasks
+        logger.debug("Unrolling Promise.all map over literal array", { count: elements.length });
+
+        const forkId = this.generateNodeId("fork");
+        nodes.push({
+          id: forkId,
+          type: "fork",
+          position,
+          parentScope,
+        });
+
+        // For each element, process the callback body
+        // Note: We can't substitute the actual values statically,
+        // but we can create N identical task nodes
+        for (let i = 0; i < elements.length; i++) {
+          this.findNodes(callbackBody, nodes, position + 1 + i, forkId);
+        }
+
+        const joinId = this.generateNodeId("join");
+        nodes.push({
+          id: joinId,
+          type: "join",
+          position: position + elements.length + 1,
+          parentScope,
+        });
+
+        return true;
+      }
+    }
+
+    // Dynamic array: create a single representation with the callback body
+    // This captures the MCP tool pattern even if we don't know iteration count
+    logger.debug("Promise.all map over dynamic array - extracting callback body");
+
+    const forkId = this.generateNodeId("fork");
+    nodes.push({
+      id: forkId,
+      type: "fork",
+      position,
+      parentScope,
+    });
+
+    // Process callback body to find MCP calls (creates 1 task node as template)
+    this.findNodes(callbackBody, nodes, position + 1, forkId);
+
+    const joinId = this.generateNodeId("join");
+    nodes.push({
+      id: joinId,
+      type: "join",
+      position: position + 2,
+      parentScope,
+    });
+
+    return true;
   }
 
   /**

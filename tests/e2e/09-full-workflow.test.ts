@@ -57,7 +57,7 @@ Deno.test("E2E 09: Complete user journey", async (t) => {
       }
 
       // Verify discovery
-      const count = await db.query(`SELECT COUNT(*) as count FROM mcp_tool`);
+      const count = await db.query(`SELECT COUNT(*) as count FROM tool_schema`);
       assert(count[0].count >= 5, "Should discover multiple tools");
 
       console.log(`  ✓ Discovered ${count[0].count} tools from ${mcpServers.size} servers`);

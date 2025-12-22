@@ -22,8 +22,9 @@
     "capabilities": [
       {
         "id": "cap__checkout_flow",
+        "description": "Complete purchase and checkout flow for customer orders. Process payment, validate inventory, charge credit card, save order to database, and send confirmation email. Use for e-commerce transactions, completing purchases, finalizing orders, or payment processing. Keywords: checkout, purchase, buy, order, payment, transaction, complete order, finalize purchase.",
         "toolsUsed": ["db__get_cart", "inventory__check", "payment__validate", "payment__charge", "db__save_order", "email__order_confirm"],
-        "successRate": 0.85,
+        "successRate": 0.94,
         "parents": ["meta__transactions"],
         "staticEdges": [
           { "from": "db__get_cart", "to": "inventory__check", "type": "provides" },
@@ -35,6 +36,7 @@
       },
       {
         "id": "cap__order_cancellation",
+        "description": "Cancel existing order and process refund. Retrieve order from cart, issue payment refund, release reserved inventory, and notify customer. Use for order cancellations, refund requests, or reversing transactions. Keywords: cancel order, refund, cancellation, reverse transaction, return money, void order.",
         "toolsUsed": ["db__get_cart", "payment__refund", "inventory__release", "email__order_confirm"],
         "successRate": 0.92,
         "parents": ["meta__transactions"],
@@ -46,12 +48,14 @@
       },
       {
         "id": "cap__user_profile",
+        "description": "View and manage user profile information. Fetch user data, retrieve account details, and display order history. Use for account management, profile viewing, user settings, or order history lookup. Keywords: user profile, account, settings, user info, my account, view profile, order history.",
         "toolsUsed": ["api__fetch_user", "db__get_user", "api__fetch_orders"],
         "successRate": 0.98,
         "parents": ["meta__browsing"]
       },
       {
         "id": "cap__product_browse",
+        "description": "Browse and search product catalog. Fetch available products, check inventory levels, and display product information. Use for product discovery, catalog browsing, inventory lookup, or product search. Keywords: browse products, catalog, search items, product list, shop, view products, inventory check.",
         "toolsUsed": ["api__fetch_products", "inventory__check"],
         "successRate": 0.99,
         "parents": ["meta__browsing"]

@@ -40,21 +40,21 @@ import { EventsStreamManager } from "../server/events-stream.ts";
 
 // Server types, constants, lifecycle, and HTTP server
 import {
-  MCPErrorCodes,
-  ServerDefaults,
-  type GatewayServerConfig,
-  type ResolvedGatewayConfig,
   type ActiveWorkflow,
-  formatMCPError,
-  formatMCPToolError,
   // Lifecycle functions
   createMCPServer,
-  startStdioServer,
-  stopServer,
-  // HTTP server functions
-  startHttpServer,
+  formatMCPError,
+  formatMCPToolError,
+  type GatewayServerConfig,
   type HttpServerDependencies,
   type HttpServerState,
+  MCPErrorCodes,
+  type ResolvedGatewayConfig,
+  ServerDefaults,
+  // HTTP server functions
+  startHttpServer,
+  startStdioServer,
+  stopServer,
 } from "./server/mod.ts";
 
 // Tool definitions
@@ -62,18 +62,28 @@ import { getMetaTools } from "./tools/mod.ts";
 
 // Handlers
 import {
-  handleSearchTools,
-  handleSearchCapabilities,
-  handleDiscover,
-  handleExecuteCode,
-  handleWorkflowExecution,
-  handleContinue,
-  handleAbort,
-  handleReplan,
-  handleApprovalResponse,
   type CodeExecutionDependencies,
+  type ExecuteDependencies,
+  handleAbort,
+  handleApprovalResponse,
+  handleContinue,
+  handleDiscover,
+  handleExecute,
+  handleExecuteCode,
+  handleReplan,
+  handleSearchCapabilities,
+  handleSearchTools,
+  handleWorkflowExecution,
   type WorkflowHandlerDependencies,
 } from "./handlers/mod.ts";
+import {
+  createSHGATFromCapabilities,
+  SHGAT,
+  type TrainingExample,
+  trainSHGATOnEpisodes,
+} from "../graphrag/algorithms/shgat.ts";
+import { buildDRDSPFromCapabilities, DRDSP } from "../graphrag/algorithms/dr-dsp.ts";
+import type { EmbeddingModelInterface } from "../vector/embeddings.ts";
 
 // Re-export for backward compatibility
 export type { GatewayServerConfig };
@@ -96,6 +106,9 @@ export class PMLGatewayServer {
   private checkpointManager: CheckpointManager | null = null;
   private eventsStream: EventsStreamManager | null = null;
   private capabilityDataService: CapabilityDataService;
+  private shgat: SHGAT | null = null;
+  private drdsp: DRDSP | null = null;
+  private embeddingModel: EmbeddingModelInterface | null = null;
 
   constructor(
     // @ts-ignore: db kept for future use (direct queries)
@@ -109,7 +122,9 @@ export class PMLGatewayServer {
     private capabilityStore?: CapabilityStore,
     private adaptiveThresholdManager?: AdaptiveThresholdManager,
     config?: GatewayServerConfig,
+    embeddingModel?: EmbeddingModelInterface,
   ) {
+    this.embeddingModel = embeddingModel ?? null;
     // Merge config with defaults
     this.config = {
       name: config?.name ?? ServerDefaults.name,
@@ -314,6 +329,11 @@ export class PMLGatewayServer {
       return await handleDiscover(args, this.vectorSearch, this.graphEngine, this.dagSuggester);
     }
 
+    // Unified execute (Story 10.7)
+    if (name === "pml:execute") {
+      return await handleExecute(args, this.getExecuteDeps());
+    }
+
     // Single tool execution (proxy to underlying MCP server)
     return await this.proxyToolCall(name, args);
   }
@@ -386,6 +406,29 @@ export class PMLGatewayServer {
   }
 
   /**
+   * Get execute handler dependencies (Story 10.7)
+   * Uses SHGAT + DR-DSP for capability matching (not CapabilityMatcher)
+   */
+  private getExecuteDeps(): ExecuteDependencies {
+    return {
+      vectorSearch: this.vectorSearch,
+      graphEngine: this.graphEngine,
+      mcpClients: this.mcpClients,
+      capabilityStore: this.capabilityStore!,
+      adaptiveThresholdManager: this.adaptiveThresholdManager,
+      config: this.config,
+      contextBuilder: this.contextBuilder,
+      toolSchemaCache: this.toolSchemaCache,
+      db: this.db,
+      drdsp: this.drdsp ?? undefined,
+      shgat: this.shgat ?? undefined,
+      embeddingModel: this.embeddingModel ?? undefined,
+      checkpointManager: this.checkpointManager ?? undefined,
+      workflowDeps: this.getWorkflowDeps(),
+    };
+  }
+
+  /**
    * Handler: prompts/get
    */
   private handleGetPrompt(_request: unknown): Promise<{ prompts: Array<unknown> }> {
@@ -438,7 +481,334 @@ export class PMLGatewayServer {
   /**
    * Start gateway server with stdio transport
    */
+  /**
+   * Initialize SHGAT and DR-DSP algorithms (Story 10.7)
+   * Called at server startup to enable intelligent capability matching
+   */
+  private async initializeAlgorithms(): Promise<void> {
+    if (!this.capabilityStore) {
+      log.warn("[Gateway] No capability store - SHGAT/DR-DSP disabled");
+      return;
+    }
+
+    try {
+      // Load capabilities from DB for algorithm initialization
+      interface CapRow {
+        id: string;
+        embedding: number[] | null;
+        tools_used: string[] | null;
+        success_rate: number;
+      }
+      const rows = await this.db.query(
+        `SELECT id, embedding, tools_used, success_rate FROM capability LIMIT 1000`,
+      ) as unknown as CapRow[];
+
+      if (rows.length === 0) {
+        log.info("[Gateway] No capabilities yet - SHGAT/DR-DSP will init on first capability");
+        return;
+      }
+
+      // Initialize SHGAT with capabilities that have embeddings
+      const capabilitiesWithEmbeddings = rows
+        .filter((c): c is CapRow & { embedding: number[] } =>
+          c.embedding !== null && Array.isArray(c.embedding) && c.embedding.length > 0
+        )
+        .map((c) => ({
+          id: c.id,
+          embedding: c.embedding,
+          toolsUsed: c.tools_used ?? [],
+          successRate: c.success_rate,
+        }));
+
+      if (capabilitiesWithEmbeddings.length > 0) {
+        // Create SHGAT - it extracts tools from capabilities automatically
+        this.shgat = createSHGATFromCapabilities(capabilitiesWithEmbeddings);
+        log.info(
+          `[Gateway] SHGAT initialized with ${capabilitiesWithEmbeddings.length} capabilities`,
+        );
+
+        // Story 10.7: Populate tool features for multi-head attention
+        await this.populateToolFeaturesForSHGAT();
+
+        // Story 10.7: Train SHGAT on execution traces if available (≥20 traces)
+        await this.trainSHGATOnTraces(capabilitiesWithEmbeddings);
+      }
+
+      // Initialize DR-DSP
+      this.drdsp = buildDRDSPFromCapabilities(
+        rows.map((c) => ({
+          id: c.id,
+          toolsUsed: c.tools_used ?? [],
+          successRate: c.success_rate,
+        })),
+      );
+      log.info(`[Gateway] DR-DSP initialized with ${rows.length} capabilities`);
+    } catch (error) {
+      log.error(`[Gateway] Failed to initialize algorithms: ${error}`);
+    }
+  }
+
+  /**
+   * Train SHGAT on execution traces (Story 10.7)
+   * Requires ≥20 traces to start training
+   */
+  private async trainSHGATOnTraces(
+    capabilities: Array<{ id: string; embedding: number[] }>,
+  ): Promise<void> {
+    if (!this.shgat || !this.embeddingModel) {
+      return;
+    }
+
+    try {
+      // Query execution_trace for traces with capability_id
+      interface TraceRow {
+        capability_id: string;
+        intent_text: string | null;
+        success: boolean;
+        executed_path: string[] | null;
+      }
+
+      const traces = await this.db.query(`
+        SELECT capability_id, intent_text, success, executed_path
+        FROM execution_trace
+        WHERE capability_id IS NOT NULL
+          AND intent_text IS NOT NULL
+        ORDER BY priority DESC
+        LIMIT 500
+      `) as unknown as TraceRow[];
+
+      if (traces.length === 0) {
+        log.info(`[Gateway] No execution traces yet - SHGAT will train when traces available`);
+        return;
+      }
+
+      log.info(`[Gateway] Training SHGAT on ${traces.length} execution traces...`);
+
+      // Build capability embedding lookup
+      const capEmbeddings = new Map<string, number[]>();
+      for (const cap of capabilities) {
+        capEmbeddings.set(cap.id, cap.embedding);
+      }
+
+      // Convert traces to TrainingExamples
+      const examples: TrainingExample[] = [];
+      for (const trace of traces) {
+        // Skip if capability not in our set
+        if (!capEmbeddings.has(trace.capability_id)) continue;
+
+        // Generate intent embedding
+        const intentEmbedding = await this.embeddingModel.encode(trace.intent_text!);
+
+        examples.push({
+          intentEmbedding,
+          contextTools: trace.executed_path ?? [],
+          candidateId: trace.capability_id,
+          outcome: trace.success ? 1.0 : 0.0,
+        });
+      }
+
+      if (examples.length === 0) {
+        log.info(`[Gateway] No valid training examples - skipping`);
+        return;
+      }
+
+      // Train SHGAT
+      const getEmbedding = (id: string) => capEmbeddings.get(id) ?? null;
+
+      const result = await trainSHGATOnEpisodes(this.shgat, examples, getEmbedding, {
+        epochs: 5,
+        batchSize: 16,
+        onEpoch: (epoch, loss, accuracy) => {
+          log.debug(
+            `[Gateway] SHGAT training epoch ${epoch}: loss=${loss.toFixed(4)}, acc=${
+              accuracy.toFixed(2)
+            }`,
+          );
+        },
+      });
+
+      log.info(
+        `[Gateway] SHGAT training complete: loss=${result.finalLoss.toFixed(4)}, accuracy=${
+          result.finalAccuracy.toFixed(2)
+        }`,
+      );
+    } catch (error) {
+      log.warn(`[Gateway] SHGAT training failed: ${error}`);
+    }
+  }
+
+  /**
+   * Populate tool features for SHGAT multi-head attention (Story 10.7)
+   *
+   * For tools (simple graph), we use:
+   * - PageRank: from GraphRAGEngine.getPageRank()
+   * - Louvain community: from GraphRAGEngine.getCommunity() (stored as spectralCluster for interface compat)
+   * - AdamicAdar: from GraphRAGEngine.computeAdamicAdar() (best score with neighbors)
+   * - Cooccurrence: from execution_trace (tool pairs appearing together)
+   * - Recency: from execution_trace (how recently the tool was used)
+   *
+   * Note: Tools use simple graph algos, not hypergraph algos (which are for capabilities).
+   */
+  private async populateToolFeaturesForSHGAT(): Promise<void> {
+    if (!this.shgat || !this.graphEngine) {
+      return;
+    }
+
+    try {
+      // Get all tool IDs from SHGAT
+      const toolIds = this.shgat.getRegisteredToolIds();
+
+      if (toolIds.length === 0) {
+        log.debug("[Gateway] No tools registered in SHGAT - skipping feature population");
+        return;
+      }
+
+      // Query execution traces for temporal features (cooccurrence, recency)
+      const { toolRecency, toolCooccurrence } = await this.computeToolTemporalFeatures(toolIds);
+
+      // Build feature updates from GraphRAGEngine
+      const updates = new Map<
+        string,
+        import("../graphrag/algorithms/shgat.ts").ToolGraphFeatures
+      >();
+
+      for (const toolId of toolIds) {
+        // HEAD 2 (Structure): PageRank, Louvain community, AdamicAdar
+        const pageRank = this.graphEngine.getPageRank(toolId);
+        const community = this.graphEngine.getCommunity(toolId);
+        const louvainCommunity = community ? parseInt(community, 10) || 0 : 0;
+
+        // AdamicAdar: get top similar node's score (0 if no neighbors)
+        const adamicResults = this.graphEngine.computeAdamicAdar(toolId, 1);
+        const adamicAdar = adamicResults.length > 0
+          ? Math.min(adamicResults[0].score / 2, 1.0) // Normalize to 0-1
+          : 0;
+
+        // HEAD 3 (Temporal): Cooccurrence, Recency from execution traces
+        const cooccurrence = toolCooccurrence.get(toolId) ?? 0;
+        const recency = toolRecency.get(toolId) ?? 0;
+
+        updates.set(toolId, {
+          pageRank,
+          louvainCommunity,
+          adamicAdar,
+          cooccurrence,
+          recency,
+        });
+      }
+
+      // Batch update SHGAT
+      this.shgat.batchUpdateToolFeatures(updates);
+      log.info(
+        `[Gateway] Populated SHGAT tool features for ${updates.size} tools (PageRank, Louvain, AdamicAdar, temporal)`,
+      );
+    } catch (error) {
+      log.warn(`[Gateway] Failed to populate tool features: ${error}`);
+    }
+  }
+
+  /**
+   * Compute temporal features for tools from execution traces
+   *
+   * - Recency: How recently was the tool used? (0-1, 1 = used in last hour)
+   * - Cooccurrence: How often does this tool appear with other tools? (normalized 0-1)
+   */
+  private async computeToolTemporalFeatures(
+    toolIds: string[],
+  ): Promise<{
+    toolRecency: Map<string, number>;
+    toolCooccurrence: Map<string, number>;
+  }> {
+    const toolRecency = new Map<string, number>();
+    const toolCooccurrence = new Map<string, number>();
+
+    // Initialize with zeros
+    for (const toolId of toolIds) {
+      toolRecency.set(toolId, 0);
+      toolCooccurrence.set(toolId, 0);
+    }
+
+    try {
+      // Query recent traces (last 500) to compute temporal features
+      interface TraceToolRow {
+        task_results: string | Array<{ tool?: string }>;
+        executed_at: string;
+      }
+
+      const traces = await this.db.query(`
+        SELECT task_results, executed_at
+        FROM execution_trace
+        WHERE task_results IS NOT NULL
+          AND jsonb_array_length(task_results) > 0
+        ORDER BY executed_at DESC
+        LIMIT 500
+      `) as unknown as TraceToolRow[];
+
+      if (traces.length === 0) {
+        return { toolRecency, toolCooccurrence };
+      }
+
+      const now = Date.now();
+      const oneHourMs = 60 * 60 * 1000;
+      const oneDayMs = 24 * oneHourMs;
+      const toolLastUsed = new Map<string, number>(); // tool -> timestamp
+      const toolPairCount = new Map<string, number>(); // count of traces tool appears in
+
+      for (const trace of traces) {
+        // Parse task_results to extract tools
+        let taskResults: Array<{ tool?: string }> = [];
+        try {
+          taskResults = typeof trace.task_results === "string"
+            ? JSON.parse(trace.task_results)
+            : trace.task_results;
+        } catch {
+          continue;
+        }
+
+        const traceTime = new Date(trace.executed_at).getTime();
+        const toolsInTrace = new Set<string>();
+
+        for (const task of taskResults) {
+          if (task.tool && toolIds.includes(task.tool)) {
+            toolsInTrace.add(task.tool);
+            // Track last usage time
+            const existing = toolLastUsed.get(task.tool) ?? 0;
+            if (traceTime > existing) {
+              toolLastUsed.set(task.tool, traceTime);
+            }
+          }
+        }
+
+        // Count tool occurrences (for cooccurrence)
+        for (const tool of toolsInTrace) {
+          toolPairCount.set(tool, (toolPairCount.get(tool) ?? 0) + 1);
+        }
+      }
+
+      // Compute recency: exponential decay based on time since last use
+      // recency = exp(-timeSinceLastUse / oneDayMs) -> 1.0 if used just now, ~0.37 if 1 day ago
+      for (const [toolId, lastUsedTime] of toolLastUsed) {
+        const timeSinceUse = now - lastUsedTime;
+        const recency = Math.exp(-timeSinceUse / oneDayMs);
+        toolRecency.set(toolId, Math.min(recency, 1.0));
+      }
+
+      // Compute cooccurrence: normalize by max count
+      const maxCount = Math.max(1, ...toolPairCount.values());
+      for (const [toolId, count] of toolPairCount) {
+        toolCooccurrence.set(toolId, count / maxCount);
+      }
+
+      log.debug(`[Gateway] Computed temporal features from ${traces.length} traces`);
+    } catch (error) {
+      log.warn(`[Gateway] Failed to compute temporal features: ${error}`);
+    }
+
+    return { toolRecency, toolCooccurrence };
+  }
+
   async start(): Promise<void> {
+    await this.initializeAlgorithms();
     await this.healthChecker.initialHealthCheck();
     this.healthChecker.startPeriodicChecks();
     await startStdioServer(this.server, this.config, this.mcpClients);
@@ -450,6 +820,9 @@ export class PMLGatewayServer {
    * Uses extracted HTTP server module for cleaner architecture.
    */
   async startHttp(port: number): Promise<void> {
+    // Initialize algorithms before starting server
+    await this.initializeAlgorithms();
+
     // Prepare dependencies for HTTP server
     const deps: HttpServerDependencies = {
       config: this.config,

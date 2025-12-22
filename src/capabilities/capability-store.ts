@@ -12,17 +12,20 @@
 import type { PGliteClient } from "../db/client.ts";
 import type { EmbeddingModel } from "../vector/embeddings.ts";
 import type { Row } from "../db/client.ts";
-import type {
-  CacheConfig,
-  Capability,
-  CapabilityDependency,
-  CapabilityEdgeSource,
-  CapabilityEdgeType,
-  CreateCapabilityDependencyInput,
-  PermissionSet,
-  SaveCapabilityInput,
-  StaticStructure,
+import {
+  DEFAULT_TRACE_PRIORITY,
+  type CacheConfig,
+  type Capability,
+  type CapabilityDependency,
+  type CapabilityEdgeSource,
+  type CapabilityEdgeType,
+  type CreateCapabilityDependencyInput,
+  type ExecutionTrace,
+  type PermissionSet,
+  type SaveCapabilityInput,
+  type StaticStructure,
 } from "./types.ts";
+import { ExecutionTraceStore } from "./execution-trace-store.ts";
 import { hashCode } from "./hash.ts";
 import { getLogger } from "../telemetry/logger.ts";
 import type { SchemaInferrer } from "./schema-inferrer.ts";
@@ -63,6 +66,8 @@ const DEFAULT_CACHE_CONFIG: CacheConfig = {
  * ```
  */
 export class CapabilityStore {
+  private traceStore?: ExecutionTraceStore;
+
   constructor(
     private db: PGliteClient,
     private embeddingModel: EmbeddingModel,
@@ -70,10 +75,13 @@ export class CapabilityStore {
     private permissionInferrer?: PermissionInferrer,
     private staticStructureBuilder?: StaticStructureBuilder,
   ) {
+    // Story 11.2: Initialize trace store for optional trace storage
+    this.traceStore = new ExecutionTraceStore(db);
     logger.debug("CapabilityStore initialized", {
       schemaInferrerEnabled: !!schemaInferrer,
       permissionInferrerEnabled: !!permissionInferrer,
       staticStructureBuilderEnabled: !!staticStructureBuilder,
+      traceStoreEnabled: true,
     });
   }
 
@@ -85,10 +93,13 @@ export class CapabilityStore {
    * - Subsequent: increments usage_count, updates success_rate average
    *
    * @param input Capability data from execution
-   * @returns The saved/updated capability
+   * @returns The saved/updated capability, and optionally the execution trace
    */
-  async saveCapability(input: SaveCapabilityInput): Promise<Capability> {
-    const { code, intent, durationMs, success = true, name, description, toolsUsed, toolInvocations } = input;
+  async saveCapability(input: SaveCapabilityInput): Promise<{
+    capability: Capability;
+    trace?: ExecutionTrace;
+  }> {
+    const { code, intent, durationMs, success = true, name, description, toolsUsed, toolInvocations, traceData } = input;
 
     // Generate code hash for deduplication
     const codeHash = await hashCode(code);
@@ -351,7 +362,40 @@ export class CapabilityStore {
       }
     }
 
-    return capability;
+    // Story 11.2: Optionally save execution trace if traceData provided
+    let trace: ExecutionTrace | undefined;
+    if (traceData && this.traceStore) {
+      try {
+        trace = await this.traceStore.saveTrace({
+          capabilityId: capability.id,
+          intentText: intent,
+          initialContext: traceData.initialContext ?? {},
+          executedAt: new Date(),
+          success,
+          durationMs,
+          errorMessage: traceData.errorMessage,
+          executedPath: traceData.executedPath,
+          decisions: traceData.decisions ?? [],
+          taskResults: traceData.taskResults ?? [],
+          priority: DEFAULT_TRACE_PRIORITY,
+          parentTraceId: traceData.parentTraceId,
+          userId: traceData.userId,
+          createdBy: traceData.userId ?? "local",
+        });
+        logger.debug("Execution trace saved with capability", {
+          capabilityId: capability.id,
+          traceId: trace.id,
+        });
+      } catch (error) {
+        logger.warn("Failed to save execution trace", {
+          capabilityId: capability.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        // Continue even if trace save fails
+      }
+    }
+
+    return { capability, trace };
   }
 
   /**
@@ -648,9 +692,10 @@ export class CapabilityStore {
       }
     }
 
-    // Story 7.4: Extract tools_used and tool_invocations from dag_structure JSONB
+    // Story 7.4: Extract tools_used, tool_invocations, and static_structure from dag_structure JSONB
     let toolsUsed: string[] | undefined;
     let toolInvocations: Capability["toolInvocations"];
+    let staticStructure: Capability["staticStructure"];
     if (row.dag_structure) {
       try {
         const dagStruct = typeof row.dag_structure === "string"
@@ -663,8 +708,12 @@ export class CapabilityStore {
         if (Array.isArray(dagStruct?.tool_invocations)) {
           toolInvocations = dagStruct.tool_invocations;
         }
+        // Story 10.7: Extract static_structure for DAG execution
+        if (dagStruct?.static_structure) {
+          staticStructure = dagStruct.static_structure as Capability["staticStructure"];
+        }
       } catch {
-        // Ignore parse errors, toolsUsed/toolInvocations remain undefined
+        // Ignore parse errors, toolsUsed/toolInvocations/staticStructure remain undefined
       }
     }
 
@@ -689,6 +738,8 @@ export class CapabilityStore {
       // Story 7.7a: Permission inference fields
       permissionSet: (row.permission_set as PermissionSet) || "minimal",
       permissionConfidence: (row.permission_confidence as number) ?? 0.0,
+      // Story 10.7: Static structure for DAG execution
+      staticStructure,
     };
   }
 

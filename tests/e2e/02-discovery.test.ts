@@ -59,7 +59,7 @@ Deno.test("E2E 02: MCP server discovery and tool extraction", async (t) => {
       await storeSchemas(db, "filesystem", tools);
 
       const result = await db.query(
-        `SELECT COUNT(*) as count FROM mcp_tool WHERE server_id = $1`,
+        `SELECT COUNT(*) as count FROM tool_schema WHERE server_id = $1`,
         ["filesystem"],
       );
 
@@ -68,19 +68,19 @@ Deno.test("E2E 02: MCP server discovery and tool extraction", async (t) => {
 
     await t.step("5. Verify tool schemas are retrievable", async () => {
       const result = await db.query(
-        `SELECT tool_name, tool_schema FROM mcp_tool WHERE server_id = $1`,
+        `SELECT name, description, input_schema FROM tool_schema WHERE server_id = $1`,
         ["filesystem"],
       );
 
       assertEquals(result.length, 3);
 
       for (const row of result) {
-        const schema = typeof row.tool_schema === "string"
-          ? JSON.parse(row.tool_schema)
-          : row.tool_schema;
-        assert(schema.name, "Schema should have name");
-        assert(schema.description, "Schema should have description");
-        assert(schema.inputSchema, "Schema should have inputSchema");
+        assert(row.name, "Schema should have name");
+        assert(row.description, "Schema should have description");
+        const inputSchema = typeof row.input_schema === "string"
+          ? JSON.parse(row.input_schema)
+          : row.input_schema;
+        assert(inputSchema, "Schema should have inputSchema");
       }
     });
 
@@ -96,7 +96,7 @@ Deno.test("E2E 02: MCP server discovery and tool extraction", async (t) => {
         await storeSchemas(db, server.serverId, tools);
       }
 
-      const result = await db.query(`SELECT COUNT(*) as count FROM mcp_tool`);
+      const result = await db.query(`SELECT COUNT(*) as count FROM tool_schema`);
 
       // 3 (filesystem) + 2 (json) + 2 (api) = 7 tools
       assert(result[0].count >= 7, "All tools should be stored");
@@ -111,7 +111,7 @@ Deno.test("E2E 02: MCP server discovery and tool extraction", async (t) => {
       await storeSchemas(db, "filesystem", tools);
 
       const result = await db.query(
-        `SELECT COUNT(*) as count FROM mcp_tool WHERE server_id = $1`,
+        `SELECT COUNT(*) as count FROM tool_schema WHERE server_id = $1`,
         ["filesystem"],
       );
 
@@ -123,7 +123,7 @@ Deno.test("E2E 02: MCP server discovery and tool extraction", async (t) => {
       const result = await db.query(
         `
         SELECT server_id, COUNT(*) as tool_count
-        FROM mcp_tool
+        FROM tool_schema
         GROUP BY server_id
         ORDER BY server_id
       `,

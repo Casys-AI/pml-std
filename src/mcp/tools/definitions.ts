@@ -16,14 +16,7 @@ import type { MCPTool } from "../types.ts";
  */
 export const executeDagTool: MCPTool = {
   name: "pml:execute_dag",
-  description: `Execute a multi-tool DAG workflow. TWO MODES:
-
-1. INTENT MODE (recommended): Just describe what you want → system auto-discovers tools, builds DAG, executes.
-   Example: intent="Read config.json, extract version, create GitHub issue with it"
-
-2. EXPLICIT MODE: Define exact workflow with tasks and dependencies.
-
-The system has access to ALL MCP tools (filesystem, github, fetch, databases, etc). Just ask!`,
+  description: "[DEPRECATED] Use pml:execute. Legacy DAG workflow execution.",
   inputSchema: {
     type: "object",
     properties: {
@@ -50,15 +43,7 @@ The system has access to ALL MCP tools (filesystem, github, fetch, databases, et
  */
 export const searchToolsTool: MCPTool = {
   name: "pml:search_tools",
-  description: `[DEPRECATED - Use pml:discover instead] Discover available MCP tools via semantic search.
-
-⚠️ This tool is deprecated. Use pml:discover for unified search across tools AND capabilities.
-
-Returns tool names, descriptions, and input schemas. Useful for:
-- "What tools can read files?" → filesystem:read_file, filesystem:read_multiple_files...
-- "How do I interact with GitHub?" → github:create_issue, github:search_repositories...
-
-Tip: Set include_related=true to see tools often used together (from learned patterns).`,
+  description: "[DEPRECATED] Use pml:discover. Legacy semantic tool search.",
   inputSchema: {
     type: "object",
     properties: {
@@ -94,14 +79,7 @@ Tip: Set include_related=true to see tools often used together (from learned pat
  */
 export const searchCapabilitiesTool: MCPTool = {
   name: "pml:search_capabilities",
-  description: `[DEPRECATED - Use pml:discover instead] Search for PROVEN code patterns that worked before.
-
-⚠️ This tool is deprecated. Use pml:discover for unified search across tools AND capabilities.
-
-Returns reusable code snippets with success rates. Example:
-- intent="create GitHub issue from file" → Returns code that reads file + creates issue (95% success rate)
-
-Use this when you want to reuse existing patterns instead of building from scratch. The returned code can be executed directly via execute_code.`,
+  description: "[DEPRECATED] Use pml:discover. Legacy capability search.",
   inputSchema: {
     type: "object",
     properties: {
@@ -125,18 +103,7 @@ Use this when you want to reuse existing patterns instead of building from scrat
  */
 export const executeCodeTool: MCPTool = {
   name: "pml:execute_code",
-  description: `Execute TypeScript/JavaScript code in a secure Deno sandbox with MCP tools auto-injected.
-
-KEY FEATURE: If you provide 'intent', the system auto-discovers relevant MCP tools and injects them as 'mcp.serverName.toolName()' functions.
-
-Example:
-  intent: "read a file and parse JSON"
-  code: \`
-    const content = await mcp.filesystem.read_file({ path: "config.json" });
-    return JSON.parse(content);
-  \`
-
-The sandbox has access to: Deno APIs, fetch, all discovered MCP tools. Simple expressions auto-return; multi-statement code needs explicit 'return'.`,
+  description: "[DEPRECATED] Use pml:execute with code parameter. Legacy sandbox execution.",
   inputSchema: {
     type: "object",
     properties: {
@@ -185,8 +152,7 @@ The sandbox has access to: Deno APIs, fetch, all discovered MCP tools. Simple ex
  */
 export const continueTool: MCPTool = {
   name: "pml:continue",
-  description:
-    "Resume a paused DAG workflow. Used when execute_dag returns 'layer_complete' status (per-layer validation mode). Call this to proceed to the next layer after reviewing results.",
+  description: "Resume a paused workflow after layer validation.",
   inputSchema: {
     type: "object",
     properties: {
@@ -210,8 +176,7 @@ export const continueTool: MCPTool = {
  */
 export const abortTool: MCPTool = {
   name: "pml:abort",
-  description:
-    "Stop a running DAG workflow immediately. Use when you detect issues in intermediate results and want to cancel remaining tasks.",
+  description: "Stop a running workflow immediately.",
   inputSchema: {
     type: "object",
     properties: {
@@ -235,11 +200,7 @@ export const abortTool: MCPTool = {
  */
 export const replanTool: MCPTool = {
   name: "pml:replan",
-  description: `Modify a running DAG to add new tasks based on discovered context.
-
-Example: DAG finds XML files unexpectedly → replan to add XML parser task.
-
-The system uses GraphRAG to find appropriate tools for the new requirement and inserts them into the workflow.`,
+  description: "Add new tasks to a running workflow based on discovered context.",
   inputSchema: {
     type: "object",
     properties: {
@@ -267,8 +228,7 @@ The system uses GraphRAG to find appropriate tools for the new requirement and i
  */
 export const approvalResponseTool: MCPTool = {
   name: "pml:approval_response",
-  description:
-    "Respond to a Human-in-the-Loop checkpoint. Some DAG tasks require explicit approval before execution (e.g., destructive operations, external API calls). Use this to approve or reject.",
+  description: "Approve or reject a Human-in-the-Loop checkpoint.",
   inputSchema: {
     type: "object",
     properties: {
@@ -301,17 +261,7 @@ export const approvalResponseTool: MCPTool = {
  */
 export const discoverTool: MCPTool = {
   name: "pml:discover",
-  description: `Unified discovery API for MCP tools AND learned capabilities. RECOMMENDED over search_tools/search_capabilities.
-
-Returns a merged, ranked list of:
-- **Tools**: Available MCP tools (filesystem, github, fetch, etc.)
-- **Capabilities**: Proven code patterns from past successful executions
-
-Examples:
-- intent="read a file" → Returns filesystem:read_file (tool) + any learned file-reading patterns (capability)
-- intent="create GitHub issue" → Returns github:create_issue (tool) + learned issue creation code (capability)
-
-Filter by type if you only want tools or capabilities. Results are sorted by score (best match first).`,
+  description: "Search MCP tools and learned capabilities by intent. Returns ranked results.",
   inputSchema: {
     type: "object",
     properties: {
@@ -336,11 +286,53 @@ Filter by type if you only want tools or capabilities. Results are sorted by sco
       },
       limit: {
         type: "number",
-        description: "Maximum results to return (default: 10, max: 50)",
+        description: "Maximum results to return (default: 1, max: 50)",
       },
       include_related: {
         type: "boolean",
         description: "Include related tools for each tool result (from usage patterns). Default: false",
+      },
+    },
+    required: ["intent"],
+  },
+};
+
+/**
+ * Execute tool (pml:execute) - Story 10.7
+ *
+ * Unified execution API with two modes:
+ * - Direct: intent + code → Execute → Create capability
+ * - Suggestion: intent only → Search → Execute if confident, else suggestions
+ */
+export const executeTool: MCPTool = {
+  name: "pml:execute",
+  description: "Execute intent with optional code. With code: runs and learns capability. Without: finds matching capability or suggests tools.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      intent: {
+        type: "string",
+        description:
+          "REQUIRED: Natural language description of what you want to accomplish. Example: 'Read a file and create a GitHub issue with its contents'",
+      },
+      code: {
+        type: "string",
+        description:
+          "OPTIONAL: TypeScript code to execute. If provided, triggers Direct Mode (execute + learn). MCP tools available as mcp.server.tool(). Example: 'const content = await mcp.fs.read({path: \"x.json\"}); return JSON.parse(content);'",
+      },
+      options: {
+        type: "object",
+        description: "Execution options",
+        properties: {
+          timeout: {
+            type: "number",
+            description: "Max execution time in ms (default: 30000)",
+          },
+          per_layer_validation: {
+            type: "boolean",
+            description: "Enable step-by-step validation for complex workflows (default: false)",
+          },
+        },
       },
     },
     required: ["intent"],
@@ -358,10 +350,10 @@ export function getMetaTools(): Array<{
   inputSchema: Record<string, unknown>;
 }> {
   const tools = [
-    executeDagTool,
+    executeTool, // Primary API (Story 10.7)
     discoverTool,
-    // searchToolsTool and searchCapabilitiesTool removed from MCP exposure (Story 10.6)
-    // Handlers still work for backward compatibility if called directly
+    // Legacy tools - kept for backward compatibility
+    executeDagTool,
     executeCodeTool,
     continueTool,
     abortTool,

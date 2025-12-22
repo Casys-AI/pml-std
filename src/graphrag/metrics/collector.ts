@@ -185,12 +185,13 @@ async function getMetricsTimeSeries(
       [bucketMinutes, startDate.toISOString()]
     );
 
+    // Story 11.2: Query execution_trace instead of workflow_execution
     const workflowRateResult = await db.query(
       `
       SELECT
         date_trunc('hour', executed_at) as bucket,
         COUNT(*) as count
-      FROM workflow_execution
+      FROM execution_trace
       WHERE executed_at >= $1
       GROUP BY bucket
       ORDER BY bucket
@@ -237,12 +238,13 @@ async function getPeriodStats(
   newNodesAdded: number;
 }> {
   try {
+    // Story 11.2: Query execution_trace instead of workflow_execution
     const workflowStats = await db.query(
       `
       SELECT
         COUNT(*) as total,
         SUM(CASE WHEN success THEN 1 ELSE 0 END) as successful
-      FROM workflow_execution
+      FROM execution_trace
       WHERE executed_at >= $1
       `,
       [startDate.toISOString()]

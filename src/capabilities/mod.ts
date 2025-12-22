@@ -7,6 +7,8 @@
  */
 
 export { CapabilityStore } from "./capability-store.ts";
+export { ExecutionTraceStore } from "./execution-trace-store.ts";
+export type { SaveTraceInput } from "./execution-trace-store.ts";
 export { CapabilityMatcher } from "./matcher.ts";
 export { SchemaInferrer } from "./schema-inferrer.ts";
 export { StaticStructureBuilder } from "./static-structure-builder.ts";
@@ -34,6 +36,8 @@ export type { EscalationResult, HILApprovalCallback } from "./permission-escalat
 // Note: hashCodeSync is intentionally not exported - it uses djb2 (32-bit)
 // which has higher collision probability. Use hashCode (SHA-256) for production.
 export { hashCode, normalizeCode } from "./hash.ts";
+// Story 11.2: Default priority constant for cold start traces
+export { DEFAULT_TRACE_PRIORITY } from "./types.ts";
 export type {
   ArgumentsStructure, // Story 10.2 - Argument extraction for speculative execution
   ArgumentValue, // Story 10.2 - Single argument resolution strategy
@@ -61,4 +65,8 @@ export type {
   StaticStructure, // Story 10.1 - Static code analysis
   StaticStructureEdge, // Story 10.1 - Static structure edges
   StaticStructureNode, // Story 10.1 - Static structure nodes
+  // Story 11.2 - Execution traces
+  ExecutionTrace,
+  BranchDecision,
+  TraceTaskResult,
 } from "./types.ts";

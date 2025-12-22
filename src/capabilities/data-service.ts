@@ -266,6 +266,7 @@ export class CapabilityDataService {
   ): Promise<HypergraphResponseInternal> {
     const {
       includeTools = true,
+      includeOrphans = true, // Default true for backward compat
       minSuccessRate = 0,
       minUsage = 0,
     } = options;
@@ -348,8 +349,9 @@ export class CapabilityDataService {
         logger.warn("Failed to load capability dependencies for hypergraph", { error });
       }
 
-      // 5. Optionally include standalone tools
-      if (includeTools && graphSnapshot) {
+      // 5. Optionally include standalone tools (only if includeOrphans is true)
+      // Performance fix: orphan tools (450+) bloat response without adding visualization value
+      if (includeTools && graphSnapshot && includeOrphans) {
         builder.addStandaloneTools(
           hypergraphResult.nodes,
           graphSnapshot,

@@ -393,7 +393,7 @@ Deno.test({
     }
   `;
 
-  const capability = await store.saveCapability({
+  const { capability } = await store.saveCapability({
     code,
     intent: "Read a file and write it if it has content",
     durationMs: 100,

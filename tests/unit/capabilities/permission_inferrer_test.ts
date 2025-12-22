@@ -345,7 +345,7 @@ Deno.test({
       return response.json();
     `;
 
-    const capability = await store.saveCapability({
+    const { capability } = await store.saveCapability({
       code,
       intent: "Fetch data from API",
       durationMs: 100,

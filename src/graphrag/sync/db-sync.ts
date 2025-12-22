@@ -15,6 +15,8 @@ import {
   EDGE_SOURCE_MODIFIERS,
   OBSERVED_THRESHOLD,
 } from "../algorithms/edge-weights.ts";
+import { sanitizeForStorage } from "../../utils/mod.ts";
+import { DEFAULT_TRACE_PRIORITY } from "../../capabilities/mod.ts";
 
 /**
  * Graph interface for sync operations
@@ -261,6 +263,7 @@ export async function persistCapabilityDependency(
  * Persist workflow execution to database
  *
  * Story 9.5: Includes user_id and created_by for multi-tenant isolation
+ * Story 11.2: Now writes to execution_trace table (replaces workflow_execution)
  *
  * @param db - PGlite database client
  * @param execution - Workflow execution data
@@ -274,22 +277,44 @@ export async function persistWorkflowExecution(
     executionTimeMs: number;
     errorMessage?: string;
     userId?: string;
+    capabilityId?: string;
+    decisions?: unknown[];
+    taskResults?: unknown[];
+    executedPath?: string[];
+    parentTraceId?: string;
   }
-): Promise<void> {
+): Promise<string | undefined> {
   const userId = execution.userId || "local";
 
-  await db.query(
-    `INSERT INTO workflow_execution
-     (intent_text, dag_structure, success, execution_time_ms, error_message, user_id, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+  // Story 11.2: Write to execution_trace table
+  // AC11: Sanitize sensitive data before storage
+  const sanitizedDecisions = sanitizeForStorage(execution.decisions || []);
+  const sanitizedTaskResults = sanitizeForStorage(execution.taskResults || []);
+
+  const result = await db.query(
+    `INSERT INTO execution_trace
+     (intent_text, success, duration_ms, error_message, user_id, created_by,
+      capability_id, decisions, task_results, executed_path, parent_trace_id,
+      initial_context, priority)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+     RETURNING id`,
     [
       execution.intentText || null,
-      JSON.stringify(execution.dagStructure),
       execution.success,
       Math.round(execution.executionTimeMs),
       execution.errorMessage || null,
       userId,
       userId,
+      execution.capabilityId || null,
+      JSON.stringify(sanitizedDecisions),
+      JSON.stringify(sanitizedTaskResults),
+      execution.executedPath || [],
+      execution.parentTraceId || null,
+      JSON.stringify({}), // initial_context (Epic 12)
+      DEFAULT_TRACE_PRIORITY,
     ]
   );
+
+  // Return the generated trace ID
+  return result[0]?.id as string | undefined;
 }

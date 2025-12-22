@@ -19,8 +19,8 @@
   },
   "nodeModulesDir": "auto",
   "tasks": {
-    "dev": "deno run --watch --allow-all --env --unstable-worker-options src/main.ts serve --port 3003 --config config/.mcp-servers.json",
-    "dev:api": "deno run --watch --allow-all --env --unstable-worker-options --unstable-broadcast-channel src/main.ts serve --port 3003 --config config/.mcp-servers.json",
+    "dev": "deno run --watch --allow-all --env --unstable-worker-options --unstable-kv src/main.ts serve --port 3003 --config config/.mcp-servers.json",
+    "dev:api": "deno run --watch --allow-all --env --unstable-worker-options --unstable-broadcast-channel --unstable-kv src/main.ts serve --port 3003 --config config/.mcp-servers.json",
     "dev:fresh": "cd src/web && deno run -A --env --unstable-kv --node-modules-dir=auto npm:vite",
     "dev:build": "cd src/web && vite build",
     "prod:start": "sudo systemctl start casys-dashboard casys-api",

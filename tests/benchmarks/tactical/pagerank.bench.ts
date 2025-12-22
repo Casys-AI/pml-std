@@ -9,19 +9,12 @@
  * @module tests/benchmarks/tactical/pagerank
  */
 
-import { computePageRank, type PageRankOptions } from "../../../src/graphrag/algorithms/pagerank.ts";
+import { computePageRank } from "../../../src/graphrag/algorithms/pagerank.ts";
 import {
   buildGraphFromScenario,
   generateStressGraph,
   loadScenario,
 } from "../fixtures/scenario-loader.ts";
-import { MetricsCollector } from "../utils/metrics.ts";
-
-// ============================================================================
-// Setup
-// ============================================================================
-
-const collector = new MetricsCollector();
 
 // Pre-load scenarios
 const smallScenario = await loadScenario("small-graph");
@@ -58,7 +51,7 @@ Deno.bench({
   name: "PageRank: small graph (10 nodes), high precision",
   group: "pagerank-size",
   fn: () => {
-    computePageRank(smallGraph, { tolerance: 1e-8, maxIterations: 200 });
+    computePageRank(smallGraph, { tolerance: 1e-8 });
   },
 });
 
@@ -78,7 +71,7 @@ Deno.bench({
   name: "PageRank: medium graph (50 nodes), high precision",
   group: "pagerank-size",
   fn: () => {
-    computePageRank(mediumGraph, { tolerance: 1e-8, maxIterations: 200 });
+    computePageRank(mediumGraph, { tolerance: 1e-8 });
   },
 });
 
@@ -98,36 +91,7 @@ Deno.bench({
   name: "PageRank: stress graph (200 nodes), fast convergence",
   group: "pagerank-size",
   fn: () => {
-    computePageRank(stressGraph, { tolerance: 1e-4, maxIterations: 50 });
-  },
-});
-
-// ============================================================================
-// Benchmarks: Damping Factor Variations
-// ============================================================================
-
-Deno.bench({
-  name: "PageRank: damping=0.85 (default)",
-  group: "pagerank-damping",
-  baseline: true,
-  fn: () => {
-    computePageRank(mediumGraph, { dampingFactor: 0.85 });
-  },
-});
-
-Deno.bench({
-  name: "PageRank: damping=0.90 (higher)",
-  group: "pagerank-damping",
-  fn: () => {
-    computePageRank(mediumGraph, { dampingFactor: 0.90 });
-  },
-});
-
-Deno.bench({
-  name: "PageRank: damping=0.75 (lower)",
-  group: "pagerank-damping",
-  fn: () => {
-    computePageRank(mediumGraph, { dampingFactor: 0.75 });
+    computePageRank(stressGraph, { tolerance: 1e-4 });
   },
 });
 

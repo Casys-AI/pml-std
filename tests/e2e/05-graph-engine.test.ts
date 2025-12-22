@@ -27,13 +27,13 @@ Deno.test("E2E 05: GraphRAG engine", async (t) => {
       const tools = await server.listTools();
       await storeSchemas(db, "filesystem", tools);
 
-      const toolResults = await db.query("SELECT id, server_id, tool_name FROM mcp_tool");
+      const toolResults = await db.query("SELECT tool_id, server_id, name FROM tool_schema");
 
       for (const tool of toolResults) {
         const embedding = "[" + Array(1024).fill(0).join(",") + "]";
         await db.query(
           "INSERT INTO tool_embedding (tool_id, server_id, tool_name, embedding) VALUES ($1, $2, $3, $4::vector)",
-          [tool.id, tool.server_id, tool.tool_name, embedding],
+          [tool.tool_id, tool.server_id, tool.name, embedding],
         );
       }
     });

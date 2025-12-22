@@ -192,9 +192,10 @@ export function welchTTest(sample1: number[], sample2: number[]): number {
 
   const t = (mean1 - mean2) / Math.sqrt(var1 / n1 + var2 / n2);
 
-  // Approximate degrees of freedom (Welch-Satterthwaite)
-  const df = ((var1 / n1 + var2 / n2) ** 2) /
+  // Approximate degrees of freedom (Welch-Satterthwaite) - kept for reference
+  const _df = ((var1 / n1 + var2 / n2) ** 2) /
     ((var1 / n1) ** 2 / (n1 - 1) + (var2 / n2) ** 2 / (n2 - 1));
+  void _df; // Unused but kept for t-distribution extension
 
   // Approximate p-value using normal distribution for large samples
   // For small samples, this is an approximation

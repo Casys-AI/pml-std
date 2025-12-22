@@ -91,6 +91,23 @@ export async function listScenarios(): Promise<string[]> {
 // ============================================================================
 
 /**
+ * Helper to add bidirectional edge (for algorithms like heat diffusion)
+ */
+function addBidirectionalEdge(
+  graph: Graph,
+  source: string,
+  target: string,
+  attrs: Record<string, unknown>
+): void {
+  if (!graph.hasEdge(source, target)) {
+    graph.addEdge(source, target, attrs);
+  }
+  if (!graph.hasEdge(target, source)) {
+    graph.addEdge(target, source, { ...attrs, reverse: true });
+  }
+}
+
+/**
  * Build a Graphology graph from scenario data
  */
 export function buildGraphFromScenario(scenario: ScenarioData): Graph {
@@ -113,10 +130,10 @@ export function buildGraphFromScenario(scenario: ScenarioData): Graph {
       successRate: cap.successRate,
     });
 
-    // Add contains edges from capability to tools
+    // Add bidirectional contains edges from capability to tools
     for (const toolId of cap.toolsUsed) {
       if (graph.hasNode(toolId)) {
-        graph.addEdge(cap.id, toolId, {
+        addBidirectionalEdge(graph, cap.id, toolId, {
           edge_type: "contains",
           edge_source: "template",
           weight: 0.8,
@@ -135,10 +152,10 @@ export function buildGraphFromScenario(scenario: ScenarioData): Graph {
         description: meta.description,
       });
 
-      // Add contains edges from meta to capabilities
+      // Add bidirectional contains edges from meta to capabilities
       for (const capId of meta.contains) {
         if (graph.hasNode(capId)) {
-          graph.addEdge(meta.id, capId, {
+          addBidirectionalEdge(graph, meta.id, capId, {
             edge_type: "contains",
             edge_source: "template",
             weight: 0.9,
@@ -149,17 +166,15 @@ export function buildGraphFromScenario(scenario: ScenarioData): Graph {
     }
   }
 
-  // Add explicit edges
+  // Add explicit edges (bidirectional for heat diffusion support)
   for (const edge of scenario.edges) {
     if (graph.hasNode(edge.source) && graph.hasNode(edge.target)) {
-      if (!graph.hasEdge(edge.source, edge.target)) {
-        graph.addEdge(edge.source, edge.target, {
-          edge_type: edge.type,
-          edge_source: edge.source_type,
-          weight: edge.weight,
-          count: edge.count,
-        });
-      }
+      addBidirectionalEdge(graph, edge.source, edge.target, {
+        edge_type: edge.type,
+        edge_source: edge.source_type,
+        weight: edge.weight,
+        count: edge.count,
+      });
     }
   }
 

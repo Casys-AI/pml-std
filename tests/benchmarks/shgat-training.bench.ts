@@ -15,9 +15,7 @@ import { assertEquals, assertGreater, assertLess } from "@std/assert";
 import {
   SHGAT,
   DEFAULT_SHGAT_CONFIG,
-  DEFAULT_HYPERGRAPH_FEATURES,
   trainSHGATOnEpisodes,
-  type CapabilityNode,
   type TrainingExample,
   type HypergraphFeatures,
 } from "../../src/graphrag/algorithms/shgat.ts";
@@ -84,15 +82,6 @@ function buildSHGATFromFixture(): {
   for (const cap of fixtureData.nodes.capabilities) {
     const capEmbedding = createMockEmbedding(cap.id);
     embeddings.set(cap.id, capEmbedding);
-
-    // Compute hypergraph features from fixture data
-    const toolNodes = fixtureData.nodes.tools.filter((t: { id: string }) =>
-      cap.toolsUsed.includes(t.id)
-    );
-    const avgPageRank = toolNodes.length > 0
-      ? toolNodes.reduce((sum: number, t: { pageRank: number }) => sum + t.pageRank, 0) / toolNodes.length
-      : 0.01;
-    const primaryCommunity = toolNodes.length > 0 ? toolNodes[0].community : 0;
 
     capabilities.push({
       id: cap.id,
@@ -584,7 +573,7 @@ Deno.test("SHGAT Hierarchy: training examples include selectedMeta", () => {
  */
 function scoreMetaCapability(
   shgat: SHGAT,
-  metaId: string,
+  _metaId: string,
   childIds: string[],
   intentEmbedding: number[],
   contextEmbeddings: number[][]
@@ -635,7 +624,7 @@ Deno.test("SHGAT Hierarchy: meta-score aggregation from children", () => {
 });
 
 Deno.test("SHGAT Hierarchy: nested meta-capabilities", () => {
-  const { shgat, embeddings, metaCapabilities } = buildSHGATWithHierarchy();
+  const { shgat, metaCapabilities } = buildSHGATWithHierarchy();
 
   // meta__ecommerce contains meta__transactions and meta__browsing
   const metaEcommerce = metaCapabilities.find((m) => m.id === "meta__ecommerce")!;

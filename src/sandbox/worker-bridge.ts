@@ -20,7 +20,7 @@
  */
 
 import type { MCPClientBase } from "../mcp/types.ts";
-import type { JsonValue } from "../capabilities/types.ts";
+import type { JsonValue, TraceTaskResult } from "../capabilities/types.ts";
 import type {
   CapabilityTraceEvent,
   ExecutionCompleteMessage,
@@ -29,6 +29,7 @@ import type {
   RPCCallMessage,
   RPCResultMessage,
   ToolDefinition,
+  ToolTraceEvent,
   TraceEvent,
   WorkerToBridgeMessage,
 } from "./types.ts";
@@ -41,6 +42,38 @@ import { getLogger } from "../telemetry/logger.ts";
 import { eventBus } from "../events/mod.ts";
 
 const logger = getLogger("default");
+
+/**
+ * Maximum length for toString fallback in non-serializable results.
+ * Prevents huge strings from being stored in traces while preserving useful debug info.
+ */
+const MAX_TOSTRING_LENGTH = 500;
+
+/**
+ * Safely serialize a result for tracing (Story 11.1)
+ * Handles circular references and non-serializable objects gracefully.
+ *
+ * @param result - The result to serialize
+ * @returns A JSON-safe representation of the result
+ */
+function safeSerializeResult(result: unknown): unknown {
+  if (result === undefined || result === null) {
+    return result;
+  }
+
+  try {
+    // Test if result is JSON-serializable
+    JSON.stringify(result);
+    return result;
+  } catch {
+    // Fallback for non-serializable results (circular refs, functions, etc.)
+    return {
+      __type: "non-serializable",
+      typeof: typeof result,
+      toString: String(result).substring(0, MAX_TOSTRING_LENGTH),
+    };
+  }
+}
 
 /**
  * Configuration for WorkerBridge
@@ -117,6 +150,8 @@ export class WorkerBridge {
   private startTime: number = 0;
   private lastExecutedCode: string = "";
   private lastIntent?: string;
+  private lastContext?: Record<string, unknown>;
+  private lastParentTraceId?: string;
 
   // Story 7.3b: BroadcastChannel for real-time capability trace collection (ADR-036)
   private traceChannel: BroadcastChannel;
@@ -167,6 +202,7 @@ export class WorkerBridge {
             success: e.data.success ?? true,
             durationMs: e.data.durationMs ?? 0,
             error: e.data.error,
+            result: e.data.result, // Story 11.1
           },
         });
       }
@@ -216,6 +252,8 @@ export class WorkerBridge {
     this.traces = []; // Reset traces for new execution
     this.lastExecutedCode = code;
     this.lastIntent = context?.intent as string | undefined;
+    this.lastContext = context; // Story 11.2: Store for traceData
+    this.lastParentTraceId = parentTraceId; // Story 11.2: Store for traceData
 
     try {
       logger.debug("Starting Worker execution", {
@@ -297,18 +335,53 @@ export class WorkerBridge {
               sequenceIndex: inv.sequenceIndex,
             }));
 
-          await this.capabilityStore.saveCapability({
+          // Story 11.2: Build taskResults from tool traces for execution trace persistence
+          const sortedTraces = [...this.traces].sort((a, b) => a.ts - b.ts);
+          const taskResults: TraceTaskResult[] = sortedTraces
+            .filter((t): t is TraceEvent & { tool: string; args?: Record<string, unknown>; result?: unknown } =>
+              t.type === "tool_end" && "tool" in t
+            )
+            .map((t, idx) => ({
+              taskId: `task-${idx}`,
+              tool: t.tool,
+              args: (t.args ?? {}) as Record<string, JsonValue>,
+              result: (t.result ?? null) as JsonValue,
+              success: t.success ?? false,
+              durationMs: t.durationMs ?? 0,
+            }));
+
+          // Build executedPath from traces (tool and capability nodes in execution order)
+          const executedPath = sortedTraces
+            .filter((t): t is ToolTraceEvent | CapabilityTraceEvent =>
+              t.type === "tool_end" || t.type === "capability_end"
+            )
+            .map((t) => {
+              if (t.type === "tool_end") return t.tool;
+              return (t as CapabilityTraceEvent).capability;
+            });
+
+          const { trace } = await this.capabilityStore.saveCapability({
             code: this.lastExecutedCode,
             intent: this.lastIntent,
             durationMs: Math.round(result.executionTimeMs),
             success: true,
             toolsUsed: this.getToolsCalled(),
             toolInvocations,
+            // Story 11.2: Include traceData for execution trace persistence
+            traceData: {
+              initialContext: (this.lastContext ?? {}) as Record<string, JsonValue>,
+              executedPath,
+              decisions: [], // Branch decisions not yet captured at runtime
+              taskResults,
+              userId: (this.lastContext?.userId as string) ?? "local",
+              parentTraceId: this.lastParentTraceId,
+            },
           });
           logger.debug("Capability saved via eager learning", {
             intent: this.lastIntent.substring(0, 50),
             toolsUsed: this.getToolsCalled().length,
             toolInvocations: toolInvocations.length,
+            traceId: trace?.id,
           });
         } catch (capError) {
           // Don't fail execution if capability storage fails
@@ -436,14 +509,19 @@ export class WorkerBridge {
       const durationMs = endTime - startTime;
 
       // ADR-043: Check if MCP tool returned isError (soft failure)
-      const mcpResult = result as { isError?: boolean; content?: Array<{ text?: string }> };
-      const isToolError = mcpResult.isError === true;
-      const errorMessage = isToolError && mcpResult.content?.[0]?.text
+      // Note: Use optional chaining since result can be null (valid MCP response)
+      const mcpResult = result as { isError?: boolean; content?: Array<{ text?: string }> } | null;
+      const isToolError = mcpResult?.isError === true;
+      const errorMessage = isToolError && mcpResult?.content?.[0]?.text
         ? mcpResult.content[0].text
         : undefined;
 
+      // Story 11.1: Safely serialize result for tracing
+      const safeResult = safeSerializeResult(result);
+
       // TRACE END - success or soft failure
       // ADR-041: Include parentTraceId for hierarchical tracking
+      // Story 11.1: Include result for learning
       this.traces.push({
         type: "tool_end",
         tool: toolId,
@@ -452,10 +530,12 @@ export class WorkerBridge {
         success: !isToolError,
         durationMs: durationMs,
         parentTraceId: parentTraceId, // ADR-041
+        result: safeResult, // Story 11.1
         ...(isToolError && errorMessage ? { error: errorMessage } : {}),
       });
 
       // Story 6.5: Emit tool.end event to EventBus
+      // Story 11.1: Include result in payload
       eventBus.emit({
         type: "tool.end",
         source: "worker-bridge",
@@ -465,6 +545,7 @@ export class WorkerBridge {
           success: !isToolError,
           durationMs: durationMs,
           parentTraceId: parentTraceId, // ADR-041
+          result: safeResult, // Story 11.1
         },
       });
 

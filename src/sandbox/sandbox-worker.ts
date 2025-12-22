@@ -93,6 +93,8 @@ function __trace(event: Partial<CapabilityTraceEvent>): void {
       error: event.error,
       parentTraceId: parentTraceId,
       args: event.args,
+      result: event.result, // Story 11.1
+      durationMs: event.durationMs, // Story 11.1
     };
 
     // ADR-041: Manage trace context stack

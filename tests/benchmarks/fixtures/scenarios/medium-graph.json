@@ -55,16 +55,76 @@
       { "id": "storage__list", "pageRank": 0.01, "community": 10 }
     ],
     "capabilities": [
-      { "id": "cap__file_ops", "toolsUsed": ["fs__read", "fs__write", "fs__list", "fs__delete", "fs__copy"], "successRate": 0.92 },
-      { "id": "cap__db_crud", "toolsUsed": ["db__query", "db__insert", "db__update", "db__delete", "db__transaction"], "successRate": 0.88 },
-      { "id": "cap__rest_api", "toolsUsed": ["http__get", "http__post", "http__put", "http__delete", "json__parse", "json__stringify"], "successRate": 0.90 },
-      { "id": "cap__auth_flow", "toolsUsed": ["auth__login", "auth__validate", "auth__refresh", "auth__logout"], "successRate": 0.95 },
-      { "id": "cap__caching", "toolsUsed": ["cache__get", "cache__set", "cache__delete"], "successRate": 0.98 },
-      { "id": "cap__logging", "toolsUsed": ["log__info", "log__error", "log__debug", "log__warn", "metrics__record"], "successRate": 0.99 },
-      { "id": "cap__notifications", "toolsUsed": ["email__send", "email__template", "sms__send", "push__send"], "successRate": 0.85 },
-      { "id": "cap__security", "toolsUsed": ["crypto__encrypt", "crypto__decrypt", "crypto__hash", "crypto__sign", "crypto__verify"], "successRate": 0.97 },
-      { "id": "cap__messaging", "toolsUsed": ["queue__publish", "queue__subscribe", "queue__ack"], "successRate": 0.94 },
-      { "id": "cap__storage", "toolsUsed": ["storage__upload", "storage__download", "storage__delete", "storage__list"], "successRate": 0.91 }
+      {
+        "id": "cap__file_ops",
+        "description": "Read, write, copy and delete files on disk. Manage local filesystem directories and file contents.",
+        "toolsUsed": ["fs__read", "fs__write", "fs__list", "fs__delete", "fs__copy"],
+        "successRate": 0.92,
+        "hypergraphFeatures": { "spectralCluster": 0, "hypergraphPageRank": 0.08, "cooccurrence": 0.85, "recency": 0.70, "adamicAdar": 0.45, "heatDiffusion": 0.30 }
+      },
+      {
+        "id": "cap__db_crud",
+        "description": "Query database records and execute SQL statements. Insert, update, delete user data in relational database tables with transactions.",
+        "toolsUsed": ["db__query", "db__insert", "db__update", "db__delete", "db__transaction"],
+        "successRate": 0.88,
+        "hypergraphFeatures": { "spectralCluster": 1, "hypergraphPageRank": 0.12, "cooccurrence": 0.92, "recency": 0.85, "adamicAdar": 0.60, "heatDiffusion": 0.55 }
+      },
+      {
+        "id": "cap__rest_api",
+        "description": "Call external HTTP REST API endpoints. Make GET, POST, PUT web requests to remote servers and parse JSON API responses.",
+        "toolsUsed": ["http__get", "http__post", "http__put", "http__delete", "json__parse", "json__stringify"],
+        "successRate": 0.90,
+        "hypergraphFeatures": { "spectralCluster": 2, "hypergraphPageRank": 0.15, "cooccurrence": 0.88, "recency": 0.90, "adamicAdar": 0.70, "heatDiffusion": 0.65 }
+      },
+      {
+        "id": "cap__auth_flow",
+        "description": "Authenticate users with login credentials. Validate session tokens and refresh expired authentication.",
+        "toolsUsed": ["auth__login", "auth__validate", "auth__refresh", "auth__logout"],
+        "successRate": 0.95,
+        "hypergraphFeatures": { "spectralCluster": 4, "hypergraphPageRank": 0.09, "cooccurrence": 0.75, "recency": 0.80, "adamicAdar": 0.50, "heatDiffusion": 0.40 }
+      },
+      {
+        "id": "cap__caching",
+        "description": "Store and retrieve cached data by key. Manage in-memory cache for faster data access.",
+        "toolsUsed": ["cache__get", "cache__set", "cache__delete"],
+        "successRate": 0.98,
+        "hypergraphFeatures": { "spectralCluster": 5, "hypergraphPageRank": 0.10, "cooccurrence": 0.70, "recency": 0.75, "adamicAdar": 0.55, "heatDiffusion": 0.50 }
+      },
+      {
+        "id": "cap__logging",
+        "description": "Log application events, errors, warnings and debug information. Record performance metrics.",
+        "toolsUsed": ["log__info", "log__error", "log__debug", "log__warn", "metrics__record"],
+        "successRate": 0.99,
+        "hypergraphFeatures": { "spectralCluster": 6, "hypergraphPageRank": 0.06, "cooccurrence": 0.65, "recency": 0.70, "adamicAdar": 0.30, "heatDiffusion": 0.55 }
+      },
+      {
+        "id": "cap__notifications",
+        "description": "Send email messages, SMS text alerts and mobile push notifications to end users. Deliver user-facing notification alerts.",
+        "toolsUsed": ["email__send", "email__template", "sms__send", "push__send"],
+        "successRate": 0.85,
+        "hypergraphFeatures": { "spectralCluster": 7, "hypergraphPageRank": 0.05, "cooccurrence": 0.40, "recency": 0.50, "adamicAdar": 0.25, "heatDiffusion": 0.20 }
+      },
+      {
+        "id": "cap__security",
+        "description": "Encrypt and decrypt sensitive data. Hash passwords and sign documents with cryptographic signatures.",
+        "toolsUsed": ["crypto__encrypt", "crypto__decrypt", "crypto__hash", "crypto__sign", "crypto__verify"],
+        "successRate": 0.97,
+        "hypergraphFeatures": { "spectralCluster": 8, "hypergraphPageRank": 0.07, "cooccurrence": 0.60, "recency": 0.65, "adamicAdar": 0.40, "heatDiffusion": 0.35 }
+      },
+      {
+        "id": "cap__messaging",
+        "description": "Publish and subscribe to message queue events. Handle asynchronous messaging between services.",
+        "toolsUsed": ["queue__publish", "queue__subscribe", "queue__ack"],
+        "successRate": 0.94,
+        "hypergraphFeatures": { "spectralCluster": 9, "hypergraphPageRank": 0.08, "cooccurrence": 0.70, "recency": 0.75, "adamicAdar": 0.45, "heatDiffusion": 0.50 }
+      },
+      {
+        "id": "cap__storage",
+        "description": "Upload and download files to cloud storage. Manage objects in remote storage buckets.",
+        "toolsUsed": ["storage__upload", "storage__download", "storage__delete", "storage__list"],
+        "successRate": 0.91,
+        "hypergraphFeatures": { "spectralCluster": 10, "hypergraphPageRank": 0.06, "cooccurrence": 0.55, "recency": 0.60, "adamicAdar": 0.35, "heatDiffusion": 0.25 }
+      }
     ],
     "metaCapabilities": [
       { "id": "meta__data_pipeline", "contains": ["cap__file_ops", "cap__db_crud", "cap__caching"], "description": "End-to-end data processing" },
@@ -96,5 +156,35 @@
     "spectral": {
       "clusterCount": { "min": 3, "max": 5 }
     }
-  }
+  },
+  "testQueries": [
+    { "intent": "read and write files on disk", "expectedCapability": "cap__file_ops" },
+    { "intent": "copy a file to another location", "expectedCapability": "cap__file_ops" },
+    { "intent": "list all files in a directory", "expectedCapability": "cap__file_ops" },
+    { "intent": "query the database for user records", "expectedCapability": "cap__db_crud" },
+    { "intent": "insert new data into the database", "expectedCapability": "cap__db_crud" },
+    { "intent": "update existing database entries", "expectedCapability": "cap__db_crud" },
+    { "intent": "make an HTTP GET request to fetch data", "expectedCapability": "cap__rest_api" },
+    { "intent": "post JSON data to a REST endpoint", "expectedCapability": "cap__rest_api" },
+    { "intent": "call an external API and parse response", "expectedCapability": "cap__rest_api" },
+    { "intent": "authenticate user with login credentials", "expectedCapability": "cap__auth_flow" },
+    { "intent": "validate user session token", "expectedCapability": "cap__auth_flow" },
+    { "intent": "refresh expired authentication token", "expectedCapability": "cap__auth_flow" },
+    { "intent": "store data in cache for faster access", "expectedCapability": "cap__caching" },
+    { "intent": "retrieve cached value by key", "expectedCapability": "cap__caching" },
+    { "intent": "log application events and errors", "expectedCapability": "cap__logging" },
+    { "intent": "record performance metrics", "expectedCapability": "cap__logging" },
+    { "intent": "write debug information to logs", "expectedCapability": "cap__logging" },
+    { "intent": "send email notification to user", "expectedCapability": "cap__notifications" },
+    { "intent": "send SMS alert message", "expectedCapability": "cap__notifications" },
+    { "intent": "push notification to mobile device", "expectedCapability": "cap__notifications" },
+    { "intent": "encrypt sensitive data before storage", "expectedCapability": "cap__security" },
+    { "intent": "hash password for secure storage", "expectedCapability": "cap__security" },
+    { "intent": "sign document with cryptographic signature", "expectedCapability": "cap__security" },
+    { "intent": "publish message to queue", "expectedCapability": "cap__messaging" },
+    { "intent": "subscribe to message queue events", "expectedCapability": "cap__messaging" },
+    { "intent": "upload file to cloud storage", "expectedCapability": "cap__storage" },
+    { "intent": "download file from remote storage", "expectedCapability": "cap__storage" },
+    { "intent": "list objects in storage bucket", "expectedCapability": "cap__storage" }
+  ]
 }

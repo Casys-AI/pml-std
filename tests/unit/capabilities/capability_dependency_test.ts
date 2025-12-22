@@ -54,19 +54,19 @@ async function setupTestDb(): Promise<PGliteClient> {
 async function createTestCapabilities(
   store: CapabilityStore,
 ): Promise<{ capA: string; capB: string; capC: string }> {
-  const capA = await store.saveCapability({
+  const { capability: capA } = await store.saveCapability({
     code: 'const a = await tools.fetch({url: "api/data"});',
     intent: "Fetch data from API",
     durationMs: 100,
   });
 
-  const capB = await store.saveCapability({
+  const { capability: capB } = await store.saveCapability({
     code: 'const b = await tools.transform({data});',
     intent: "Transform data",
     durationMs: 50,
   });
 
-  const capC = await store.saveCapability({
+  const { capability: capC } = await store.saveCapability({
     code: 'const c = await tools.save({data});',
     intent: "Save data to storage",
     durationMs: 75,

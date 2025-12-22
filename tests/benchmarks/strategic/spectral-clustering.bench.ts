@@ -69,7 +69,7 @@ Deno.bench({
   baseline: true,
   fn: () => {
     const manager = createManager();
-    manager.buildBipartiteGraph(smallCapabilities);
+    manager.buildBipartiteMatrix(smallTools, smallCapabilities);
     manager.performClustering(3);
   },
 });
@@ -79,7 +79,7 @@ Deno.bench({
   group: "spectral-full",
   fn: () => {
     const manager = createManager();
-    manager.buildBipartiteGraph(mediumCapabilities);
+    manager.buildBipartiteMatrix(mediumTools, mediumCapabilities);
     manager.performClustering(5);
   },
 });
@@ -89,7 +89,7 @@ Deno.bench({
   group: "spectral-full",
   fn: () => {
     const manager = createManager();
-    manager.buildBipartiteGraph(stressCapabilities);
+    manager.buildBipartiteMatrix(stressTools, stressCapabilities);
     manager.performClustering(10);
   },
 });
@@ -104,7 +104,7 @@ Deno.bench({
   baseline: true,
   fn: () => {
     const manager = createManager();
-    manager.buildBipartiteGraph(smallCapabilities);
+    manager.buildBipartiteMatrix(smallTools, smallCapabilities);
   },
 });
 
@@ -113,7 +113,7 @@ Deno.bench({
   group: "spectral-build",
   fn: () => {
     const manager = createManager();
-    manager.buildBipartiteGraph(mediumCapabilities);
+    manager.buildBipartiteMatrix(mediumTools, mediumCapabilities);
   },
 });
 
@@ -122,7 +122,7 @@ Deno.bench({
   group: "spectral-build",
   fn: () => {
     const manager = createManager();
-    manager.buildBipartiteGraph(stressCapabilities);
+    manager.buildBipartiteMatrix(stressTools, stressCapabilities);
   },
 });
 
@@ -136,7 +136,7 @@ Deno.bench({
   baseline: true,
   fn: () => {
     const manager = createManager();
-    manager.buildBipartiteGraph(mediumCapabilities);
+    manager.buildBipartiteMatrix(mediumTools, mediumCapabilities);
     manager.performClustering(3);
   },
 });
@@ -146,7 +146,7 @@ Deno.bench({
   group: "spectral-k",
   fn: () => {
     const manager = createManager();
-    manager.buildBipartiteGraph(mediumCapabilities);
+    manager.buildBipartiteMatrix(mediumTools, mediumCapabilities);
     manager.performClustering(5);
   },
 });
@@ -156,7 +156,7 @@ Deno.bench({
   group: "spectral-k",
   fn: () => {
     const manager = createManager();
-    manager.buildBipartiteGraph(mediumCapabilities);
+    manager.buildBipartiteMatrix(mediumTools, mediumCapabilities);
     manager.performClustering(10);
   },
 });
@@ -167,7 +167,7 @@ Deno.bench({
 
 // Pre-compute clusters for lookup tests
 const prebuiltManager = createManager();
-prebuiltManager.buildBipartiteGraph(mediumCapabilities);
+prebuiltManager.buildBipartiteMatrix(mediumTools, mediumCapabilities);
 prebuiltManager.performClustering(5);
 
 Deno.bench({
@@ -175,7 +175,8 @@ Deno.bench({
   group: "spectral-boost",
   baseline: true,
   fn: () => {
-    prebuiltManager.getClusterBoost(mediumCapabilities[0].id, [mediumTools[0]]);
+    const activeCluster = prebuiltManager.identifyActiveCluster([mediumTools[0]]);
+    prebuiltManager.getClusterBoost(mediumCapabilities[0], activeCluster);
   },
 });
 
@@ -183,7 +184,8 @@ Deno.bench({
   name: "Spectral: get cluster boost (5 context tools)",
   group: "spectral-boost",
   fn: () => {
-    prebuiltManager.getClusterBoost(mediumCapabilities[0].id, mediumTools.slice(0, 5));
+    const activeCluster = prebuiltManager.identifyActiveCluster(mediumTools.slice(0, 5));
+    prebuiltManager.getClusterBoost(mediumCapabilities[0], activeCluster);
   },
 });
 
@@ -191,7 +193,8 @@ Deno.bench({
   name: "Spectral: get cluster boost (10 context tools)",
   group: "spectral-boost",
   fn: () => {
-    prebuiltManager.getClusterBoost(mediumCapabilities[0].id, mediumTools.slice(0, 10));
+    const activeCluster = prebuiltManager.identifyActiveCluster(mediumTools.slice(0, 10));
+    prebuiltManager.getClusterBoost(mediumCapabilities[0], activeCluster);
   },
 });
 
@@ -205,8 +208,8 @@ Deno.bench({
   baseline: true,
   fn: () => {
     const manager = createManager();
-    manager.buildBipartiteGraph(smallCapabilities);
-    manager.computeHypergraphPageRank();
+    manager.buildBipartiteMatrix(smallTools, smallCapabilities);
+    manager.computeHypergraphPageRank(smallCapabilities);
   },
 });
 
@@ -215,8 +218,8 @@ Deno.bench({
   group: "spectral-pagerank",
   fn: () => {
     const manager = createManager();
-    manager.buildBipartiteGraph(mediumCapabilities);
-    manager.computeHypergraphPageRank();
+    manager.buildBipartiteMatrix(mediumTools, mediumCapabilities);
+    manager.computeHypergraphPageRank(mediumCapabilities);
   },
 });
 
@@ -225,8 +228,8 @@ Deno.bench({
   group: "spectral-pagerank",
   fn: () => {
     const manager = createManager();
-    manager.buildBipartiteGraph(stressCapabilities);
-    manager.computeHypergraphPageRank();
+    manager.buildBipartiteMatrix(stressTools, stressCapabilities);
+    manager.computeHypergraphPageRank(stressCapabilities);
   },
 });
 
@@ -241,7 +244,7 @@ Deno.bench({
   fn: () => {
     // Clear cache by creating new manager
     const manager = createManager();
-    manager.buildBipartiteGraph(mediumCapabilities);
+    manager.buildBipartiteMatrix(mediumTools, mediumCapabilities);
     manager.performClustering(5);
   },
 });
@@ -253,7 +256,8 @@ Deno.bench({
   group: "spectral-cache",
   fn: () => {
     // Uses same manager, should hit cache
-    prebuiltManager.getClusterBoost(mediumCapabilities[0].id, mediumTools.slice(0, 5));
+    const activeCluster = prebuiltManager.identifyActiveCluster(mediumTools.slice(0, 5));
+    prebuiltManager.getClusterBoost(mediumCapabilities[0], activeCluster);
   },
 });
 

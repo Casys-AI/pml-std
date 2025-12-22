@@ -9,19 +9,12 @@
  * @module tests/benchmarks/tactical/louvain
  */
 
-import { detectCommunities, type LouvainOptions } from "../../../src/graphrag/algorithms/louvain.ts";
+import { detectCommunities } from "../../../src/graphrag/algorithms/louvain.ts";
 import {
   buildGraphFromScenario,
   generateStressGraph,
   loadScenario,
 } from "../fixtures/scenario-loader.ts";
-import { MetricsCollector } from "../utils/metrics.ts";
-
-// ============================================================================
-// Setup
-// ============================================================================
-
-const collector = new MetricsCollector();
 
 // Pre-load scenarios
 const smallScenario = await loadScenario("small-graph");
@@ -114,48 +107,6 @@ Deno.bench({
   group: "louvain-resolution",
   fn: () => {
     detectCommunities(mediumGraph, { resolution: 2.0 });
-  },
-});
-
-// ============================================================================
-// Benchmarks: Weighted vs Unweighted
-// ============================================================================
-
-Deno.bench({
-  name: "Louvain: weighted edges",
-  group: "louvain-weighted",
-  baseline: true,
-  fn: () => {
-    detectCommunities(mediumGraph, { weighted: true });
-  },
-});
-
-Deno.bench({
-  name: "Louvain: unweighted edges",
-  group: "louvain-weighted",
-  fn: () => {
-    detectCommunities(mediumGraph, { weighted: false });
-  },
-});
-
-// ============================================================================
-// Benchmarks: Randomization
-// ============================================================================
-
-Deno.bench({
-  name: "Louvain: with randomization",
-  group: "louvain-random",
-  baseline: true,
-  fn: () => {
-    detectCommunities(mediumGraph, { randomize: true });
-  },
-});
-
-Deno.bench({
-  name: "Louvain: deterministic (no randomization)",
-  group: "louvain-random",
-  fn: () => {
-    detectCommunities(mediumGraph, { randomize: false });
   },
 });
 

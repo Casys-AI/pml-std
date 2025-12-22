@@ -35,4 +35,4 @@ export const ServerDefaults = {
  * Server description shown to MCP clients
  */
 export const SERVER_TITLE =
-  "PML Gateway - Describe what you want, I find the tools and execute. Use execute_dag with 'intent' to get started.";
+  "PML - Orchestrate any MCP workflow. Use pml_execute with just an 'intent' (natural language) to auto-discover tools and execute. Or provide explicit 'code' for custom TypeScript workflows. Learns from successful executions.";

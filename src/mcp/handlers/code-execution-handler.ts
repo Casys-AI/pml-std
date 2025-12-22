@@ -38,8 +38,8 @@ import { ControlledExecutor } from "../../dag/controlled-executor.ts";
 import type { Task } from "../../graphrag/types.ts";
 import type { TaskResult } from "../../dag/types.ts";
 import type { PGliteClient } from "../../db/client.ts";
-import type { ToolDefinition } from "../../sandbox/types.ts";
 import { type DagScoringConfig, DEFAULT_DAG_SCORING_CONFIG } from "../../graphrag/dag-scoring-config.ts";
+import { buildToolDefinitionsFromDAG } from "./shared/tool-definitions.ts";
 
 /**
  * Dependencies required for code execution handler
@@ -102,6 +102,9 @@ export async function handleExecuteCode(
   args: unknown,
   deps: CodeExecutionDependencies,
 ): Promise<MCPToolResponse | MCPErrorResponse> {
+  // Story 10.7: Deprecation warning
+  log.warn("[DEPRECATED] pml:execute_code is deprecated. Use pml:execute with code parameter for unified execution + automatic capability learning.");
+
   try {
     const request = args as CodeExecutionRequest;
 
@@ -344,60 +347,6 @@ function resolveDAGArguments(
   });
 
   return { tasks };
-}
-
-/**
- * Build tool definitions from DAG tasks for WorkerBridge context
- *
- * Story 10.5 AC10: Extract tool definitions for RPC tracing.
- *
- * @param dag - DAG structure with tasks
- * @param deps - Handler dependencies with MCP clients
- * @returns Array of tool definitions for WorkerBridge
- */
-async function buildToolDefinitionsFromDAG(
-  dag: import("../../dag/mod.ts").ConditionalDAGStructure,
-  deps: CodeExecutionDependencies,
-): Promise<ToolDefinition[]> {
-  const toolDefs: ToolDefinition[] = [];
-  const seenTools = new Set<string>();
-
-  for (const task of dag.tasks) {
-    if (!task.tool || seenTools.has(task.tool)) continue;
-    seenTools.add(task.tool);
-
-    const colonIndex = task.tool.indexOf(":");
-    if (colonIndex === -1) continue;
-
-    const serverId = task.tool.substring(0, colonIndex);
-    const toolName = task.tool.substring(colonIndex + 1);
-
-    const client = deps.mcpClients.get(serverId);
-    if (!client) continue;
-
-    try {
-      const tools = await client.listTools();
-      const toolSchema = tools.find((t) => t.name === toolName);
-      if (toolSchema) {
-        toolDefs.push({
-          server: serverId,
-          name: toolName,
-          description: toolSchema.description ?? "",
-          inputSchema: toolSchema.inputSchema as Record<string, unknown>,
-        });
-      }
-    } catch {
-      // Server doesn't have schema, add minimal definition
-      toolDefs.push({
-        server: serverId,
-        name: toolName,
-        description: "",
-        inputSchema: {},
-      });
-    }
-  }
-
-  return toolDefs;
 }
 
 /**

@@ -1,20 +1,41 @@
 /**
  * Local Alpha Calculator Benchmarks
  *
- * Benchmarks for Local Adaptive Alpha (ADR-048).
- * Tests different algorithms: Embeddings Hybrides, Heat Diffusion, Bayesian.
+ * @deprecated OBSOLETE - ADR-050 supersedes ADR-048
+ *
+ * These benchmarks test Local Adaptive Alpha (ADR-048) which has been replaced
+ * by SHGAT learned attention. The alpha formulas (Embeddings Hybrides, Heat
+ * Diffusion, Bayesian) are no longer used in production.
+ *
+ * See:
+ * - ADR-050: Unified Search Simplification (supersedes ADR-048)
+ * - shgat-drdsp-prediction.bench.ts for current prediction benchmarks
+ *
+ * Status: OBSOLETE - kept for historical reference only
  *
  * Run: deno bench --allow-all tests/benchmarks/tactical/local-alpha.bench.ts
  *
  * @module tests/benchmarks/tactical/local-alpha
  */
 
-import { LocalAlphaCalculator, type LocalAlphaConfig } from "../../../src/graphrag/local-alpha.ts";
+import { LocalAlphaCalculator } from "../../../src/graphrag/local-alpha.ts";
 import {
   buildGraphFromScenario,
   generateStressGraph,
   loadScenario,
 } from "../fixtures/scenario-loader.ts";
+
+// Helper to create mock AlphaCalculatorDeps from a graph
+function createMockDeps(graph: ReturnType<typeof buildGraphFromScenario>) {
+  return {
+    graph: graph as any,
+    spectralClustering: null,
+    getSemanticEmbedding: (_nodeId: string) => null,
+    getObservationCount: (_nodeId: string) => 10,
+    getParent: (_nodeId: string, _parentType: string) => null,
+    getChildren: (_nodeId: string, _childType: string) => [] as string[],
+  };
+}
 
 // ============================================================================
 // Setup
@@ -37,15 +58,15 @@ const stressScenario = generateStressGraph({
 });
 const stressGraph = buildGraphFromScenario(stressScenario);
 
-// Get some node IDs for tests
-const smallNodes = Array.from(smallGraph.nodes()).slice(0, 5);
-const mediumNodes = Array.from(mediumGraph.nodes()).slice(0, 10);
-const stressNodes = Array.from(stressGraph.nodes()).slice(0, 20);
+// Get some node IDs for tests (cast to string[] for type safety)
+const smallNodes = Array.from(smallGraph.nodes()).slice(0, 5) as string[];
+const mediumNodes = Array.from(mediumGraph.nodes()).slice(0, 10) as string[];
+const stressNodes = Array.from(stressGraph.nodes()).slice(0, 20) as string[];
 
-// Create calculators
-const smallCalc = new LocalAlphaCalculator(smallGraph as any, null);
-const mediumCalc = new LocalAlphaCalculator(mediumGraph as any, null);
-const stressCalc = new LocalAlphaCalculator(stressGraph as any, null);
+// Create calculators with proper deps
+const smallCalc = new LocalAlphaCalculator(createMockDeps(smallGraph));
+const mediumCalc = new LocalAlphaCalculator(createMockDeps(mediumGraph));
+const stressCalc = new LocalAlphaCalculator(createMockDeps(stressGraph));
 
 // ============================================================================
 // Benchmarks: Active Search Mode (Embeddings Hybrides)
@@ -121,13 +142,13 @@ Deno.bench({
 // Benchmarks: Passive Mode Capabilities (Heat Diffusion Hierarchical)
 // ============================================================================
 
-// Filter for capability nodes
+// Filter for capability nodes (cast to string[] for type safety)
 const smallCaps = Array.from(smallGraph.nodes()).filter((n) =>
   smallGraph.getNodeAttribute(n, "type") === "capability"
-);
+) as string[];
 const mediumCaps = Array.from(mediumGraph.nodes()).filter((n) =>
   mediumGraph.getNodeAttribute(n, "type") === "capability"
-);
+) as string[];
 
 Deno.bench({
   name: "LocalAlpha: passive capability (small graph)",
@@ -155,8 +176,8 @@ Deno.bench({
 // ============================================================================
 
 // Use nodes with low degree (cold start candidates)
-const isolatedSmall = Array.from(smallGraph.nodes()).filter((n) => smallGraph.degree(n) <= 1);
-const isolatedMedium = Array.from(mediumGraph.nodes()).filter((n) => mediumGraph.degree(n) <= 1);
+const isolatedSmall = Array.from(smallGraph.nodes()).filter((n) => smallGraph.degree(n) <= 1) as string[];
+const isolatedMedium = Array.from(mediumGraph.nodes()).filter((n) => mediumGraph.degree(n) <= 1) as string[];
 
 Deno.bench({
   name: "LocalAlpha: cold start (small graph)",

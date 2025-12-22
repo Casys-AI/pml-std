@@ -58,6 +58,12 @@ export type EventType =
   | "capability.zone.created"
   | "capability.zone.updated"
   | "capability.permission.updated" // Story 7.7c: HIL permission escalation
+  // ──────────────────────────────────────────────────────────────────────────
+  // EXECUTION TRACE EVENTS (Story 11.2 - Epic 11)
+  // ──────────────────────────────────────────────────────────────────────────
+  | "execution.trace.saved"
+  | "execution.trace.priority.updated"
+  | "execution.traces.pruned"
   | "learning.pattern.detected"
   | "learning.edge.strengthened"
   | "cache.hit"
@@ -118,6 +124,8 @@ export interface ToolStartPayload {
   traceId: string;
   /** Tool arguments (may be redacted for sensitive data) */
   args?: Record<string, unknown>;
+  /** Parent trace ID for hierarchical tracking (ADR-041) */
+  parentTraceId?: string;
 }
 
 /**
@@ -136,6 +144,10 @@ export interface ToolEndPayload {
   error?: string;
   /** Result summary (truncated for large outputs) */
   resultSummary?: string;
+  /** Execution result (Story 11.1 - for learning/tracing) */
+  result?: unknown;
+  /** Parent trace ID for hierarchical tracking (ADR-041) */
+  parentTraceId?: string;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -174,6 +186,8 @@ export interface CapabilityEndPayload {
   durationMs: number;
   /** Error message if failed */
   error?: string;
+  /** Execution result (Story 11.1 - for learning/tracing) */
+  result?: unknown;
 }
 
 /**

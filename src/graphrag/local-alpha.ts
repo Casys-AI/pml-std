@@ -316,7 +316,8 @@ export interface LocalAlphaResult {
   alpha: number;
   algorithm: "embeddings_hybrides" | "heat_diffusion" | "heat_hierarchical" | "bayesian";
   coldStart: boolean;
-  inputs: Record<string, number>;
+  /** Algorithm-specific inputs for debugging/observability. Values can be numbers or strings. */
+  inputs: Record<string, number | string>;
 }
 
 // Alias for backwards compatibility
@@ -434,46 +435,162 @@ export class LocalAlphaCalculator {
   // ==========================================================================
 
   /**
-   * Compute alpha via semantic/structural embedding coherence.
+   * Compute alpha via semantic/structural pattern coherence.
    *
-   * High coherence = graph confirms semantics = low alpha (use graph)
-   * Low coherence = divergence = high alpha (trust semantic only)
+   * This algorithm measures whether the graph structure aligns with semantic
+   * meaning by comparing PATTERNS of similarities rather than embeddings directly.
+   *
+   * Rationale (ADR-048 fix):
+   * - Semantic embeddings (BGE-M3) are 1024-dimensional
+   * - Structural embeddings (spectral eigenvectors) are k-dimensional (typically 4-5)
+   * - Direct cosine similarity between different dimensions is mathematically invalid
+   *
+   * Solution: Pattern Correlation Approach
+   * 1. For each neighbor of the target node:
+   *    - Compute semantic similarity (cosine between BGE-M3 embeddings)
+   *    - Get structural similarity (normalized edge weight)
+   * 2. Compute Pearson correlation between these two similarity patterns
+   * 3. High correlation = graph reflects semantics = reliable = low alpha
+   *    Low correlation = mismatch = unreliable = high alpha
+   *
+   * @param nodeId - Target node to compute alpha for
+   * @returns LocalAlphaResult with alpha value and breakdown
    */
   private computeAlphaEmbeddingsHybrides(nodeId: string): LocalAlphaResult {
     const { alphaMin, alphaMax, alphaScalingFactor } = this.config;
-    const semanticEmb = this.deps.getSemanticEmbedding(nodeId);
-    const structuralEmb = this.getStructuralEmbedding(nodeId);
+    const graph = this.deps.graph;
 
-    if (!semanticEmb || !structuralEmb) {
-      log.debug(`[LocalAlpha] No embeddings for ${nodeId}, fallback to semantic-only`);
+    // Check if node exists in graph
+    if (!graph.hasNode(nodeId)) {
+      log.debug(`[LocalAlpha] Node ${nodeId} not in graph, fallback to semantic-only`);
       return {
         alpha: alphaMax,
         algorithm: "embeddings_hybrides",
         coldStart: false,
-        inputs: { semanticEmb: semanticEmb ? 1 : 0, structuralEmb: structuralEmb ? 1 : 0 },
+        inputs: { reason: "node_not_in_graph" },
       };
     }
 
-    // Compute cosine similarity between embeddings
-    const coherence = this.cosineSimilarity(semanticEmb, structuralEmb);
+    // Get neighbors of the target node
+    const neighbors = graph.neighbors(nodeId);
+    if (neighbors.length < 2) {
+      log.debug(`[LocalAlpha] Node ${nodeId} has <2 neighbors (${neighbors.length}), fallback to semantic-only`);
+      return {
+        alpha: alphaMax,
+        algorithm: "embeddings_hybrides",
+        coldStart: false,
+        inputs: { reason: "insufficient_neighbors", neighborCount: neighbors.length },
+      };
+    }
+
+    // Get semantic embedding for target node
+    const targetEmb = this.deps.getSemanticEmbedding(nodeId);
+    if (!targetEmb) {
+      log.debug(`[LocalAlpha] No semantic embedding for ${nodeId}, fallback to semantic-only`);
+      return {
+        alpha: alphaMax,
+        algorithm: "embeddings_hybrides",
+        coldStart: false,
+        inputs: { reason: "no_target_embedding" },
+      };
+    }
+
+    // Compute similarity patterns
+    const semanticSims: number[] = [];
+    const structuralSims: number[] = [];
+    let maxEdgeWeight = 1;
+
+    // First pass: find max edge weight for normalization
+    for (const neighbor of neighbors) {
+      const weight = this.getEdgeWeight(nodeId, neighbor);
+      if (weight > maxEdgeWeight) maxEdgeWeight = weight;
+    }
+
+    // Second pass: compute similarities
+    for (const neighbor of neighbors) {
+      const neighborEmb = this.deps.getSemanticEmbedding(neighbor);
+      if (!neighborEmb) continue; // Skip neighbors without embeddings
+
+      // Semantic similarity: cosine between BGE-M3 embeddings (same dimension)
+      const semanticSim = this.cosineSimilarity(targetEmb, neighborEmb);
+
+      // Structural similarity: normalized edge weight
+      const edgeWeight = this.getEdgeWeight(nodeId, neighbor);
+      const structuralSim = edgeWeight / maxEdgeWeight;
+
+      semanticSims.push(semanticSim);
+      structuralSims.push(structuralSim);
+    }
+
+    // Need at least 2 data points for correlation
+    if (semanticSims.length < 2) {
+      log.debug(`[LocalAlpha] Only ${semanticSims.length} neighbors with embeddings for ${nodeId}, fallback`);
+      return {
+        alpha: alphaMax,
+        algorithm: "embeddings_hybrides",
+        coldStart: false,
+        inputs: { reason: "insufficient_neighbor_embeddings", count: semanticSims.length },
+      };
+    }
+
+    // Compute Pearson correlation between the two similarity patterns
+    const coherence = this.pearsonCorrelation(semanticSims, structuralSims);
+
+    // Normalize coherence from [-1, 1] to [0, 1] for alpha calculation
+    // -1 (anti-correlated) → 0 (no trust in graph)
+    //  0 (uncorrelated)    → 0.5
+    // +1 (correlated)      → 1 (full trust in graph)
+    const normalizedCoherence = (coherence + 1) / 2;
 
     // High coherence → low alpha (graph is useful)
-    const alpha = Math.max(alphaMin, alphaMax - coherence * alphaScalingFactor);
+    // Low coherence → high alpha (trust semantic only)
+    const alpha = Math.max(alphaMin, alphaMax - normalizedCoherence * alphaScalingFactor);
 
-    log.debug(`[LocalAlpha] Embeddings Hybrides: ${nodeId} coherence=${coherence.toFixed(3)} → alpha=${alpha.toFixed(2)}`);
+    log.debug(
+      `[LocalAlpha] Embeddings Hybrides: ${nodeId} ` +
+      `neighbors=${semanticSims.length} correlation=${coherence.toFixed(3)} ` +
+      `normalized=${normalizedCoherence.toFixed(3)} → alpha=${alpha.toFixed(2)}`
+    );
 
     return {
       alpha,
       algorithm: "embeddings_hybrides",
       coldStart: false,
-      inputs: { coherence },
+      inputs: {
+        neighborCount: semanticSims.length,
+        pearsonCorrelation: coherence,
+        normalizedCoherence,
+      },
     };
   }
 
   /**
-   * Get structural embedding from spectral clustering eigenvectors
+   * Get edge weight between two nodes (checks both directions)
    */
-  private getStructuralEmbedding(nodeId: string): number[] | null {
+  private getEdgeWeight(nodeA: string, nodeB: string): number {
+    const graph = this.deps.graph;
+    if (graph.hasEdge(nodeA, nodeB)) {
+      return graph.getEdgeAttribute(nodeA, nodeB, "weight") ?? 1.0;
+    }
+    if (graph.hasEdge(nodeB, nodeA)) {
+      return graph.getEdgeAttribute(nodeB, nodeA, "weight") ?? 1.0;
+    }
+    return 0;
+  }
+
+  /**
+   * Get structural embedding from spectral clustering eigenvectors
+   *
+   * Returns the k-dimensional eigenvector representation of a node from
+   * spectral clustering. Useful for cluster-based analysis.
+   *
+   * Note: No longer used by EmbeddingsHybrides (which now uses pattern correlation),
+   * but kept as public API for other use cases (e.g., cluster visualization).
+   *
+   * @param nodeId - Node to get embedding for
+   * @returns k-dimensional embedding vector, or null if not available
+   */
+  getStructuralEmbedding(nodeId: string): number[] | null {
     if (!this.deps.spectralClustering) return null;
     return this.deps.spectralClustering.getEmbeddingRow(nodeId);
   }
@@ -573,10 +690,12 @@ export class LocalAlphaCalculator {
     for (const ctx of contextNodes) {
       if (!graph.hasNode(ctx)) continue;
 
-      // Direct edge?
-      if (graph.hasEdge(ctx, targetId) || graph.hasEdge(targetId, ctx)) {
-        const weight = graph.getEdgeAttribute(ctx, targetId, "weight") ||
-                       graph.getEdgeAttribute(targetId, ctx, "weight") || 1.0;
+      // Direct edge? Check each direction separately to avoid getEdgeAttribute errors
+      if (graph.hasEdge(ctx, targetId)) {
+        const weight = graph.getEdgeAttribute(ctx, targetId, "weight") ?? 1.0;
+        totalConnectivity += Math.min(1, weight);
+      } else if (graph.hasEdge(targetId, ctx)) {
+        const weight = graph.getEdgeAttribute(targetId, ctx, "weight") ?? 1.0;
         totalConnectivity += Math.min(1, weight);
       } else {
         // Check for common neighbors (simplified Adamic-Adar)
@@ -769,6 +888,53 @@ export class LocalAlphaCalculator {
 
     if (normA === 0 || normB === 0) return 0;
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+  }
+
+  /**
+   * Pearson correlation coefficient between two arrays
+   *
+   * Measures linear correlation between two variables.
+   * Returns value in [-1, 1]:
+   * - +1: Perfect positive correlation
+   * -  0: No linear correlation
+   * - -1: Perfect negative correlation
+   *
+   * Used by EmbeddingsHybrides to compare semantic vs structural similarity patterns.
+   *
+   * @param a - First array of values
+   * @param b - Second array of values (must be same length as a)
+   * @returns Pearson correlation coefficient, or 0 if invalid input
+   */
+  private pearsonCorrelation(a: number[], b: number[]): number {
+    const n = a.length;
+    if (n !== b.length || n < 2) return 0;
+
+    // Calculate means
+    let sumA = 0, sumB = 0;
+    for (let i = 0; i < n; i++) {
+      sumA += a[i];
+      sumB += b[i];
+    }
+    const meanA = sumA / n;
+    const meanB = sumB / n;
+
+    // Calculate correlation components
+    let numerator = 0;
+    let denomA = 0;
+    let denomB = 0;
+
+    for (let i = 0; i < n; i++) {
+      const devA = a[i] - meanA;
+      const devB = b[i] - meanB;
+      numerator += devA * devB;
+      denomA += devA * devA;
+      denomB += devB * devB;
+    }
+
+    // Handle edge cases (zero variance)
+    if (denomA === 0 || denomB === 0) return 0;
+
+    return numerator / (Math.sqrt(denomA) * Math.sqrt(denomB));
   }
 
   /**

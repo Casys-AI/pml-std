@@ -66,7 +66,7 @@ Deno.test("CapabilityStore - saveCapability creates capability with usage_count=
   const model = new MockEmbeddingModel();
   const store = new CapabilityStore(db, model as any);
 
-  const capability = await store.saveCapability({
+  const { capability } = await store.saveCapability({
     code: 'const result = await tools.search({query: "test"});',
     intent: "Search for test data",
     durationMs: 150,
@@ -93,7 +93,7 @@ Deno.test("CapabilityStore - exec 2x same code increments usage_count", async ()
   const code = 'const result = await tools.fetch({url: "https://example.com"});';
 
   // First execution
-  const cap1 = await store.saveCapability({
+  const { capability: cap1 } = await store.saveCapability({
     code,
     intent: "Fetch example.com",
     durationMs: 100,
@@ -104,7 +104,7 @@ Deno.test("CapabilityStore - exec 2x same code increments usage_count", async ()
   assertEquals(cap1.successCount, 1);
 
   // Second execution (same code)
-  const cap2 = await store.saveCapability({
+  const { capability: cap2 } = await store.saveCapability({
     code,
     intent: "Fetch example.com",
     durationMs: 200,
@@ -139,7 +139,7 @@ Deno.test("CapabilityStore - exec with failure decreases success_rate", async ()
   });
 
   // Second execution - failure
-  const cap2 = await store.saveCapability({
+  const { capability: cap2 } = await store.saveCapability({
     code,
     intent: "Process test data",
     durationMs: 200,
@@ -151,7 +151,7 @@ Deno.test("CapabilityStore - exec with failure decreases success_rate", async ()
   assertEquals(cap2.successRate, 0.5); // 1 success / 2 total
 
   // Third execution - success
-  const cap3 = await store.saveCapability({
+  const { capability: cap3 } = await store.saveCapability({
     code,
     intent: "Process test data",
     durationMs: 150,
@@ -301,7 +301,7 @@ Deno.test("CapabilityStore - name auto-generated from intent", async () => {
   const model = new MockEmbeddingModel();
   const store = new CapabilityStore(db, model as any);
 
-  const capability = await store.saveCapability({
+  const { capability } = await store.saveCapability({
     code: "return 42;",
     intent: "calculate the meaning of life",
     durationMs: 10,
@@ -320,7 +320,7 @@ Deno.test("CapabilityStore - custom name preserved", async () => {
   const model = new MockEmbeddingModel();
   const store = new CapabilityStore(db, model as any);
 
-  const capability = await store.saveCapability({
+  const { capability } = await store.saveCapability({
     code: "return 42;",
     intent: "calculate something",
     durationMs: 10,
@@ -339,13 +339,13 @@ Deno.test("CapabilityStore - different code produces different capabilities", as
   const model = new MockEmbeddingModel();
   const store = new CapabilityStore(db, model as any);
 
-  const cap1 = await store.saveCapability({
+  const { capability: cap1 } = await store.saveCapability({
     code: "const a = 1;",
     intent: "Define variable",
     durationMs: 10,
   });
 
-  const cap2 = await store.saveCapability({
+  const { capability: cap2 } = await store.saveCapability({
     code: "const b = 2;",
     intent: "Define variable",
     durationMs: 10,
@@ -362,7 +362,7 @@ Deno.test("CapabilityStore - toolsUsed stored in dag_structure", async () => {
   const model = new MockEmbeddingModel();
   const store = new CapabilityStore(db, model as any);
 
-  const capability = await store.saveCapability({
+  const { capability } = await store.saveCapability({
     code: 'await tools.search({q: "test"});',
     intent: "Search with tools",
     durationMs: 50,
@@ -520,20 +520,20 @@ Deno.test("CapabilityStore - concurrent saves handle ON CONFLICT correctly", asy
   const intent = "Concurrent test capability";
 
   // Simulate concurrent saves (same code, same time)
-  const [cap1, cap2, cap3] = await Promise.all([
+  const [res1, res2, res3] = await Promise.all([
     store.saveCapability({ code, intent, durationMs: 100 }),
     store.saveCapability({ code, intent, durationMs: 150 }),
     store.saveCapability({ code, intent, durationMs: 200 }),
   ]);
 
   // All should have same id (same capability)
-  assertEquals(cap1.id, cap2.id);
-  assertEquals(cap2.id, cap3.id);
+  assertEquals(res1.capability.id, res2.capability.id);
+  assertEquals(res2.capability.id, res3.capability.id);
 
   // Usage count should reflect all 3 executions
   // Due to concurrent execution, the final count may vary based on timing
   // but should be at least 1 and at most 3
-  const finalCap = await store.findByCodeHash(cap1.codeHash);
+  const finalCap = await store.findByCodeHash(res1.capability.codeHash);
   assertExists(finalCap);
   assertEquals(finalCap.usageCount >= 1, true);
   assertEquals(finalCap.usageCount <= 3, true);

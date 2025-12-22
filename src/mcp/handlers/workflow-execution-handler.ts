@@ -37,6 +37,7 @@ import {
   type ExecutorContext,
 } from "../../dag/execution/workerbridge-executor.ts";
 import type { ToolDefinition } from "../../sandbox/types.ts";
+import { buildToolDefinitionsFromDAG } from "./shared/tool-definitions.ts";
 
 /**
  * Determine if a DAG requires per-layer validation based on permissions.
@@ -105,55 +106,6 @@ async function requiresValidation(
 }
 
 /**
- * Build tool definitions from DAG tasks for WorkerBridge context
- *
- * @param dag - DAG structure with tasks
- * @param deps - Handler dependencies with MCP clients
- * @returns Array of tool definitions
- */
-async function buildToolDefinitionsFromDAG(
-  dag: DAGStructure,
-  deps: WorkflowHandlerDependencies,
-): Promise<ToolDefinition[]> {
-  const toolDefs: ToolDefinition[] = [];
-  const seenTools = new Set<string>();
-
-  for (const task of dag.tasks) {
-    if (!task.tool || seenTools.has(task.tool)) continue;
-    seenTools.add(task.tool);
-
-    const [serverId, toolName] = task.tool.split(":");
-    if (!serverId || !toolName) continue;
-
-    const client = deps.mcpClients.get(serverId);
-    if (!client) continue;
-
-    try {
-      const tools = await client.listTools();
-      const toolSchema = tools.find((t) => t.name === toolName);
-      if (toolSchema) {
-        toolDefs.push({
-          server: serverId,
-          name: toolName,
-          description: toolSchema.description ?? "",
-          inputSchema: toolSchema.inputSchema as Record<string, unknown>,
-        });
-      }
-    } catch {
-      // Server doesn't have schema, add minimal definition
-      toolDefs.push({
-        server: serverId,
-        name: toolName,
-        description: "",
-        inputSchema: {},
-      });
-    }
-  }
-
-  return toolDefs;
-}
-
-/**
  * Create tool executor using WorkerBridge for 100% traceability
  *
  * Story 10.5 AC10: All MCP tool calls go through WorkerBridge RPC.
@@ -193,6 +145,9 @@ export async function handleWorkflowExecution(
   deps: WorkflowHandlerDependencies,
   userId?: string,
 ): Promise<MCPToolResponse | MCPErrorResponse> {
+  // Story 10.7: Deprecation warning
+  log.warn("[DEPRECATED] pml:execute_dag is deprecated. Use pml:execute instead for unified execution + automatic capability learning.");
+
   const workflowArgs = args as WorkflowExecutionArgs;
   const perLayerValidation = workflowArgs.config?.per_layer_validation === true;
 

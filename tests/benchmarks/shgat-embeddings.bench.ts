@@ -9,10 +9,9 @@
  * @module tests/benchmarks/shgat-embeddings
  */
 
-import { assertEquals, assertGreater, assertLess } from "@std/assert";
+import { assertGreater } from "@std/assert";
 import {
-  SHGAT,
-  DEFAULT_SHGAT_CONFIG,
+  createSHGATFromCapabilities,
   trainSHGATOnEpisodes,
   type TrainingExample,
 } from "../../src/graphrag/algorithms/shgat.ts";
@@ -37,28 +36,20 @@ async function runBenchmark() {
   console.log(`✓ Model loaded in ${((performance.now() - startLoad) / 1000).toFixed(1)}s\n`);
 
   try {
-    const shgat = new SHGAT({
-      ...DEFAULT_SHGAT_CONFIG,
-      numHeads: 4,
-      hiddenDim: 64,
-      numLayers: 2,
-      embeddingDim: 1024,
-    });
-
     // ========================================================================
     // Generate embeddings for tools
     // ========================================================================
     console.log("📊 Generating embeddings for tools...");
     const startTools = performance.now();
 
-    const tools: Array<{ id: string; embedding: number[] }> = [];
+    const toolEmbeddings = new Map<string, number[]>();
     for (const tool of fixtureData.nodes.tools) {
       const description = tool.id.replace(/__/g, " ").replace(/_/g, " ");
       const embedding = await embedder.encode(description);
-      tools.push({ id: tool.id, embedding });
+      toolEmbeddings.set(tool.id, embedding);
     }
 
-    console.log(`   ✓ ${tools.length} tools in ${((performance.now() - startTools) / 1000).toFixed(1)}s`);
+    console.log(`   ✓ ${toolEmbeddings.size} tools in ${((performance.now() - startTools) / 1000).toFixed(1)}s`);
 
     // ========================================================================
     // Generate embeddings for capabilities
@@ -74,7 +65,8 @@ async function runBenchmark() {
     }> = [];
 
     for (const cap of fixtureData.nodes.capabilities) {
-      const description = cap.id.replace("cap__", "").replace(/_/g, " ");
+      // Use rich description if available, otherwise fallback to ID
+      const description = cap.description || cap.id.replace("cap__", "").replace(/_/g, " ");
       const embedding = await embedder.encode(description);
 
       capabilities.push({
@@ -88,11 +80,20 @@ async function runBenchmark() {
     console.log(`   ✓ ${capabilities.length} capabilities in ${((performance.now() - startCaps) / 1000).toFixed(1)}s`);
 
     // ========================================================================
-    // Build hypergraph
+    // Build hypergraph using factory function
     // ========================================================================
     console.log("🔨 Building hypergraph...");
 
-    shgat.buildFromData(tools, capabilities);
+    const shgat = createSHGATFromCapabilities(
+      capabilities,
+      toolEmbeddings,
+      {
+        numHeads: 4,
+        hiddenDim: 64,
+        numLayers: 2,
+        embeddingDim: 1024,
+      },
+    );
 
     // Update hypergraph features
     for (const cap of fixtureData.nodes.capabilities) {
@@ -122,10 +123,8 @@ async function runBenchmark() {
     console.log("📊 Creating training samples with real intent embeddings...");
     const startSamples = performance.now();
 
-    const embeddings = new Map<string, number[]>();
-    for (const tool of tools) {
-      embeddings.set(tool.id, tool.embedding);
-    }
+    // toolEmbeddings is already a Map, use directly
+    const getEmbedding = (id: string) => toolEmbeddings.get(id) || null;
 
     const trainingExamples: TrainingExample[] = [];
     for (const event of fixtureData.episodicEvents) {
@@ -146,7 +145,6 @@ async function runBenchmark() {
     console.log("🏋️ Training SHGAT...");
     console.log("─".repeat(60));
 
-    const getEmbedding = (id: string) => embeddings.get(id) || null;
     const startTrain = performance.now();
 
     const result = await trainSHGATOnEpisodes(shgat, trainingExamples, getEmbedding, {

@@ -387,6 +387,7 @@ export async function generateEmbeddings(
               const embedding = await model.encode(text);
 
               // 3c. Store in database with ON CONFLICT for upsert
+              // Include full schema in metadata for pml_discover response
               await tx.query(
                 `INSERT INTO tool_embedding (tool_id, server_id, tool_name, embedding, metadata, created_at)
                  VALUES ($1, $2, $3, $4, $5, NOW())
@@ -400,7 +401,11 @@ export async function generateEmbeddings(
                   schema.name,
                   `[${embedding.join(",")}]`,
                   JSON.stringify({
-                    schema_hash: text.substring(0, 100), // Simple cache key
+                    description: schema.description,
+                    schema: {
+                      inputSchema: schema.input_schema,
+                      outputSchema: schema.output_schema,
+                    },
                     generated_at: new Date().toISOString(),
                   }),
                 ],

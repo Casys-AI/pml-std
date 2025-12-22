@@ -155,7 +155,7 @@ Deno.bench("Parallel execution (5 tasks, all parallel)", async (b) => {
 
 Deno.bench("Database query: SELECT all tools", async (b) => {
   b.start();
-  await db.query(`SELECT * FROM mcp_tool`);
+  await db.query(`SELECT * FROM tool_schema`);
   b.end();
 });
 
@@ -176,16 +176,20 @@ Deno.bench("Database query: Vector similarity search", async (b) => {
 });
 
 Deno.bench("Database insert: New tool", async (b) => {
+  const toolId = `bench-server:bench_tool_${Math.random()}`;
   b.start();
   await db.query(
     `
-    INSERT INTO mcp_tool (server_id, tool_name, tool_schema)
-    VALUES ($1, $2, $3)
+    INSERT INTO tool_schema (tool_id, server_id, name, description, input_schema)
+    VALUES ($1, $2, $3, $4, $5)
+    ON CONFLICT (tool_id) DO UPDATE SET description = EXCLUDED.description
   `,
     [
+      toolId,
       "bench-server",
       `bench_tool_${Math.random()}`,
-      JSON.stringify({ name: "bench_tool" }),
+      "Benchmark tool",
+      JSON.stringify({ type: "object" }),
     ],
   );
   b.end();

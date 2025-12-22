@@ -162,6 +162,8 @@ export interface Capability {
   permissionSet?: PermissionSet;
   /** Confidence score of the permission inference (0-1) */
   permissionConfidence?: number;
+  /** Static structure for DAG execution (Story 10.7) */
+  staticStructure?: StaticStructure;
 }
 
 /**
@@ -201,6 +203,26 @@ export interface SaveCapabilityInput {
   toolsUsed?: string[];
   /** Detailed tool invocations with timestamps for sequence visualization */
   toolInvocations?: CapabilityToolInvocation[];
+  /**
+   * Story 11.2: Optional trace data for concurrent trace storage
+   * If provided, an ExecutionTrace will be created linked to the capability
+   */
+  traceData?: {
+    /** Input context for this execution */
+    initialContext?: Record<string, JsonValue>;
+    /** Path of executed nodes */
+    executedPath?: string[];
+    /** Branch decisions made during execution */
+    decisions?: BranchDecision[];
+    /** Task results with sanitized args */
+    taskResults?: TraceTaskResult[];
+    /** Error message if execution failed */
+    errorMessage?: string;
+    /** User ID for multi-tenancy */
+    userId?: string;
+    /** Parent trace ID for hierarchical traces */
+    parentTraceId?: string;
+  };
 }
 
 /**
@@ -333,6 +355,109 @@ export interface CreateCapabilityDependencyInput {
   toCapabilityId: string;
   edgeType: CapabilityEdgeType;
   edgeSource?: CapabilityEdgeSource;
+}
+
+// ============================================
+// Execution Trace Types (Story 11.2)
+// ============================================
+
+/**
+ * Branch decision recorded during execution
+ *
+ * Story 11.2: Captures control flow decisions for learning.
+ * Each decision point (if/else, switch) records which branch was taken.
+ */
+export interface BranchDecision {
+  /** ID of the decision node in static structure */
+  nodeId: string;
+  /** The outcome taken (e.g., "true", "false", "case:value") */
+  outcome: string;
+  /** The condition expression (optional, for debugging) */
+  condition?: string;
+}
+
+/**
+ * Task result recorded during execution
+ *
+ * Story 11.2: Captures individual tool invocation results.
+ * Used for learning from execution patterns and TD error calculation.
+ */
+export interface TraceTaskResult {
+  /** ID of the task node (matches StaticStructureNode.id) */
+  taskId: string;
+  /** Tool identifier (e.g., "filesystem:read_file") */
+  tool: string;
+  /** Arguments passed to the tool (sanitized, AC #10) */
+  args: Record<string, JsonValue>;
+  /** Result returned by the tool (sanitized) */
+  result: JsonValue;
+  /** Whether the tool call succeeded */
+  success: boolean;
+  /** Execution duration in milliseconds */
+  durationMs: number;
+}
+
+/**
+ * Default priority for new traces (cold start)
+ *
+ * Story 11.2: Used when SHGAT hasn't computed TD error yet.
+ * - 0.0 = expected trace (low learning value)
+ * - 0.5 = cold start (neutral, SHGAT not trained)
+ * - 1.0 = surprising trace (high learning value)
+ */
+export const DEFAULT_TRACE_PRIORITY = 0.5;
+
+/**
+ * Execution trace - a single execution record of a capability
+ *
+ * Story 11.2: Core type for learning from execution traces.
+ *
+ * Separation from Capability:
+ * - Capability (workflow_pattern): Static structure, immutable after creation
+ * - Trace (execution_trace): Runtime data, created per execution
+ *
+ * Used by:
+ * - Story 11.3: TD error calculation (priority)
+ * - Story 11.6: SHGAT training with PER sampling
+ */
+export interface ExecutionTrace {
+  /** Unique identifier (UUID) */
+  id: string;
+  /** FK to workflow_pattern.pattern_id (optional for standalone code) */
+  capabilityId?: string;
+  /** Natural language intent that triggered this execution */
+  intentText?: string;
+  /** Input arguments/context for the execution (AC #9 - Epic 12 dependency) */
+  initialContext?: Record<string, JsonValue>;
+  /** When the execution occurred */
+  executedAt: Date;
+  /** Whether the execution completed successfully */
+  success: boolean;
+  /** Total execution duration in milliseconds */
+  durationMs: number;
+  /** Error message if execution failed */
+  errorMessage?: string;
+  /** Array of node IDs in execution order */
+  executedPath?: string[];
+  /** Branch decisions made during execution */
+  decisions: BranchDecision[];
+  /** Results from each tool invocation (with sanitized args - AC #10) */
+  taskResults: TraceTaskResult[];
+  /**
+   * Priority for PER (Prioritized Experience Replay)
+   * - 0.0 = expected trace (low learning value)
+   * - 0.5 = cold start (neutral, SHGAT not trained)
+   * - 1.0 = surprising trace (high learning value)
+   *
+   * Calculated in Story 11.3 as |td_error|
+   */
+  priority: number;
+  /** Parent trace ID for hierarchical traces (ADR-041) */
+  parentTraceId?: string;
+  /** User who triggered this execution (multi-tenancy) */
+  userId?: string;
+  /** Who created this record (migration, system, user) */
+  createdBy?: string;
 }
 
 // ============================================
@@ -541,6 +666,8 @@ export interface CapabilityListResponseInternal {
 export interface HypergraphOptions {
   /** Include standalone tools not in capabilities */
   includeTools?: boolean;
+  /** Include orphan tools (no parent capabilities). Default: true for backward compat */
+  includeOrphans?: boolean;
   /** Filter capabilities by minimum success rate */
   minSuccessRate?: number;
   /** Filter capabilities by minimum usage */

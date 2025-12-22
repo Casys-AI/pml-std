@@ -83,6 +83,7 @@ export class CapabilityCodeGenerator {
     // 3. Generate inline function with tracing + depth guard
     // Note: __trace and __capabilityDepth are provided by sandbox-worker.ts
     // ADR-041: Robust stack management with single capability_end emission in finally
+    // Story 11.1: Capture result and durationMs for learning
     // Convention: camelCase for event payload fields (per implementation-patterns.md)
     return `async (args) => {
   const __depth = (__capabilityDepth || 0);
@@ -93,15 +94,18 @@ export class CapabilityCodeGenerator {
   __trace({ type: "capability_start", capability: "${name}", capabilityId: "${capability.id}", args });
   let __capSuccess = true;
   let __capError = null;
+  let __capResult = undefined;
+  const __capStartTime = Date.now();
   try {
-    ${sanitizedCode}
+    __capResult = await (async () => { ${sanitizedCode} })();
+    return __capResult;
   } catch (e) {
     __capSuccess = false;
     __capError = e;
     throw e;
   } finally {
     __capabilityDepth = __depth;
-    __trace({ type: "capability_end", capability: "${name}", capabilityId: "${capability.id}", success: __capSuccess, error: __capError?.message });
+    __trace({ type: "capability_end", capability: "${name}", capabilityId: "${capability.id}", success: __capSuccess, error: __capError?.message, result: __capResult, durationMs: Date.now() - __capStartTime });
   }
 }`;
   }

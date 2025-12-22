@@ -83,10 +83,13 @@ await trainSHGATOnEpisodes(
 
 // Spectral clustering for comparison
 const spectralManager = new SpectralClusteringManager();
-spectralManager.buildBipartiteGraph(
-  mediumCapabilities.map((c) => ({ id: c.id, toolsUsed: c.toolsUsed })),
-);
-spectralManager.performClustering(5);
+const allToolIds = mediumScenario.nodes.tools.map((t) => t.id);
+const clusterableCapabilities = mediumCapabilities.map((c) => ({
+  id: c.id,
+  toolsUsed: c.toolsUsed,
+}));
+spectralManager.buildBipartiteMatrix(allToolIds, clusterableCapabilities);
+spectralManager.computeClusters(5);
 
 // ============================================================================
 // Benchmarks: Inference (Scoring)
@@ -95,13 +98,23 @@ spectralManager.performClustering(5);
 const testIntent = generateMockEmbedding(9999);
 const testContext = [generateMockEmbedding(9998), generateMockEmbedding(9997)];
 
+// Pre-create SHGAT instances with different head counts for fair comparison
+const singleHeadShgat = createSHGATFromCapabilities(
+  [mediumCapabilities[0]],
+  toolEmbeddings,
+  { numHeads: 1 },
+);
+const multiHeadShgat = createSHGATFromCapabilities(
+  [mediumCapabilities[0]],
+  toolEmbeddings,
+  { numHeads: 8 },
+);
+
 Deno.bench({
   name: "SHGAT: single score (1 head)",
   group: "shgat-inference",
   baseline: true,
   fn: () => {
-    const singleHeadShgat = new SHGAT({ numHeads: 1 });
-    singleHeadShgat.registerCapability(mediumCapabilities[0]);
     singleHeadShgat.computeAttention(testIntent, testContext, mediumCapabilities[0].id);
   },
 });
@@ -118,8 +131,6 @@ Deno.bench({
   name: "SHGAT: single score (8 heads)",
   group: "shgat-inference",
   fn: () => {
-    const multiHeadShgat = new SHGAT({ numHeads: 8 });
-    multiHeadShgat.registerCapability(mediumCapabilities[0]);
     multiHeadShgat.computeAttention(testIntent, testContext, mediumCapabilities[0].id);
   },
 });
@@ -215,14 +226,29 @@ Deno.bench({
 // Benchmarks: Hidden Dimension Scaling
 // ============================================================================
 
+// Pre-create SHGAT instances with different hidden dimensions
+const smallDimShgat = createSHGATFromCapabilities(
+  [mediumCapabilities[0]],
+  toolEmbeddings,
+  { hiddenDim: 32 },
+);
+const medDimShgat = createSHGATFromCapabilities(
+  [mediumCapabilities[0]],
+  toolEmbeddings,
+  { hiddenDim: 64 },
+);
+const largeDimShgat = createSHGATFromCapabilities(
+  [mediumCapabilities[0]],
+  toolEmbeddings,
+  { hiddenDim: 128 },
+);
+
 Deno.bench({
   name: "SHGAT: hiddenDim=32",
   group: "shgat-dim",
   baseline: true,
   fn: () => {
-    const smallShgat = new SHGAT({ hiddenDim: 32 });
-    smallShgat.registerCapability(mediumCapabilities[0]);
-    smallShgat.computeAttention(testIntent, testContext, mediumCapabilities[0].id);
+    smallDimShgat.computeAttention(testIntent, testContext, mediumCapabilities[0].id);
   },
 });
 
@@ -230,9 +256,7 @@ Deno.bench({
   name: "SHGAT: hiddenDim=64",
   group: "shgat-dim",
   fn: () => {
-    const medShgat = new SHGAT({ hiddenDim: 64 });
-    medShgat.registerCapability(mediumCapabilities[0]);
-    medShgat.computeAttention(testIntent, testContext, mediumCapabilities[0].id);
+    medDimShgat.computeAttention(testIntent, testContext, mediumCapabilities[0].id);
   },
 });
 
@@ -240,9 +264,7 @@ Deno.bench({
   name: "SHGAT: hiddenDim=128",
   group: "shgat-dim",
   fn: () => {
-    const largeShgat = new SHGAT({ hiddenDim: 128 });
-    largeShgat.registerCapability(mediumCapabilities[0]);
-    largeShgat.computeAttention(testIntent, testContext, mediumCapabilities[0].id);
+    largeDimShgat.computeAttention(testIntent, testContext, mediumCapabilities[0].id);
   },
 });
 
@@ -257,7 +279,8 @@ Deno.bench({
   group: "shgat-vs-spectral",
   baseline: true,
   fn: () => {
-    spectralManager.getClusterBoost(mediumCapabilities[0].id, contextToolIds);
+    const activeCluster = spectralManager.identifyActiveCluster(contextToolIds);
+    spectralManager.getClusterBoost(clusterableCapabilities[0], activeCluster);
   },
 });
 
@@ -298,7 +321,8 @@ Deno.bench({
   group: "shgat-util",
   fn: () => {
     const params = pretrainedShgat.exportParams();
-    const freshShgat = new SHGAT();
+    // Create a fresh SHGAT with same structure, then import params
+    const freshShgat = createSHGATFromCapabilities(mediumCapabilities, toolEmbeddings);
     freshShgat.importParams(params);
   },
 });

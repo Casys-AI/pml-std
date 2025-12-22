@@ -271,6 +271,8 @@ interface BaseTraceEvent {
   durationMs?: number;
   /** Error message (for failed *_end only) */
   error?: string;
+  /** Execution result (for *_end only) - Story 11.1 */
+  result?: unknown;
 
   // ADR-041: Hierarchical trace tracking
   /** Parent trace ID for hierarchical call tracking (capability → tool, capability → capability) */

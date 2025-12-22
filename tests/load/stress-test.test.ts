@@ -65,7 +65,7 @@ Deno.test("Load test: 15 servers, 100+ tools", async (t) => {
 
       const discoveryTime = performance.now() - startDiscovery;
 
-      const count = await db.query(`SELECT COUNT(*) as count FROM mcp_tool`);
+      const count = await db.query(`SELECT COUNT(*) as count FROM tool_schema`);
       console.log(`  ✓ Discovery completed in ${discoveryTime.toFixed(1)}ms`);
       console.log(`  ✓ Stored ${count[0].count} tool schemas`);
 
@@ -150,12 +150,12 @@ Deno.test("Load test: 15 servers, 100+ tools", async (t) => {
 
     await t.step("7. Test database query performance at scale", async () => {
       const queries = [
-        () => db.query(`SELECT COUNT(*) FROM mcp_tool`),
+        () => db.query(`SELECT COUNT(*) FROM tool_schema`),
         () => db.query(`SELECT COUNT(*) FROM tool_embedding`),
-        () => db.query(`SELECT * FROM mcp_tool LIMIT 10`),
+        () => db.query(`SELECT * FROM tool_schema LIMIT 10`),
         () =>
           db.query(
-            `SELECT server_id, COUNT(*) as count FROM mcp_tool GROUP BY server_id`,
+            `SELECT server_id, COUNT(*) as count FROM tool_schema GROUP BY server_id`,
           ),
       ];
 
@@ -247,7 +247,7 @@ Deno.test("Load test: 15 servers, 100+ tools", async (t) => {
 
     await t.step("10. Verify system stability after load", async () => {
       // Verify database is still functional
-      const toolCount = await db.query(`SELECT COUNT(*) FROM mcp_tool`);
+      const toolCount = await db.query(`SELECT COUNT(*) FROM tool_schema`);
       assert(toolCount[0].count >= 100, "Database should still have tools");
 
       // Verify search still works

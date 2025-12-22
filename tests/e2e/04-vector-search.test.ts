@@ -45,7 +45,7 @@ Deno.test("E2E 04: Vector search and semantic retrieval", async (t) => {
         await storeSchemas(db, server.serverId, tools);
       }
 
-      const count = await db.query(`SELECT COUNT(*) as count FROM mcp_tool`);
+      const count = await db.query(`SELECT COUNT(*) as count FROM tool_schema`);
       assert(count[0].count >= 7, "Tools should be stored");
     });
 
