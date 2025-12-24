@@ -694,6 +694,108 @@ export class SHGAT {
   }
 
   /**
+   * Score all capabilities using v3 hybrid architecture (EXPERIMENTAL)
+   *
+   * Combines the best of v1 and v2:
+   * - v1: Message passing (V→E→V) for propagated embeddings (faithful to SHGAT paper)
+   * - v2: Rich TraceFeatures (17 features) + Multi-head attention + Fusion MLP
+   *
+   * This is the theoretically optimal approach: use graph structure propagation
+   * AND historical execution patterns.
+   *
+   * @param intentEmbedding User intent embedding (1024-dim BGE-M3)
+   * @param traceFeaturesMap Map of capability ID → TraceFeatures
+   * @param contextToolIds Recent tool IDs for context aggregation (optional)
+   * @returns Array of capability scores sorted descending
+   */
+  scoreAllCapabilitiesV3(
+    intentEmbedding: number[],
+    traceFeaturesMap: Map<string, TraceFeatures>,
+    contextToolIds: string[] = [],
+  ): AttentionResult[] {
+    const results: AttentionResult[] = [];
+    const { numHeads } = this.config;
+
+    // ========================================================================
+    // v1 Component: Message passing to get propagated embeddings
+    // ========================================================================
+    const { E } = this.forward();
+
+    // Get context embeddings for capabilities without pre-built TraceFeatures
+    const contextEmbeddings: number[][] = [];
+    for (const toolId of contextToolIds.slice(-this.config.maxContextLength)) {
+      const tool = this.toolNodes.get(toolId);
+      if (tool) {
+        contextEmbeddings.push(tool.embedding);
+      }
+    }
+    const contextAggregated = this.meanPool(contextEmbeddings, intentEmbedding.length);
+
+    for (const [capId, cap] of this.capabilityNodes) {
+      const cIdx = this.capabilityIndex.get(capId)!;
+
+      // Get trace features if provided
+      const providedFeatures = traceFeaturesMap.get(capId);
+      const hgFeatures = cap.hypergraphFeatures || DEFAULT_HYPERGRAPH_FEATURES;
+
+      // ========================================================================
+      // v3 Hybrid: Use PROPAGATED embedding from message passing + TraceStats
+      // ========================================================================
+      const features: TraceFeatures = {
+        intentEmbedding,
+        candidateEmbedding: E[cIdx], // ← KEY DIFFERENCE: Propagated, not raw!
+        contextEmbeddings,
+        contextAggregated,
+        traceStats: providedFeatures?.traceStats ?? {
+          historicalSuccessRate: cap.successRate,
+          contextualSuccessRate: cap.successRate,
+          intentSimilarSuccessRate: 0.5,
+          cooccurrenceWithContext: hgFeatures.cooccurrence,
+          sequencePosition: 0.5,
+          recencyScore: hgFeatures.recency,
+          usageFrequency: hgFeatures.hypergraphPageRank,
+          avgExecutionTime: 0.5,
+          errorRecoveryRate: 0.5,
+          avgPathLengthToSuccess: 3,
+          pathVariance: 0,
+          errorTypeAffinity: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5],
+        },
+      };
+
+      // ========================================================================
+      // v2 Component: Multi-head attention + Fusion MLP
+      // ========================================================================
+      const { score, headScores } = this.scoreWithTraceFeaturesV2(features);
+
+      // Apply reliability multiplier
+      const reliability = cap.successRate;
+      const reliabilityMult = reliability < 0.5 ? 0.5 : (reliability > 0.9 ? 1.2 : 1.0);
+      const finalScore = Math.min(0.95, Math.max(0, score * reliabilityMult));
+
+      // Compute normalized head weights (uniform in v2 - MLP learns the weighting)
+      const headWeights = new Array(numHeads).fill(1 / numHeads);
+
+      results.push({
+        capabilityId: capId,
+        score: finalScore,
+        headWeights,
+        headScores,
+        recursiveContribution: 0,
+        featureContributions: {
+          semantic: headScores[0] ?? 0,
+          structure: headScores[1] ?? 0,
+          temporal: headScores[2] ?? 0,
+          reliability: reliabilityMult,
+        },
+        toolAttention: this.getCapabilityToolAttention(cIdx),
+      });
+    }
+
+    results.sort((a, b) => b.score - a.score);
+    return results;
+  }
+
+  /**
    * Mean pooling for context embeddings
    */
   private meanPool(embeddings: number[][], dim: number): number[] {
