@@ -60,6 +60,7 @@
     "fmt": "deno fmt",
     "check": "deno check src/**/*.ts",
     "cli": "deno run --allow-all --unstable-worker-options src/main.ts",
+    "mcp": "deno run --allow-all --env --unstable-worker-options --unstable-kv src/main.ts serve --config config/.mcp-servers.json",
     "build": "deno compile --allow-all --output=pml src/main.ts",
     "mock:fs": "deno run --allow-all tests/mocks/filesystem-mock.ts",
     "mock:db": "deno run --allow-all tests/mocks/database-mock.ts",

@@ -26,6 +26,8 @@
  */
 
 import { getLogger } from "../../telemetry/logger.ts";
+import * as math from "./shgat/utils/math.ts";
+import { MultiLevelOrchestrator, type ForwardCache as OrchestratorCache } from "./shgat/message-passing/index.ts";
 
 // Re-export all types from shgat-types.ts for backward compatibility
 export {
@@ -174,6 +176,9 @@ export class SHGAT {
   private trainingMode = false;
   private lastCache: ForwardCache | null = null;
 
+  // Message passing orchestrator
+  private orchestrator: MultiLevelOrchestrator;
+
   // Gradient accumulators
   private fusionGradients: FusionWeights = { semantic: 0, structure: 0, temporal: 0 };
   private featureGradients: FeatureWeights = { semantic: 0, structure: 0, temporal: 0 };
@@ -196,6 +201,7 @@ export class SHGAT {
 
   constructor(config: Partial<SHGATConfig> = {}) {
     this.config = { ...DEFAULT_SHGAT_CONFIG, ...config };
+    this.orchestrator = new MultiLevelOrchestrator(this.trainingMode);
     this.initializeParameters();
   }
 
@@ -456,8 +462,8 @@ export class SHGAT {
     // Attention = softmax(Q·K^T / √d_k)
     // For single-query self-attention, this simplifies to a scalar
     const scale = Math.sqrt(hiddenDim);
-    const attention = this.dot(Q, K) / scale;
-    const attentionWeight = this.sigmoid(attention); // Use sigmoid for [0,1] range
+    const attention = math.dot(Q, K) / scale;
+    const attentionWeight = math.sigmoid(attention); // Use sigmoid for [0,1] range
 
     // Output = attention_weight * sum(V)
     const vSum = V.reduce((a, b) => a + b, 0);
@@ -512,7 +518,7 @@ export class SHGAT {
       output += this.fusionMLP.W2[i] * hidden[i];
     }
 
-    return this.sigmoid(output);
+    return math.sigmoid(output);
   }
 
   /**
@@ -564,7 +570,7 @@ export class SHGAT {
         contextEmbeddings.push(tool.embedding);
       }
     }
-    const contextAggregated = this.meanPool(contextEmbeddings, intentEmbedding.length);
+    const contextAggregated = math.meanPool(contextEmbeddings, intentEmbedding.length);
 
     for (const [capId, cap] of this.capabilityNodes) {
       // Always use embeddings from nodes, merge traceStats from map if provided
@@ -649,7 +655,7 @@ export class SHGAT {
         contextEmbeddings.push(tool.embedding);
       }
     }
-    const contextAggregated = this.meanPool(contextEmbeddings, intentEmbedding.length);
+    const contextAggregated = math.meanPool(contextEmbeddings, intentEmbedding.length);
 
     for (const [toolId, tool] of this.toolNodes) {
       // Always use embeddings from nodes, merge traceStats from map if provided
@@ -729,7 +735,7 @@ export class SHGAT {
         contextEmbeddings.push(tool.embedding);
       }
     }
-    const contextAggregated = this.meanPool(contextEmbeddings, intentEmbedding.length);
+    const contextAggregated = math.meanPool(contextEmbeddings, intentEmbedding.length);
 
     for (const [capId, cap] of this.capabilityNodes) {
       const cIdx = this.capabilityIndex.get(capId)!;
@@ -793,28 +799,6 @@ export class SHGAT {
 
     results.sort((a, b) => b.score - a.score);
     return results;
-  }
-
-  /**
-   * Mean pooling for context embeddings
-   */
-  private meanPool(embeddings: number[][], dim: number): number[] {
-    if (embeddings.length === 0) {
-      return new Array(dim).fill(0);
-    }
-
-    const result = new Array(dim).fill(0);
-    for (const emb of embeddings) {
-      for (let i = 0; i < Math.min(dim, emb.length); i++) {
-        result[i] += emb[i];
-      }
-    }
-
-    for (let i = 0; i < dim; i++) {
-      result[i] /= embeddings.length;
-    }
-
-    return result;
   }
 
   // ==========================================================================
@@ -1016,291 +1000,44 @@ export class SHGAT {
    *   H^(l+1) = σ(B^T · E^(l))
    */
   forward(): { H: number[][]; E: number[][]; cache: ForwardCache } {
-    const cache: ForwardCache = {
-      H: [],
-      E: [],
-      attentionVE: [],
-      attentionEV: [],
-    };
-
     // Initialize embeddings
-    let H = this.getToolEmbeddings();
-    let E = this.getCapabilityEmbeddings();
+    const H = this.getToolEmbeddings();
+    const E = this.getCapabilityEmbeddings();
 
-    cache.H.push(H);
-    cache.E.push(E);
-
-    // Process each layer
-    for (let l = 0; l < this.config.numLayers; l++) {
-      const params = this.layerParams[l];
-      const layerAttentionVE: number[][][] = [];
-      const layerAttentionEV: number[][][] = [];
-
-      const headsH: number[][][] = [];
-      const headsE: number[][][] = [];
-
-      for (let head = 0; head < this.config.numHeads; head++) {
-        // Phase 1: Vertex → Hyperedge
-        const { E_new, attentionVE } = this.vertexToEdgePhase(
-          H,
-          E,
-          params.W_v[head],
-          params.W_e[head],
-          params.a_ve[head],
-          head,
-        );
-        layerAttentionVE.push(attentionVE);
-
-        // Phase 2: Hyperedge → Vertex
-        const { H_new, attentionEV } = this.edgeToVertexPhase(
-          H,
-          E_new,
-          params.W_e2[head],
-          params.W_v2[head],
-          params.a_ev[head],
-          head,
-        );
-        layerAttentionEV.push(attentionEV);
-
-        headsH.push(H_new);
-        headsE.push(E_new);
-      }
-
-      // Concatenate heads
-      H = this.concatHeads(headsH);
-      E = this.concatHeads(headsE);
-
-      // Apply dropout during training
-      if (this.trainingMode && this.config.dropout > 0) {
-        H = this.applyDropout(H);
-        E = this.applyDropout(E);
-      }
-
-      cache.H.push(H);
-      cache.E.push(E);
-      cache.attentionVE.push(layerAttentionVE);
-      cache.attentionEV.push(layerAttentionEV);
-    }
-
-    this.lastCache = cache;
-    return { H, E, cache };
-  }
-
-  /**
-   * Phase 1: Vertex → Hyperedge message passing
-   */
-  private vertexToEdgePhase(
-    H: number[][],
-    E: number[][],
-    W_v: number[][],
-    W_e: number[][],
-    a_ve: number[],
-    headIdx: number,
-  ): { E_new: number[][]; attentionVE: number[][] } {
-    const numTools = H.length;
-    const numCaps = E.length;
-
-    // Project
-    const H_proj = this.matmulTranspose(H, W_v);
-    const E_proj = this.matmulTranspose(E, W_e);
-
-    // Compute attention scores (masked by incidence matrix)
-    const attentionScores: number[][] = Array.from(
-      { length: numTools },
-      () => Array(numCaps).fill(-Infinity),
+    // Delegate to orchestrator for modular message passing
+    const result = this.orchestrator.forward(
+      H,
+      E,
+      this.incidenceMatrix,
+      this.layerParams,
+      {
+        numHeads: this.config.numHeads,
+        numLayers: this.config.numLayers,
+        dropout: this.config.dropout,
+        leakyReluSlope: this.config.leakyReluSlope,
+      },
     );
 
-    for (let t = 0; t < numTools; t++) {
-      for (let c = 0; c < numCaps; c++) {
-        if (this.incidenceMatrix[t][c] === 1) {
-          const concat = [...H_proj[t], ...E_proj[c]];
-          const activated = concat.map((x) => this.leakyRelu(x));
-          attentionScores[t][c] = this.dot(a_ve, activated);
-        }
-      }
-    }
-
-    // Apply head-specific feature modulation
-    this.applyHeadFeatures(attentionScores, headIdx, "vertex");
-
-    // Softmax per capability (column-wise)
-    const attentionVE: number[][] = Array.from({ length: numTools }, () => Array(numCaps).fill(0));
-
-    for (let c = 0; c < numCaps; c++) {
-      const toolsInCap: number[] = [];
-      for (let t = 0; t < numTools; t++) {
-        if (this.incidenceMatrix[t][c] === 1) {
-          toolsInCap.push(t);
-        }
-      }
-
-      if (toolsInCap.length === 0) continue;
-
-      const scores = toolsInCap.map((t) => attentionScores[t][c]);
-      const softmaxed = this.softmax(scores);
-
-      for (let i = 0; i < toolsInCap.length; i++) {
-        attentionVE[toolsInCap[i]][c] = softmaxed[i];
-      }
-    }
-
-    // Aggregate: E_new = σ(A'^T · H_proj)
-    const E_new: number[][] = [];
-    const hiddenDim = H_proj[0].length;
-
-    for (let c = 0; c < numCaps; c++) {
-      const aggregated = Array(hiddenDim).fill(0);
-
-      for (let t = 0; t < numTools; t++) {
-        if (attentionVE[t][c] > 0) {
-          for (let d = 0; d < hiddenDim; d++) {
-            aggregated[d] += attentionVE[t][c] * H_proj[t][d];
-          }
-        }
-      }
-
-      E_new.push(aggregated.map((x) => this.elu(x)));
-    }
-
-    return { E_new, attentionVE };
+    this.lastCache = result.cache;
+    return result;
   }
 
-  /**
-   * Phase 2: Hyperedge → Vertex message passing
-   */
-  private edgeToVertexPhase(
-    H: number[][],
-    E: number[][],
-    W_e: number[][],
-    W_v: number[][],
-    a_ev: number[],
-    headIdx: number,
-  ): { H_new: number[][]; attentionEV: number[][] } {
-    const numTools = H.length;
-    const numCaps = E.length;
-
-    const E_proj = this.matmulTranspose(E, W_e);
-    const H_proj = this.matmulTranspose(H, W_v);
-
-    // Compute attention scores
-    const attentionScores: number[][] = Array.from(
-      { length: numCaps },
-      () => Array(numTools).fill(-Infinity),
-    );
-
-    for (let c = 0; c < numCaps; c++) {
-      for (let t = 0; t < numTools; t++) {
-        if (this.incidenceMatrix[t][c] === 1) {
-          const concat = [...E_proj[c], ...H_proj[t]];
-          const activated = concat.map((x) => this.leakyRelu(x));
-          attentionScores[c][t] = this.dot(a_ev, activated);
-        }
-      }
-    }
-
-    // Apply head-specific feature modulation
-    this.applyHeadFeatures(attentionScores, headIdx, "edge");
-
-    // Softmax per tool (column-wise in transposed view)
-    const attentionEV: number[][] = Array.from({ length: numCaps }, () => Array(numTools).fill(0));
-
-    for (let t = 0; t < numTools; t++) {
-      const capsForTool: number[] = [];
-      for (let c = 0; c < numCaps; c++) {
-        if (this.incidenceMatrix[t][c] === 1) {
-          capsForTool.push(c);
-        }
-      }
-
-      if (capsForTool.length === 0) continue;
-
-      const scores = capsForTool.map((c) => attentionScores[c][t]);
-      const softmaxed = this.softmax(scores);
-
-      for (let i = 0; i < capsForTool.length; i++) {
-        attentionEV[capsForTool[i]][t] = softmaxed[i];
-      }
-    }
-
-    // Aggregate: H_new = σ(B^T · E_proj)
-    const H_new: number[][] = [];
-    const hiddenDim = E_proj[0].length;
-
-    for (let t = 0; t < numTools; t++) {
-      const aggregated = Array(hiddenDim).fill(0);
-
-      for (let c = 0; c < numCaps; c++) {
-        if (attentionEV[c][t] > 0) {
-          for (let d = 0; d < hiddenDim; d++) {
-            aggregated[d] += attentionEV[c][t] * E_proj[c][d];
-          }
-        }
-      }
-
-      H_new.push(aggregated.map((x) => this.elu(x)));
-    }
-
-    return { H_new, attentionEV };
-  }
-
-  /**
-   * Apply head-specific feature modulation based on HypergraphFeatures
-   *
-   * @deprecated v2 uses learned multi-head attention instead of manual feature modulation.
-   * This method is only used by the legacy forward() message passing, not by v2 scoring.
-   * In v2, all features (including structure/temporal) are fed to ALL heads via TraceFeatures,
-   * and each head learns its own patterns through W_Q, W_K, W_V matrices.
-   */
-  private applyHeadFeatures(
-    scores: number[][],
-    headIdx: number,
-    phase: "vertex" | "edge",
-  ): void {
-    if (headIdx === 2) {
-      // Head 2: Structure (spectral cluster, pagerank)
-      for (const [capId, cap] of this.capabilityNodes) {
-        const cIdx = this.capabilityIndex.get(capId)!;
-        const features = cap.hypergraphFeatures || DEFAULT_HYPERGRAPH_FEATURES;
-        const boost = features.hypergraphPageRank * 2; // PageRank boost
-
-        if (phase === "vertex") {
-          for (let t = 0; t < scores.length; t++) {
-            if (scores[t][cIdx] > -Infinity) {
-              scores[t][cIdx] += boost;
-            }
-          }
-        } else {
-          for (let t = 0; t < scores[cIdx].length; t++) {
-            if (scores[cIdx][t] > -Infinity) {
-              scores[cIdx][t] += boost;
-            }
-          }
-        }
-      }
-    } else if (headIdx === 3) {
-      // Head 3: Temporal (co-occurrence, recency)
-      for (const [capId, cap] of this.capabilityNodes) {
-        const cIdx = this.capabilityIndex.get(capId)!;
-        const features = cap.hypergraphFeatures || DEFAULT_HYPERGRAPH_FEATURES;
-        const boost = 0.6 * features.cooccurrence + 0.4 * features.recency;
-
-        if (phase === "vertex") {
-          for (let t = 0; t < scores.length; t++) {
-            if (scores[t][cIdx] > -Infinity) {
-              scores[t][cIdx] += boost;
-            }
-          }
-        } else {
-          for (let t = 0; t < scores[cIdx].length; t++) {
-            if (scores[cIdx][t] > -Infinity) {
-              scores[cIdx][t] += boost;
-            }
-          }
-        }
-      }
-    }
-    // Heads 0-1: Semantic (no modification, pure embedding attention)
-  }
+  // ===================================================================
+  // Legacy message passing methods - REMOVED in Phase 3 refactoring
+  // ===================================================================
+  //
+  // The following methods have been extracted to the message-passing module:
+  // - vertexToEdgePhase → src/graphrag/algorithms/shgat/message-passing/vertex-to-edge-phase.ts
+  // - edgeToVertexPhase → src/graphrag/algorithms/shgat/message-passing/edge-to-vertex-phase.ts
+  // - applyHeadFeatures (deprecated in v2, not used by orchestrator)
+  //
+  // Message passing is now handled by MultiLevelOrchestrator.
+  // This provides:
+  // - Separation of concerns (phases are self-contained)
+  // - Testability (phases can be unit tested independently)
+  // - Extensibility (easy to add new phases for multi-level hierarchies)
+  //
+  // See: src/graphrag/algorithms/shgat/message-passing/index.ts
 
   // ==========================================================================
   // Scoring API
@@ -1345,7 +1082,7 @@ export class SHGAT {
 
       // Use PROPAGATED embedding from message passing for semantic similarity
       const capPropagatedEmb = E[cIdx];
-      const intentSim = this.cosineSimilarity(intentProjected, capPropagatedEmb);
+      const intentSim = math.cosineSimilarity(intentProjected, capPropagatedEmb);
 
       // Reliability multiplier
       const reliability = cap.successRate;
@@ -1387,7 +1124,7 @@ export class SHGAT {
 
       // Final score with reliability
       const rawScore = baseScore * reliabilityMult;
-      const score = Number.isFinite(rawScore) ? this.sigmoid(rawScore) : 0.5;
+      const score = Number.isFinite(rawScore) ? math.sigmoid(rawScore) : 0.5;
 
       // Compute normalized head weights for interpretability
       const headWeights = [
@@ -1432,7 +1169,7 @@ export class SHGAT {
     }
     // Otherwise, use learnable weights with softmax normalization
     const raw = [this.fusionWeights.semantic, this.fusionWeights.structure, this.fusionWeights.temporal];
-    const softmaxed = this.softmax(raw);
+    const softmaxed = math.softmax(raw);
     return {
       semantic: softmaxed[0],
       structure: softmaxed[1],
@@ -1473,7 +1210,7 @@ export class SHGAT {
 
       // Use PROPAGATED embedding from message passing
       const toolPropagatedEmb = H[tIdx];
-      const intentSim = this.cosineSimilarity(intentProjected, toolPropagatedEmb);
+      const intentSim = math.cosineSimilarity(intentProjected, toolPropagatedEmb);
 
       // Get tool features (may be undefined for tools without features)
       const features = tool.toolFeatures;
@@ -1515,7 +1252,7 @@ export class SHGAT {
       ) / totalActiveWeight;
 
       // Final score
-      const score = Number.isFinite(baseScore) ? this.sigmoid(baseScore) : 0.5;
+      const score = Number.isFinite(baseScore) ? math.sigmoid(baseScore) : 0.5;
 
       // Compute normalized head weights for interpretability
       const headWeights = [
@@ -1786,7 +1523,7 @@ export class SHGAT {
       const intentProjected = this.projectIntent(example.intentEmbedding);
 
       // === 3-HEAD ARCHITECTURE (all weights learnable) ===
-      const intentSim = this.cosineSimilarity(intentProjected, capPropagatedEmb);
+      const intentSim = math.cosineSimilarity(intentProjected, capPropagatedEmb);
 
       // Raw feature values (before scaling by featureWeights)
       const rawSemantic = intentSim;
@@ -1810,7 +1547,7 @@ export class SHGAT {
         groupWeights.structure * structureScore +
         groupWeights.temporal * temporalScore;
 
-      const score = this.sigmoid(baseScore * reliabilityMult);
+      const score = math.sigmoid(baseScore * reliabilityMult);
 
       // TD Error computation (Phase 3): target = outcome * gamma^pathLength
       const pathLength = example.contextTools?.length ?? 0;
@@ -1819,7 +1556,7 @@ export class SHGAT {
       tdErrors.push(tdError);
 
       // Weighted loss (IS weight from PER)
-      const loss = this.binaryCrossEntropy(score, example.outcome) * isWeight;
+      const loss = math.binaryCrossEntropy(score, example.outcome) * isWeight;
       totalLoss += loss;
 
       // Accuracy
@@ -1937,7 +1674,7 @@ export class SHGAT {
     // Compute gradient of cosine similarity w.r.t. intentProjected
     const normIntent = Math.sqrt(intentProjected.reduce((s, x) => s + x * x, 0)) + 1e-8;
     const normCap = Math.sqrt(capEmb.reduce((s, x) => s + x * x, 0)) + 1e-8;
-    const dot = this.dot(intentProjected, capEmb);
+    const dot = math.dot(intentProjected, capEmb);
 
     // d(cos)/d(intentProj[i]) = capEmb[i]/(normIntent*normCap) - dot*intentProj[i]/(normIntent^3*normCap)
     const dIntentProj: number[] = new Array(propagatedDim);
@@ -2008,7 +1745,7 @@ export class SHGAT {
     // Gradient of cosine similarity
     const normIntent = Math.sqrt(intentEmb.reduce((s, x) => s + x * x, 0));
     const normCap = Math.sqrt(capEmb.reduce((s, x) => s + x * x, 0));
-    const dot = this.dot(intentEmb, capEmb);
+    const dot = math.dot(intentEmb, capEmb);
 
     const dCapEmb = intentEmb.map((xi, i) => {
       const term1 = xi / (normIntent * normCap);
@@ -2137,7 +1874,7 @@ export class SHGAT {
 
       // Attention = sigmoid(Q·K / √d)
       const scale = Math.sqrt(hiddenDim);
-      const attention = this.sigmoid(this.dot(Q, K) / scale);
+      const attention = math.sigmoid(math.dot(Q, K) / scale);
 
       // Head score = attention * mean(V)
       const vSum = V.reduce((a, b) => a + b, 0);
@@ -2164,7 +1901,7 @@ export class SHGAT {
       mlpOutput += this.fusionMLP.W2[i] * mlpHiddenRelu[i];
     }
 
-    const score = this.sigmoid(mlpOutput);
+    const score = math.sigmoid(mlpOutput);
 
     return {
       score,
@@ -2369,7 +2106,7 @@ export class SHGAT {
       }
 
       const contextAggregated = contextEmbeddings.length > 0
-        ? this.meanPool(contextEmbeddings, this.config.embeddingDim)
+        ? math.meanPool(contextEmbeddings, this.config.embeddingDim)
         : new Array(this.config.embeddingDim).fill(0);
 
       const features: TraceFeatures = {
@@ -2390,7 +2127,7 @@ export class SHGAT {
       tdErrors.push(tdError);
 
       // Weighted loss (IS weight from PER)
-      const loss = this.binaryCrossEntropy(cache.score, example.outcome) * isWeight;
+      const loss = math.binaryCrossEntropy(cache.score, example.outcome) * isWeight;
       totalLoss += loss;
 
       // Accuracy
@@ -2430,58 +2167,6 @@ export class SHGAT {
       embeddings.push([...cap.embedding]);
     }
     return embeddings;
-  }
-
-  private matmulTranspose(A: number[][], B: number[][]): number[][] {
-    return A.map((row) =>
-      B.map((bRow) => row.reduce((sum, val, i) => sum + val * (bRow[i] || 0), 0))
-    );
-  }
-
-  private concatHeads(heads: number[][][]): number[][] {
-    const numNodes = heads[0].length;
-    return Array.from({ length: numNodes }, (_, i) => heads.flatMap((head) => head[i]));
-  }
-
-  private applyDropout(matrix: number[][]): number[][] {
-    const keepProb = 1 - this.config.dropout;
-    return matrix.map((row) => row.map((x) => (Math.random() < keepProb ? x / keepProb : 0)));
-  }
-
-  private leakyRelu(x: number): number {
-    return x > 0 ? x : this.config.leakyReluSlope * x;
-  }
-
-  private elu(x: number, alpha = 1.0): number {
-    return x >= 0 ? x : alpha * (Math.exp(x) - 1);
-  }
-
-  private sigmoid(x: number): number {
-    return 1 / (1 + Math.exp(-x));
-  }
-
-  private softmax(values: number[]): number[] {
-    const maxVal = Math.max(...values);
-    const exps = values.map((v) => Math.exp(v - maxVal));
-    const sum = exps.reduce((a, b) => a + b, 0);
-    return exps.map((e) => e / sum);
-  }
-
-  private dot(a: number[], b: number[]): number {
-    return a.reduce((sum, val, i) => sum + val * (b[i] || 0), 0);
-  }
-
-  private cosineSimilarity(a: number[], b: number[]): number {
-    const dot = this.dot(a, b);
-    const normA = Math.sqrt(a.reduce((s, x) => s + x * x, 0));
-    const normB = Math.sqrt(b.reduce((s, x) => s + x * x, 0));
-    return normA * normB > 0 ? dot / (normA * normB) : 0;
-  }
-
-  private binaryCrossEntropy(pred: number, label: number): number {
-    const eps = 1e-7;
-    const p = Math.max(eps, Math.min(1 - eps, pred));
-    return -label * Math.log(p) - (1 - label) * Math.log(1 - p);
   }
 
   // ==========================================================================
