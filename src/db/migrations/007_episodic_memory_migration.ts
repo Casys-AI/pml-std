@@ -11,7 +11,7 @@
  * @module db/migrations/007_episodic_memory_migration
  */
 
-import type { PGliteClient } from "../client.ts";
+import type { DbClient } from "../types.ts";
 import type { Migration } from "../migrations.ts";
 import * as log from "@std/log";
 
@@ -77,7 +77,7 @@ CREATE INDEX IF NOT EXISTS idx_adaptive_context_keys
   return {
     version: 7,
     name: "episodic_memory",
-    up: async (db: PGliteClient) => {
+    up: async (db: DbClient) => {
       // Remove SQL comments
       const sqlWithoutComments = episodicMemorySql
         .split("\n")
@@ -102,7 +102,7 @@ CREATE INDEX IF NOT EXISTS idx_adaptive_context_keys
 
       log.info("Migration 007: episodic_events and adaptive_thresholds tables created");
     },
-    down: async (db: PGliteClient) => {
+    down: async (db: DbClient) => {
       // Drop indexes first, then tables
       // episodic_events indexes
       await db.exec("DROP INDEX IF EXISTS idx_episodic_data;");

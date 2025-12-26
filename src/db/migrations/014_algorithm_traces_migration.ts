@@ -15,14 +15,14 @@
  */
 
 import type { Migration } from "../migrations.ts";
-import type { PGliteClient } from "../client.ts";
+import type { DbClient } from "../types.ts";
 import * as log from "@std/log";
 
 export function createAlgorithmTracesMigration(): Migration {
   return {
     version: 14,
     name: "algorithm_traces",
-    up: async (db: PGliteClient) => {
+    up: async (db: DbClient) => {
       // ============================================
       // Create algorithm_traces table
       // ============================================
@@ -125,7 +125,7 @@ export function createAlgorithmTracesMigration(): Migration {
       log.info("✓ Migration 014 complete: Algorithm traces table for ADR-039 observability");
     },
 
-    down: async (db: PGliteClient) => {
+    down: async (db: DbClient) => {
       // Drop indexes first
       await db.exec("DROP INDEX IF EXISTS idx_algorithm_traces_signals_gin");
       await db.exec("DROP INDEX IF EXISTS idx_algorithm_traces_decision");

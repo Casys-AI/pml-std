@@ -8,7 +8,7 @@
  */
 
 import type { Migration } from "../migrations.ts";
-import type { PGliteClient } from "../client.ts";
+import type { DbClient } from "../types.ts";
 import * as log from "@std/log";
 
 const workflowDagsSql = `
@@ -32,7 +32,7 @@ export function createWorkflowDagsMigration(): Migration {
   return {
     version: 8,
     name: "workflow_dags",
-    up: async (db: PGliteClient) => {
+    up: async (db: DbClient) => {
       // Remove SQL comments first
       const sqlWithoutComments = workflowDagsSql
         .split("\n")
@@ -61,7 +61,7 @@ export function createWorkflowDagsMigration(): Migration {
 
       log.info("Migration 008: workflow_dags table created");
     },
-    down: async (db: PGliteClient) => {
+    down: async (db: DbClient) => {
       await db.exec("DROP INDEX IF EXISTS idx_workflow_dags_expires;");
       await db.exec("DROP TABLE IF EXISTS workflow_dags CASCADE;");
       log.info("Migration 008: workflow_dags table dropped");

@@ -23,7 +23,7 @@ import type { GraphRAGEngine } from "../../graphrag/graph-engine.ts";
 import type { VectorSearch } from "../../vector/search.ts";
 import type { CapabilityStore } from "../../capabilities/capability-store.ts";
 import { type AdaptiveThresholdManager } from "../adaptive-threshold.ts";
-import type { PGliteClient } from "../../db/client.ts";
+import type { DbClient } from "../../db/types.ts";
 import type { ContextBuilder } from "../../sandbox/context-builder.ts";
 import type { DRDSP } from "../../graphrag/algorithms/dr-dsp.ts";
 import type { SHGAT } from "../../graphrag/algorithms/shgat.ts";
@@ -67,7 +67,7 @@ export interface ExecuteDependencies {
   config: ResolvedGatewayConfig;
   contextBuilder: ContextBuilder;
   toolSchemaCache: Map<string, string>;
-  db: PGliteClient;
+  db: DbClient;
   scoringConfig?: DagScoringConfig;
   /** DR-DSP instance for hypergraph pathfinding (Story 10.7a) */
   drdsp?: DRDSP;
@@ -1123,24 +1123,22 @@ async function executeSuggestionMode(
     return formatMCPToolError("Failed to generate intent embedding");
   }
 
-  // Score all capabilities and tools with SHGAT v1 (message passing + K adaptive heads)
+  // Score capabilities with SHGAT v1 K-head (trained on execution traces)
   // V1 won benchmark: MRR=0.214 vs V2=0.198
+  // Note: Tools use semantic search (cosine), not K-head - see getSuggestions()
   const shgatCapabilities = deps.shgat.scoreAllCapabilities(intentEmbedding);
-  const shgatTools = deps.shgat.scoreAllTools(intentEmbedding);
 
-  log.debug("[pml:execute] SHGAT scored", {
+  log.debug("[pml:execute] SHGAT scored capabilities", {
     capabilitiesCount: shgatCapabilities.length,
-    toolsCount: shgatTools.length,
     topCapabilities: shgatCapabilities.slice(0, 3).map((r) => ({
       id: r.capabilityId,
       score: r.score.toFixed(3),
     })),
-    topTools: shgatTools.slice(0, 3).map((r) => ({ id: r.toolId, score: r.score.toFixed(3) })),
   });
 
   if (shgatCapabilities.length === 0) {
     log.info("[pml:execute] No capabilities found - returning tool suggestions");
-    const suggestions = await getSuggestions(deps, { shgatCapabilities, shgatTools });
+    const suggestions = await getSuggestions(deps, intent, { shgatCapabilities });
     return {
       content: [{
         type: "text",
@@ -1168,7 +1166,7 @@ async function executeSuggestionMode(
   if (!capability) {
     log.warn("[pml:execute] Best capability not found in store", { id: bestMatch.capabilityId });
     // Still pass bestMatch for DR-DSP backward attempt (may have partial data)
-    const suggestions = await getSuggestions(deps, { shgatCapabilities, shgatTools }, {
+    const suggestions = await getSuggestions(deps, intent, { shgatCapabilities }, {
       id: bestMatch.capabilityId,
       score: bestMatch.score,
     });
@@ -1225,7 +1223,7 @@ async function executeSuggestionMode(
     });
 
     // Return as suggestion instead of executing
-    const suggestions = await getSuggestions(deps, { shgatCapabilities, shgatTools }, {
+    const suggestions = await getSuggestions(deps, intent, { shgatCapabilities }, {
       id: bestMatch.capabilityId,
       score: bestMatch.score,
     });
@@ -1258,7 +1256,7 @@ async function executeSuggestionMode(
   });
 
   // Pass bestMatch to getSuggestions for DR-DSP backward pathfinding
-  const suggestions = await getSuggestions(deps, { shgatCapabilities, shgatTools }, {
+  const suggestions = await getSuggestions(deps, intent, { shgatCapabilities }, {
     id: bestMatch.capabilityId,
     score: bestMatch.score,
   });
@@ -1286,16 +1284,17 @@ async function executeSuggestionMode(
 // See: docs/sprint-artifacts/10-7-pml-execute-api.md for Epic-12 roadmap.
 
 /**
- * Get suggestions from SHGAT results
+ * Get suggestions from SHGAT + semantic search
  *
- * Uses SHGAT scores for tools/capabilities + DR-DSP backward for suggestedDag.
- * NO FALLBACKS - pure SHGAT + DR-DSP.
+ * - Capabilities: SHGAT K-head scores (trained on execution traces)
+ * - Tools: Semantic search (cosine on embeddings) - K-head not trained for tools
+ * - suggestedDag: DR-DSP backward pathfinding
  */
 async function getSuggestions(
   deps: ExecuteDependencies,
+  intent: string,
   shgatResults: {
     shgatCapabilities: Array<{ capabilityId: string; score: number }>;
-    shgatTools: Array<{ toolId: string; score: number }>;
   },
   bestCapability?: { id: string; score: number },
 ): Promise<{
@@ -1311,7 +1310,8 @@ async function getSuggestions(
   capabilities?: Array<{ id: string; name: string; description: string; score: number }>;
   suggestedDag?: { tasks: Array<{ id: string; tool: string; dependsOn: string[] }> };
 }> {
-  // Build tool suggestions from SHGAT scores (fetch metadata from graph)
+  // Build tool suggestions from SEMANTIC SEARCH (not K-head)
+  // K-head is trained on capabilities, not tools - cosine works better for tools
   const tools: Array<
     {
       id: string;
@@ -1321,20 +1321,27 @@ async function getSuggestions(
       score: number;
     }
   > = [];
-  for (const t of shgatResults.shgatTools.slice(0, 5)) {
-    const toolNode = deps.graphEngine.getToolNode(t.toolId);
+
+  const hybridResults = await deps.graphEngine.searchToolsHybrid(
+    deps.vectorSearch,
+    intent,
+    5, // limit
+  );
+
+  for (const result of hybridResults) {
+    const toolNode = deps.graphEngine.getToolNode(result.toolId);
     if (toolNode) {
       tools.push({
-        id: t.toolId,
+        id: result.toolId,
         name: toolNode.name,
         description: toolNode.description,
         input_schema: toolNode.schema?.inputSchema as Record<string, unknown> | undefined,
-        score: t.score,
+        score: result.finalScore,
       });
     }
   }
 
-  // Build capability suggestions from SHGAT scores (fetch metadata from store)
+  // Build capability suggestions from SHGAT K-head scores (trained for this)
   const capabilities: Array<{ id: string; name: string; description: string; score: number }> = [];
   for (const c of shgatResults.shgatCapabilities.slice(0, 3)) {
     const cap = await deps.capabilityStore.findById(c.capabilityId);

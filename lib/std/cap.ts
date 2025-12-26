@@ -15,7 +15,7 @@
  */
 
 import type { CapabilityRegistry, Scope } from "../../src/capabilities/capability-registry.ts";
-import type { PGliteClient } from "../../src/db/client.ts";
+import type { DbClient } from "../../src/db/mod.ts";
 import { isValidMCPName } from "../../src/capabilities/fqdn.ts";
 import * as log from "@std/log";
 
@@ -91,7 +91,7 @@ export interface CapRenameResponse {
   success: boolean;
   /** FQDN (unchanged - immutable) */
   fqdn: string;
-  /** Whether an alias was created for the old name */
+  /** Whether an alias was created for the old name (always false - aliases removed) */
   aliasCreated: boolean;
   /** Error message if failed */
   error?: string;
@@ -265,7 +265,7 @@ export function globToSqlLike(pattern: string): string {
 export class CapModule {
   constructor(
     private registry: CapabilityRegistry,
-    private db: PGliteClient,
+    private db: DbClient,
   ) {}
 
   /**
@@ -302,7 +302,7 @@ export class CapModule {
       {
         name: "cap:rename",
         description:
-          "Rename a capability by updating its display_name. Creates an alias for the old name. FQDN remains immutable.",
+          "Rename a capability by updating its display_name. Old name is overwritten (no alias). FQDN remains immutable.",
         inputSchema: {
           type: "object",
           properties: {
@@ -505,20 +505,13 @@ export class CapModule {
     const oldName = record.displayName;
 
     // Update display_name (FQDN stays immutable!)
+    // Note: No alias creation - old name is simply overwritten (simpler, no collisions)
     await this.updateDisplayName(fqdn, newName, description);
-
-    // Create alias for old name
-    await this.registry.createAlias(
-      DEFAULT_SCOPE.org,
-      DEFAULT_SCOPE.project,
-      oldName,
-      fqdn,
-    );
 
     const response: CapRenameResponse = {
       success: true,
       fqdn,
-      aliasCreated: true,
+      aliasCreated: false, // No longer creating aliases
     };
 
     log.info(`[CapModule] Renamed ${oldName} -> ${newName} (FQDN: ${fqdn})`);
@@ -703,6 +696,141 @@ export class CapModule {
 }
 
 // =============================================================================
+// Global CapModule for MiniTools integration (same pattern as agent.ts)
+// =============================================================================
+
+let _capModule: CapModule | null = null;
+
+/**
+ * Set the CapModule instance for pmlTools handlers
+ * Called by mcp-tools-server.ts or gateway at init
+ */
+export function setCapModule(module: CapModule): void {
+  _capModule = module;
+  log.info("[cap.ts] CapModule set for pmlTools");
+}
+
+/**
+ * Get the CapModule, throw if not initialized
+ */
+export function getCapModule(): CapModule {
+  if (!_capModule) {
+    throw new Error(
+      "CapModule not initialized. Call setCapModule() first or use PmlStdServer.",
+    );
+  }
+  return _capModule;
+}
+
+// =============================================================================
+// pmlTools - MiniTool array for discovery
+// =============================================================================
+
+import type { MiniTool } from "./types.ts";
+
+/**
+ * PML capability management tools as MiniTool array
+ * These tools require CapModule to be set via setCapModule()
+ */
+export const pmlTools: MiniTool[] = [
+  {
+    name: "cap_list",
+    description: "List capabilities with optional filtering by pattern and pagination",
+    category: "pml",
+    inputSchema: {
+      type: "object",
+      properties: {
+        pattern: {
+          type: "string",
+          description: "Glob pattern to filter capabilities (e.g., 'fs:*', 'read_?')",
+        },
+        unnamedOnly: {
+          type: "boolean",
+          description: "Only return unnamed_* capabilities",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum results (default: 50, max: 500)",
+        },
+        offset: {
+          type: "number",
+          description: "Pagination offset (default: 0)",
+        },
+      },
+    },
+    handler: async (args) => {
+      const result = await getCapModule().call("cap:list", args);
+      return JSON.parse(result.content[0].text);
+    },
+  },
+  {
+    name: "cap_rename",
+    description: "Rename a capability (updates display_name, old name overwritten)",
+    category: "pml",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Current name or FQDN to rename",
+        },
+        newName: {
+          type: "string",
+          description: "New display name",
+        },
+        description: {
+          type: "string",
+          description: "Optional new description",
+        },
+      },
+      required: ["name", "newName"],
+    },
+    handler: async (args) => {
+      const result = await getCapModule().call("cap:rename", args);
+      return JSON.parse(result.content[0].text);
+    },
+  },
+  {
+    name: "cap_lookup",
+    description: "Resolve a capability name to its details (FQDN, description, usage stats)",
+    category: "pml",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Name to look up (display_name or alias)",
+        },
+      },
+      required: ["name"],
+    },
+    handler: async (args) => {
+      const result = await getCapModule().call("cap:lookup", args);
+      return JSON.parse(result.content[0].text);
+    },
+  },
+  {
+    name: "cap_whois",
+    description: "Get complete metadata for a capability by FQDN",
+    category: "pml",
+    inputSchema: {
+      type: "object",
+      properties: {
+        fqdn: {
+          type: "string",
+          description: "FQDN to look up (e.g., 'local.default.fs.read_json.a7f3')",
+        },
+      },
+      required: ["fqdn"],
+    },
+    handler: async (args) => {
+      const result = await getCapModule().call("cap:whois", args);
+      return JSON.parse(result.content[0].text);
+    },
+  },
+];
+
+// =============================================================================
 // PmlStdServer Class (for Gateway integration)
 // =============================================================================
 
@@ -716,9 +844,16 @@ export class PmlStdServer {
   readonly serverId = "pml-std";
   private cap: CapModule;
 
-  constructor(registry: CapabilityRegistry, db: PGliteClient) {
+  constructor(registry: CapabilityRegistry, db: DbClient) {
     this.cap = new CapModule(registry, db);
+    // Set global CapModule for pmlTools discovery
+    setCapModule(this.cap);
     log.info(`[PmlStdServer] Initialized with cap:* tools`);
+  }
+
+  /** Get the underlying CapModule */
+  getCapModule(): CapModule {
+    return this.cap;
   }
 
   handleListTools(): CapTool[] {

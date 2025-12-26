@@ -9,7 +9,7 @@
 
 import { pipeline } from "@huggingface/transformers";
 import * as log from "@std/log";
-import type { PGliteClient } from "../db/client.ts";
+import type { DbClient } from "../db/types.ts";
 import type { MCPTool } from "../mcp/types.ts";
 
 /**
@@ -300,7 +300,7 @@ class ProgressTracker {
  * @returns Statistics about generation
  */
 export async function generateEmbeddings(
-  db: PGliteClient,
+  db: DbClient,
   model: EmbeddingModel,
 ): Promise<EmbeddingStats> {
   log.info("🔄 Starting embedding generation...");
@@ -406,7 +406,7 @@ export async function generateEmbeddings(
               // Include full schema in metadata for pml_discover response
               await tx.query(
                 `INSERT INTO tool_embedding (tool_id, server_id, tool_name, embedding, metadata, created_at)
-                 VALUES ($1, $2, $3, $4, $5, NOW())
+                 VALUES ($1, $2, $3, $4, $5::jsonb, NOW())
                  ON CONFLICT (tool_id) DO UPDATE
                  SET embedding = EXCLUDED.embedding,
                      metadata = EXCLUDED.metadata,
@@ -416,22 +416,22 @@ export async function generateEmbeddings(
                   schema.server_id,
                   schema.name,
                   `[${embedding.join(",")}]`,
-                  JSON.stringify({
+                  { // postgres.js auto-serializes to JSONB
                     description: schema.description,
                     schema: {
                       inputSchema: schema.input_schema,
                       outputSchema: schema.output_schema,
                     },
                     generated_at: new Date().toISOString(),
-                  }),
+                  },
                 ],
               );
 
               // Track metric for getPeriodStats().newNodesAdded
               await tx.query(
                 `INSERT INTO metrics (metric_name, value, metadata, timestamp)
-                 VALUES ('tool_embedded', 1, $1, NOW())`,
-                [JSON.stringify({ tool_id: schema.tool_id })],
+                 VALUES ('tool_embedded', 1, $1::jsonb, NOW())`,
+                [{ tool_id: schema.tool_id }], // postgres.js/pglite auto-serializes to JSONB
               );
 
               newlyGenerated++;
@@ -489,7 +489,7 @@ export async function generateEmbeddings(
  * @returns Generation result
  */
 export async function generateEmbeddingForTool(
-  db: PGliteClient,
+  db: DbClient,
   model: EmbeddingModel,
   toolId: string,
 ): Promise<EmbeddingGenerationResult> {
@@ -523,7 +523,7 @@ export async function generateEmbeddingForTool(
   // Store in database
   await db.query(
     `INSERT INTO tool_embedding (tool_id, server_id, tool_name, embedding, metadata, created_at)
-     VALUES ($1, $2, $3, $4, $5, NOW())
+     VALUES ($1, $2, $3, $4, $5::jsonb, NOW())
      ON CONFLICT (tool_id) DO UPDATE
      SET embedding = EXCLUDED.embedding,
          metadata = EXCLUDED.metadata,
@@ -533,10 +533,10 @@ export async function generateEmbeddingForTool(
       schema.server_id,
       schema.name,
       `[${embedding.join(",")}]`,
-      JSON.stringify({
+      { // postgres.js/pglite auto-serializes to JSONB
         schema_hash: text.substring(0, 100),
         generated_at: new Date().toISOString(),
-      }),
+      },
     ],
   );
 

@@ -7,7 +7,7 @@
  * @module capabilities/permission-audit-store
  */
 
-import type { PGliteClient } from "../db/client.ts";
+import type { DbClient } from "../db/types.ts";
 import type { PermissionAuditLogEntry, PermissionSet } from "./types.ts";
 import { getLogger } from "../telemetry/logger.ts";
 
@@ -79,7 +79,7 @@ export interface AuditLogFilters {
  * ```
  */
 export class PermissionAuditStore {
-  constructor(private db: PGliteClient) {
+  constructor(private db: DbClient) {
     logger.debug("PermissionAuditStore initialized");
   }
 

@@ -10,7 +10,7 @@
  * @module capabilities/capability-registry
  */
 
-import type { PGliteClient } from "../db/client.ts";
+import type { DbClient } from "../db/types.ts";
 import type {
   CapabilityRecord,
   CapabilityAlias,
@@ -69,9 +69,9 @@ export interface CreateCapabilityRecordInput {
  * - Managing alias chains (AC9)
  */
 export class CapabilityRegistry {
-  private db: PGliteClient;
+  private db: DbClient;
 
-  constructor(db: PGliteClient) {
+  constructor(db: DbClient) {
     this.db = db;
   }
 

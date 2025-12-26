@@ -13,14 +13,14 @@
  */
 
 import type { Migration } from "../migrations.ts";
-import type { PGliteClient } from "../client.ts";
+import type { DbClient } from "../types.ts";
 import * as log from "@std/log";
 
 export function createUserIdWorkflowExecutionMigration(): Migration {
   return {
     version: 13,
     name: "user_id_workflow_execution",
-    up: async (db: PGliteClient) => {
+    up: async (db: DbClient) => {
       // Add user_id column (nullable for backward compatibility)
       await db.exec(`
         ALTER TABLE workflow_execution
@@ -55,7 +55,7 @@ export function createUserIdWorkflowExecutionMigration(): Migration {
         "✓ Migration 013 complete: user_id, created_by, updated_by added to workflow_execution",
       );
     },
-    down: async (db: PGliteClient) => {
+    down: async (db: DbClient) => {
       // Rollback: Remove index and columns
       await db.exec("DROP INDEX IF EXISTS idx_workflow_execution_user_id");
       await db.exec("ALTER TABLE workflow_execution DROP COLUMN IF EXISTS updated_by");

@@ -9,14 +9,14 @@
  */
 
 import type { Migration } from "../migrations.ts";
-import type { PGliteClient } from "../client.ts";
+import type { DbClient } from "../types.ts";
 import * as log from "@std/log";
 
 export function createCapabilityCommunityIdMigration(): Migration {
   return {
     version: 15,
     name: "capability_community_id",
-    up: async (db: PGliteClient) => {
+    up: async (db: DbClient) => {
       // Add community_id column to workflow_pattern
       await db.exec(`
         ALTER TABLE workflow_pattern
@@ -36,7 +36,7 @@ export function createCapabilityCommunityIdMigration(): Migration {
 
       log.info("✓ Migration 015 complete: Capability community_id column");
     },
-    down: async (db: PGliteClient) => {
+    down: async (db: DbClient) => {
       await db.exec("DROP INDEX IF EXISTS idx_workflow_pattern_community_id");
       await db.exec(`
         ALTER TABLE workflow_pattern

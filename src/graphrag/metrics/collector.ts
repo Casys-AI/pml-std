@@ -8,7 +8,7 @@
  */
 
 import * as log from "@std/log";
-import type { PGliteClient } from "../../db/client.ts";
+import type { DbClient } from "../../db/types.ts";
 import type {
   GraphMetricsResponse,
   MetricsTimeRange,
@@ -26,7 +26,7 @@ import type {
  * @returns Complete metrics response for dashboard
  */
 export async function collectMetrics(
-  db: PGliteClient,
+  db: DbClient,
   currentMetrics: {
     nodeCount: number;
     edgeCount: number;
@@ -86,7 +86,7 @@ export async function collectMetrics(
  * Get local alpha statistics from recent traces (ADR-048)
  */
 async function getLocalAlphaStats(
-  db: PGliteClient,
+  db: DbClient,
   startDate: Date
 ): Promise<GraphMetricsResponse["current"]["localAlpha"]> {
   const isoDate = startDate.toISOString();
@@ -144,7 +144,7 @@ async function getLocalAlphaStats(
  * Get time series data for metrics charts
  */
 async function getMetricsTimeSeries(
-  db: PGliteClient,
+  db: DbClient,
   range: MetricsTimeRange,
   startDate: Date
 ): Promise<{
@@ -227,7 +227,7 @@ async function getMetricsTimeSeries(
  * Get period statistics
  */
 async function getPeriodStats(
-  db: PGliteClient,
+  db: DbClient,
   range: MetricsTimeRange,
   startDate: Date
 ): Promise<{
@@ -296,7 +296,7 @@ async function getPeriodStats(
  * Get algorithm tracing statistics (Story 7.6, ADR-039)
  */
 async function getAlgorithmStats(
-  db: PGliteClient,
+  db: DbClient,
   startDate: Date
 ): Promise<GraphMetricsResponse["algorithm"]> {
   const isoDate = startDate.toISOString();

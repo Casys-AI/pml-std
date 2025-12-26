@@ -14,7 +14,7 @@
  */
 
 import * as log from "@std/log";
-import type { PGliteClient } from "../db/client.ts";
+import type { DbClient } from "../db/types.ts";
 import type {
   EpisodicEvent,
   EpisodicEventInput,
@@ -57,7 +57,7 @@ export class EpisodicMemoryStore {
   private isShuttingDown = false;
 
   constructor(
-    private db: PGliteClient,
+    private db: DbClient,
     config: Partial<EpisodicMemoryConfig> = {},
   ) {
     this.config = { ...DEFAULT_CONFIG, ...config };

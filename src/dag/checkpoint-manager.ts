@@ -12,7 +12,7 @@
  * @module dag/checkpoint-manager
  */
 
-import type { PGliteClient } from "../db/client.ts";
+import type { DbClient } from "../db/types.ts";
 import type { Checkpoint } from "./types.ts";
 import type { WorkflowState } from "./state.ts";
 import * as log from "@std/log";
@@ -30,7 +30,7 @@ import * as log from "@std/log";
  * ```
  */
 export class CheckpointManager {
-  private db: PGliteClient;
+  private db: DbClient;
   private autoPrune: boolean;
 
   /**
@@ -39,7 +39,7 @@ export class CheckpointManager {
    * @param db - PGlite client instance (must be connected)
    * @param autoPrune - Enable automatic pruning after each save (default: false)
    */
-  constructor(db: PGliteClient, autoPrune: boolean = false) {
+  constructor(db: DbClient, autoPrune: boolean = false) {
     this.db = db;
     this.autoPrune = autoPrune;
   }

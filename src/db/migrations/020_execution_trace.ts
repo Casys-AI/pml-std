@@ -19,14 +19,14 @@
  */
 
 import type { Migration } from "../migrations.ts";
-import type { PGliteClient } from "../client.ts";
+import type { DbClient } from "../types.ts";
 import * as log from "@std/log";
 
 export function createExecutionTraceMigration(): Migration {
   return {
     version: 20,
     name: "execution_trace",
-    up: async (db: PGliteClient) => {
+    up: async (db: DbClient) => {
       log.info("Migration 020: Creating execution_trace table...");
 
       // 1. Create execution_trace table (idempotent)
@@ -194,7 +194,7 @@ export function createExecutionTraceMigration(): Migration {
 
       log.info("✓ Migration 020 complete: execution_trace table created");
     },
-    down: async (db: PGliteClient) => {
+    down: async (db: DbClient) => {
       log.info("Migration 020 rollback: Dropping execution_trace table...");
 
       // Drop indexes first (they'll be dropped with table, but explicit is cleaner)

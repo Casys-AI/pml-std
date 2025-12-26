@@ -14,14 +14,14 @@
  */
 
 import type { Migration } from "../migrations.ts";
-import type { PGliteClient } from "../client.ts";
+import type { DbClient } from "../types.ts";
 import * as log from "@std/log";
 
 export function createCapabilityRecordsMigration(): Migration {
   return {
     version: 21,
     name: "capability_records",
-    up: async (db: PGliteClient) => {
+    up: async (db: DbClient) => {
       log.info("Migration 021: Creating capability_records and capability_aliases tables...");
 
       // ============================================
@@ -186,7 +186,7 @@ export function createCapabilityRecordsMigration(): Migration {
 
       log.info("✓ Migration 021 complete: capability_records and capability_aliases tables created");
     },
-    down: async (db: PGliteClient) => {
+    down: async (db: DbClient) => {
       log.info("Migration 021 rollback: Dropping capability_records and capability_aliases tables...");
 
       // Drop aliases first (has FK to records)

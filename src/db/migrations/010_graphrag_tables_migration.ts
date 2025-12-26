@@ -11,14 +11,14 @@
  */
 
 import type { Migration } from "../migrations.ts";
-import type { PGliteClient } from "../client.ts";
+import type { DbClient } from "../types.ts";
 import * as log from "@std/log";
 
 export function createGraphRagTablesMigration(): Migration {
   return {
     version: 10,
     name: "graphrag_tables",
-    up: async (db: PGliteClient) => {
+    up: async (db: DbClient) => {
       // ============================================
       // Workflow execution history (Story 6.3 time-series)
       // ============================================
@@ -85,7 +85,7 @@ export function createGraphRagTablesMigration(): Migration {
 
       log.info("✓ Migration 010 complete: GraphRAG tables");
     },
-    down: async (db: PGliteClient) => {
+    down: async (db: DbClient) => {
       await db.exec("DROP INDEX IF EXISTS idx_pattern_intent_embedding");
       await db.exec("DROP INDEX IF EXISTS idx_execution_timestamp");
       await db.exec("DROP TABLE IF EXISTS adaptive_config CASCADE");

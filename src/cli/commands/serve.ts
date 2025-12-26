@@ -207,6 +207,11 @@ export function createServeCommand() {
       "Disable code execution caching (forces re-execution every time)",
       { default: true },
     )
+    .option(
+      "--force-reindex",
+      "Force re-indexing of all MCP tools (ignores config hash cache)",
+      { default: false },
+    )
     .action(async (options) => {
       try {
         log.info("🚀 Starting Casys PML MCP Gateway...\n");
@@ -244,7 +249,9 @@ export function createServeCommand() {
         await runner.runUp(getAllMigrations());
 
         // 2.5 Auto-init if config changed (discovers tools & generates embeddings)
-        const autoInitResult = await autoInitIfConfigChanged(configPath, db);
+        const autoInitResult = await autoInitIfConfigChanged(configPath, db, {
+          forceReindex: options.forceReindex,
+        });
         if (autoInitResult.performed) {
           log.info(
             `✓ Auto-init: ${autoInitResult.toolsCount} tools discovered (${autoInitResult.reason})`,

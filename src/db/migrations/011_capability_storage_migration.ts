@@ -10,14 +10,14 @@
  */
 
 import type { Migration } from "../migrations.ts";
-import type { PGliteClient } from "../client.ts";
+import type { DbClient } from "../types.ts";
 import * as log from "@std/log";
 
 export function createCapabilityStorageMigration(): Migration {
   return {
     version: 11,
     name: "capability_storage",
-    up: async (db: PGliteClient) => {
+    up: async (db: DbClient) => {
       // ============================================
       // Extend workflow_pattern for capabilities
       // ============================================
@@ -145,7 +145,7 @@ export function createCapabilityStorageMigration(): Migration {
 
       log.info("✓ Migration 011 complete: Capability storage");
     },
-    down: async (db: PGliteClient) => {
+    down: async (db: DbClient) => {
       // Drop indexes
       await db.exec("DROP INDEX IF EXISTS idx_workflow_execution_code_hash");
       await db.exec("DROP INDEX IF EXISTS idx_workflow_pattern_code_hash");

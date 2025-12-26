@@ -117,3 +117,6 @@ backups/
 # Playground (not mature yet)
 playground/
 .devcontainer/playground/
+
+# Debug files
+tests/debug-*.ts

@@ -517,6 +517,11 @@ export class ParallelExecutor {
     expression: string,
     previousResults: Map<string, TaskResult>,
   ): unknown {
+    // Handle template literals: `${n1.path}/suffix`
+    if (expression.startsWith("`") && expression.endsWith("`")) {
+      return this.resolveTemplateLiteral(expression, previousResults);
+    }
+
     // Parse expression: "n1.content.nested" or "n1[0].value"
     // First part is the node ID, rest is the property path
     const firstDot = expression.indexOf(".");

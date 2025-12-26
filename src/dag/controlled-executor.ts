@@ -23,7 +23,7 @@ import {
   type WorkflowState,
 } from "./state.ts";
 import { CheckpointManager } from "./checkpoint-manager.ts";
-import type { PGliteClient } from "../db/client.ts";
+import type { DbClient } from "../db/types.ts";
 import { getLogger } from "../telemetry/logger.ts";
 import type { DAGSuggester } from "../graphrag/dag-suggester.ts";
 import type { EpisodicMemoryStore } from "../learning/episodic-memory-store.ts";
@@ -110,7 +110,7 @@ export class ControlledExecutor extends ParallelExecutor {
   // Configuration Methods
   // ═══════════════════════════════════════════════════════════════════════════
 
-  setCheckpointManager(db: PGliteClient, autoPrune: boolean = true): void {
+  setCheckpointManager(db: DbClient, autoPrune: boolean = true): void {
     this.checkpointManager = new CheckpointManager(db, autoPrune);
   }
 

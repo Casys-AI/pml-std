@@ -8,7 +8,7 @@
  */
 
 import * as log from "@std/log";
-import type { PGliteClient } from "../../db/client.ts";
+import type { DbClient } from "../../db/types.ts";
 import {
   type EdgeType,
   EDGE_TYPE_WEIGHTS,
@@ -54,7 +54,7 @@ export interface SyncResult {
  * @returns Sync statistics
  */
 export async function syncGraphFromDatabase(
-  db: PGliteClient,
+  db: DbClient,
   graph: SyncableGraph
 ): Promise<SyncResult> {
   const startTime = performance.now();
@@ -153,7 +153,7 @@ export async function syncGraphFromDatabase(
  * @param graph - Graphology graph instance
  */
 export async function persistEdgesToDatabase(
-  db: PGliteClient,
+  db: DbClient,
   graph: SyncableGraph
 ): Promise<void> {
   for (const edge of graph.edges()) {
@@ -202,7 +202,7 @@ export async function persistEdgesToDatabase(
  * @param edgeType - Edge type: 'contains', 'sequence', 'dependency', 'alternative'
  */
 export async function persistCapabilityDependency(
-  db: PGliteClient,
+  db: DbClient,
   fromCapabilityId: string,
   toCapabilityId: string,
   edgeType: EdgeType
@@ -269,7 +269,7 @@ export async function persistCapabilityDependency(
  * @param execution - Workflow execution data
  */
 export async function persistWorkflowExecution(
-  db: PGliteClient,
+  db: DbClient,
   execution: {
     intentText?: string;
     dagStructure: unknown;
@@ -296,7 +296,7 @@ export async function persistWorkflowExecution(
      (intent_text, success, duration_ms, error_message, user_id, created_by,
       capability_id, decisions, task_results, executed_path, parent_trace_id,
       initial_context, priority)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10, $11, $12::jsonb, $13)
      RETURNING id`,
     [
       execution.intentText || null,
@@ -306,11 +306,11 @@ export async function persistWorkflowExecution(
       userId,
       userId,
       execution.capabilityId || null,
-      JSON.stringify(sanitizedDecisions),
-      JSON.stringify(sanitizedTaskResults),
+      sanitizedDecisions, // postgres.js auto-serializes to JSONB
+      sanitizedTaskResults, // postgres.js auto-serializes to JSONB
       execution.executedPath || [],
       execution.parentTraceId || null,
-      JSON.stringify({}), // initial_context (Epic 12)
+      {}, // initial_context - postgres.js auto-serializes
       DEFAULT_TRACE_PRIORITY,
     ]
   );

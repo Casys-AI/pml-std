@@ -15,14 +15,14 @@
  */
 
 import type { Migration } from "../migrations.ts";
-import type { PGliteClient } from "../client.ts";
+import type { DbClient } from "../types.ts";
 import * as log from "@std/log";
 
 export function createIntentEmbeddingColumnMigration(): Migration {
   return {
     version: 25,
     name: "intent_embedding_column",
-    up: async (db: PGliteClient) => {
+    up: async (db: DbClient) => {
       log.info("Migration 025: Adding intent_embedding column to execution_trace...");
 
       // 1. Add intent_embedding column (nullable, populated on new traces)
@@ -62,7 +62,7 @@ export function createIntentEmbeddingColumnMigration(): Migration {
 
       log.info("✓ Migration 025 complete: intent_embedding column added");
     },
-    down: async (db: PGliteClient) => {
+    down: async (db: DbClient) => {
       log.info("Migration 025 rollback: Removing intent_embedding column...");
 
       await db.exec("DROP INDEX IF EXISTS idx_exec_trace_intent_embedding");

@@ -16,14 +16,14 @@
  */
 
 import type { Migration } from "../migrations.ts";
-import type { PGliteClient } from "../client.ts";
+import type { DbClient } from "../types.ts";
 import * as log from "@std/log";
 
 export function createDbSchemaCleanupMigration(): Migration {
   return {
     version: 19,
     name: "db_schema_cleanup",
-    up: async (db: PGliteClient) => {
+    up: async (db: DbClient) => {
       log.info("Migration 019: Starting database schema cleanup...");
 
       // 1. Drop workflow_dags table (replaced by Deno KV)
@@ -93,7 +93,7 @@ export function createDbSchemaCleanupMigration(): Migration {
 
       log.info("✓ Migration 019 complete: Database schema cleanup");
     },
-    down: async (db: PGliteClient) => {
+    down: async (db: DbClient) => {
       log.info("Migration 019 rollback: Recreating dropped tables...");
 
       // Drop FK constraint and revert capability_id to TEXT

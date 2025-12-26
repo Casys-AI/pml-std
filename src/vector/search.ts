@@ -8,7 +8,7 @@
  */
 
 import * as log from "@std/log";
-import type { PGliteClient } from "../db/client.ts";
+import type { DbClient } from "../db/types.ts";
 import type { EmbeddingModelInterface } from "./embeddings.ts";
 import type { MCPTool } from "../mcp/types.ts";
 import { VectorSearchError } from "../errors/error-types.ts";
@@ -33,7 +33,7 @@ export interface SearchResult {
  */
 export class VectorSearch {
   constructor(
-    private db: PGliteClient,
+    private db: DbClient,
     private embeddingModel: EmbeddingModelInterface,
   ) {}
 

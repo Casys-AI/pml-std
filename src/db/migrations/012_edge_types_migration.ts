@@ -16,7 +16,7 @@
  * @module db/migrations/012_edge_types_migration
  */
 
-import type { PGliteClient } from "../client.ts";
+import type { DbClient } from "../types.ts";
 import type { Migration } from "../migrations.ts";
 import * as log from "@std/log";
 
@@ -24,7 +24,7 @@ export function createEdgeTypesMigration(): Migration {
   return {
     version: 12,
     name: "edge_types",
-    up: async (db: PGliteClient) => {
+    up: async (db: DbClient) => {
       // Add edge_type column with default 'sequence' for backward compatibility
       await db.exec(`
         ALTER TABLE tool_dependency
@@ -62,7 +62,7 @@ export function createEdgeTypesMigration(): Migration {
 
       log.info("✓ Migration 012 complete: edge_types columns added");
     },
-    down: async (db: PGliteClient) => {
+    down: async (db: DbClient) => {
       // Drop indexes first
       await db.exec("DROP INDEX IF EXISTS idx_tool_dependency_type_source;");
       await db.exec("DROP INDEX IF EXISTS idx_tool_dependency_edge_source;");

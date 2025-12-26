@@ -11,7 +11,7 @@
 import { parse as parseYaml, stringify as stringifyYaml } from "@std/yaml";
 import { ensureDir } from "@std/fs";
 import * as log from "@std/log";
-import type { PGliteClient } from "../db/client.ts";
+import type { DbClient } from "../db/types.ts";
 import type { TelemetryConfig } from "./types.ts";
 
 /**
@@ -29,10 +29,10 @@ const DEFAULT_CONFIG_PATH = `${
  */
 export class TelemetryService {
   private enabled: boolean = false;
-  private db: PGliteClient;
+  private db: DbClient;
   private configPath: string;
 
-  constructor(db: PGliteClient, configPath?: string) {
+  constructor(db: DbClient, configPath?: string) {
     this.db = db;
     this.configPath = configPath || DEFAULT_CONFIG_PATH;
     this.enabled = false; // Default to disabled
@@ -79,8 +79,8 @@ export class TelemetryService {
     try {
       await this.db.query(
         `INSERT INTO metrics (metric_name, value, metadata, timestamp)
-         VALUES ($1, $2, $3, NOW())`,
-        [metricName, value, JSON.stringify(metadata || {})],
+         VALUES ($1, $2, $3::jsonb, NOW())`,
+        [metricName, value, metadata || {}], // postgres.js/pglite auto-serializes to JSONB
       );
 
       log.debug(`Tracked metric: ${metricName} = ${value}`, metadata);

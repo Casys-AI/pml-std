@@ -21,6 +21,8 @@
 
 import type { MCPClientBase } from "../mcp/types.ts";
 import type { JsonValue, TraceTaskResult } from "../capabilities/types.ts";
+// Story 13.5: Import getCapModule for cap_* tool handling
+import { getCapModule } from "../../lib/std/cap.ts";
 import type {
   CapabilityTraceEvent,
   ExecutionCompleteMessage,
@@ -88,6 +90,7 @@ export interface WorkerBridgeConfig {
   /** Optional GraphRAGEngine for trace learning (Story 7.3b - AC#5) */
   graphRAG?: GraphRAGEngine;
   // Note: permissionSet removed - Worker always uses "none" permissions.
+  // Note: cap_* tools use global CapModule via getCapModule() (Story 13.5)
   // All I/O goes through MCP RPC for complete tracing. See WORKER_PERMISSIONS.
 }
 
@@ -499,6 +502,49 @@ export class WorkerBridge {
     logger.debug("RPC call received", { id, server, tool, argsKeys: Object.keys(args || {}) });
 
     try {
+      // Story 13.5: Intercept cap_* tools and handle via global CapModule
+      // These tools require gateway's CapModule, not the std MCP server
+      if (server === "std" && tool.startsWith("cap_")) {
+        const capModule = getCapModule(); // Uses global set by PmlStdServer
+        // Map cap_list → cap:list, cap_rename → cap:rename, etc.
+        const capToolName = "cap:" + tool.slice(4); // "cap_list" → "cap:list"
+        logger.debug("Routing cap tool to CapModule", { tool, capToolName });
+        const capResult = await capModule.call(capToolName, args || {});
+        // Format as MCP-like response
+        const result = {
+          content: capResult.content,
+          isError: capResult.isError,
+        };
+        const endTime = Date.now();
+        const durationMs = endTime - startTime;
+        const safeResult = safeSerializeResult(result);
+        this.traces.push({
+          type: "tool_end",
+          tool: toolId,
+          traceId: id,
+          ts: endTime,
+          success: !capResult.isError,
+          durationMs: durationMs,
+          parentTraceId: parentTraceId,
+          result: safeResult,
+        });
+        eventBus.emit({
+          type: "tool.end",
+          source: "worker-bridge",
+          payload: { toolId, traceId: id, success: !capResult.isError, durationMs, parentTraceId, result: safeResult },
+        });
+        // Send result back to Worker
+        const response: RPCResultMessage = {
+          type: "rpc_result",
+          id,
+          success: true,
+          result: result as JsonValue,
+        };
+        this.worker?.postMessage(response);
+        logger.debug("Cap tool RPC call succeeded", { id, tool: toolId, durationMs });
+        return;
+      }
+
       const client = this.mcpClients.get(server);
       if (!client) {
         throw new Error(`MCP server "${server}" not connected`);

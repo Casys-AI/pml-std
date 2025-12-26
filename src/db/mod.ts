@@ -11,17 +11,12 @@
  */
 
 import * as log from "@std/log";
-import { PGliteClient, createDefaultClient as createDefaultPGlite } from "./client.ts";
-import { PostgresClient, isCloudDatabase, createPostgresClient } from "./postgres-client.ts";
+import { createDefaultClient as createDefaultPGlite } from "./client.ts";
+import { isCloudDatabase, createPostgresClient } from "./postgres-client.ts";
 
-// Re-export types
-export type { Row, Transaction } from "./client.ts";
-
-/**
- * Common database client interface
- * Both PGliteClient and PostgresClient implement this
- */
-export type DbClient = PGliteClient | PostgresClient;
+// Re-export types from types.ts (canonical source)
+export type { Row, Transaction, DbClient } from "./types.ts";
+import type { DbClient } from "./types.ts";
 
 /**
  * Check if running in cloud mode (DATABASE_URL is set)

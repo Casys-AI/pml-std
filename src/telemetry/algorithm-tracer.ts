@@ -28,7 +28,7 @@
  * @module telemetry/algorithm-tracer
  */
 
-import type { PGliteClient } from "../db/client.ts";
+import type { DbClient } from "../db/types.ts";
 import { getLogger } from "./logger.ts";
 
 const logger = getLogger("default");
@@ -197,7 +197,7 @@ export class AlgorithmTracer {
   private flushPromise: Promise<void> | null = null;
   private flushIntervalId: ReturnType<typeof setInterval> | null = null;
 
-  constructor(private db: PGliteClient) {
+  constructor(private db: DbClient) {
     // Auto-start periodic flush
     this.startPeriodicFlush();
   }

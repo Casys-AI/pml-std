@@ -8,7 +8,7 @@
  */
 
 import { parse } from "https://deno.land/x/swc@0.2.1/mod.ts";
-import type { PGliteClient } from "../db/client.ts";
+import type { DbClient } from "../db/types.ts";
 import type { JSONSchema } from "./types.ts";
 import { getLogger } from "../telemetry/logger.ts";
 
@@ -53,7 +53,7 @@ interface ArgsProperty {
  * ```
  */
 export class SchemaInferrer {
-  constructor(private db: PGliteClient) {
+  constructor(private db: DbClient) {
     logger.debug("SchemaInferrer initialized");
   }
 

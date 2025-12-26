@@ -6,7 +6,7 @@
  * @module db/migrations/006_workflow_checkpoints_migration
  */
 
-import type { PGliteClient } from "../client.ts";
+import type { DbClient } from "../types.ts";
 import type { Migration } from "../migrations.ts";
 import * as log from "@std/log";
 
@@ -45,7 +45,7 @@ CREATE INDEX IF NOT EXISTS idx_checkpoint_workflow_id
   return {
     version: 6,
     name: "workflow_checkpoints",
-    up: async (db: PGliteClient) => {
+    up: async (db: DbClient) => {
       // Remove SQL comments
       const sqlWithoutComments = checkpointSql
         .split("\n")
@@ -70,7 +70,7 @@ CREATE INDEX IF NOT EXISTS idx_checkpoint_workflow_id
 
       log.info("Migration 006: workflow_checkpoint table created");
     },
-    down: async (db: PGliteClient) => {
+    down: async (db: DbClient) => {
       // Drop indexes first, then table
       await db.exec("DROP INDEX IF EXISTS idx_checkpoint_workflow_id;");
       await db.exec("DROP INDEX IF EXISTS idx_checkpoint_workflow_ts;");

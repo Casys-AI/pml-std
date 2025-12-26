@@ -6,7 +6,7 @@
  * @module mcp/handlers/workflow-handler-types
  */
 
-import type { PGliteClient } from "../../db/client.ts";
+import type { DbClient } from "../../db/types.ts";
 import type { GraphRAGEngine } from "../../graphrag/graph-engine.ts";
 import type { DAGSuggester } from "../../graphrag/dag-suggester.ts";
 import type { CapabilityStore } from "../../capabilities/capability-store.ts";
@@ -20,7 +20,7 @@ import type { AdaptiveThresholdManager } from "../adaptive-threshold.ts";
  * Dependencies required for workflow handler
  */
 export interface WorkflowHandlerDependencies {
-  db: PGliteClient;
+  db: DbClient;
   graphEngine: GraphRAGEngine;
   dagSuggester: DAGSuggester;
   capabilityStore?: CapabilityStore;

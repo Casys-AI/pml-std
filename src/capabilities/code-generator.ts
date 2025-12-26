@@ -68,14 +68,15 @@ export class CapabilityCodeGenerator {
    * - try/catch for error tracing
    *
    * @param capability - The capability to generate code for
+   * @param normalizedName - Optional pre-computed normalized name (used by buildCapabilitiesObject)
    * @returns JavaScript async function code string
    */
-  generateInlineCode(capability: Capability): string {
+  generateInlineCode(capability: Capability, normalizedName?: string): string {
     // 1. Sanitize capability code (throws if dangerous patterns detected)
     const sanitizedCode = this.sanitizeCapabilityCode(capability.codeSnippet);
 
-    // 2. Normalize capability name
-    const name = this.normalizeCapabilityName(
+    // 2. Use provided name or normalize (for standalone calls)
+    const name = normalizedName ?? this.normalizeCapabilityName(
       capability.name || "",
       capability.id,
     );
@@ -119,9 +120,13 @@ export class CapabilityCodeGenerator {
    * let __capabilityDepth = 0;
    * const capabilities = {
    *   runTests: async (args) => { ... },
-   *   deployProd: async (args) => { ... },
+   *   "local.default.fs.read.a7f3": async (args) => { ... }, // FQDN key (Story 13.2)
    * };
    * ```
+   *
+   * Story 13.2: Capabilities are exposed by FQDN (immutable) for cross-capability
+   * references in transformed code. The normalized name is also kept for backward
+   * compatibility with non-transformed code.
    *
    * @param capabilities - Array of capabilities to include
    * @returns JavaScript code string defining capabilities object
@@ -134,11 +139,24 @@ export class CapabilityCodeGenerator {
       return "let __capabilityDepth = 0;\nconst capabilities = {};";
     }
 
-    const entries = capabilities.map((cap) => {
+    const entries: string[] = [];
+
+    for (const cap of capabilities) {
+      // Compute normalized name FIRST (adds to usedNames for collision tracking)
       const name = this.normalizeCapabilityName(cap.name || "", cap.id);
-      const code = this.generateInlineCode(cap);
-      return `  ${name}: ${code}`;
-    });
+
+      // Generate code with the pre-computed name (avoids double collision detection)
+      const code = this.generateInlineCode(cap, name);
+
+      // Story 13.2: Expose by FQDN (primary key for transformed code)
+      if (cap.fqdn) {
+        // FQDN requires bracket notation since it contains dots
+        entries.push(`  "${cap.fqdn}": ${code}`);
+      }
+
+      // Also expose by normalized name for backward compatibility
+      entries.push(`  ${name}: ${code}`);
+    }
 
     // Include __capabilityDepth as closure-scoped variable
     // This is accessible by all capability functions but not directly manipulable by user code

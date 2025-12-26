@@ -7,7 +7,7 @@
  * @module db/migrations
  */
 
-import { PGliteClient } from "./client.ts";
+import type { DbClient } from "./types.ts";
 import * as log from "@std/log";
 import { DatabaseError } from "../errors/error-types.ts";
 import { createErrorLoggingMigration } from "./migrations/003_error_logging.ts";
@@ -39,8 +39,8 @@ import { createIntentEmbeddingColumnMigration } from "./migrations/025_intent_em
 export interface Migration {
   version: number;
   name: string;
-  up: (db: PGliteClient) => Promise<void>;
-  down: (db: PGliteClient) => Promise<void>;
+  up: (db: DbClient) => Promise<void>;
+  down: (db: DbClient) => Promise<void>;
 }
 
 /**
@@ -56,9 +56,9 @@ interface AppliedMigration {
  * Migration runner for managing schema versions
  */
 export class MigrationRunner {
-  private db: PGliteClient;
+  private db: DbClient;
 
-  constructor(db: PGliteClient) {
+  constructor(db: DbClient) {
     this.db = db;
   }
 
@@ -297,7 +297,7 @@ CREATE INDEX IF NOT EXISTS idx_tool_dependency_confidence ON tool_dependency(con
   return {
     version: 1,
     name: "initial_schema",
-    up: async (db: PGliteClient) => {
+    up: async (db: DbClient) => {
       // Remove SQL comments first (both -- and /* */ style)
       const sqlWithoutComments = initialSql
         .split("\n")
@@ -320,7 +320,7 @@ CREATE INDEX IF NOT EXISTS idx_tool_dependency_confidence ON tool_dependency(con
         }
       }
     },
-    down: async (db: PGliteClient) => {
+    down: async (db: DbClient) => {
       // Drop tables in reverse order (respecting foreign keys)
       await db.exec("DROP TABLE IF EXISTS tool_dependency CASCADE;");
       await db.exec("DROP TABLE IF EXISTS config CASCADE;");
@@ -353,7 +353,7 @@ ON metrics (metric_name, timestamp DESC);
   return {
     version: 2,
     name: "telemetry_logging",
-    up: async (db: PGliteClient) => {
+    up: async (db: DbClient) => {
       // Remove SQL comments first (both -- and /* */ style)
       const sqlWithoutComments = telemetrySql
         .split("\n")
@@ -380,7 +380,7 @@ ON metrics (metric_name, timestamp DESC);
         }
       }
     },
-    down: async (db: PGliteClient) => {
+    down: async (db: DbClient) => {
       // Don't drop metrics table in down migration as it may be used by other features
       // Just drop our index if it exists
       await db.exec("DROP INDEX IF EXISTS idx_metrics_name_timestamp;");

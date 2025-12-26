@@ -18,7 +18,7 @@
 
 import * as log from "@std/log";
 import type { ExecutionRecord, SpeculativeMetrics } from "../graphrag/types.ts";
-import type { PGliteClient } from "../db/client.ts";
+import type { DbClient } from "../db/types.ts";
 import type { StoredThreshold, ThresholdContext } from "../learning/types.ts";
 import {
   ThompsonSampler,
@@ -74,14 +74,14 @@ export class AdaptiveThresholdManager {
   } = {};
 
   // Epic 4 Phase 1: Persistence layer
-  private db: PGliteClient | null = null;
+  private db: DbClient | null = null;
   private thresholdCache: Map<string, StoredThreshold> = new Map();
   private currentContextHash: string = "default";
 
   // Story 10.7c: Thompson Sampling integration
   private thompsonSampler: ThompsonSampler;
 
-  constructor(config?: Partial<AdaptiveConfig>, db?: PGliteClient) {
+  constructor(config?: Partial<AdaptiveConfig>, db?: DbClient) {
     this.config = {
       initialExplicitThreshold: 0.50,
       initialSuggestionThreshold: 0.70,
@@ -100,7 +100,7 @@ export class AdaptiveThresholdManager {
   /**
    * Set database client for persistence (can be set after construction)
    */
-  setDatabase(db: PGliteClient): void {
+  setDatabase(db: DbClient): void {
     this.db = db;
   }
 
@@ -179,7 +179,7 @@ export class AdaptiveThresholdManager {
       await this.db.query(
         `INSERT INTO adaptive_thresholds
            (context_hash, context_keys, suggestion_threshold, explicit_threshold, success_rate, sample_count, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, NOW())
+         VALUES ($1, $2::jsonb, $3, $4, $5, $6, NOW())
          ON CONFLICT (context_hash) DO UPDATE SET
            suggestion_threshold = $3,
            explicit_threshold = $4,
@@ -188,7 +188,7 @@ export class AdaptiveThresholdManager {
            updated_at = NOW()`,
         [
           contextHash,
-          JSON.stringify(contextKeys),
+          contextKeys, // postgres.js/pglite auto-serializes to JSONB
           thresholds.suggestionThreshold,
           thresholds.explicitThreshold,
           successRate,

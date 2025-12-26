@@ -17,14 +17,14 @@
  */
 
 import type { Migration } from "../migrations.ts";
-import type { PGliteClient } from "../client.ts";
+import type { DbClient } from "../types.ts";
 import * as log from "@std/log";
 
 export function createCapabilityRecordsFkMigration(): Migration {
   return {
     version: 23,
     name: "capability_records_fk",
-    up: async (db: PGliteClient) => {
+    up: async (db: DbClient) => {
       log.info("Migration 023: Adding FK and removing duplicated columns from capability_records...");
 
       // ============================================
@@ -100,7 +100,7 @@ export function createCapabilityRecordsFkMigration(): Migration {
 
       log.info("✓ Migration 023 complete: capability_records now uses FK, duplicates removed");
     },
-    down: async (db: PGliteClient) => {
+    down: async (db: DbClient) => {
       log.info("Migration 023 rollback: Restoring duplicated columns...");
 
       // Re-add duplicated columns

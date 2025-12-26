@@ -13,14 +13,14 @@
  */
 
 import type { Migration } from "../migrations.ts";
-import type { PGliteClient } from "../client.ts";
+import type { DbClient } from "../types.ts";
 import * as log from "@std/log";
 
 export function createPermissionInferenceMigration(): Migration {
   return {
     version: 17,
     name: "permission_inference",
-    up: async (db: PGliteClient) => {
+    up: async (db: DbClient) => {
       // Add permission_set column with default 'minimal'
       await db.exec(`
         ALTER TABLE workflow_pattern
@@ -44,7 +44,7 @@ export function createPermissionInferenceMigration(): Migration {
 
       log.info("✓ Migration 017 complete: permission inference columns added");
     },
-    down: async (db: PGliteClient) => {
+    down: async (db: DbClient) => {
       // Drop index first
       await db.exec("DROP INDEX IF EXISTS idx_workflow_pattern_permission");
 

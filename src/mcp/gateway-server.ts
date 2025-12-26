@@ -22,7 +22,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import * as log from "@std/log";
-import type { PGliteClient } from "../db/client.ts";
+import type { DbClient } from "../db/types.ts";
 import type { VectorSearch } from "../vector/search.ts";
 import type { GraphRAGEngine } from "../graphrag/graph-engine.ts";
 import type { DAGSuggester } from "../graphrag/dag-suggester.ts";
@@ -38,7 +38,7 @@ import type { AdaptiveThresholdManager } from "./adaptive-threshold.ts";
 import { CapabilityDataService } from "../capabilities/mod.ts";
 import { CapabilityRegistry } from "../capabilities/capability-registry.ts";
 import { CapabilityMCPServer } from "./capability-server/mod.ts";
-import { TraceFeatureExtractor } from "../graphrag/algorithms/trace-feature-extractor.ts";
+// TraceFeatureExtractor removed - V1 uses message passing, not TraceFeatures
 import { CheckpointManager } from "../dag/checkpoint-manager.ts";
 import { EventsStreamManager } from "../server/events-stream.ts";
 import { PmlStdServer } from "../../lib/std/cap.ts";
@@ -120,12 +120,12 @@ export class PMLGatewayServer {
   private shgatSaveInterval: number | null = null; // Story 10.7b: periodic save timer
   private capabilityRegistry: CapabilityRegistry | null = null; // Story 13.2
   private capabilityMCPServer: CapabilityMCPServer | null = null; // Story 13.3
-  private traceFeatureExtractor: TraceFeatureExtractor | null = null; // Story 11.10
+  // traceFeatureExtractor removed - V1 uses message passing, not TraceFeatures
   private pmlStdServer: PmlStdServer | null = null; // Story 13.5: cap:* management tools
 
   constructor(
     // @ts-ignore: db kept for future use (direct queries)
-    private db: PGliteClient,
+    private db: DbClient,
     private vectorSearch: VectorSearch,
     private graphEngine: GraphRAGEngine,
     private dagSuggester: DAGSuggester,
@@ -185,6 +185,11 @@ export class PMLGatewayServer {
 
     // Initialize CapabilityRegistry for naming support (Story 13.2)
     this.capabilityRegistry = new CapabilityRegistry(this.db);
+
+    // Wire registry to store for code transformation (display_name → FQDN)
+    if (this.capabilityStore) {
+      this.capabilityStore.setCapabilityRegistry(this.capabilityRegistry);
+    }
 
     // Story 13.5: Initialize PmlStdServer for cap:* management tools
     this.pmlStdServer = new PmlStdServer(this.capabilityRegistry, this.db);
@@ -278,13 +283,12 @@ export class PMLGatewayServer {
     const transaction = startTransaction("mcp.tools.list", "mcp");
     try {
       addBreadcrumb("mcp", "Processing tools/list request", {});
-      log.info(`list_tools: returning meta-tools + cap:* tools (ADR-013, Story 13.5)`);
+      log.info(`list_tools: returning meta-tools (ADR-013)`);
 
-      // Get meta-tools + cap:* management tools
+      // Get meta-tools (cap:* tools are MiniTools in lib/std, not meta-tools)
       const metaTools = getMetaTools();
-      const capTools = this.pmlStdServer?.handleListTools() ?? [];
 
-      const result = { tools: [...metaTools, ...capTools] };
+      const result = { tools: metaTools };
       transaction.setData("tools_returned", result.tools.length);
       transaction.finish();
       return Promise.resolve(result);
@@ -426,9 +430,12 @@ export class PMLGatewayServer {
       }
     }
 
-    // Story 13.5: cap:* management tools
-    if (name.startsWith("cap:") && this.pmlStdServer) {
-      const result = await this.pmlStdServer.handleCallTool(name, args);
+    // Story 13.5: std:cap_* tools need special handling
+    // They're MiniTools in lib/std but require gateway's CapModule (not std server's)
+    if (name.startsWith("std:cap_") && this.pmlStdServer) {
+      // Map std:cap_list → cap:list, std:cap_rename → cap:rename, etc.
+      const capToolName = "cap:" + name.slice(8); // "std:cap_list" → "cap:list"
+      const result = await this.pmlStdServer.handleCallTool(capToolName, args);
       return {
         content: result.content,
         ...(result.isError ? { isError: true } : {}),
@@ -529,7 +536,6 @@ export class PMLGatewayServer {
       checkpointManager: this.checkpointManager ?? undefined,
       workflowDeps: this.getWorkflowDeps(),
       capabilityRegistry: this.capabilityRegistry ?? undefined, // Story 13.2
-      traceFeatureExtractor: this.traceFeatureExtractor ?? undefined, // Story 11.10
     };
   }
 
@@ -615,12 +621,7 @@ export class PMLGatewayServer {
         LIMIT 1000`,
       ) as unknown as CapRow[];
 
-      if (rows.length === 0) {
-        log.info("[Gateway] No capabilities yet - SHGAT/DR-DSP will init on first capability");
-        return;
-      }
-
-      // Initialize SHGAT with capabilities that have embeddings
+      // Initialize SHGAT with capabilities that have embeddings (or empty)
       const capabilitiesWithEmbeddings = rows
         .filter((c): c is CapRow & { embedding: number[] } =>
           c.embedding !== null && Array.isArray(c.embedding) && c.embedding.length > 0
@@ -632,29 +633,27 @@ export class PMLGatewayServer {
           successRate: c.success_rate,
         }));
 
+      // Always create SHGAT - even empty, capabilities added dynamically
+      this.shgat = createSHGATFromCapabilities(capabilitiesWithEmbeddings);
+      log.info(
+        `[Gateway] SHGAT initialized with ${capabilitiesWithEmbeddings.length} capabilities`,
+      );
+
+      // Story 10.7b: Load persisted SHGAT params if available
+      await this.loadSHGATParams();
+
+      // Story 10.7b: Start periodic save (every 10 minutes)
+      this.startPeriodicSHGATSave();
+
+      // Story 10.7: Populate tool features for multi-head attention
+      await this.populateToolFeaturesForSHGAT();
+
       if (capabilitiesWithEmbeddings.length > 0) {
-        // Create SHGAT - it extracts tools from capabilities automatically
-        this.shgat = createSHGATFromCapabilities(capabilitiesWithEmbeddings);
-        log.info(
-          `[Gateway] SHGAT initialized with ${capabilitiesWithEmbeddings.length} capabilities`,
-        );
-
-        // Story 10.7b: Load persisted SHGAT params if available
-        await this.loadSHGATParams();
-
-        // Story 10.7b: Start periodic save (every 10 minutes)
-        this.startPeriodicSHGATSave();
-
-        // Story 10.7: Populate tool features for multi-head attention
-        await this.populateToolFeaturesForSHGAT();
-
         // Story 10.7: Train SHGAT on execution traces if available (≥20 traces)
         await this.trainSHGATOnTraces(capabilitiesWithEmbeddings);
-
-        // Story 11.10: Initialize TraceFeatureExtractor for SHGAT v2 scoring
-        this.traceFeatureExtractor = new TraceFeatureExtractor(this.db);
-        log.info("[Gateway] TraceFeatureExtractor initialized for SHGAT v2");
       }
+
+      // TraceFeatureExtractor removed - V1 uses message passing, not TraceFeatures
 
       // Initialize DR-DSP
       this.drdsp = buildDRDSPFromCapabilities(
@@ -777,7 +776,30 @@ export class PMLGatewayServer {
     }
 
     try {
-      // Get all tool IDs from SHGAT
+      // First, register ALL tools from graphEngine into SHGAT (not just from capabilities)
+      // This ensures tools from MCP servers are available for scoring
+      const graphToolIds = this.graphEngine.getGraph().nodes();
+      let registeredCount = 0;
+
+      for (const toolId of graphToolIds) {
+        if (!this.shgat.hasToolNode(toolId)) {
+          // Generate embedding from tool description
+          const toolNode = this.graphEngine.getToolNode(toolId);
+          const description = toolNode?.description ?? toolId.replace(":", " ");
+          const embedding = this.embeddingModel
+            ? await this.embeddingModel.encode(description)
+            : new Array(1024).fill(0).map(() => Math.random() - 0.5);
+
+          this.shgat.registerTool({ id: toolId, embedding });
+          registeredCount++;
+        }
+      }
+
+      if (registeredCount > 0) {
+        log.info(`[Gateway] Registered ${registeredCount} MCP tools in SHGAT`);
+      }
+
+      // Get all tool IDs from SHGAT (now includes MCP tools)
       const toolIds = this.shgat.getRegisteredToolIds();
 
       if (toolIds.length === 0) {

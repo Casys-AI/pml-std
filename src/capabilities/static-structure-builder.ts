@@ -12,7 +12,7 @@
  */
 
 import { parse } from "https://deno.land/x/swc@0.2.1/mod.ts";
-import type { PGliteClient } from "../db/client.ts";
+import type { DbClient } from "../db/types.ts";
 import type {
   ArgumentsStructure,
   ArgumentValue,
@@ -126,7 +126,7 @@ export class StaticStructureBuilder {
    */
   private variableToNodeId = new Map<string, string>();
 
-  constructor(private db: PGliteClient) {
+  constructor(private db: DbClient) {
     logger.debug("StaticStructureBuilder initialized");
   }
 

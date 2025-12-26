@@ -104,7 +104,7 @@ export class TraceFeatureExtractor {
   private cacheMisses = 0;
 
   constructor(
-    private db: PGliteClient,
+    private db: DbClient,
     config: Partial<TraceFeatureExtractorConfig> = {},
   ) {
     this.config = { ...DEFAULT_EXTRACTOR_CONFIG, ...config };

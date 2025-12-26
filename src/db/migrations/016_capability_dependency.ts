@@ -22,14 +22,14 @@
  */
 
 import type { Migration } from "../migrations.ts";
-import type { PGliteClient } from "../client.ts";
+import type { DbClient } from "../types.ts";
 import * as log from "@std/log";
 
 export function createCapabilityDependencyMigration(): Migration {
   return {
     version: 16,
     name: "capability_dependency",
-    up: async (db: PGliteClient) => {
+    up: async (db: DbClient) => {
       // Create capability_dependency table with foreign keys to workflow_pattern
       await db.exec(`
         CREATE TABLE IF NOT EXISTS capability_dependency (
@@ -74,7 +74,7 @@ export function createCapabilityDependencyMigration(): Migration {
 
       log.info("✓ Migration 016 complete: capability_dependency table");
     },
-    down: async (db: PGliteClient) => {
+    down: async (db: DbClient) => {
       // Drop indexes first
       await db.exec("DROP INDEX IF EXISTS idx_capability_dep_type_source");
       await db.exec("DROP INDEX IF EXISTS idx_capability_dep_type");

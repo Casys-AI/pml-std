@@ -13,7 +13,7 @@
  * @module graphrag/provides-edge-calculator
  */
 
-import type { PGliteClient } from "../db/client.ts";
+import type { DbClient } from "../db/types.ts";
 import type {
   FieldMapping,
   JSONSchema,
@@ -282,7 +282,7 @@ interface ToolSchema {
  * @returns Array of ProvidesEdge objects
  */
 export async function createProvidesEdges(
-  db: PGliteClient,
+  db: DbClient,
   toolIds?: string[],
 ): Promise<ProvidesEdge[]> {
   const startTime = performance.now();
@@ -419,7 +419,7 @@ function confidenceToCoverage(confidence: number): ProvidesCoverage {
  * @returns Number of edges persisted
  */
 export async function persistProvidesEdges(
-  db: PGliteClient,
+  db: DbClient,
   edges: ProvidesEdge[],
 ): Promise<number> {
   if (edges.length === 0) return 0;
@@ -462,7 +462,7 @@ export async function persistProvidesEdges(
  * @returns Number of edges updated
  */
 export async function syncProvidesEdgesForTool(
-  db: PGliteClient,
+  db: DbClient,
   toolId: string,
 ): Promise<number> {
   const startTime = performance.now();
@@ -583,7 +583,7 @@ function calculateProvidesEdge(
  * @param db - PGlite database client
  * @returns Number of edges persisted
  */
-export async function syncAllProvidesEdges(db: PGliteClient): Promise<number> {
+export async function syncAllProvidesEdges(db: DbClient): Promise<number> {
   const startTime = performance.now();
 
   // Delete all existing provides edges
@@ -628,7 +628,7 @@ interface StoredProvidesEdge {
  * @returns Array of ProvidesEdge objects (without full schemas)
  */
 export async function getToolProvidesEdges(
-  db: PGliteClient,
+  db: DbClient,
   toolId: string,
   direction: "from" | "to" | "both" = "both",
 ): Promise<ProvidesEdge[]> {
@@ -676,7 +676,7 @@ export async function getToolProvidesEdges(
  * @returns Array of complete ProvidesEdge objects
  */
 export async function getToolProvidesEdgesFull(
-  db: PGliteClient,
+  db: DbClient,
   toolId: string,
   direction: "from" | "to" | "both" = "both",
 ): Promise<ProvidesEdge[]> {
@@ -726,7 +726,7 @@ export async function getToolProvidesEdgesFull(
  * @returns Direct provides edge if exists, or null
  */
 export async function findDirectProvidesEdge(
-  db: PGliteClient,
+  db: DbClient,
   sourceToolId: string,
   targetToolId: string,
 ): Promise<ProvidesEdge | null> {

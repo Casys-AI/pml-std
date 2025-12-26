@@ -129,6 +129,12 @@ export function permissionSetToConfig(set: PermissionSet): PermissionConfig {
 export interface Capability {
   /** Unique identifier (UUID) */
   id: string;
+  /**
+   * Fully Qualified Domain Name (immutable) - Story 13.2
+   * Format: <org>.<project>.<namespace>.<action>.<hash>
+   * Used for cross-capability references in code (after transformation)
+   */
+  fqdn?: string;
   /** The TypeScript code snippet */
   codeSnippet: string;
   /** SHA-256 hash of normalized code for deduplication */

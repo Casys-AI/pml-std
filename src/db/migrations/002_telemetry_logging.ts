@@ -8,7 +8,7 @@
  * Purpose: Ensure metrics table exists for telemetry tracking
  */
 
-import { PGliteClient } from "../client.ts";
+import type { DbClient } from "../types.ts";
 import type { Migration } from "../migrations.ts";
 
 /**
@@ -38,7 +38,7 @@ ON metrics (metric_name, timestamp DESC);
   return {
     version: 2,
     name: "telemetry_logging",
-    up: async (db: PGliteClient) => {
+    up: async (db: DbClient) => {
       // Split by semicolons and execute each statement
       const statements = telemetrySql
         .split(";")
@@ -58,7 +58,7 @@ ON metrics (metric_name, timestamp DESC);
         }
       }
     },
-    down: async (db: PGliteClient) => {
+    down: async (db: DbClient) => {
       // Don't drop metrics table in down migration as it may be used by other features
       // Just drop our index if it exists
       await db.exec("DROP INDEX IF EXISTS idx_metrics_name_timestamp;");

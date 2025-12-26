@@ -11,8 +11,8 @@
  * Expected: Worker (~5ms) vs Subprocess (~50-100ms spawn overhead)
  */
 
-import { DenoSandboxExecutor } from "../src/sandbox/executor.ts";
-import { WorkerBridge } from "../src/sandbox/worker-bridge.ts";
+import { DenoSandboxExecutor } from "../../src/sandbox/executor.ts";
+import { WorkerBridge } from "../../src/sandbox/worker-bridge.ts";
 
 const ITERATIONS = 5;
 const WARMUP = 1;

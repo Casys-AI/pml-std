@@ -7,7 +7,7 @@
  */
 
 import * as log from "@std/log";
-import { PGliteClient } from "../db/client.ts";
+import type { DbClient } from "../db/types.ts";
 import { MCPServerDiscovery } from "./discovery.ts";
 import { MCPClient } from "./client.ts";
 import { DiscoveryStats, MCPServer, MCPTool, ServerDiscoveryResult } from "./types.ts";
@@ -25,12 +25,12 @@ import { DiscoveryStats, MCPServer, MCPTool, ServerDiscoveryResult } from "./typ
  */
 export class SchemaExtractor {
   private discovery: MCPServerDiscovery;
-  private db: PGliteClient;
+  private db: DbClient;
   private timeout: number = 10000; // 10 seconds per server
 
   constructor(
     configPath: string,
-    db: PGliteClient,
+    db: DbClient,
   ) {
     this.discovery = new MCPServerDiscovery(configPath);
     this.db = db;
@@ -221,7 +221,7 @@ export class SchemaExtractor {
       try {
         await this.db.query(
           `INSERT INTO tool_schema (tool_id, server_id, name, description, input_schema, output_schema, cached_at)
-           VALUES ($1, $2, $3, $4, $5, $6, NOW())
+           VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, NOW())
            ON CONFLICT(tool_id) DO UPDATE SET
              description = excluded.description,
              input_schema = excluded.input_schema,
@@ -232,8 +232,8 @@ export class SchemaExtractor {
             serverId,
             tool.name,
             tool.description,
-            JSON.stringify(tool.inputSchema),
-            tool.outputSchema ? JSON.stringify(tool.outputSchema) : null,
+            tool.inputSchema, // postgres.js/pglite auto-serializes to JSONB
+            tool.outputSchema ?? null, // postgres.js/pglite auto-serializes to JSONB
           ],
         );
       } catch (error) {

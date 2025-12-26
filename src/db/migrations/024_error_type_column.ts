@@ -15,7 +15,7 @@
  */
 
 import type { Migration } from "../migrations.ts";
-import type { PGliteClient } from "../client.ts";
+import type { DbClient } from "../types.ts";
 import * as log from "@std/log";
 
 /**
@@ -101,7 +101,7 @@ export function createErrorTypeColumnMigration(): Migration {
   return {
     version: 24,
     name: "error_type_column",
-    up: async (db: PGliteClient) => {
+    up: async (db: DbClient) => {
       log.info("Migration 024: Adding error_type column to execution_trace...");
 
       // 1. Add error_type column (nullable, backfilled below)
@@ -166,7 +166,7 @@ export function createErrorTypeColumnMigration(): Migration {
 
       log.info("✓ Migration 024 complete: error_type column added");
     },
-    down: async (db: PGliteClient) => {
+    down: async (db: DbClient) => {
       log.info("Migration 024 rollback: Removing error_type column...");
 
       await db.exec("DROP INDEX IF EXISTS idx_exec_trace_error_type");

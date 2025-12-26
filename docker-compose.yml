@@ -79,7 +79,7 @@ services:
     image: prom/prometheus:v3.1.0
     container_name: pml-prometheus
     ports:
-      - "9090:9090"
+      - "9091:9090"  # 9091 external (Cockpit uses 9090)
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
       - pml-prometheus-data:/prometheus

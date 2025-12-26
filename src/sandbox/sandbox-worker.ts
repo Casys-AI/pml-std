@@ -312,9 +312,41 @@ function handleRPCResult(msg: RPCResultMessage): void {
     pendingCalls.delete(msg.id);
 
     if (msg.success) {
-      pending.resolve(msg.result);
+      // Auto-unwrap MCP content format for better DX
+      const unwrapped = unwrapMCPContent(msg.result);
+      pending.resolve(unwrapped);
     } else {
       pending.reject(new Error(msg.error || "RPC call failed"));
     }
   }
+}
+
+/**
+ * Unwrap MCP standard content format to provide direct access to data
+ *
+ * MCP tools return: { content: [{ type: "text", text: "{...}" }] }
+ * This unwraps to: { ... } (parsed JSON) or the raw text if not JSON
+ *
+ * This improves DX by allowing:
+ *   const result = await mcp.filesystem.fast_list_directory({ path: "src" });
+ *   result.items  // Works directly instead of JSON.parse(result.content[0].text).items
+ */
+function unwrapMCPContent(result: unknown): unknown {
+  if (
+    result &&
+    typeof result === "object" &&
+    "content" in result &&
+    Array.isArray((result as Record<string, unknown>).content)
+  ) {
+    const content = (result as { content: Array<{ type?: string; text?: string }> }).content;
+    if (content.length === 1 && content[0]?.type === "text" && typeof content[0]?.text === "string") {
+      try {
+        return JSON.parse(content[0].text);
+      } catch {
+        // Not valid JSON, return the text directly
+        return content[0].text;
+      }
+    }
+  }
+  return result;
 }

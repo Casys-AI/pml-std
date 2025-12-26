@@ -95,8 +95,8 @@ export { diffTools } from "./diff.ts";
 // Agent tools (MCP Sampling)
 export { agentTools, setSamplingClient } from "./agent.ts";
 
-// Capability management (MCP Server)
-export { CapModule, PmlStdServer, globToSqlLike } from "./cap.ts";
+// Capability management (MCP Server + MiniTools)
+export { CapModule, getCapModule, globToSqlLike, PmlStdServer, pmlTools, setCapModule } from "./cap.ts";
 export type {
   CapListOptions,
   CapListItem,
@@ -159,6 +159,8 @@ import { schemaTools } from "./schema.ts";
 import { diffTools } from "./diff.ts";
 // Agent imports
 import { agentTools } from "./agent.ts";
+// PML imports (capability management)
+import { pmlTools } from "./cap.ts";
 // Python imports
 import { pythonTools } from "./python.ts";
 // Legacy imports
@@ -210,6 +212,8 @@ export const systemTools = [
   ...diffTools,
   // Agent tools
   ...agentTools,
+  // PML tools (capability management)
+  ...pmlTools,
   // Python tools
   ...pythonTools,
   // Legacy tools
@@ -267,6 +271,8 @@ export const toolsByCategory: Record<string, MiniToolType[]> = {
   util: utilTools,
   // Agent tools (MCP Sampling)
   agent: agentTools,
+  // PML tools (capability management)
+  pml: pmlTools,
   // Python execution
   python: pythonTools,
 };

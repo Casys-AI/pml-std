@@ -11,7 +11,7 @@ import type { TraceEvent } from "../../sandbox/types.ts";
 import type { EdgeType, EdgeSource } from "../algorithms/edge-weights.ts";
 import { EDGE_TYPE_WEIGHTS, EDGE_SOURCE_MODIFIERS, OBSERVED_THRESHOLD } from "../algorithms/edge-weights.ts";
 import { persistCapabilityDependency } from "../sync/db-sync.ts";
-import type { PGliteClient } from "../../db/client.ts";
+import type { DbClient } from "../../db/types.ts";
 
 /**
  * Graph interface for execution learning
@@ -73,7 +73,7 @@ export interface ExecutionLearningResult {
  */
 export async function updateFromCodeExecution(
   graph: ExecutionLearningGraph,
-  db: PGliteClient,
+  db: DbClient,
   traces: TraceEvent[],
   eventEmitter?: EdgeEventEmitter
 ): Promise<ExecutionLearningResult> {

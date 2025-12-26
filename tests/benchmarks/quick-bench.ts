@@ -3,8 +3,8 @@
  * Quick Benchmark: Single execution comparison
  */
 
-import { DenoSandboxExecutor } from "../src/sandbox/executor.ts";
-import { WorkerBridge } from "../src/sandbox/worker-bridge.ts";
+import { DenoSandboxExecutor } from "../../src/sandbox/executor.ts";
+import { WorkerBridge } from "../../src/sandbox/worker-bridge.ts";
 
 const CODE = `return 1 + 1;`;
 

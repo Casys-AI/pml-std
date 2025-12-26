@@ -10,7 +10,7 @@
  * @module capabilities/data-service
  */
 
-import type { PGliteClient } from "../db/client.ts";
+import type { DbClient } from "../db/types.ts";
 import type { GraphRAGEngine } from "../graphrag/graph-engine.ts";
 import type { DAGSuggester } from "../graphrag/dag-suggester.ts";
 import type {
@@ -53,7 +53,7 @@ export class CapabilityDataService {
   private dagSuggester: DAGSuggester | null = null;
 
   constructor(
-    private db: PGliteClient,
+    private db: DbClient,
     private graphEngine: GraphRAGEngine,
   ) {
     logger.debug("CapabilityDataService initialized");

@@ -23,14 +23,14 @@
  */
 
 import type { Migration } from "../migrations.ts";
-import type { PGliteClient } from "../client.ts";
+import type { DbClient } from "../types.ts";
 import * as log from "@std/log";
 
 export function createPermissionAuditLogMigration(): Migration {
   return {
     version: 18,
     name: "permission_audit_log",
-    up: async (db: PGliteClient) => {
+    up: async (db: DbClient) => {
       // Create permission_audit_log table
       await db.exec(`
         CREATE TABLE IF NOT EXISTS permission_audit_log (
@@ -63,7 +63,7 @@ export function createPermissionAuditLogMigration(): Migration {
 
       log.info("✓ Migration 018 complete: permission_audit_log table created");
     },
-    down: async (db: PGliteClient) => {
+    down: async (db: DbClient) => {
       // Drop indexes first
       await db.exec("DROP INDEX IF EXISTS idx_permission_audit_timestamp");
       await db.exec("DROP INDEX IF EXISTS idx_permission_audit_capability");

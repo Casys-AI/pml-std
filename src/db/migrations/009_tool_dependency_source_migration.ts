@@ -8,14 +8,14 @@
  */
 
 import type { Migration } from "../migrations.ts";
-import type { PGliteClient } from "../client.ts";
+import type { DbClient } from "../types.ts";
 import * as log from "@std/log";
 
 export function createToolDependencySourceMigration(): Migration {
   return {
     version: 9,
     name: "tool_dependency_source",
-    up: async (db: PGliteClient) => {
+    up: async (db: DbClient) => {
       // Check if column already exists
       const columnExists = await db.query(`
         SELECT column_name
@@ -46,7 +46,7 @@ export function createToolDependencySourceMigration(): Migration {
 
       log.info("✓ Migration 009 complete: tool_dependency source tracking");
     },
-    down: async (db: PGliteClient) => {
+    down: async (db: DbClient) => {
       // Drop index first
       await db.exec(`
         DROP INDEX IF EXISTS idx_tool_dependency_source

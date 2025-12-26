@@ -8,7 +8,7 @@
  */
 
 import type { Migration } from "../migrations.ts";
-import type { PGliteClient } from "../client.ts";
+import type { DbClient } from "../types.ts";
 
 export function createErrorLoggingMigration(): Migration {
   const errorLoggingSql = `
@@ -34,7 +34,7 @@ ON error_log (error_type);
   return {
     version: 3,
     name: "error_logging",
-    up: async (db: PGliteClient) => {
+    up: async (db: DbClient) => {
       // Remove SQL comments
       const sqlWithoutComments = errorLoggingSql
         .split("\n")
@@ -61,7 +61,7 @@ ON error_log (error_type);
         }
       }
     },
-    down: async (db: PGliteClient) => {
+    down: async (db: DbClient) => {
       // Drop indexes first, then table
       await db.exec("DROP INDEX IF EXISTS idx_error_log_type;");
       await db.exec("DROP INDEX IF EXISTS idx_error_log_timestamp;");

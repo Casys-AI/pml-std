@@ -6,7 +6,7 @@
  * the existing tool_schema and tool_embedding tables.
  */
 
-import type { PGliteClient } from "../client.ts";
+import type { DbClient } from "../types.ts";
 import type { Migration } from "../migrations.ts";
 import * as log from "@std/log";
 
@@ -14,7 +14,7 @@ export function createMcpToolTablesMigration(): Migration {
   return {
     version: 4,
     name: "mcp_tool_tables",
-    up: async (db: PGliteClient) => {
+    up: async (db: DbClient) => {
       log.info("Creating mcp_server and mcp_tool tables...");
 
       // Create mcp_server table
@@ -53,7 +53,7 @@ export function createMcpToolTablesMigration(): Migration {
 
       log.info("✓ mcp_server and mcp_tool tables created");
     },
-    down: async (db: PGliteClient) => {
+    down: async (db: DbClient) => {
       log.info("Dropping mcp_server and mcp_tool tables...");
       await db.exec("DROP TABLE IF EXISTS mcp_tool CASCADE;");
       await db.exec("DROP TABLE IF EXISTS mcp_server CASCADE;");

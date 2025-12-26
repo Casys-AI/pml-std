@@ -8,7 +8,7 @@
  */
 
 import * as log from "@std/log";
-import type { PGliteClient } from "../db/client.ts";
+import type { DbClient } from "../db/types.ts";
 import type { MCPTool } from "../mcp/types.ts";
 
 /**
@@ -173,23 +173,23 @@ export function displayContextComparison(comparison: ContextComparison): void {
  * @param metadata Optional additional context
  */
 export async function logContextUsage(
-  db: PGliteClient,
+  db: DbClient,
   usage: ContextUsage,
   metadata?: Record<string, unknown>,
 ): Promise<void> {
   try {
     await db.query(
       `INSERT INTO metrics (metric_name, value, metadata, timestamp)
-       VALUES ($1, $2, $3, NOW())`,
+       VALUES ($1, $2, $3::jsonb, NOW())`,
       [
         "context_usage_pct",
         usage.usagePercent,
-        JSON.stringify({
+        { // postgres.js/pglite auto-serializes to JSONB
           schema_count: usage.schemaCount,
           estimated_tokens: usage.estimatedTokens,
           context_window: usage.contextWindowSize,
           ...metadata,
-        }),
+        },
       ],
     );
 
@@ -208,15 +208,15 @@ export async function logContextUsage(
  * @param metadata Optional additional context (e.g., query text, tool count)
  */
 export async function logQueryLatency(
-  db: PGliteClient,
+  db: DbClient,
   latencyMs: number,
   metadata?: Record<string, unknown>,
 ): Promise<void> {
   try {
     await db.query(
       `INSERT INTO metrics (metric_name, value, metadata, timestamp)
-       VALUES ($1, $2, $3, NOW())`,
-      ["query_latency_ms", latencyMs, JSON.stringify(metadata || {})],
+       VALUES ($1, $2, $3::jsonb, NOW())`,
+      ["query_latency_ms", latencyMs, metadata || {}], // postgres.js/pglite auto-serializes to JSONB
     );
 
     log.debug(`Logged query latency: ${latencyMs.toFixed(2)}ms`);
@@ -233,15 +233,15 @@ export async function logQueryLatency(
  * @param metadata Optional additional context
  */
 export async function logCacheHitRate(
-  db: PGliteClient,
+  db: DbClient,
   hitRate: number,
   metadata?: Record<string, unknown>,
 ): Promise<void> {
   try {
     await db.query(
       `INSERT INTO metrics (metric_name, value, metadata, timestamp)
-       VALUES ($1, $2, $3, NOW())`,
-      ["cache_hit_rate", hitRate * 100, JSON.stringify(metadata || {})],
+       VALUES ($1, $2, $3::jsonb, NOW())`,
+      ["cache_hit_rate", hitRate * 100, metadata || {}], // postgres.js/pglite auto-serializes to JSONB
     );
 
     log.debug(`Logged cache hit rate: ${(hitRate * 100).toFixed(2)}%`);
@@ -259,7 +259,7 @@ export async function logCacheHitRate(
  * @returns Array of metric values with timestamps
  */
 export async function getRecentMetrics(
-  db: PGliteClient,
+  db: DbClient,
   metricName: string,
   limit: number = 100,
 ): Promise<Array<{ value: number; timestamp: Date; metadata: Record<string, unknown> }>> {
@@ -295,7 +295,7 @@ export async function getRecentMetrics(
  * @returns P95 latency in milliseconds, or null if insufficient data
  */
 export async function calculateP95Latency(
-  db: PGliteClient,
+  db: DbClient,
   limit: number = 100,
 ): Promise<number | null> {
   try {

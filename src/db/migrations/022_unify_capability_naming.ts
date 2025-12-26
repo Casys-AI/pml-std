@@ -14,14 +14,14 @@
  */
 
 import type { Migration } from "../migrations.ts";
-import type { PGliteClient } from "../client.ts";
+import type { DbClient } from "../types.ts";
 import * as log from "@std/log";
 
 export function createUnifyCapabilityNamingMigration(): Migration {
   return {
     version: 22,
     name: "unify_capability_naming",
-    up: async (db: PGliteClient) => {
+    up: async (db: DbClient) => {
       log.info("Migration 022: Unifying capability naming...");
 
       // ============================================
@@ -59,7 +59,7 @@ export function createUnifyCapabilityNamingMigration(): Migration {
 
       log.info("✓ Migration 022 complete: capability naming unified");
     },
-    down: async (db: PGliteClient) => {
+    down: async (db: DbClient) => {
       log.info("Migration 022 rollback: Restoring workflow_pattern.name column...");
 
       // Re-add name column

@@ -16,7 +16,7 @@
 // @ts-ignore: NPM module resolution
 import graphologyPkg from "graphology";
 import * as log from "@std/log";
-import type { PGliteClient } from "../db/client.ts";
+import type { DbClient } from "../db/types.ts";
 import type { VectorSearch } from "../vector/search.ts";
 import type {
   DAGStructure,
@@ -91,7 +91,7 @@ export class GraphRAGEngine {
   private localAlphaCalculator: LocalAlphaCalculator | null = null;
   private algorithmTracer: AlgorithmTracer | null = null;
 
-  constructor(private db: PGliteClient) {
+  constructor(private db: DbClient) {
     this.graph = new DirectedGraph({ allowSelfLoops: false });
     this.eventEmitter = new GraphEventEmitter();
     this.initLocalAlphaCalculator();

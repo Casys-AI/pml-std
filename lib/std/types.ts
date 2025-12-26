@@ -66,7 +66,9 @@ export type ToolCategory =
   // Agent tools (MCP Sampling)
   | "agent"
   // Python execution
-  | "python";
+  | "python"
+  // PML tools (capability management)
+  | "pml";
 
 /** Mini tool handler function type */
 export type MiniToolHandler = (args: Record<string, unknown>) => Promise<unknown> | unknown;

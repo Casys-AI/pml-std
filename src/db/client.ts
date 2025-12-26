@@ -12,26 +12,17 @@ import { vector } from "@electric-sql/pglite/vector";
 import * as log from "@std/log";
 import { ensureDir } from "@std/fs";
 import { getAgentCardsDatabasePath } from "../cli/utils.ts";
+import type { DbClient, Row, Transaction } from "./types.ts";
 
-/**
- * Row returned from database query
- */
-export interface Row {
-  [key: string]: unknown;
-}
-
-/**
- * Transaction context for batch operations
- */
-export interface Transaction {
-  exec(sql: string, params?: unknown[]): Promise<void>;
-  query(sql: string, params?: unknown[]): Promise<Row[]>;
-}
+// Re-export types for backward compatibility
+export type { Row, Transaction, DbClient } from "./types.ts";
 
 /**
  * PGlite client wrapper with transaction support and logging
+ *
+ * Implements DbClient interface for compatibility with PostgresClient.
  */
-export class PGliteClient {
+export class PGliteClient implements DbClient {
   private db: PGlite | null = null;
   private dbPath: string;
 

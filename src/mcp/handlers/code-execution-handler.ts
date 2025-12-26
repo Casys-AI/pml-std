@@ -37,7 +37,7 @@ import {
 import { ControlledExecutor } from "../../dag/controlled-executor.ts";
 import type { Task } from "../../graphrag/types.ts";
 import type { TaskResult } from "../../dag/types.ts";
-import type { PGliteClient } from "../../db/client.ts";
+import type { DbClient } from "../../db/types.ts";
 import { type DagScoringConfig, DEFAULT_DAG_SCORING_CONFIG } from "../../graphrag/dag-scoring-config.ts";
 import { buildToolDefinitionsFromDAG } from "./shared/tool-definitions.ts";
 
@@ -54,7 +54,7 @@ export interface CodeExecutionDependencies {
   contextBuilder: ContextBuilder;
   toolSchemaCache: Map<string, string>;
   /** PGlite client for DAG checkpoints (Story 10.5) */
-  db?: PGliteClient;
+  db?: DbClient;
   /** Scoring config for search thresholds */
   scoringConfig?: DagScoringConfig;
 }

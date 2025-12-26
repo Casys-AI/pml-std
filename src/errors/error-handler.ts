@@ -8,7 +8,7 @@
  */
 
 import { getLogger } from "../telemetry/logger.ts";
-import type { PGliteClient } from "../db/client.ts";
+import type { DbClient } from "../db/types.ts";
 import { PMLError } from "./error-types.ts";
 
 const log = getLogger("default");
@@ -117,7 +117,7 @@ export class ErrorHandler {
    * @param context - Optional context object with additional information
    */
   static async logToDatabase(
-    db: PGliteClient,
+    db: DbClient,
     error: Error,
     context?: Record<string, unknown>,
   ): Promise<void> {

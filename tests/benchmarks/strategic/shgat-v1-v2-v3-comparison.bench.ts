@@ -24,7 +24,6 @@
 
 import {
   createSHGATFromCapabilities,
-  trainSHGATOnEpisodes,
   trainSHGATOnEpisodesKHead,
   type TrainingExample,
 } from "../../../src/graphrag/algorithms/shgat.ts";
@@ -37,9 +36,12 @@ import { loadScenario } from "../fixtures/scenario-loader.ts";
 // ============================================================================
 // Setup Test Data with Pre-computed Embeddings
 // ============================================================================
+// To update production traces from PostgreSQL, run:
+//   deno run --allow-all scripts/export-traces-for-benchmark.ts
+// This exports execution_trace data to: tests/benchmarks/fixtures/scenarios/production-traces.json
 
-console.log("📦 Loading medium-graph scenario (with pre-computed embeddings)...");
-const scenario = await loadScenario("medium-graph");
+console.log("📦 Loading production-traces scenario (from PostgreSQL)...");
+const scenario = await loadScenario("production-traces");
 
 // Type for fixture with embeddings
 type CapWithEmb = { id: string; embedding: number[]; toolsUsed: string[]; successRate: number; parents?: string[]; children?: string[]; description?: string; level?: number };

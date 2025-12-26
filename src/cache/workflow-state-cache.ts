@@ -183,14 +183,14 @@ export async function deleteWorkflowState(
 // workflow-dag-store.ts but ignore the db parameter (uses KV singleton).
 // =============================================================================
 
-import type { PGliteClient } from "../db/client.ts";
+import type { DbClient } from "../db/types.ts";
 
 /**
  * Save workflow DAG (legacy API - db parameter ignored)
  * @deprecated Use saveWorkflowState() directly
  */
 export async function saveWorkflowDAG(
-  _db: PGliteClient,
+  _db: DbClient,
   workflowId: string,
   dag: DAGStructure,
   intent: string = "",
@@ -203,7 +203,7 @@ export async function saveWorkflowDAG(
  * @deprecated Use getWorkflowState() directly
  */
 export async function getWorkflowDAG(
-  _db: PGliteClient,
+  _db: DbClient,
   workflowId: string,
 ): Promise<DAGStructure | null> {
   return getWorkflowState(workflowId);
@@ -214,7 +214,7 @@ export async function getWorkflowDAG(
  * @deprecated Use getWorkflowStateRecord() directly
  */
 export async function getWorkflowDAGRecord(
-  _db: PGliteClient,
+  _db: DbClient,
   workflowId: string,
 ): Promise<WorkflowDAGRecord | null> {
   return getWorkflowStateRecord(workflowId);
@@ -225,7 +225,7 @@ export async function getWorkflowDAGRecord(
  * @deprecated Use updateWorkflowState() directly
  */
 export async function updateWorkflowDAG(
-  _db: PGliteClient,
+  _db: DbClient,
   workflowId: string,
   dag: DAGStructure,
 ): Promise<void> {
@@ -237,7 +237,7 @@ export async function updateWorkflowDAG(
  * @deprecated Use deleteWorkflowState() directly
  */
 export async function deleteWorkflowDAG(
-  _db: PGliteClient,
+  _db: DbClient,
   workflowId: string,
 ): Promise<void> {
   return deleteWorkflowState(workflowId);
@@ -247,7 +247,7 @@ export async function deleteWorkflowDAG(
  * Cleanup expired DAGs - NO-OP with Deno KV (TTL is automatic)
  * @deprecated TTL cleanup is automatic with Deno KV
  */
-export async function cleanupExpiredDAGs(_db: PGliteClient): Promise<number> {
+export async function cleanupExpiredDAGs(_db: DbClient): Promise<number> {
   log.debug("cleanupExpiredDAGs: No-op with Deno KV (TTL is automatic)");
   return 0;
 }
@@ -257,7 +257,7 @@ export async function cleanupExpiredDAGs(_db: PGliteClient): Promise<number> {
  * @deprecated Use updateWorkflowState which refreshes TTL automatically
  */
 export async function extendWorkflowDAGExpiration(
-  _db: PGliteClient,
+  _db: DbClient,
   workflowId: string,
 ): Promise<void> {
   // Get current state and re-save to refresh TTL

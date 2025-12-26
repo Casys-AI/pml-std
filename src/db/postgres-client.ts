@@ -14,26 +14,17 @@
 
 import postgres from "postgres";
 import * as log from "@std/log";
+import type { DbClient, Row, Transaction } from "./types.ts";
 
-/**
- * Row returned from database query
- */
-export interface Row {
-  [key: string]: unknown;
-}
-
-/**
- * Transaction context for batch operations
- */
-export interface Transaction {
-  exec(sql: string, params?: unknown[]): Promise<void>;
-  query(sql: string, params?: unknown[]): Promise<Row[]>;
-}
+// Re-export types for backward compatibility
+export type { Row, Transaction, DbClient } from "./types.ts";
 
 /**
  * PostgreSQL client wrapper with same interface as PGliteClient
+ *
+ * Implements DbClient interface for compatibility.
  */
-export class PostgresClient {
+export class PostgresClient implements DbClient {
   private sql: ReturnType<typeof postgres> | null = null;
   private connectionString: string;
 
