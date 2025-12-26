@@ -43,6 +43,9 @@
  * Agent tools (MCP Sampling):
  * - agent.ts      - LLM-powered decision/analysis via sampling
  *
+ * Capability management (MCP Server):
+ * - cap.ts        - cap:list, cap:rename, cap:lookup, cap:whois
+ *
  * @module lib/std/mod
  */
 
@@ -91,6 +94,22 @@ export { diffTools } from "./diff.ts";
 
 // Agent tools (MCP Sampling)
 export { agentTools, setSamplingClient } from "./agent.ts";
+
+// Capability management (MCP Server)
+export { CapModule, PmlStdServer, globToSqlLike } from "./cap.ts";
+export type {
+  CapListOptions,
+  CapListItem,
+  CapListResponse,
+  CapRenameOptions,
+  CapRenameResponse,
+  CapLookupOptions,
+  CapLookupResponse,
+  CapWhoisOptions,
+  CapWhoisResponse,
+  CapTool,
+  CapToolResult,
+} from "./cap.ts";
 
 // Python execution tools
 export { pythonTools } from "./python.ts";

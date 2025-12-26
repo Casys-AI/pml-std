@@ -11,6 +11,7 @@
 import { eventBus } from "../../events/mod.ts";
 import type { SHGAT } from "../algorithms/shgat.ts";
 import { trainSHGATOnExecution } from "../algorithms/shgat.ts";
+import type { ExecutionTraceStore } from "../../capabilities/execution-trace-store.ts";
 import { getLogger } from "../../telemetry/logger.ts";
 
 const log = getLogger("default");
@@ -37,6 +38,7 @@ export class OnlineLearningController {
 
   constructor(
     private shgat: SHGAT,
+    private traceStore: ExecutionTraceStore,
     private config: OnlineLearningConfig = {},
   ) {}
 
@@ -45,7 +47,7 @@ export class OnlineLearningController {
    *
    * @example
    * ```typescript
-   * const controller = new OnlineLearningController(shgat);
+   * const controller = new OnlineLearningController(shgat, traceStore);
    * controller.start();
    *
    * // Later, when shutting down:
@@ -66,13 +68,23 @@ export class OnlineLearningController {
         trace_id: string;
         capability_id: string | null;
         success: boolean;
-        intent_embedding?: number[];
       };
 
-      // Skip if no capability or embedding
-      if (!payload.capability_id || !payload.intent_embedding) {
+      // Skip if no capability (can't train without target)
+      if (!payload.capability_id) {
         if (this.config.verbose) {
-          log.debug("[OnlineLearning] Skipping trace without capability/embedding", {
+          log.debug("[OnlineLearning] Skipping trace without capability", {
+            traceId: payload.trace_id,
+          });
+        }
+        return;
+      }
+
+      // Fetch trace from DB to get intent_embedding
+      const trace = await this.traceStore.getTraceById(payload.trace_id);
+      if (!trace?.intentEmbedding) {
+        if (this.config.verbose) {
+          log.debug("[OnlineLearning] Skipping trace without intent embedding", {
             traceId: payload.trace_id,
           });
         }
@@ -81,7 +93,7 @@ export class OnlineLearningController {
 
       try {
         const result = await trainSHGATOnExecution(this.shgat, {
-          intentEmbedding: payload.intent_embedding,
+          intentEmbedding: trace.intentEmbedding,
           targetCapId: payload.capability_id,
           outcome: payload.success ? 1 : 0,
         });
@@ -155,6 +167,7 @@ export class OnlineLearningController {
  * Convenience function to start online learning
  *
  * @param shgat - SHGAT instance to train
+ * @param traceStore - ExecutionTraceStore to fetch traces
  * @param config - Optional configuration
  * @returns Controller to manage the listener
  *
@@ -163,7 +176,7 @@ export class OnlineLearningController {
  * import { startOnlineLearning } from "./online-learning.ts";
  *
  * // In your app initialization:
- * const controller = startOnlineLearning(shgat, { verbose: true });
+ * const controller = startOnlineLearning(shgat, traceStore, { verbose: true });
  *
  * // On shutdown:
  * controller.stop();
@@ -171,9 +184,10 @@ export class OnlineLearningController {
  */
 export function startOnlineLearning(
   shgat: SHGAT,
+  traceStore: ExecutionTraceStore,
   config?: OnlineLearningConfig,
 ): OnlineLearningController {
-  const controller = new OnlineLearningController(shgat, config);
+  const controller = new OnlineLearningController(shgat, traceStore, config);
   controller.start();
   return controller;
 }
