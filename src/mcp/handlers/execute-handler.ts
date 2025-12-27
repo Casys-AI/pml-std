@@ -331,6 +331,20 @@ export async function handleExecute(
  * @param deps - Dependencies
  * @param startTime - Start timestamp for metrics
  */
+
+/**
+ * Unwrap code execution result from {result, state, executionTimeMs} wrapper
+ *
+ * Code executor wraps results for checkpoint persistence, but we need
+ * to return just the actual result to the caller.
+ */
+function unwrapCodeResult(output: unknown): unknown {
+  if (output && typeof output === "object" && "result" in output && "state" in output) {
+    return (output as { result: unknown }).result;
+  }
+  return output;
+}
+
 async function executeDirectMode(
   intent: string,
   code: string,
@@ -648,10 +662,10 @@ async function executeDirectMode(
           await deps.graphEngine.learnFromTaskResults(tasksWithLayer);
         }
 
-        // Build response
+        // Build response - unwrap code execution results from {result, state, executionTimeMs} wrapper
         const successOutputs = physicalResults.results
           .filter((r) => r.status === "success")
-          .map((r) => r.output);
+          .map((r) => unwrapCodeResult(r.output));
 
         const response: ExecuteResponse = {
           status: "success",
@@ -916,10 +930,10 @@ async function executeByNameMode(
         // AC10: Record successful usage
         await deps.capabilityRegistry.recordUsage(record.id, true, executionTimeMs);
 
-        // Build response
+        // Build response - unwrap code execution results from {result, state, executionTimeMs} wrapper
         const successOutputs = physicalResults.results
           .filter((r) => r.status === "success")
-          .map((r) => r.output);
+          .map((r) => unwrapCodeResult(r.output));
 
         const response: ExecuteResponse = {
           status: "success",
