@@ -130,10 +130,13 @@ export class CapabilityStore {
           });
         }
       } catch (error) {
-        // Non-critical: continue with original code if transformation fails
-        logger.warn("Code transformation failed, using original", {
-          error: error instanceof Error ? error.message : String(error),
+        // Code transformation failure is a bug that needs fixing
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        logger.error("Code transformation failed", {
+          error: errorMsg,
+          codeLength: originalCode.length,
         });
+        throw new Error(`Code transformation failed: ${errorMsg}`);
       }
     }
 

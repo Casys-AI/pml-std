@@ -107,11 +107,13 @@ export async function transformCapabilityRefs(
         logger.debug("Action not found as capability (may be MCP tool)", { actionName });
       }
     } catch (error) {
-      unresolved.push(actionName);
-      logger.warn("Error resolving capability action", {
+      // Errors during resolution are bugs that need fixing - propagate the error
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error("Error resolving capability action", {
         actionName,
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMsg,
       });
+      throw new Error(`Failed to resolve capability action '${actionName}': ${errorMsg}`);
     }
   }
 

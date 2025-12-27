@@ -460,40 +460,9 @@ export class ExecutionTraceStore {
     return result.map((row) => this.rowToTrace(row as Row));
   }
 
-  /**
-   * Delete old traces (pruning for storage management)
-   *
-   * @param olderThanDays - Delete traces older than this many days
-   * @returns Number of deleted traces
-   */
-  async pruneOldTraces(olderThanDays: number): Promise<number> {
-    const result = await this.db.query(
-      `DELETE FROM execution_trace
-       WHERE executed_at < NOW() - INTERVAL '1 day' * $1
-       RETURNING id`,
-      [olderThanDays],
-    );
-
-    const deletedCount = result.length;
-
-    if (deletedCount > 0) {
-      logger.info("Pruned old execution traces", {
-        deletedCount,
-        olderThanDays,
-      });
-
-      eventBus.emit({
-        type: "execution.traces.pruned",
-        source: "execution-trace-store",
-        payload: {
-          deleted_count: deletedCount,
-          older_than_days: olderThanDays,
-        },
-      });
-    }
-
-    return deletedCount;
-  }
+  // NOTE: pruneOldTraces() was removed - traces are precious for learning
+  // and should not be automatically deleted. If storage becomes an issue,
+  // consider archiving to cold storage instead of deletion.
 
   /**
    * Anonymize traces for a user (GDPR compliance)

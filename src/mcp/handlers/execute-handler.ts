@@ -487,6 +487,20 @@ async function executeDirectMode(
           );
         }
 
+        // Count failed_safe tasks (these are NOT counted in failedTasks but still represent failures)
+        // Pure code operations like code:filter are safe-to-fail but should NOT save as success
+        const failedSafeTasks = executionResult.results.filter(
+          (r) => r.status === "failed_safe"
+        ).length;
+        const hasAnyFailure = executionResult.failedTasks > 0 || failedSafeTasks > 0;
+
+        if (failedSafeTasks > 0) {
+          log.info("[pml:execute] Code tasks failed (safe-to-fail), capability will be saved with success=false", {
+            failedSafeTasks,
+            failedTasks: executionResult.failedTasks,
+          });
+        }
+
         // Create capability with trace data
         // Story 11.2: Infer branch decisions from executed path vs static structure
         const inferredDecisions = StaticStructureBuilder.inferDecisions(
@@ -510,7 +524,7 @@ async function executeDirectMode(
           code,
           intent,
           durationMs: Math.round(executionTimeMs),
-          success: executionResult.failedTasks === 0,
+          success: !hasAnyFailure,
           toolsUsed: toolsCalled,
           traceData: {
             executedPath: toolsCalled,
