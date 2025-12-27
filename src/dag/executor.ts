@@ -566,6 +566,30 @@ export class ParallelExecutor {
   }
 
   /**
+   * Resolve template literal expressions like `${n1.path}/suffix`
+   *
+   * Parses the template literal and replaces all ${...} expressions
+   * with their resolved values from previous task results.
+   *
+   * @param expression - Template literal string including backticks
+   * @param previousResults - Results from previously executed tasks
+   * @returns Resolved string with all expressions substituted
+   */
+  private resolveTemplateLiteral(
+    expression: string,
+    previousResults: Map<string, TaskResult>,
+  ): string {
+    // Remove backticks
+    const inner = expression.slice(1, -1);
+
+    // Replace all ${...} expressions
+    return inner.replace(/\$\{([^}]+)\}/g, (_match, expr: string) => {
+      const resolved = this.resolveStructuredReference(expr.trim(), previousResults);
+      return resolved !== undefined ? String(resolved) : "";
+    });
+  }
+
+  /**
    * Get nested property supporting both dot notation and array access
    *
    * @param obj - Object to traverse

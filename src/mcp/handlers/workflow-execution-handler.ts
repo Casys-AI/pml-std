@@ -30,6 +30,7 @@ import type { WorkflowHandlerDependencies } from "./workflow-handler-types.ts";
 import { getTaskType } from "../../dag/execution/task-router.ts";
 import type { CapabilityStore } from "../../capabilities/capability-store.ts";
 import { getToolPermissionConfig } from "../../capabilities/permission-inferrer.ts";
+import { isPureOperation } from "../../capabilities/pure-operations.ts";
 import type { AdaptiveThresholdManager, ThresholdMode } from "../adaptive-threshold.ts";
 import { updateThompsonSampling } from "./execute-handler.ts";
 // Story 10.5 AC10: WorkerBridge-based executor for 100% traceability
@@ -53,6 +54,7 @@ import { buildToolDefinitionsFromDAG } from "./shared/tool-definitions.ts";
  *
  * No validation needed for:
  * - code_execution with minimal permissions (errors are clear, suggest primitives)
+ * - pure operations (filter, map, reduce, etc.) - Phase 1
  * - mcp_tool with minimal scope and auto approval (safe by default)
  */
 export async function requiresValidation(
@@ -64,6 +66,12 @@ export async function requiresValidation(
 
     // Code execution with elevated permissions → needs validation
     if (taskType === "code_execution") {
+      // Pure operations NEVER require validation (Phase 1)
+      if (task.metadata?.pure === true || isPureOperation(task.tool)) {
+        log.debug(`Skipping validation for pure operation: ${task.tool}`);
+        continue;
+      }
+
       const permSet = task.sandboxConfig?.permissionSet ?? "minimal";
       if (permSet !== "minimal") {
         log.info(`Validation required: task ${task.id} has elevated permissions (${permSet})`);
@@ -386,6 +394,8 @@ async function executeStandardWorkflow(
 
     controlledExecutor.setDAGSuggester(deps.dagSuggester);
     controlledExecutor.setLearningDependencies(deps.capabilityStore, deps.graphEngine);
+    // Phase 1: Set WorkerBridge for code execution task tracing
+    controlledExecutor.setWorkerBridge(context.bridge);
 
     const result = await controlledExecutor.execute(dag);
 

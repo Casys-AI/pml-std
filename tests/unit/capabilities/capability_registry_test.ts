@@ -10,6 +10,7 @@ import { assertEquals, assert, assertRejects } from "@std/assert";
 import { CapabilityRegistry } from "../../../src/capabilities/capability-registry.ts";
 import { PGliteClient } from "../../../src/db/client.ts";
 import { MigrationRunner, getAllMigrations } from "../../../src/db/migrations.ts";
+import { createTestWorkflowPattern } from "../../fixtures/test-helpers.ts";
 
 // Test setup helper
 async function setupTestDb(): Promise<PGliteClient> {
@@ -31,13 +32,18 @@ Deno.test("CapabilityRegistry.create - creates record with FQDN", async () => {
   const db = await setupTestDb();
   const registry = new CapabilityRegistry(db);
 
+  // First create workflow_pattern (architecture: code lives there)
+  const code = "export function readJson(path) { return JSON.parse(Deno.readTextFileSync(path)); }";
+  const { patternId, hash } = await createTestWorkflowPattern(db, code);
+
   const record = await registry.create({
     displayName: "read_json",
     org: "local",
     project: "default",
     namespace: "fs",
     action: "read_json",
-    codeSnippet: "export function readJson(path) { return JSON.parse(Deno.readTextFileSync(path)); }",
+    workflowPatternId: patternId,
+    hash,
   });
 
   // FQDN should be generated
@@ -51,6 +57,7 @@ Deno.test("CapabilityRegistry.create - creates record with FQDN", async () => {
   assertEquals(record.namespace, "fs");
   assertEquals(record.action, "read_json");
   assertEquals(record.hash.length, 4);
+  assertEquals(record.hash, hash);
   assertEquals(record.visibility, "private");
   assertEquals(record.routing, "local");
   assertEquals(record.version, 1);
@@ -65,14 +72,16 @@ Deno.test("CapabilityRegistry.create - rejects invalid display name", async () =
   const db = await setupTestDb();
   const registry = new CapabilityRegistry(db);
 
+  // Validation happens before DB access, so dummy values are fine
   await assertRejects(
     () => registry.create({
-      displayName: "my function", // has space
+      displayName: "my function", // has space - invalid
       org: "local",
       project: "default",
       namespace: "fs",
       action: "read",
-      codeSnippet: "code",
+      workflowPatternId: "dummy-pattern-id",
+      hash: "abcd",
     }),
     Error,
     "Invalid display name"
@@ -85,14 +94,16 @@ Deno.test("CapabilityRegistry.create - rejects invalid org (starts with number)"
   const db = await setupTestDb();
   const registry = new CapabilityRegistry(db);
 
+  // Validation happens before DB access, so dummy values are fine
   await assertRejects(
     () => registry.create({
       displayName: "valid_name",
-      org: "123invalid", // starts with number
+      org: "123invalid", // starts with number - invalid
       project: "default",
       namespace: "fs",
       action: "read",
-      codeSnippet: "code",
+      workflowPatternId: "dummy-pattern-id",
+      hash: "abcd",
     }),
     Error,
     "Invalid org component"
@@ -105,14 +116,16 @@ Deno.test("CapabilityRegistry.create - rejects invalid namespace (has dot)", asy
   const db = await setupTestDb();
   const registry = new CapabilityRegistry(db);
 
+  // Validation happens before DB access, so dummy values are fine
   await assertRejects(
     () => registry.create({
       displayName: "valid_name",
       org: "local",
       project: "default",
-      namespace: "fs.sub", // has dot
+      namespace: "fs.sub", // has dot - invalid
       action: "read",
-      codeSnippet: "code",
+      workflowPatternId: "dummy-pattern-id",
+      hash: "abcd",
     }),
     Error,
     "Invalid namespace component"
@@ -125,6 +138,9 @@ Deno.test("CapabilityRegistry.create - updates existing on conflict", async () =
   const db = await setupTestDb();
   const registry = new CapabilityRegistry(db);
 
+  // Create workflow_pattern first (architecture: code lives there)
+  const { patternId, hash } = await createTestWorkflowPattern(db, "v1");
+
   // Create first record
   const record1 = await registry.create({
     displayName: "read_json",
@@ -132,19 +148,19 @@ Deno.test("CapabilityRegistry.create - updates existing on conflict", async () =
     project: "default",
     namespace: "fs",
     action: "read",
-    codeSnippet: "v1",
-    description: "Version 1",
+    workflowPatternId: patternId,
+    hash,
   });
 
-  // Create with same code (same hash) - should update
+  // Create with same hash - should update (same FQDN)
   const record2 = await registry.create({
     displayName: "read_json_v2",
     org: "local",
     project: "default",
     namespace: "fs",
     action: "read",
-    codeSnippet: "v1", // same code = same hash
-    description: "Version 2",
+    workflowPatternId: patternId,
+    hash, // same hash = same FQDN
   });
 
   // Should be same FQDN (same hash)
@@ -153,7 +169,6 @@ Deno.test("CapabilityRegistry.create - updates existing on conflict", async () =
   // Fetch and verify update
   const fetched = await registry.getByFqdn(record2.id);
   assertEquals(fetched?.displayName, "read_json_v2");
-  assertEquals(fetched?.description, "Version 2");
   assertEquals(fetched?.version, 2); // version incremented
 
   await db.close();
@@ -167,6 +182,9 @@ Deno.test("CapabilityRegistry.resolveByName - finds by display name in scope", a
   const db = await setupTestDb();
   const registry = new CapabilityRegistry(db);
 
+  // Create workflow_pattern first
+  const { patternId, hash } = await createTestWorkflowPattern(db, "code");
+
   // Create a capability
   const created = await registry.create({
     displayName: "my_reader",
@@ -174,7 +192,8 @@ Deno.test("CapabilityRegistry.resolveByName - finds by display name in scope", a
     project: "webapp",
     namespace: "fs",
     action: "read",
-    codeSnippet: "code",
+    workflowPatternId: patternId,
+    hash,
   });
 
   // Resolve in same scope
@@ -192,6 +211,9 @@ Deno.test("CapabilityRegistry.resolveByName - returns null for wrong scope", asy
   const db = await setupTestDb();
   const registry = new CapabilityRegistry(db);
 
+  // Create workflow_pattern first
+  const { patternId, hash } = await createTestWorkflowPattern(db, "code");
+
   // Create a capability
   await registry.create({
     displayName: "my_reader",
@@ -199,7 +221,8 @@ Deno.test("CapabilityRegistry.resolveByName - returns null for wrong scope", asy
     project: "webapp",
     namespace: "fs",
     action: "read",
-    codeSnippet: "code",
+    workflowPatternId: patternId,
+    hash,
   });
 
   // Try to resolve in different scope
@@ -217,6 +240,9 @@ Deno.test("CapabilityRegistry.resolveByName - finds public capability", async ()
   const db = await setupTestDb();
   const registry = new CapabilityRegistry(db);
 
+  // Create workflow_pattern first
+  const { patternId, hash } = await createTestWorkflowPattern(db, "code");
+
   // Create a public capability
   const created = await registry.create({
     displayName: "public_util",
@@ -224,7 +250,8 @@ Deno.test("CapabilityRegistry.resolveByName - finds public capability", async ()
     project: "public",
     namespace: "util",
     action: "format",
-    codeSnippet: "code",
+    workflowPatternId: patternId,
+    hash,
     visibility: "public",
   });
 
@@ -247,6 +274,9 @@ Deno.test("CapabilityRegistry.resolveByAlias - resolves via alias", async () => 
   const db = await setupTestDb();
   const registry = new CapabilityRegistry(db);
 
+  // Create workflow_pattern first
+  const { patternId, hash } = await createTestWorkflowPattern(db, "code");
+
   // Create capability
   const created = await registry.create({
     displayName: "new_reader",
@@ -254,7 +284,8 @@ Deno.test("CapabilityRegistry.resolveByAlias - resolves via alias", async () => 
     project: "webapp",
     namespace: "fs",
     action: "read",
-    codeSnippet: "code",
+    workflowPatternId: patternId,
+    hash,
   });
 
   // Create alias for old name
@@ -292,6 +323,9 @@ Deno.test("CapabilityRegistry.resolveByName - falls back to alias", async () => 
   const db = await setupTestDb();
   const registry = new CapabilityRegistry(db);
 
+  // Create workflow_pattern first
+  const { patternId, hash } = await createTestWorkflowPattern(db, "code");
+
   // Create capability
   const created = await registry.create({
     displayName: "current_name",
@@ -299,7 +333,8 @@ Deno.test("CapabilityRegistry.resolveByName - falls back to alias", async () => 
     project: "webapp",
     namespace: "fs",
     action: "read",
-    codeSnippet: "code",
+    workflowPatternId: patternId,
+    hash,
   });
 
   // Create alias
@@ -324,6 +359,10 @@ Deno.test("CapabilityRegistry.updateAliasChains - updates all aliases to new tar
   const db = await setupTestDb();
   const registry = new CapabilityRegistry(db);
 
+  // Create workflow_patterns for both capabilities
+  const patternA = await createTestWorkflowPattern(db, "a");
+  const patternB = await createTestWorkflowPattern(db, "b");
+
   // Create capability A
   const capA = await registry.create({
     displayName: "cap_a",
@@ -331,7 +370,8 @@ Deno.test("CapabilityRegistry.updateAliasChains - updates all aliases to new tar
     project: "webapp",
     namespace: "ns",
     action: "a",
-    codeSnippet: "a",
+    workflowPatternId: patternA.patternId,
+    hash: patternA.hash,
   });
 
   // Create capability B
@@ -341,7 +381,8 @@ Deno.test("CapabilityRegistry.updateAliasChains - updates all aliases to new tar
     project: "webapp",
     namespace: "ns",
     action: "b",
-    codeSnippet: "b",
+    workflowPatternId: patternB.patternId,
+    hash: patternB.hash,
   });
 
   // Create aliases pointing to A
@@ -373,6 +414,11 @@ Deno.test("CapabilityRegistry.updateAliasChains - scenario: A->B->C no chains", 
   const db = await setupTestDb();
   const registry = new CapabilityRegistry(db);
 
+  // Create workflow_patterns for all capabilities
+  const patternA = await createTestWorkflowPattern(db, "a");
+  const patternB = await createTestWorkflowPattern(db, "b");
+  const patternC = await createTestWorkflowPattern(db, "c");
+
   // Create capabilities A, B, C
   // capA is intentionally not used directly - we just need it to exist
   await registry.create({
@@ -381,7 +427,8 @@ Deno.test("CapabilityRegistry.updateAliasChains - scenario: A->B->C no chains", 
     project: "default",
     namespace: "ns",
     action: "a",
-    codeSnippet: "a",
+    workflowPatternId: patternA.patternId,
+    hash: patternA.hash,
   });
 
   const capB = await registry.create({
@@ -390,7 +437,8 @@ Deno.test("CapabilityRegistry.updateAliasChains - scenario: A->B->C no chains", 
     project: "default",
     namespace: "ns",
     action: "b",
-    codeSnippet: "b",
+    workflowPatternId: patternB.patternId,
+    hash: patternB.hash,
   });
 
   const capC = await registry.create({
@@ -399,7 +447,8 @@ Deno.test("CapabilityRegistry.updateAliasChains - scenario: A->B->C no chains", 
     project: "default",
     namespace: "ns",
     action: "c",
-    codeSnippet: "c",
+    workflowPatternId: patternC.patternId,
+    hash: patternC.hash,
   });
 
   // Alias A -> B
@@ -427,13 +476,17 @@ Deno.test("CapabilityRegistry.recordUsage - increments counters", async () => {
   const db = await setupTestDb();
   const registry = new CapabilityRegistry(db);
 
+  // Create workflow_pattern first
+  const { patternId, hash } = await createTestWorkflowPattern(db, "code");
+
   const created = await registry.create({
     displayName: "test_cap",
     org: "local",
     project: "default",
     namespace: "ns",
     action: "test",
-    codeSnippet: "code",
+    workflowPatternId: patternId,
+    hash,
   });
 
   // Record successful usage
@@ -458,6 +511,11 @@ Deno.test("CapabilityRegistry.listByScope - returns capabilities in scope", asyn
   const db = await setupTestDb();
   const registry = new CapabilityRegistry(db);
 
+  // Create workflow_patterns for all capabilities
+  const patternA = await createTestWorkflowPattern(db, "a");
+  const patternB = await createTestWorkflowPattern(db, "b");
+  const patternC = await createTestWorkflowPattern(db, "c");
+
   // Create capabilities in different scopes
   await registry.create({
     displayName: "cap1",
@@ -465,7 +523,8 @@ Deno.test("CapabilityRegistry.listByScope - returns capabilities in scope", asyn
     project: "webapp",
     namespace: "ns",
     action: "a",
-    codeSnippet: "a",
+    workflowPatternId: patternA.patternId,
+    hash: patternA.hash,
   });
 
   await registry.create({
@@ -474,7 +533,8 @@ Deno.test("CapabilityRegistry.listByScope - returns capabilities in scope", asyn
     project: "webapp",
     namespace: "ns",
     action: "b",
-    codeSnippet: "b",
+    workflowPatternId: patternB.patternId,
+    hash: patternB.hash,
   });
 
   await registry.create({
@@ -483,7 +543,8 @@ Deno.test("CapabilityRegistry.listByScope - returns capabilities in scope", asyn
     project: "other",
     namespace: "ns",
     action: "c",
-    codeSnippet: "c",
+    workflowPatternId: patternC.patternId,
+    hash: patternC.hash,
   });
 
   // List for acme.webapp scope
@@ -500,13 +561,17 @@ Deno.test("CapabilityRegistry.getAliases - returns all aliases for FQDN", async 
   const db = await setupTestDb();
   const registry = new CapabilityRegistry(db);
 
+  // Create workflow_pattern first
+  const { patternId, hash } = await createTestWorkflowPattern(db, "code");
+
   const created = await registry.create({
     displayName: "target_cap",
     org: "local",
     project: "default",
     namespace: "ns",
     action: "target",
-    codeSnippet: "code",
+    workflowPatternId: patternId,
+    hash,
   });
 
   // Create multiple aliases

@@ -45,9 +45,9 @@ export interface CreateCapabilityRecordInput {
   namespace: string;
   /** Action name */
   action: string;
-  /** FK to workflow_pattern.pattern_id */
+  /** FK to workflow_pattern.pattern_id (required - code lives there) */
   workflowPatternId: string;
-  /** Hash of code_snippet (4 chars) for FQDN generation */
+  /** Hash for FQDN generation (4 lowercase hex chars) */
   hash: string;
   /** Who is creating this record */
   createdBy?: string;

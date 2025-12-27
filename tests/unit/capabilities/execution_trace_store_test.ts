@@ -38,6 +38,9 @@ async function setupTestDb(): Promise<PGliteClient> {
 
 /**
  * Create a capability in workflow_pattern for FK tests
+ *
+ * Note: Migration 022 removed 'name' column from workflow_pattern.
+ * Names now live in capability_records.display_name (Story 13.2).
  */
 async function createTestCapability(db: PGliteClient): Promise<string> {
   // Generate unique hash to avoid conflicts
@@ -53,8 +56,7 @@ async function createTestCapability(db: PGliteClient): Promise<string> {
       dag_structure,
       intent_embedding,
       code_snippet,
-      code_hash,
-      name
+      code_hash
     )
     VALUES (
       gen_random_uuid(),
@@ -62,8 +64,7 @@ async function createTestCapability(db: PGliteClient): Promise<string> {
       '{"nodes": [], "edges": []}'::jsonb,
       $2::vector,
       'console.log("test")',
-      $3,
-      'Test capability'
+      $3
     )
     RETURNING pattern_id
   `, [uniqueHash, embeddingStr, `code-hash-${uniqueHash}`]);
@@ -161,15 +162,16 @@ Deno.test("ExecutionTraceStore - AC7: saveTrace() with FK capability validates",
   assertEquals(trace.capabilityId, capabilityId);
 
   // Verify FK relationship in database
+  // Note: Migration 022 removed 'name' from workflow_pattern, just verify FK works
   const result = await db.query(`
-    SELECT et.*, wp.name as capability_name
+    SELECT et.*, wp.pattern_id
     FROM execution_trace et
     JOIN workflow_pattern wp ON et.capability_id = wp.pattern_id
     WHERE et.id = $1
   `, [trace.id]);
 
   assertEquals(result.length, 1);
-  assertEquals(result[0].capability_name, "Test capability");
+  assertEquals(result[0].pattern_id, capabilityId);
 
   await db.close();
 });

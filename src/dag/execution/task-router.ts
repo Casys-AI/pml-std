@@ -8,6 +8,7 @@
  */
 
 import type { Task } from "../../graphrag/types.ts";
+import { isPureOperation, isCodeOperation } from "../../capabilities/pure-operations.ts";
 
 /**
  * Task execution types
@@ -38,6 +39,11 @@ export function getTaskType(task: Task): TaskType {
  * @returns true if task can fail safely
  */
 export function isSafeToFail(task: Task): boolean {
+  // Pure operations are always safe-to-fail (Phase 1)
+  if (isCodeOperation(task.tool) && isPureOperation(task.tool)) {
+    return true;
+  }
+
   // Only code_execution tasks with minimal permissions are safe-to-fail
   if (task.type !== "code_execution") {
     return false;

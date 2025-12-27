@@ -8,6 +8,7 @@
 import { PGliteClient } from "../../src/db/client.ts";
 import { getAllMigrations, MigrationRunner } from "../../src/db/migrations.ts";
 import { EmbeddingModel } from "../../src/vector/embeddings.ts";
+import { generateHash } from "../../src/capabilities/fqdn.ts";
 
 /**
  * Initialize a test database with migrations
@@ -300,4 +301,45 @@ export function calculatePercentile(
   if (sortedArray.length === 0) return 0;
   const index = Math.floor(sortedArray.length * percentile);
   return sortedArray[Math.min(index, sortedArray.length - 1)];
+}
+
+/**
+ * Create a workflow_pattern for testing
+ *
+ * Architecture (migration 023): capability_records points to workflow_pattern via FK.
+ * This helper creates a workflow_pattern with required fields so tests can create
+ * capability_records with valid workflowPatternId.
+ *
+ * @param db - Database instance
+ * @param code - Code snippet (used to generate hash)
+ * @returns Pattern ID and 4-char hash for FQDN generation
+ */
+export async function createTestWorkflowPattern(
+  db: PGliteClient,
+  code: string,
+): Promise<{ patternId: string; hash: string }> {
+  const hash = await generateHash(code);
+  const patternHash = `test_${hash}_${Date.now()}`;
+
+  // Create fake 1024-dim embedding (required by schema)
+  const fakeEmbedding = new Array(1024).fill(0);
+  const embeddingStr = `[${fakeEmbedding.join(",")}]`;
+
+  const result = await db.query(`
+    INSERT INTO workflow_pattern (
+      pattern_hash, dag_structure, intent_embedding, code_snippet, code_hash
+    ) VALUES (
+      $1, $2::jsonb, $3, $4, $5
+    )
+    RETURNING pattern_id
+  `, [
+    patternHash,
+    JSON.stringify({ nodes: [], edges: [] }),
+    embeddingStr,
+    code,
+    hash,
+  ]);
+
+  const patternId = (result[0] as { pattern_id: string }).pattern_id;
+  return { patternId, hash };
 }

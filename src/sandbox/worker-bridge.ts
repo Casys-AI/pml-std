@@ -250,9 +250,13 @@ export class WorkerBridge {
     context?: Record<string, unknown>,
     capabilityContext?: string,
     parentTraceId?: string,
+    options?: { preserveTraces?: boolean },
   ): Promise<ExecutionResult> {
     this.startTime = performance.now();
-    this.traces = []; // Reset traces for new execution
+    // Reset traces for new execution (unless preserveTraces is set)
+    if (!options?.preserveTraces) {
+      this.traces = [];
+    }
     this.lastExecutedCode = code;
     this.lastIntent = context?.intent as string | undefined;
     this.lastContext = context; // Story 11.2: Store for traceData
@@ -451,6 +455,104 @@ export class WorkerBridge {
       };
     } finally {
       this.terminate();
+    }
+  }
+
+  /**
+   * Execute code task with pseudo-tool tracing (Phase 1)
+   *
+   * This method executes code_execution tasks (e.g., code:filter, code:map)
+   * and emits tool_start/tool_end traces so they appear in executedPath
+   * alongside MCP tools for SHGAT learning.
+   *
+   * @param toolName - Pseudo-tool name (e.g., "code:filter", "code:map")
+   * @param code - TypeScript code to execute
+   * @param context - Optional context variables
+   * @param toolDefinitions - Available MCP tools for RPC
+   * @returns Execution result with traces
+   *
+   * @example
+   * ```typescript
+   * const result = await bridge.executeCodeTask(
+   *   "code:filter",
+   *   "return users.filter(u => u.active);",
+   *   { users: [...] },
+   *   []
+   * );
+   * // Emits: tool_start("code:filter") → execute code → tool_end("code:filter")
+   * ```
+   */
+  async executeCodeTask(
+    toolName: string,
+    code: string,
+    context?: Record<string, unknown>,
+    toolDefinitions: ToolDefinition[] = [],
+  ): Promise<ExecutionResult> {
+    const traceId = `code-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    const startTime = Date.now();
+
+    // Phase 1: Emit tool_start trace for pseudo-tool
+    this.traces.push({
+      type: "tool_start",
+      tool: toolName,
+      traceId,
+      ts: startTime,
+    });
+
+    logger.debug(`Trace: tool_start for ${toolName}`, { traceId });
+
+    try {
+      // Execute code via Worker with preserveTraces to accumulate traces
+      const result = await this.execute(
+        code,
+        toolDefinitions,
+        context,
+        undefined, // capabilityContext
+        undefined, // parentTraceId
+        { preserveTraces: true }, // Don't reset traces
+      );
+
+      const endTime = Date.now();
+      const durationMs = endTime - startTime;
+
+      // Phase 1: Emit tool_end trace for successful execution
+      this.traces.push({
+        type: "tool_end",
+        tool: toolName,
+        traceId,
+        ts: endTime,
+        success: result.success,
+        durationMs,
+        result: result.result,
+        ...(result.error ? { error: result.error.message } : {}),
+      });
+
+      logger.debug(`Trace: tool_end for ${toolName}`, {
+        traceId,
+        success: result.success,
+        durationMs,
+      });
+
+      return result;
+    } catch (error) {
+      const endTime = Date.now();
+      const durationMs = endTime - startTime;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      // Phase 1: Emit tool_end trace for execution errors
+      this.traces.push({
+        type: "tool_end",
+        tool: toolName,
+        traceId,
+        ts: endTime,
+        success: false,
+        durationMs,
+        error: errorMessage,
+      });
+
+      logger.debug(`Trace: tool_end (error) for ${toolName}`, { traceId, error: errorMessage });
+
+      throw error;
     }
   }
 

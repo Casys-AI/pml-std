@@ -81,6 +81,32 @@ export interface Task {
    * Used by ParallelExecutor.resolveArguments() for runtime resolution.
    */
   staticArguments?: import("../capabilities/types.ts").ArgumentsStructure;
+
+  /**
+   * Variable bindings for code task context injection (Phase 1 Modular Execution)
+   *
+   * Maps variable names used in the code to the node IDs that produce their values.
+   * At runtime, the executor injects these variables from previous task results.
+   *
+   * @example
+   * ```typescript
+   * // Code: const users = await mcp.db.query(...); users.filter(...)
+   * // variableBindings: { "users": "n1" }
+   * // At runtime: injects `const users = previousResults["task_n1"].output;`
+   * ```
+   */
+  variableBindings?: Record<string, string>;
+
+  /**
+   * Task metadata for execution hints (Phase 1 Modular Execution)
+   *
+   * Contains execution hints like:
+   * - pure: Whether this is a pure operation (no side effects)
+   */
+  metadata?: {
+    /** Whether this task is a pure operation (safe to retry, no side effects) */
+    pure?: boolean;
+  };
 }
 
 /**

@@ -364,12 +364,13 @@ export class CapabilityStore {
       );
 
       for (const capNode of capabilityNodes) {
-        // Try to find the called capability by name (capabilityId is the function name)
-        // Search for capabilities with matching name
+        // Try to find the called capability by display_name in capability_records
+        // Story 13.2: Names now live in capability_records.display_name
         try {
           const calledCapabilities = await this.db.query(
-            `SELECT pattern_id FROM workflow_pattern
-             WHERE name ILIKE $1 OR code_hash IS NOT NULL
+            `SELECT cr.workflow_pattern_id as pattern_id
+             FROM capability_records cr
+             WHERE cr.display_name ILIKE $1
              LIMIT 1`,
             [`%${capNode.capabilityId}%`],
           );
@@ -626,7 +627,7 @@ export class CapabilityStore {
           code_snippet,
           code_hash,
           intent_embedding,
-          name,
+          -- Note: 'name' column removed in migration 022, naming via capability_records.display_name
           description,
           usage_count,
           success_count,

@@ -296,7 +296,10 @@ Deno.test("CapabilityStore - getStats returns aggregated statistics", async () =
   await db.close();
 });
 
-Deno.test("CapabilityStore - name auto-generated from intent", async () => {
+// Note: Migration 022 removed 'name' column from workflow_pattern.
+// Names are now stored in capability_records.display_name (Story 13.2).
+// The Capability.name field is always undefined after this migration.
+Deno.test("CapabilityStore - name is undefined after migration 022", async () => {
   const db = await setupTestDb();
   const model = new MockEmbeddingModel();
   const store = new CapabilityStore(db, model as any);
@@ -307,15 +310,17 @@ Deno.test("CapabilityStore - name auto-generated from intent", async () => {
     durationMs: 10,
   });
 
-  assertExists(capability.name);
-  // First word "calculate" should be capitalized: "Calculate the meaning of life"
-  assertEquals(capability.name.charAt(0), "C", "First letter should be capitalized");
-  assertEquals(capability.name.toLowerCase().includes("calculate"), true);
+  // After migration 022, capability.name is always undefined
+  // Names should be stored via capability_records.display_name
+  assertEquals(capability.name, undefined);
 
   await db.close();
 });
 
-Deno.test("CapabilityStore - custom name preserved", async () => {
+// Note: Migration 022 removed 'name' from workflow_pattern.
+// Even if a custom name is passed, it's not stored in workflow_pattern anymore.
+// Names should be registered via capability_records.display_name (Story 13.2).
+Deno.test("CapabilityStore - description preserved but name undefined", async () => {
   const db = await setupTestDb();
   const model = new MockEmbeddingModel();
   const store = new CapabilityStore(db, model as any);
@@ -324,11 +329,13 @@ Deno.test("CapabilityStore - custom name preserved", async () => {
     code: "return 42;",
     intent: "calculate something",
     durationMs: 10,
-    name: "LifeMeaningCalculator",
+    name: "LifeMeaningCalculator", // This is ignored after migration 022
     description: "Calculates the meaning of life",
   });
 
-  assertEquals(capability.name, "LifeMeaningCalculator");
+  // name is always undefined after migration 022
+  assertEquals(capability.name, undefined);
+  // description is still preserved
   assertEquals(capability.description, "Calculates the meaning of life");
 
   await db.close();
@@ -399,7 +406,7 @@ Deno.test("Migration 011 - idempotent (can be replayed)", async () => {
   await db.close();
 });
 
-Deno.test("Migration 011 - columns exist after migration", async () => {
+Deno.test("Migration 011 - columns exist after migration (updated for migration 022)", async () => {
   const db = await setupTestDb();
 
   // Check workflow_pattern columns
@@ -411,12 +418,13 @@ Deno.test("Migration 011 - columns exist after migration", async () => {
 
   const colNames = patternCols.map((r) => r.column_name as string);
 
-  // Verify new columns exist
+  // Verify columns from migration 011 still exist
   assertEquals(colNames.includes("code_snippet"), true);
   assertEquals(colNames.includes("code_hash"), true);
   assertEquals(colNames.includes("parameters_schema"), true);
   assertEquals(colNames.includes("cache_config"), true);
-  assertEquals(colNames.includes("name"), true);
+  // Note: 'name' was removed by migration 022 - names now in capability_records.display_name
+  assertEquals(colNames.includes("name"), false, "name column removed by migration 022");
   assertEquals(colNames.includes("description"), true);
   assertEquals(colNames.includes("success_rate"), true);
   assertEquals(colNames.includes("avg_duration_ms"), true);

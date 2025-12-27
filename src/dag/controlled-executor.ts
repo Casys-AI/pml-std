@@ -63,6 +63,7 @@ import { isSafeToFail, getTaskType } from "./execution/task-router.ts";
 import { executeCodeTask, executeWithRetry, type CodeExecutorDeps } from "./execution/code-executor.ts";
 import { executeCapabilityTask, getCapabilityPermissionSet } from "./execution/capability-executor.ts";
 import { isPermissionError } from "./permissions/escalation-integration.ts";
+import { resolveDependencies } from "./execution/dependency-resolver.ts";
 
 const log = getLogger("controlled-executor");
 
@@ -97,6 +98,7 @@ export class ControlledExecutor extends ParallelExecutor {
   private graphRAG?: GraphRAGEngine;
   private permissionEscalationHandler: PermissionEscalationHandler | null = null;
   private _permissionAuditStore: PermissionAuditStore | null = null;
+  private workerBridge: import("../sandbox/worker-bridge.ts").WorkerBridge | null = null;
 
   constructor(toolExecutor: ToolExecutor, config: ExecutorConfig = {}) {
     super(toolExecutor, config);
@@ -125,6 +127,20 @@ export class ControlledExecutor extends ParallelExecutor {
     this.capabilityStore = capabilityStore;
     this.graphRAG = graphRAG;
     log.debug("Learning dependencies set", { hasCapabilityStore: !!capabilityStore, hasGraphRAG: !!graphRAG });
+  }
+
+  /**
+   * Set WorkerBridge for code execution task tracing (Phase 1)
+   *
+   * When set, code_execution tasks will use WorkerBridge.executeCodeTask()
+   * instead of DenoSandboxExecutor, ensuring pseudo-tools (code:filter, etc.)
+   * appear in traces for SHGAT learning.
+   *
+   * @param workerBridge WorkerBridge instance from workflow-execution-handler
+   */
+  setWorkerBridge(workerBridge: import("../sandbox/worker-bridge.ts").WorkerBridge): void {
+    this.workerBridge = workerBridge;
+    log.debug("WorkerBridge set for code execution tracing");
   }
 
   setPermissionEscalationDependencies(auditStore: PermissionAuditStore): void {
@@ -707,6 +723,12 @@ export class ControlledExecutor extends ParallelExecutor {
     const deps: CodeExecutorDeps = { capabilityStore: this.capabilityStore, graphRAG: this.graphRAG };
 
     if (taskType === "code_execution") {
+      // Phase 1: Use WorkerBridge for pseudo-tool tracing if available
+      if (this.workerBridge && task.tool) {
+        return await this.executeCodeTaskViaWorkerBridge(task, previousResults);
+      }
+
+      // Fallback: Use DenoSandboxExecutor (no tracing)
       // Both safe-to-fail and regular tasks go through escalation handler
       // (executeWithRetry already skips retry for permission errors)
       try {
@@ -724,6 +746,86 @@ export class ControlledExecutor extends ParallelExecutor {
     } else {
       return await super.executeTask(task, previousResults);
     }
+  }
+
+  /**
+   * Execute code task via WorkerBridge for pseudo-tool tracing (Phase 1)
+   *
+   * This method routes code_execution tasks through WorkerBridge.executeCodeTask()
+   * to emit tool_start/tool_end traces for SHGAT learning.
+   *
+   * @param task Code execution task with tool name (e.g., "code:filter")
+   * @param previousResults Results from previous tasks for dependency resolution
+   * @returns Execution result
+   */
+  private async executeCodeTaskViaWorkerBridge(
+    task: Task,
+    previousResults: Map<string, TaskResult>,
+  ): Promise<{ output: unknown; executionTimeMs: number }> {
+    if (!task.code) {
+      throw new Error(`Code execution task ${task.id} missing required 'code' field`);
+    }
+    if (!task.tool) {
+      throw new Error(`Code execution task ${task.id} missing required 'tool' field for tracing`);
+    }
+
+    // Build execution context with dependencies
+    const executionContext: Record<string, unknown> = {
+      ...task.arguments,
+    };
+
+    // Resolve dependencies: $OUTPUT[dep_id] → actual results
+    executionContext.deps = resolveDependencies(task.dependsOn, previousResults);
+
+    // Inject variables from variableBindings (Phase 1 Modular Execution)
+    // Maps variable names (e.g., "users") to previous task outputs (e.g., n1 → task_n1)
+    if (task.variableBindings) {
+      for (const [varName, nodeId] of Object.entries(task.variableBindings)) {
+        const taskId = `task_${nodeId}`;
+        const depResult = previousResults.get(taskId);
+        if (depResult?.output !== undefined) {
+          // Inject the variable into execution context
+          // The Worker will make this available as `const varName = value;`
+          executionContext[varName] = depResult.output;
+          log.debug(`Injected variable binding: ${varName} from ${taskId}`);
+        }
+      }
+    }
+
+    log.debug(`Executing code task via WorkerBridge`, {
+      taskId: task.id,
+      tool: task.tool,
+      hasDeps: task.dependsOn.length > 0,
+      injectedVars: task.variableBindings ? Object.keys(task.variableBindings) : [],
+    });
+
+    // Execute via WorkerBridge (emits tool_start/tool_end traces)
+    const result = await this.workerBridge!.executeCodeTask(
+      task.tool, // "code:filter", "code:map", etc.
+      task.code,
+      executionContext,
+      [], // No tool definitions needed for pure code execution
+    );
+
+    if (!result.success) {
+      const error = result.error!;
+      throw new Error(`${error.type}: ${error.message}`);
+    }
+
+    log.info(`Code task ${task.id} succeeded via WorkerBridge`, {
+      tool: task.tool,
+      executionTimeMs: result.executionTimeMs.toFixed(2),
+      resultType: typeof result.result,
+    });
+
+    return {
+      output: {
+        result: result.result,
+        state: executionContext,
+        executionTimeMs: result.executionTimeMs,
+      },
+      executionTimeMs: result.executionTimeMs,
+    };
   }
 
   private async executeCapabilityTaskWithEscalation(
