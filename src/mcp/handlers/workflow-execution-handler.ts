@@ -30,7 +30,6 @@ import type { WorkflowHandlerDependencies } from "./workflow-handler-types.ts";
 import { getTaskType } from "../../dag/execution/task-router.ts";
 import type { CapabilityStore } from "../../capabilities/capability-store.ts";
 import { getToolPermissionConfig } from "../../capabilities/permission-inferrer.ts";
-import { isPureOperation } from "../../capabilities/pure-operations.ts";
 import type { AdaptiveThresholdManager, ThresholdMode } from "../adaptive-threshold.ts";
 import { updateThompsonSampling } from "./execute-handler.ts";
 // Story 10.5 AC10: WorkerBridge-based executor for 100% traceability
@@ -66,8 +65,8 @@ export async function requiresValidation(
 
     // Code execution with elevated permissions → needs validation
     if (taskType === "code_execution") {
-      // Pure operations NEVER require validation (Phase 1)
-      if (task.metadata?.pure === true || isPureOperation(task.tool)) {
+      // Phase 2a: Pure operations NEVER require validation (checked via metadata)
+      if (task.metadata?.pure === true) {
         log.debug(`Skipping validation for pure operation: ${task.tool}`);
         continue;
       }

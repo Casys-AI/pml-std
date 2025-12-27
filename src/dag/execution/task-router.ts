@@ -8,7 +8,6 @@
  */
 
 import type { Task } from "../../graphrag/types.ts";
-import { isPureOperation, isCodeOperation } from "../../capabilities/pure-operations.ts";
 
 /**
  * Task execution types
@@ -29,8 +28,8 @@ export function getTaskType(task: Task): TaskType {
  * Determines if a task is safe-to-fail (Story 3.5)
  *
  * Safe-to-fail tasks:
- * - Are code_execution type (NOT MCP tools)
- * - Have minimal permissions (no elevated access)
+ * - Pure operations (metadata.pure === true) - Phase 2a
+ * - Code execution with minimal permissions (no elevated access)
  *
  * MCP tools are NEVER safe-to-fail because they have external side effects.
  * Validation for MCP tools is handled by requiresValidation() in workflow-execution-handler.
@@ -39,8 +38,8 @@ export function getTaskType(task: Task): TaskType {
  * @returns true if task can fail safely
  */
 export function isSafeToFail(task: Task): boolean {
-  // Pure operations are always safe-to-fail (Phase 1)
-  if (isCodeOperation(task.tool) && isPureOperation(task.tool)) {
+  // Phase 2a: Pure operations are always safe-to-fail (checked via metadata)
+  if (task.metadata?.pure === true) {
     return true;
   }
 

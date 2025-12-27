@@ -77,9 +77,19 @@ export class ExecutionTraceStore {
     // Sanitize large/sensitive data before storage (AC #11)
     const sanitizedContext = sanitizeForStorage(trace.initialContext ?? {}) as Record<string, JsonValue>;
     const sanitizedResults = trace.taskResults.map((r) => ({
-      ...r,
+      task_id: r.taskId,  // camelCase → snake_case
+      tool: r.tool,
       args: sanitizeForStorage(r.args) as Record<string, JsonValue>,
       result: sanitizeForStorage(r.result),
+      success: r.success,
+      duration_ms: r.durationMs,  // camelCase → snake_case
+      layer_index: r.layerIndex,  // camelCase → snake_case
+      // Phase 2a: Fusion metadata
+      is_fused: r.isFused,  // camelCase → snake_case
+      logical_operations: r.logicalOperations?.map(op => ({  // camelCase → snake_case
+        tool_id: op.toolId,        // camelCase → snake_case
+        duration_ms: op.durationMs // camelCase → snake_case
+      }))
     }));
 
     logger.debug("Saving execution trace", {
@@ -553,9 +563,26 @@ export class ExecutionTraceStore {
     let taskResults: TraceTaskResult[] = [];
     if (row.task_results) {
       try {
-        taskResults = typeof row.task_results === "string"
+        const rawResults = typeof row.task_results === "string"
           ? JSON.parse(row.task_results)
-          : (row.task_results as TraceTaskResult[]);
+          : (row.task_results as unknown[]);
+
+        // Map snake_case → camelCase (Phase 2a)
+        taskResults = (rawResults as any[]).map((r: any) => ({
+          taskId: r.task_id,           // snake_case → camelCase
+          tool: r.tool,
+          args: r.args || {},
+          result: r.result,
+          success: r.success,
+          durationMs: r.duration_ms,   // snake_case → camelCase
+          layerIndex: r.layer_index,   // snake_case → camelCase
+          // Phase 2a: Fusion metadata
+          isFused: r.is_fused,         // snake_case → camelCase
+          logicalOperations: r.logical_operations?.map((op: any) => ({
+            toolId: op.tool_id,        // snake_case → camelCase
+            durationMs: op.duration_ms // snake_case → camelCase
+          }))
+        }));
       } catch {
         logger.warn("Failed to parse task_results JSONB", { traceId: row.id });
       }

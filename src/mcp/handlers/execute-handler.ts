@@ -27,7 +27,7 @@ import type { DbClient } from "../../db/types.ts";
 import type { ContextBuilder } from "../../sandbox/context-builder.ts";
 import type { DRDSP } from "../../graphrag/algorithms/dr-dsp.ts";
 import type { SHGAT } from "../../graphrag/algorithms/shgat.ts";
-import type { JsonValue, TraceTaskResult } from "../../capabilities/types.ts";
+import type { JsonValue, TraceTaskResult, LogicalOperation } from "../../capabilities/types.ts";
 import type { DagScoringConfig } from "../../graphrag/dag-scoring-config.ts";
 import type { EmbeddingModelInterface } from "../../vector/embeddings.ts";
 import type { ExecutionTraceStore } from "../../capabilities/execution-trace-store.ts";
@@ -46,6 +46,9 @@ import {
   isValidForDagConversion,
   staticStructureToDag,
 } from "../../dag/mod.ts";
+// Phase 2a: DAG Optimizer imports
+import { optimizeDAG } from "../../dag/dag-optimizer.ts";
+import { generateLogicalTrace } from "../../dag/trace-generator.ts";
 import { ControlledExecutor } from "../../dag/controlled-executor.ts";
 import type { CheckpointManager } from "../../dag/checkpoint-manager.ts";
 import { handleWorkflowExecution, requiresValidation } from "./workflow-execution-handler.ts";
@@ -374,16 +377,21 @@ async function executeDirectMode(
   try {
     // Step 4: Check if we can convert to DAG for ControlledExecutor
     if (isValidForDagConversion(staticStructure)) {
-      // Convert static structure to DAG
-      const dag = staticStructureToDag(staticStructure, {
+      // Convert static structure to DAG (logical DAG)
+      const logicalDAG = staticStructureToDag(staticStructure, {
         taskIdPrefix: "task_",
         includeDecisionTasks: false,
       });
 
-      if (dag.tasks.length > 0) {
+      if (logicalDAG.tasks.length > 0) {
+        // Phase 2a: Optimize DAG (fuse sequential pure operations)
+        const optimizedDAG = optimizeDAG(logicalDAG);
+
         log.info("[pml:execute] Executing via ControlledExecutor (DAG mode)", {
-          tasksCount: dag.tasks.length,
-          tools: dag.tasks.map((t) => t.tool),
+          logicalTasksCount: logicalDAG.tasks.length,
+          physicalTasksCount: optimizedDAG.tasks.length,
+          fusionRate: Math.round((1 - optimizedDAG.tasks.length / logicalDAG.tasks.length) * 100),
+          tools: optimizedDAG.tasks.map((t) => t.tool),
           perLayerValidation,
         });
 
@@ -413,14 +421,14 @@ async function executeDirectMode(
           }
 
           log.info("[pml:execute] per_layer_validation: delegating to workflow-handler", {
-            tasksCount: dag.tasks.length,
-            tools: dag.tasks.map((t) => t.tool),
+            tasksCount: optimizedDAG.tasks.length,
+            tools: optimizedDAG.tasks.map((t) => t.tool),
           });
 
-          // Delegate to handleWorkflowExecution with the inferred DAG
+          // Delegate to handleWorkflowExecution with the physical DAG
           return await handleWorkflowExecution(
             {
-              workflow: dag,
+              workflow: { tasks: optimizedDAG.tasks },
               intent,
               config: { per_layer_validation: true },
             },
@@ -429,10 +437,10 @@ async function executeDirectMode(
         }
 
         // Check if any tool requires HIL approval (unknown or approvalMode: hil)
-        const needsApproval = await requiresValidation(dag, deps.capabilityStore);
+        const needsApproval = await requiresValidation({ tasks: optimizedDAG.tasks }, deps.capabilityStore);
         if (needsApproval) {
           log.info("[pml:execute] DAG contains tools requiring approval, delegating to HIL", {
-            tools: dag.tasks.map((t) => t.tool),
+            tools: optimizedDAG.tasks.map((t) => t.tool),
           });
 
           if (!deps.workflowDeps) {
@@ -443,7 +451,7 @@ async function executeDirectMode(
 
           return await handleWorkflowExecution(
             {
-              workflow: dag,
+              workflow: { tasks: optimizedDAG.tasks },
               intent,
               config: { per_layer_validation: true },
             },
@@ -451,37 +459,74 @@ async function executeDirectMode(
           );
         }
 
-        // Execute full DAG via ControlledExecutor (all tools auto-approved)
-        const executionResult = await controlledExecutor.execute(dag);
+        // Execute optimized (physical) DAG via ControlledExecutor (all tools auto-approved)
+        const physicalResults = await controlledExecutor.execute({ tasks: optimizedDAG.tasks });
         const executionTimeMs = performance.now() - startTime;
 
-        // Extract tool calls from results
-        const toolsCalled = executionResult.results
-          .filter((r) => r.status === "success")
-          .map((r) => dag.tasks.find((t) => t.id === r.taskId)?.tool ?? "unknown");
-
-        // Build task results for trace
-        const taskResults: TraceTaskResult[] = executionResult.results.map((r) => {
-          const task = dag.tasks.find((t) => t.id === r.taskId);
-          return {
+        // Phase 2a: Generate logical traces from physical execution
+        // Map physical task results to a format compatible with generateLogicalTrace
+        const physicalResultsMap = new Map(
+          physicalResults.results.map((r) => [r.taskId, {
             taskId: r.taskId,
-            tool: task?.tool ?? "unknown",
-            args: (task?.arguments ?? {}) as Record<string, JsonValue>,
-            result: r.output as JsonValue ?? null,
-            success: r.status === "success",
-            durationMs: r.executionTimeMs ?? 0,
-            layerIndex: r.layerIndex,
+            status: r.status,
+            output: r.output,
+            executionTimeMs: r.executionTimeMs ?? 0,
+          }])
+        );
+
+        const logicalTrace = generateLogicalTrace(optimizedDAG, physicalResultsMap);
+
+        log.debug("[pml:execute] Logical trace generated", {
+          physicalTasksExecuted: physicalResults.results.length,
+          logicalOperations: logicalTrace.executedPath.length,
+          toolsUsed: logicalTrace.toolsUsed,
+        });
+
+        // Extract tool calls from logical trace (for SHGAT learning)
+        const toolsCalled = logicalTrace.executedPath;
+
+        // Build task results for trace (using physical tasks with logical detail)
+        // Phase 2a: Include fusion metadata for UI display
+        const taskResults: TraceTaskResult[] = physicalResults.results.map((physicalResult) => {
+          const physicalTask = optimizedDAG.tasks.find(t => t.id === physicalResult.taskId);
+          const logicalTaskIds = optimizedDAG.physicalToLogical.get(physicalResult.taskId) || [];
+          const fused = logicalTaskIds.length > 1;
+
+          let logicalOps: LogicalOperation[] | undefined;
+          if (fused) {
+            // Extract logical operations for fused task
+            const estimatedDuration = (physicalResult.executionTimeMs || 0) / logicalTaskIds.length;
+            logicalOps = logicalTaskIds.map(logicalId => {
+              const logicalTask = optimizedDAG.logicalDAG.tasks.find(t => t.id === logicalId);
+              return {
+                toolId: logicalTask?.tool || "unknown",
+                durationMs: estimatedDuration
+              };
+            });
+          }
+
+          return {
+            taskId: physicalResult.taskId,
+            tool: physicalTask?.tool || "unknown",
+            args: {} as Record<string, JsonValue>,
+            result: physicalResult.output as JsonValue ?? null,
+            success: physicalResult.status === "success",
+            durationMs: physicalResult.executionTimeMs || 0,
+            layerIndex: physicalResult.layerIndex,
+            // Phase 2a: Fusion metadata
+            isFused: fused,
+            logicalOperations: logicalOps
           };
         });
 
         // Handle execution failure
-        if (executionResult.failedTasks > 0 && executionResult.successfulTasks === 0) {
-          const firstError = executionResult.errors[0];
+        if (physicalResults.failedTasks > 0 && physicalResults.successfulTasks === 0) {
+          const firstError = physicalResults.errors[0];
           return formatMCPToolError(
             `DAG execution failed: ${firstError?.error ?? "Unknown error"}`,
             {
-              failedTasks: executionResult.failedTasks,
-              errors: executionResult.errors,
+              failedTasks: physicalResults.failedTasks,
+              errors: physicalResults.errors,
               executionTimeMs,
             },
           );
@@ -489,15 +534,15 @@ async function executeDirectMode(
 
         // Count failed_safe tasks (these are NOT counted in failedTasks but still represent failures)
         // Pure code operations like code:filter are safe-to-fail but should NOT save as success
-        const failedSafeTasks = executionResult.results.filter(
+        const failedSafeTasks = physicalResults.results.filter(
           (r) => r.status === "failed_safe"
         ).length;
-        const hasAnyFailure = executionResult.failedTasks > 0 || failedSafeTasks > 0;
+        const hasAnyFailure = physicalResults.failedTasks > 0 || failedSafeTasks > 0;
 
         if (failedSafeTasks > 0) {
           log.info("[pml:execute] Code tasks failed (safe-to-fail), capability will be saved with success=false", {
             failedSafeTasks,
-            failedTasks: executionResult.failedTasks,
+            failedTasks: physicalResults.failedTasks,
           });
         }
 
@@ -598,7 +643,7 @@ async function executeDirectMode(
         }
 
         // Build response
-        const successOutputs = executionResult.results
+        const successOutputs = physicalResults.results
           .filter((r) => r.status === "success")
           .map((r) => r.output);
 
@@ -612,29 +657,31 @@ async function executeDirectMode(
           executionTimeMs,
           dag: {
             mode: "dag",
-            tasksCount: dag.tasks.length,
-            layersCount: executionResult.parallelizationLayers,
-            speedup: controlledExecutor.calculateSpeedup(executionResult),
+            tasksCount: logicalDAG.tasks.length, // Report logical task count (what SHGAT sees)
+            layersCount: physicalResults.parallelizationLayers,
+            speedup: controlledExecutor.calculateSpeedup(physicalResults),
             toolsDiscovered: toolsCalled,
           },
         };
 
         // Add tool failures if any
-        if (executionResult.failedTasks > 0) {
-          response.tool_failures = executionResult.errors.map((e) => ({
+        if (physicalResults.failedTasks > 0) {
+          response.tool_failures = physicalResults.errors.map((e) => ({
             tool: e.taskId,
             error: e.error,
           }));
         }
 
-        log.info("[pml:execute] Mode Direct completed (ControlledExecutor)", {
+        log.info("[pml:execute] Mode Direct completed (ControlledExecutor + DAG Optimizer)", {
           capabilityId: capability.id,
           capabilityName: autoDisplayName ?? capability.name,
           capabilityFqdn,
           traceId: trace?.id,
           executionTimeMs: executionTimeMs.toFixed(2),
           toolsCalled: toolsCalled.length,
-          layers: executionResult.parallelizationLayers,
+          logicalTasks: logicalDAG.tasks.length,
+          physicalTasks: optimizedDAG.tasks.length,
+          layers: physicalResults.parallelizationLayers,
         });
 
         return {
@@ -786,16 +833,22 @@ async function executeByNameMode(
   try {
     // Step 4: Check if we can convert to DAG
     if (isValidForDagConversion(staticStructure)) {
-      const dag = staticStructureToDag(staticStructure, {
+      // Convert to logical DAG
+      const logicalDAG = staticStructureToDag(staticStructure, {
         taskIdPrefix: "task_",
         includeDecisionTasks: false,
       });
 
-      if (dag.tasks.length > 0) {
+      if (logicalDAG.tasks.length > 0) {
+        // Phase 2a: Optimize DAG (fuse sequential pure operations)
+        const optimizedDAG = optimizeDAG(logicalDAG);
+
         log.info("[pml:execute] Executing capability via ControlledExecutor (DAG mode)", {
           capabilityName: record.displayName,
           fqdn: record.id,
-          tasksCount: dag.tasks.length,
+          logicalTasksCount: logicalDAG.tasks.length,
+          physicalTasksCount: optimizedDAG.tasks.length,
+          fusionRate: Math.round((1 - optimizedDAG.tasks.length / logicalDAG.tasks.length) * 100),
         });
 
         // Create ControlledExecutor
@@ -808,7 +861,7 @@ async function executeByNameMode(
         if (perLayerValidation && deps.workflowDeps) {
           return await handleWorkflowExecution(
             {
-              workflow: dag,
+              workflow: { tasks: optimizedDAG.tasks },
               intent,
               config: { per_layer_validation: true },
             },
@@ -816,18 +869,28 @@ async function executeByNameMode(
           );
         }
 
-        // Execute DAG
-        const executionResult = await controlledExecutor.execute(dag);
+        // Execute optimized (physical) DAG
+        const physicalResults = await controlledExecutor.execute({ tasks: optimizedDAG.tasks });
         const executionTimeMs = performance.now() - startTime;
 
-        // Extract tool calls from results
-        const toolsCalled = executionResult.results
-          .filter((r) => r.status === "success")
-          .map((r) => dag.tasks.find((t) => t.id === r.taskId)?.tool ?? "unknown");
+        // Phase 2a: Generate logical traces from physical execution
+        const physicalResultsMap = new Map(
+          physicalResults.results.map((r) => [r.taskId, {
+            taskId: r.taskId,
+            status: r.status,
+            output: r.output,
+            executionTimeMs: r.executionTimeMs ?? 0,
+          }])
+        );
+
+        const logicalTrace = generateLogicalTrace(optimizedDAG, physicalResultsMap);
+
+        // Extract tool calls from logical trace
+        const toolsCalled = logicalTrace.executedPath;
 
         // Handle execution failure
-        if (executionResult.failedTasks > 0 && executionResult.successfulTasks === 0) {
-          const firstError = executionResult.errors[0];
+        if (physicalResults.failedTasks > 0 && physicalResults.successfulTasks === 0) {
+          const firstError = physicalResults.errors[0];
 
           // AC10: Record failed usage
           await deps.capabilityRegistry.recordUsage(record.id, false, executionTimeMs);
@@ -837,8 +900,8 @@ async function executeByNameMode(
             {
               capabilityName: record.displayName,
               fqdn: record.id,
-              failedTasks: executionResult.failedTasks,
-              errors: executionResult.errors,
+              failedTasks: physicalResults.failedTasks,
+              errors: physicalResults.errors,
               executionTimeMs,
             },
           );
@@ -848,7 +911,7 @@ async function executeByNameMode(
         await deps.capabilityRegistry.recordUsage(record.id, true, executionTimeMs);
 
         // Build response
-        const successOutputs = executionResult.results
+        const successOutputs = physicalResults.results
           .filter((r) => r.status === "success")
           .map((r) => r.output);
 
@@ -862,16 +925,16 @@ async function executeByNameMode(
           executionTimeMs,
           dag: {
             mode: "dag",
-            tasksCount: dag.tasks.length,
-            layersCount: executionResult.parallelizationLayers,
-            speedup: controlledExecutor.calculateSpeedup(executionResult),
+            tasksCount: logicalDAG.tasks.length, // Report logical task count (what SHGAT sees)
+            layersCount: physicalResults.parallelizationLayers,
+            speedup: controlledExecutor.calculateSpeedup(physicalResults),
             toolsDiscovered: toolsCalled,
           },
         };
 
         // Add tool failures if any
-        if (executionResult.failedTasks > 0) {
-          response.tool_failures = executionResult.errors.map((e) => ({
+        if (physicalResults.failedTasks > 0) {
+          response.tool_failures = physicalResults.errors.map((e) => ({
             tool: e.taskId,
             error: e.error,
           }));

@@ -12,6 +12,8 @@ import type { EdgeType, EdgeSource } from "../algorithms/edge-weights.ts";
 import { EDGE_TYPE_WEIGHTS, EDGE_SOURCE_MODIFIERS, OBSERVED_THRESHOLD } from "../algorithms/edge-weights.ts";
 import { persistCapabilityDependency } from "../sync/db-sync.ts";
 import type { DbClient } from "../../db/types.ts";
+import { isCodeOperation, isPureOperation } from "../../capabilities/pure-operations.ts";
+import { getOperationCategory } from "../../capabilities/operation-descriptions.ts";
 
 /**
  * Graph interface for execution learning
@@ -103,12 +105,30 @@ export async function updateFromCodeExecution(
     }
 
     if (!graph.hasNode(nodeId)) {
-      graph.addNode(nodeId, {
-        type: trace.type === "tool_end" ? "tool" : "capability",
-        name: trace.type === "tool_end"
-          ? (trace as { tool: string }).tool
-          : (trace as { capability: string }).capability,
-      });
+      const toolName = trace.type === "tool_end"
+        ? (trace as { tool: string }).tool
+        : (trace as { capability: string }).capability;
+
+      // Phase 2a: Distinguish operations from tools
+      const isOperation = isCodeOperation(nodeId);
+      const nodeType = trace.type === "capability_end"
+        ? "capability"
+        : (isOperation ? "operation" : "tool");
+
+      const attributes: Record<string, unknown> = {
+        type: nodeType,
+        name: toolName,
+      };
+
+      // Add operation-specific attributes
+      if (isOperation) {
+        const category = getOperationCategory(nodeId);
+        attributes.serverId = "code";
+        attributes.category = category || "unknown";
+        attributes.pure = isPureOperation(nodeId);
+      }
+
+      graph.addNode(nodeId, attributes);
       result.nodesCreated++;
     }
   }
@@ -288,10 +308,24 @@ export async function learnSequenceEdgesFromTasks(
   // Ensure all tool nodes exist before creating edges
   for (const task of tasks) {
     if (!graph.hasNode(task.tool)) {
-      graph.addNode(task.tool, {
-        type: "tool",
+      // Phase 2a: Distinguish operations from tools
+      const isOperation = isCodeOperation(task.tool);
+      const nodeType = isOperation ? "operation" : "tool";
+
+      const attributes: Record<string, unknown> = {
+        type: nodeType,
         name: task.tool,
-      });
+      };
+
+      // Add operation-specific attributes
+      if (isOperation) {
+        const category = getOperationCategory(task.tool);
+        attributes.serverId = "code";
+        attributes.category = category || "unknown";
+        attributes.pure = isPureOperation(task.tool);
+      }
+
+      graph.addNode(task.tool, attributes);
     }
   }
 

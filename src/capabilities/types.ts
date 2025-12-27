@@ -401,6 +401,20 @@ export interface BranchDecision {
 }
 
 /**
+ * Logical operation within a fused task (Phase 2a)
+ *
+ * Represents an atomic operation that was part of a fused physical task.
+ * Used for displaying detailed execution traces in the UI.
+ */
+export interface LogicalOperation {
+  /** Tool ID of the logical operation (e.g., "code:filter") */
+  toolId: string;
+
+  /** Estimated duration in milliseconds (physical duration / num operations) */
+  durationMs?: number;
+}
+
+/**
  * Task result recorded during execution
  *
  * Story 11.2: Captures individual tool invocation results.
@@ -426,6 +440,19 @@ export interface TraceTaskResult {
    * - Layer N: tasks that depend on layer N-1
    */
   layerIndex?: number;
+
+  /**
+   * Phase 2a: Whether this is a fused physical task containing multiple logical operations
+   * When true, logicalOperations contains the atomic operations that were fused together.
+   */
+  isFused?: boolean;
+
+  /**
+   * Phase 2a: Logical operations within this fused task
+   * Only present when isFused is true. Contains the atomic operations that were
+   * fused together for execution optimization.
+   */
+  logicalOperations?: LogicalOperation[];
 }
 
 /**

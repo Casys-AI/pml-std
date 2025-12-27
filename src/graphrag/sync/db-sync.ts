@@ -17,6 +17,8 @@ import {
 } from "../algorithms/edge-weights.ts";
 import { sanitizeForStorage } from "../../utils/mod.ts";
 import { DEFAULT_TRACE_PRIORITY } from "../../capabilities/mod.ts";
+import { isCodeOperation, isPureOperation } from "../../capabilities/pure-operations.ts";
+import { getOperationCategory } from "../../capabilities/operation-descriptions.ts";
 
 /**
  * Graph interface for sync operations
@@ -69,11 +71,27 @@ export async function syncGraphFromDatabase(
   `);
 
   for (const tool of tools) {
-    graph.addNode(tool.tool_id as string, {
+    const toolId = tool.tool_id as string;
+
+    // Phase 2a: Distinguish operations from tools
+    const isOperation = isCodeOperation(toolId);
+    const nodeType = isOperation ? "operation" : "tool";
+
+    const attributes: Record<string, unknown> = {
+      type: nodeType,
       name: tool.tool_name as string,
       serverId: tool.server_id as string,
       metadata: tool.metadata,
-    });
+    };
+
+    // Add operation-specific attributes
+    if (isOperation) {
+      const category = getOperationCategory(toolId);
+      attributes.category = category || "unknown";
+      attributes.pure = isPureOperation(toolId);
+    }
+
+    graph.addNode(toolId, attributes);
   }
 
   // 2. Load edges (dependencies) from PGlite

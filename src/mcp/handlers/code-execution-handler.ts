@@ -34,6 +34,9 @@ import {
   createToolExecutorViaWorker,
   cleanupWorkerBridgeExecutor,
 } from "../../dag/mod.ts";
+// Phase 2a: DAG Optimizer
+import { optimizeDAG } from "../../dag/dag-optimizer.ts";
+import { generateLogicalTrace } from "../../dag/trace-generator.ts";
 import { ControlledExecutor } from "../../dag/controlled-executor.ts";
 import type { Task } from "../../graphrag/types.ts";
 import type { TaskResult } from "../../dag/types.ts";
@@ -181,24 +184,29 @@ async function tryDagExecution(
       return null;
     }
 
-    // Step 2: Convert to DAG (AC1)
-    const dag = staticStructureToDag(staticStructure, {
+    // Step 2: Convert to DAG (AC1) - Logical DAG
+    const logicalDAG = staticStructureToDag(staticStructure, {
       taskIdPrefix: "task_",
       includeDecisionTasks: false,
     });
 
-    if (dag.tasks.length === 0) {
+    if (logicalDAG.tasks.length === 0) {
       log.info("[Story 10.5] DAG has no tasks, falling back to sandbox");
       return null;
     }
 
-    log.info("[Story 10.5] DAG inferred from static analysis", {
-      tasksCount: dag.tasks.length,
-      tools: dag.tasks.map((t) => t.tool),
+    // Phase 2a: Optimize DAG (fuse sequential pure operations)
+    const optimizedDAG = optimizeDAG(logicalDAG);
+
+    log.info("[Story 10.5] DAG inferred from static analysis + optimized", {
+      logicalTasksCount: logicalDAG.tasks.length,
+      physicalTasksCount: optimizedDAG.tasks.length,
+      fusionRate: Math.round((1 - optimizedDAG.tasks.length / logicalDAG.tasks.length) * 100),
+      tools: optimizedDAG.tasks.map((t) => t.tool),
     });
 
     // Step 3: Build tool definitions for WorkerBridge context (AC10)
-    const toolDefs = await buildToolDefinitionsFromDAG(dag, deps);
+    const toolDefs = await buildToolDefinitionsFromDAG({ tasks: optimizedDAG.tasks }, deps);
 
     // Step 4: Create WorkerBridge-based executor for 100% traceability (AC10)
     const [toolExecutor, executorContext] = createToolExecutorViaWorker({
@@ -231,27 +239,39 @@ async function tryDagExecution(
       const executionContext = {
         parameters: request.context || {},
       };
-      const dagWithResolvedArgs = resolveDAGArguments(dag, executionContext);
+      const dagWithResolvedArgs = resolveDAGArguments({ tasks: optimizedDAG.tasks }, executionContext);
 
-      // Execute the DAG
-      const executionResult = await executor.execute(dagWithResolvedArgs);
+      // Execute the optimized (physical) DAG
+      const physicalResults = await executor.execute(dagWithResolvedArgs);
       const executionTimeMs = performance.now() - startTime;
 
+      // Phase 2a: Generate logical traces from physical execution
+      const physicalResultsMap = new Map(
+        physicalResults.results.map((r) => [r.taskId, {
+          taskId: r.taskId,
+          output: r.output,
+          success: r.status === "success",
+          durationMs: r.executionTimeMs ?? 0,
+        }])
+      );
+
+      const logicalTrace = generateLogicalTrace(optimizedDAG, physicalResultsMap);
+
       // Calculate output size
-      const resultData = executionResult.results
+      const resultData = physicalResults.results
         .filter((r) => r.status === "success")
         .map((r) => r.output);
       const outputSizeBytes = new TextEncoder().encode(
         JSON.stringify(resultData),
       ).length;
 
-      // Build DAG metadata (AC8)
+      // Build DAG metadata (AC8) - report logical task count (what SHGAT sees)
       const dagMetadata: DAGExecutionMetadata = {
         mode: "dag",
-        tasksCount: dag.tasks.length,
-        layersCount: executionResult.parallelizationLayers,
-        speedup: executor.calculateSpeedup(executionResult),
-        toolsDiscovered: dag.tasks.map((t) => t.tool),
+        tasksCount: logicalDAG.tasks.length,
+        layersCount: physicalResults.parallelizationLayers,
+        speedup: executor.calculateSpeedup(physicalResults),
+        toolsDiscovered: logicalTrace.executedPath, // Use logical trace for SHGAT
       };
 
       // Build response
@@ -268,7 +288,7 @@ async function tryDagExecution(
       };
 
       // Add any errors as tool_failures
-      const failures = executionResult.errors.map((e) => ({
+      const failures = physicalResults.errors.map((e) => ({
         tool: e.taskId,
         error: e.error,
       }));
@@ -276,9 +296,11 @@ async function tryDagExecution(
         response.tool_failures = failures;
       }
 
-      log.info("[Story 10.5] DAG execution completed via WorkerBridge", {
-        successfulTasks: executionResult.successfulTasks,
-        failedTasks: executionResult.failedTasks,
+      log.info("[Story 10.5] DAG execution completed via WorkerBridge + Optimizer", {
+        successfulTasks: physicalResults.successfulTasks,
+        failedTasks: physicalResults.failedTasks,
+        logicalTasks: logicalDAG.tasks.length,
+        physicalTasks: optimizedDAG.tasks.length,
         executionTimeMs: executionTimeMs.toFixed(2),
         speedup: dagMetadata.speedup?.toFixed(2),
         tracesCount: executorContext.traces.length,

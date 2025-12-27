@@ -211,7 +211,7 @@ export async function setupLogger(config?: LoggerConfig): Promise<void> {
  * @returns Logger instance
  */
 export function getLogger(
-  name: "default" | "mcp" | "vector" | "event-stream" | "command-queue" | "controlled-executor" =
+  name: "default" | "mcp" | "vector" | "event-stream" | "command-queue" | "controlled-executor" | "dag-optimizer" | "trace-generator" =
     "default",
 ) {
   return log.getLogger(name);
