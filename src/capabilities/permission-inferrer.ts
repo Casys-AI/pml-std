@@ -546,8 +546,10 @@ export class PermissionInferrer {
     }
 
     // Filesystem patterns
-    if (api === "readFile" || api === "readTextFile" || api === "readDir" ||
-        api === "stat" || api === "lstat" || api === "realPath") {
+    if (
+      api === "readFile" || api === "readTextFile" || api === "readDir" ||
+      api === "stat" || api === "lstat" || api === "realPath"
+    ) {
       return {
         pattern,
         category: "filesystem",
@@ -555,8 +557,10 @@ export class PermissionInferrer {
       };
     }
 
-    if (api === "writeFile" || api === "writeTextFile" || api === "mkdir" ||
-        api === "remove" || api === "rename" || api === "copyFile") {
+    if (
+      api === "writeFile" || api === "writeTextFile" || api === "mkdir" ||
+      api === "remove" || api === "rename" || api === "copyFile"
+    ) {
       return {
         pattern,
         category: "filesystem",

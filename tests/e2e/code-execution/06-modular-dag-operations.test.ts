@@ -16,7 +16,7 @@ import { getAllMigrations, MigrationRunner } from "../../../src/db/migrations.ts
 import { StaticStructureBuilder } from "../../../src/capabilities/static-structure-builder.ts";
 import { staticStructureToDag } from "../../../src/dag/static-to-dag-converter.ts";
 import { WorkerBridge } from "../../../src/sandbox/worker-bridge.ts";
-import { isPureOperation, isCodeOperation } from "../../../src/capabilities/pure-operations.ts";
+import { isCodeOperation, isPureOperation } from "../../../src/capabilities/pure-operations.ts";
 import type { MCPClientBase } from "../../../src/mcp/types.ts";
 
 /**
@@ -78,17 +78,25 @@ Deno.test({
 
       // Verify MCP tools were detected
       const mcpNodes = structure.nodes.filter(
-        (n) => n.type === "task" && n.tool && !n.tool.startsWith("code:")
+        (n) => n.type === "task" && n.tool && !n.tool.startsWith("code:"),
       );
-      assertEquals(mcpNodes.length, 2, "Should detect 2 MCP tools (db:query, memory:create_entities)");
+      assertEquals(
+        mcpNodes.length,
+        2,
+        "Should detect 2 MCP tools (db:query, memory:create_entities)",
+      );
 
       // Verify code operations were detected
       const codeNodes = structure.nodes.filter(
-        (n) => n.type === "task" && n.tool?.startsWith("code:")
+        (n) => n.type === "task" && n.tool?.startsWith("code:"),
       );
 
       // Should detect: filter, map, sort, slice, reduce, trim, toLowerCase, multiply
-      assertEquals(codeNodes.length >= 5, true, `Should detect at least 5 code operations (found ${codeNodes.length})`);
+      assertEquals(
+        codeNodes.length >= 5,
+        true,
+        `Should detect at least 5 code operations (found ${codeNodes.length})`,
+      );
 
       // Verify specific operations (type assertion since we filtered for task nodes)
       const tools = codeNodes.map((n) => (n as { tool: string }).tool);
@@ -98,7 +106,10 @@ Deno.test({
       assertEquals(tools.includes("code:slice"), true, "Should detect slice");
       assertEquals(tools.includes("code:reduce"), true, "Should detect reduce");
 
-      console.log("  ✓ Detected MCP tools:", mcpNodes.map(n => (n as { tool: string }).tool).join(", "));
+      console.log(
+        "  ✓ Detected MCP tools:",
+        mcpNodes.map((n) => (n as { tool: string }).tool).join(", "),
+      );
       console.log("  ✓ Detected code operations:", tools.join(", "));
     } finally {
       await db.close();
@@ -141,7 +152,7 @@ Deno.test({
           assertEquals(
             isPureOperation(task.tool),
             true,
-            `${task.tool} should be classified as pure`
+            `${task.tool} should be classified as pure`,
           );
         }
       }
@@ -215,7 +226,7 @@ Deno.test({
 
       // Verify the last operation was traced correctly
       const reduceTrace = toolEndTraces.find(
-        (t) => t.type === "tool_end" && t.tool === "code:reduce"
+        (t) => t.type === "tool_end" && t.tool === "code:reduce",
       );
       assertExists(reduceTrace, "Should have code:reduce trace");
 
@@ -327,13 +338,17 @@ Deno.test({
 
       // Should detect chained operations
       const codeNodes = structure.nodes.filter(
-        (n) => n.type === "task" && n.tool?.startsWith("code:")
+        (n) => n.type === "task" && n.tool?.startsWith("code:"),
       );
 
       // Expect multiple filter, map, reduce, sort, slice operations (type assertion for task nodes)
-      const filterCount = codeNodes.filter((n) => (n as { tool: string }).tool === "code:filter").length;
+      const filterCount = codeNodes.filter((n) =>
+        (n as { tool: string }).tool === "code:filter"
+      ).length;
       const mapCount = codeNodes.filter((n) => (n as { tool: string }).tool === "code:map").length;
-      const reduceCount = codeNodes.filter((n) => (n as { tool: string }).tool === "code:reduce").length;
+      const reduceCount = codeNodes.filter((n) =>
+        (n as { tool: string }).tool === "code:reduce"
+      ).length;
 
       assertEquals(filterCount >= 2, true, "Should detect at least 2 filter operations");
       assertEquals(mapCount >= 1, true, "Should detect at least 1 map operation");
@@ -381,7 +396,7 @@ Deno.test({
       const structure = await builder.buildStaticStructure(code);
 
       const codeNodes = structure.nodes.filter(
-        (n) => n.type === "task" && n.tool?.startsWith("code:")
+        (n) => n.type === "task" && n.tool?.startsWith("code:"),
       );
 
       const tools = codeNodes.map((n) => (n as { tool: string }).tool);
@@ -447,7 +462,7 @@ Deno.test({
         assertEquals(
           typeof task.variableBindings,
           "object",
-          "variableBindings should be object"
+          "variableBindings should be object",
         );
       }
 
@@ -506,7 +521,7 @@ Deno.test({
       assertEquals(
         JSON.stringify(mapResult.result),
         '["Alice","Charlie"]',
-        "Should map to names"
+        "Should map to names",
       );
 
       console.log("  ✓ Variables injected from context successfully");

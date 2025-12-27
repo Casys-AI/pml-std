@@ -19,12 +19,17 @@ const SEP_PATTERN = isWindows ? /[\\/]+/ : /\/+/;
 export const pathTools: MiniTool[] = [
   {
     name: "path_join",
-    description: "Join multiple path segments into single normalized path. Combine directory names, filenames, and relative paths safely. Handles leading/trailing slashes, empty segments. Use for building file paths, URL paths, or directory structures. Keywords: join path, combine path, path concat, merge paths, build path, path segments.",
+    description:
+      "Join multiple path segments into single normalized path. Combine directory names, filenames, and relative paths safely. Handles leading/trailing slashes, empty segments. Use for building file paths, URL paths, or directory structures. Keywords: join path, combine path, path concat, merge paths, build path, path segments.",
     category: "path",
     inputSchema: {
       type: "object",
       properties: {
-        segments: { type: "array", items: { type: "string" }, description: "Path segments to join" },
+        segments: {
+          type: "array",
+          items: { type: "string" },
+          description: "Path segments to join",
+        },
         separator: { type: "string", description: "Path separator (default: auto-detect OS)" },
       },
       required: ["segments"],
@@ -32,9 +37,9 @@ export const pathTools: MiniTool[] = [
     handler: ({ segments, separator }) => {
       const sep = (separator as string) || SEP;
       const parts = (segments as string[])
-        .filter(s => s.length > 0)
-        .flatMap(s => s.split(SEP_PATTERN))
-        .filter(s => s.length > 0);
+        .filter((s) => s.length > 0)
+        .flatMap((s) => s.split(SEP_PATTERN))
+        .filter((s) => s.length > 0);
 
       // Preserve leading slash for absolute paths
       const leadingSlash = (segments as string[])[0]?.startsWith("/") ||
@@ -50,7 +55,8 @@ export const pathTools: MiniTool[] = [
   },
   {
     name: "path_normalize",
-    description: "Normalize path by resolving . and .. segments and removing redundant separators. Clean up messy paths from user input or concatenation. Use for path sanitization, comparison, or display. Keywords: normalize path, clean path, resolve dots, canonicalize, path cleanup, simplify path.",
+    description:
+      "Normalize path by resolving . and .. segments and removing redundant separators. Clean up messy paths from user input or concatenation. Use for path sanitization, comparison, or display. Keywords: normalize path, clean path, resolve dots, canonicalize, path cleanup, simplify path.",
     category: "path",
     inputSchema: {
       type: "object",
@@ -71,7 +77,7 @@ export const pathTools: MiniTool[] = [
       const isAbsolute = p.startsWith("/") || p.startsWith("\\") || /^[a-zA-Z]:/.test(p);
 
       // Split and filter
-      const parts = p.split(SEP_PATTERN).filter(s => s.length > 0 && s !== ".");
+      const parts = p.split(SEP_PATTERN).filter((s) => s.length > 0 && s !== ".");
 
       // Resolve .. segments
       const stack: string[] = [];
@@ -104,7 +110,8 @@ export const pathTools: MiniTool[] = [
   },
   {
     name: "path_basename",
-    description: "Extract filename from path, optionally removing extension. Get the last segment of a path for display or processing. Use for extracting filenames, getting file names without extension, or path parsing. Keywords: basename, filename, file name, extract name, path end, strip directory.",
+    description:
+      "Extract filename from path, optionally removing extension. Get the last segment of a path for display or processing. Use for extracting filenames, getting file names without extension, or path parsing. Keywords: basename, filename, file name, extract name, path end, strip directory.",
     category: "path",
     inputSchema: {
       type: "object",
@@ -116,7 +123,7 @@ export const pathTools: MiniTool[] = [
     },
     handler: ({ path, ext }) => {
       const p = path as string;
-      const parts = p.split(SEP_PATTERN).filter(s => s.length > 0);
+      const parts = p.split(SEP_PATTERN).filter((s) => s.length > 0);
       let name = parts[parts.length - 1] || "";
 
       if (ext && name.endsWith(ext as string)) {
@@ -128,7 +135,8 @@ export const pathTools: MiniTool[] = [
   },
   {
     name: "path_dirname",
-    description: "Extract directory path from file path. Get parent directory by removing the last path segment. Use for navigating up directories, getting containing folder, or path manipulation. Keywords: dirname, directory name, parent path, folder path, strip filename, path parent.",
+    description:
+      "Extract directory path from file path. Get parent directory by removing the last path segment. Use for navigating up directories, getting containing folder, or path manipulation. Keywords: dirname, directory name, parent path, folder path, strip filename, path parent.",
     category: "path",
     inputSchema: {
       type: "object",
@@ -139,7 +147,7 @@ export const pathTools: MiniTool[] = [
     },
     handler: ({ path }) => {
       const p = path as string;
-      const parts = p.split(SEP_PATTERN).filter(s => s.length > 0);
+      const parts = p.split(SEP_PATTERN).filter((s) => s.length > 0);
 
       if (parts.length <= 1) {
         // Return root or current dir
@@ -166,13 +174,17 @@ export const pathTools: MiniTool[] = [
   },
   {
     name: "path_extname",
-    description: "Extract file extension from path including the dot. Get .txt, .js, .tar.gz etc. from filename. Use for file type detection, filtering by extension, or format handling. Keywords: extname, file extension, extension, file type, suffix, get extension.",
+    description:
+      "Extract file extension from path including the dot. Get .txt, .js, .tar.gz etc. from filename. Use for file type detection, filtering by extension, or format handling. Keywords: extname, file extension, extension, file type, suffix, get extension.",
     category: "path",
     inputSchema: {
       type: "object",
       properties: {
         path: { type: "string", description: "File path" },
-        full: { type: "boolean", description: "Return full extension like .tar.gz (default: false)" },
+        full: {
+          type: "boolean",
+          description: "Return full extension like .tar.gz (default: false)",
+        },
       },
       required: ["path"],
     },
@@ -205,7 +217,8 @@ export const pathTools: MiniTool[] = [
   },
   {
     name: "path_parse",
-    description: "Parse path into components: root, dir, base, name, ext. Decompose any path into its constituent parts for analysis or manipulation. Use for path analysis, file info extraction, or path transformation. Keywords: parse path, path components, decompose path, path parts, split path, path info.",
+    description:
+      "Parse path into components: root, dir, base, name, ext. Decompose any path into its constituent parts for analysis or manipulation. Use for path analysis, file info extraction, or path transformation. Keywords: parse path, path components, decompose path, path parts, split path, path info.",
     category: "path",
     inputSchema: {
       type: "object",
@@ -216,7 +229,7 @@ export const pathTools: MiniTool[] = [
     },
     handler: ({ path }) => {
       const p = path as string;
-      const parts = p.split(SEP_PATTERN).filter(s => s.length > 0);
+      const parts = p.split(SEP_PATTERN).filter((s) => s.length > 0);
       const base = parts[parts.length - 1] || "";
 
       // Extract extension
@@ -246,7 +259,8 @@ export const pathTools: MiniTool[] = [
   },
   {
     name: "path_format",
-    description: "Build path from components object (root, dir, base, name, ext). Reconstruct path from parsed components or create new paths programmatically. Use for path construction, modification, or rebuilding parsed paths. Keywords: format path, build path, construct path, assemble path, path from parts.",
+    description:
+      "Build path from components object (root, dir, base, name, ext). Reconstruct path from parsed components or create new paths programmatically. Use for path construction, modification, or rebuilding parsed paths. Keywords: format path, build path, construct path, assemble path, path from parts.",
     category: "path",
     inputSchema: {
       type: "object",
@@ -266,7 +280,13 @@ export const pathTools: MiniTool[] = [
       required: ["pathObject"],
     },
     handler: ({ pathObject }) => {
-      const obj = pathObject as { root?: string; dir?: string; base?: string; name?: string; ext?: string };
+      const obj = pathObject as {
+        root?: string;
+        dir?: string;
+        base?: string;
+        name?: string;
+        ext?: string;
+      };
 
       // base takes precedence over name + ext
       const base = obj.base || ((obj.name || "") + (obj.ext || ""));
@@ -280,7 +300,8 @@ export const pathTools: MiniTool[] = [
   },
   {
     name: "path_relative",
-    description: "Calculate relative path from one location to another. Determine how to navigate from source to target using .. and subdirectories. Use for creating relative links, path comparison, or navigation. Keywords: relative path, path from to, path difference, navigate path, .. path, relative link.",
+    description:
+      "Calculate relative path from one location to another. Determine how to navigate from source to target using .. and subdirectories. Use for creating relative links, path comparison, or navigation. Keywords: relative path, path from to, path difference, navigate path, .. path, relative link.",
     category: "path",
     inputSchema: {
       type: "object",
@@ -291,8 +312,8 @@ export const pathTools: MiniTool[] = [
       required: ["from", "to"],
     },
     handler: ({ from, to }) => {
-      const fromParts = (from as string).split(SEP_PATTERN).filter(s => s.length > 0);
-      const toParts = (to as string).split(SEP_PATTERN).filter(s => s.length > 0);
+      const fromParts = (from as string).split(SEP_PATTERN).filter((s) => s.length > 0);
+      const toParts = (to as string).split(SEP_PATTERN).filter((s) => s.length > 0);
 
       // Find common prefix
       let commonLength = 0;
@@ -316,7 +337,8 @@ export const pathTools: MiniTool[] = [
   },
   {
     name: "path_is_absolute",
-    description: "Check if path is absolute (starts from root). Determine if path is absolute or relative for path resolution or validation. Use for path validation, security checks, or conditional processing. Keywords: is absolute, absolute path, root path, path type, check absolute, validate path.",
+    description:
+      "Check if path is absolute (starts from root). Determine if path is absolute or relative for path resolution or validation. Use for path validation, security checks, or conditional processing. Keywords: is absolute, absolute path, root path, path type, check absolute, validate path.",
     category: "path",
     inputSchema: {
       type: "object",
@@ -335,12 +357,17 @@ export const pathTools: MiniTool[] = [
   },
   {
     name: "path_resolve",
-    description: "Resolve sequence of paths to absolute path. Process paths from right to left until absolute path is formed, similar to cd operations. Use for resolving relative paths, building absolute paths, or path normalization. Keywords: resolve path, absolute path, path resolution, full path, complete path, cwd resolve.",
+    description:
+      "Resolve sequence of paths to absolute path. Process paths from right to left until absolute path is formed, similar to cd operations. Use for resolving relative paths, building absolute paths, or path normalization. Keywords: resolve path, absolute path, path resolution, full path, complete path, cwd resolve.",
     category: "path",
     inputSchema: {
       type: "object",
       properties: {
-        segments: { type: "array", items: { type: "string" }, description: "Path segments to resolve" },
+        segments: {
+          type: "array",
+          items: { type: "string" },
+          description: "Path segments to resolve",
+        },
         base: { type: "string", description: "Base directory (default: '/')" },
       },
       required: ["segments"],
@@ -361,7 +388,7 @@ export const pathTools: MiniTool[] = [
       }
 
       // Normalize the result
-      const parts = resolved.split(SEP_PATTERN).filter(s => s.length > 0 && s !== ".");
+      const parts = resolved.split(SEP_PATTERN).filter((s) => s.length > 0 && s !== ".");
       const stack: string[] = [];
 
       for (const part of parts) {
@@ -382,7 +409,8 @@ export const pathTools: MiniTool[] = [
   },
   {
     name: "path_split",
-    description: "Split path into array of individual segments. Break path into directory and file components for iteration or analysis. Use for path traversal, breadcrumb generation, or segment processing. Keywords: split path, path segments, path parts, tokenize path, break path, path array.",
+    description:
+      "Split path into array of individual segments. Break path into directory and file components for iteration or analysis. Use for path traversal, breadcrumb generation, or segment processing. Keywords: split path, path segments, path parts, tokenize path, break path, path array.",
     category: "path",
     inputSchema: {
       type: "object",
@@ -393,7 +421,7 @@ export const pathTools: MiniTool[] = [
     },
     handler: ({ path }) => {
       const p = path as string;
-      const segments = p.split(SEP_PATTERN).filter(s => s.length > 0);
+      const segments = p.split(SEP_PATTERN).filter((s) => s.length > 0);
 
       return {
         segments,
@@ -404,7 +432,8 @@ export const pathTools: MiniTool[] = [
   },
   {
     name: "path_common",
-    description: "Find longest common path prefix among multiple paths. Determine shared directory ancestry for a set of paths. Use for finding common root, path grouping, or workspace detection. Keywords: common path, shared prefix, common ancestor, path intersection, common root, shared directory.",
+    description:
+      "Find longest common path prefix among multiple paths. Determine shared directory ancestry for a set of paths. Use for finding common root, path grouping, or workspace detection. Keywords: common path, shared prefix, common ancestor, path intersection, common root, shared directory.",
     category: "path",
     inputSchema: {
       type: "object",
@@ -419,16 +448,16 @@ export const pathTools: MiniTool[] = [
       if (pathList.length === 1) return pathList[0];
 
       // Split all paths
-      const splitPaths = pathList.map(p => p.split(SEP_PATTERN).filter(s => s.length > 0));
+      const splitPaths = pathList.map((p) => p.split(SEP_PATTERN).filter((s) => s.length > 0));
 
       // Find minimum length
-      const minLen = Math.min(...splitPaths.map(p => p.length));
+      const minLen = Math.min(...splitPaths.map((p) => p.length));
 
       // Find common prefix
       const common: string[] = [];
       for (let i = 0; i < minLen; i++) {
         const segment = splitPaths[0][i];
-        if (splitPaths.every(p => p[i] === segment)) {
+        if (splitPaths.every((p) => p[i] === segment)) {
           common.push(segment);
         } else {
           break;
@@ -437,7 +466,7 @@ export const pathTools: MiniTool[] = [
 
       // Reconstruct path
       let result = common.join(SEP);
-      const allAbsolute = pathList.every(p => p.startsWith("/") || p.startsWith("\\"));
+      const allAbsolute = pathList.every((p) => p.startsWith("/") || p.startsWith("\\"));
       if (allAbsolute && !result.startsWith(SEP)) {
         result = SEP + result;
       }
@@ -447,7 +476,8 @@ export const pathTools: MiniTool[] = [
   },
   {
     name: "path_change_ext",
-    description: "Change or add file extension to path. Replace existing extension or append new one to filename. Use for format conversion paths, output file naming, or extension manipulation. Keywords: change extension, replace ext, new extension, swap extension, modify extension, file extension.",
+    description:
+      "Change or add file extension to path. Replace existing extension or append new one to filename. Use for format conversion paths, output file naming, or extension manipulation. Keywords: change extension, replace ext, new extension, swap extension, modify extension, file extension.",
     category: "path",
     inputSchema: {
       type: "object",

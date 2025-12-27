@@ -10,14 +10,14 @@
  * @module tests/unit/graphrag/algorithms/pagerank_test
  */
 
-import { assertEquals, assert } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 // @ts-ignore: NPM module resolution
 import graphologyPkg from "graphology";
 import {
   computePageRank,
+  getAveragePageRank,
   getPageRankScore,
   getTopPageRankNodes,
-  getAveragePageRank,
   type PageRankOptions,
 } from "../../../../src/graphrag/algorithms/pagerank.ts";
 
@@ -268,7 +268,7 @@ Deno.test("PageRank - weighted vs unweighted produces different scores", () => {
   assertEquals(Object.keys(unweightedResult.scores).length, 5);
 
   // Check that scores are valid (between 0 and 1)
-  Object.values(weightedResult.scores).forEach(score => {
+  Object.values(weightedResult.scores).forEach((score) => {
     assert(score >= 0 && score <= 1);
   });
 });

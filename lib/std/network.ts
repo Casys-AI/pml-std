@@ -4,18 +4,23 @@
  * @module lib/std/tools/network
  */
 
-import { runCommand, type MiniTool } from "./common.ts";
+import { type MiniTool, runCommand } from "./common.ts";
 
 export const networkTools: MiniTool[] = [
   {
     name: "curl_fetch",
-    description: "Make HTTP request using curl for API calls, web scraping, and testing endpoints. Supports all HTTP methods, custom headers, request bodies, and SSL options. Use for REST API interactions, webhook testing, file downloads, or HTTP debugging. Keywords: HTTP request, API call, REST client, web fetch, curl command, HTTP GET POST.",
+    description:
+      "Make HTTP request using curl for API calls, web scraping, and testing endpoints. Supports all HTTP methods, custom headers, request bodies, and SSL options. Use for REST API interactions, webhook testing, file downloads, or HTTP debugging. Keywords: HTTP request, API call, REST client, web fetch, curl command, HTTP GET POST.",
     category: "system",
     inputSchema: {
       type: "object",
       properties: {
         url: { type: "string", description: "URL to fetch" },
-        method: { type: "string", enum: ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD"], description: "HTTP method" },
+        method: {
+          type: "string",
+          enum: ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD"],
+          description: "HTTP method",
+        },
         headers: { type: "object", description: "Request headers" },
         data: { type: "string", description: "Request body" },
         timeout: { type: "number", description: "Timeout in seconds (default: 30)" },
@@ -24,7 +29,17 @@ export const networkTools: MiniTool[] = [
       },
       required: ["url"],
     },
-    handler: async ({ url, method = "GET", headers, data, timeout = 30, followRedirects = true, insecure = false }) => {
+    handler: async (
+      {
+        url,
+        method = "GET",
+        headers,
+        data,
+        timeout = 30,
+        followRedirects = true,
+        insecure = false,
+      },
+    ) => {
       const args = ["-s", "-w", "\n%{http_code}\n%{time_total}"];
 
       if (method !== "GET") args.push("-X", method as string);
@@ -61,13 +76,18 @@ export const networkTools: MiniTool[] = [
   },
   {
     name: "dig_lookup",
-    description: "Perform DNS lookup to resolve domain names to IP addresses. Query A, AAAA, MX, NS, TXT, CNAME, and SOA records from any DNS server. Use for DNS debugging, verifying records, checking propagation, or troubleshooting domain issues. Keywords: DNS query, domain lookup, name resolution, dig command, DNS records, MX lookup.",
+    description:
+      "Perform DNS lookup to resolve domain names to IP addresses. Query A, AAAA, MX, NS, TXT, CNAME, and SOA records from any DNS server. Use for DNS debugging, verifying records, checking propagation, or troubleshooting domain issues. Keywords: DNS query, domain lookup, name resolution, dig command, DNS records, MX lookup.",
     category: "system",
     inputSchema: {
       type: "object",
       properties: {
         domain: { type: "string", description: "Domain to lookup" },
-        type: { type: "string", enum: ["A", "AAAA", "MX", "NS", "TXT", "CNAME", "SOA", "ANY"], description: "Record type (default: A)" },
+        type: {
+          type: "string",
+          enum: ["A", "AAAA", "MX", "NS", "TXT", "CNAME", "SOA", "ANY"],
+          description: "Record type (default: A)",
+        },
         server: { type: "string", description: "DNS server to use (e.g., 8.8.8.8)" },
         short: { type: "boolean", description: "Short output (answers only)" },
       },
@@ -93,7 +113,8 @@ export const networkTools: MiniTool[] = [
   },
   {
     name: "ping_host",
-    description: "Ping a host using ICMP to check network connectivity and measure latency. Returns round-trip time (RTT) statistics, packet loss percentage, and reachability status. Use for network diagnostics, uptime monitoring, troubleshooting connectivity, or testing host availability. Keywords: ping test, network connectivity, latency check, host reachable, ICMP echo, network diagnostics.",
+    description:
+      "Ping a host using ICMP to check network connectivity and measure latency. Returns round-trip time (RTT) statistics, packet loss percentage, and reachability status. Use for network diagnostics, uptime monitoring, troubleshooting connectivity, or testing host availability. Keywords: ping test, network connectivity, latency check, host reachable, ICMP echo, network diagnostics.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -107,7 +128,9 @@ export const networkTools: MiniTool[] = [
     handler: async ({ host, count = 4, timeout = 5 }) => {
       const args = ["-c", String(count), "-W", String(timeout), host as string];
 
-      const result = await runCommand("ping", args, { timeout: (count as number) * (timeout as number) * 1000 + 5000 });
+      const result = await runCommand("ping", args, {
+        timeout: (count as number) * (timeout as number) * 1000 + 5000,
+      });
 
       const lines = result.stdout.split("\n");
       const statsLine = lines.find((l) => l.includes("packets transmitted"));
@@ -115,7 +138,9 @@ export const networkTools: MiniTool[] = [
 
       let transmitted = 0, received = 0, loss = 0;
       if (statsLine) {
-        const match = statsLine.match(/(\d+) packets transmitted, (\d+) (?:packets )?received, (\d+(?:\.\d+)?)% packet loss/);
+        const match = statsLine.match(
+          /(\d+) packets transmitted, (\d+) (?:packets )?received, (\d+(?:\.\d+)?)% packet loss/,
+        );
         if (match) {
           transmitted = parseInt(match[1], 10);
           received = parseInt(match[2], 10);
@@ -145,7 +170,8 @@ export const networkTools: MiniTool[] = [
   },
   {
     name: "nslookup",
-    description: "Simple DNS lookup to resolve domain names to IP addresses. Easier alternative to dig for basic queries. Use for quick domain resolution, verifying DNS settings, or checking what IP a domain points to. Keywords: DNS lookup, nslookup, domain to IP, name server query, resolve hostname.",
+    description:
+      "Simple DNS lookup to resolve domain names to IP addresses. Easier alternative to dig for basic queries. Use for quick domain resolution, verifying DNS settings, or checking what IP a domain points to. Keywords: DNS lookup, nslookup, domain to IP, name server query, resolve hostname.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -180,7 +206,8 @@ export const networkTools: MiniTool[] = [
   },
   {
     name: "traceroute",
-    description: "Trace the network path to a destination showing each hop and latency. Identifies routers between source and destination, useful for diagnosing network routing issues, finding bottlenecks, or understanding network topology. Keywords: traceroute, network path, hops, routing, network topology, packet path, latency by hop.",
+    description:
+      "Trace the network path to a destination showing each hop and latency. Identifies routers between source and destination, useful for diagnosing network routing issues, finding bottlenecks, or understanding network topology. Keywords: traceroute, network path, hops, routing, network topology, packet path, latency by hop.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -199,7 +226,8 @@ export const networkTools: MiniTool[] = [
   },
   {
     name: "netcat",
-    description: "Swiss army knife for TCP/UDP networking. Check if ports are open, scan port ranges, test network services. Use for port scanning, service availability checks, firewall testing, or verifying that services are listening. Keywords: netcat, nc, port scan, port check, TCP connection, service test, open ports.",
+    description:
+      "Swiss army knife for TCP/UDP networking. Check if ports are open, scan port ranges, test network services. Use for port scanning, service availability checks, firewall testing, or verifying that services are listening. Keywords: netcat, nc, port scan, port check, TCP connection, service test, open ports.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -233,7 +261,8 @@ export const networkTools: MiniTool[] = [
   },
   {
     name: "wget_download",
-    description: "Download files from URLs with wget. Supports resumable downloads, recursive website mirroring, and custom output paths. Use for downloading assets, mirroring sites, fetching remote files, or automated downloads with retry capability. Keywords: wget, file download, URL fetch, mirror website, resume download, recursive download.",
+    description:
+      "Download files from URLs with wget. Supports resumable downloads, recursive website mirroring, and custom output paths. Use for downloading assets, mirroring sites, fetching remote files, or automated downloads with retry capability. Keywords: wget, file download, URL fetch, mirror website, resume download, recursive download.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -263,7 +292,8 @@ export const networkTools: MiniTool[] = [
   },
   {
     name: "ip_address",
-    description: "Get network interface information including IP addresses, MAC addresses, and interface status. Shows all network adapters with IPv4/IPv6 addresses and subnet masks. Use to find your IP, check network configuration, or list available interfaces. Keywords: IP address, network interface, ifconfig, ip addr, local IP, network config, MAC address.",
+    description:
+      "Get network interface information including IP addresses, MAC addresses, and interface status. Shows all network adapters with IPv4/IPv6 addresses and subnet masks. Use to find your IP, check network configuration, or list available interfaces. Keywords: IP address, network interface, ifconfig, ip addr, local IP, network config, MAC address.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -277,14 +307,21 @@ export const networkTools: MiniTool[] = [
       if (result.code === 0) {
         try {
           const data = JSON.parse(result.stdout);
-          const interfaces = data.map((i: { ifname: string; flags: string[]; addr_info: Array<{ family: string; local: string; prefixlen: number }> }) => ({
+          const interfaces = data.map((
+            i: {
+              ifname: string;
+              flags: string[];
+              addr_info: Array<{ family: string; local: string; prefixlen: number }>;
+            },
+          ) => ({
             name: i.ifname,
             flags: i.flags,
-            addresses: i.addr_info?.map((a: { family: string; local: string; prefixlen: number }) => ({
-              family: a.family,
-              address: a.local,
-              prefixlen: a.prefixlen,
-            })) || [],
+            addresses:
+              i.addr_info?.map((a: { family: string; local: string; prefixlen: number }) => ({
+                family: a.family,
+                address: a.local,
+                prefixlen: a.prefixlen,
+              })) || [],
           }));
 
           if (iface) {

@@ -11,7 +11,8 @@ import type { MiniTool } from "./types.ts";
 export const stringTools: MiniTool[] = [
   {
     name: "string_slugify",
-    description: "Convert text to URL-friendly slug. Transforms titles, names, or any text into lowercase hyphenated format safe for URLs. Handles unicode, removes special characters, collapses whitespace. Use for URL generation, file naming, or ID creation. Keywords: slugify, URL slug, hyphenate, permalink, SEO URL, clean URL, kebab-case URL.",
+    description:
+      "Convert text to URL-friendly slug. Transforms titles, names, or any text into lowercase hyphenated format safe for URLs. Handles unicode, removes special characters, collapses whitespace. Use for URL generation, file naming, or ID creation. Keywords: slugify, URL slug, hyphenate, permalink, SEO URL, clean URL, kebab-case URL.",
     category: "string",
     inputSchema: {
       type: "object",
@@ -43,7 +44,8 @@ export const stringTools: MiniTool[] = [
   },
   {
     name: "string_camel_case",
-    description: "Convert text to camelCase format. Transform any string format (snake_case, kebab-case, spaces) to camelCase for JavaScript/TypeScript variables. Use for code generation, API response transformation, or naming conventions. Keywords: camelCase, convert case, variable naming, JS naming, lowerCamelCase.",
+    description:
+      "Convert text to camelCase format. Transform any string format (snake_case, kebab-case, spaces) to camelCase for JavaScript/TypeScript variables. Use for code generation, API response transformation, or naming conventions. Keywords: camelCase, convert case, variable naming, JS naming, lowerCamelCase.",
     category: "string",
     inputSchema: {
       type: "object",
@@ -60,7 +62,8 @@ export const stringTools: MiniTool[] = [
   },
   {
     name: "string_pascal_case",
-    description: "Convert text to PascalCase format. Transform any string format to PascalCase for class names, type definitions, or component names. Use for code generation, type naming, or React components. Keywords: PascalCase, UpperCamelCase, class naming, type naming, convert case.",
+    description:
+      "Convert text to PascalCase format. Transform any string format to PascalCase for class names, type definitions, or component names. Use for code generation, type naming, or React components. Keywords: PascalCase, UpperCamelCase, class naming, type naming, convert case.",
     category: "string",
     inputSchema: {
       type: "object",
@@ -77,7 +80,8 @@ export const stringTools: MiniTool[] = [
   },
   {
     name: "string_snake_case",
-    description: "Convert text to snake_case format. Transform any string format to lowercase underscore-separated words for Python variables, database columns, or config keys. Use for code generation, database naming, or API formatting. Keywords: snake_case, underscore case, Python naming, database column, convert case.",
+    description:
+      "Convert text to snake_case format. Transform any string format to lowercase underscore-separated words for Python variables, database columns, or config keys. Use for code generation, database naming, or API formatting. Keywords: snake_case, underscore case, Python naming, database column, convert case.",
     category: "string",
     inputSchema: {
       type: "object",
@@ -102,7 +106,8 @@ export const stringTools: MiniTool[] = [
   },
   {
     name: "string_kebab_case",
-    description: "Convert text to kebab-case format. Transform any string format to lowercase hyphen-separated words for CSS classes, HTML attributes, or URL paths. Use for CSS naming, HTML attributes, or file naming. Keywords: kebab-case, hyphen case, CSS naming, HTML attribute, dash case, convert case.",
+    description:
+      "Convert text to kebab-case format. Transform any string format to lowercase hyphen-separated words for CSS classes, HTML attributes, or URL paths. Use for CSS naming, HTML attributes, or file naming. Keywords: kebab-case, hyphen case, CSS naming, HTML attribute, dash case, convert case.",
     category: "string",
     inputSchema: {
       type: "object",
@@ -120,7 +125,8 @@ export const stringTools: MiniTool[] = [
   },
   {
     name: "string_constant_case",
-    description: "Convert text to CONSTANT_CASE format. Transform any string format to uppercase underscore-separated words for constants, environment variables, or enum values. Use for constant naming, env vars, or config keys. Keywords: CONSTANT_CASE, SCREAMING_SNAKE_CASE, constant naming, env variable, uppercase underscore.",
+    description:
+      "Convert text to CONSTANT_CASE format. Transform any string format to uppercase underscore-separated words for constants, environment variables, or enum values. Use for constant naming, env vars, or config keys. Keywords: CONSTANT_CASE, SCREAMING_SNAKE_CASE, constant naming, env variable, uppercase underscore.",
     category: "string",
     inputSchema: {
       type: "object",
@@ -138,18 +144,37 @@ export const stringTools: MiniTool[] = [
   },
   {
     name: "string_title_case",
-    description: "Convert text to Title Case with proper capitalization. Capitalize first letter of each word, handle common articles and prepositions. Use for headings, titles, or display formatting. Keywords: Title Case, capitalize words, heading format, proper case, word capitalize.",
+    description:
+      "Convert text to Title Case with proper capitalization. Capitalize first letter of each word, handle common articles and prepositions. Use for headings, titles, or display formatting. Keywords: Title Case, capitalize words, heading format, proper case, word capitalize.",
     category: "string",
     inputSchema: {
       type: "object",
       properties: {
         text: { type: "string", description: "Text to convert" },
-        smartCase: { type: "boolean", description: "Lowercase articles/prepositions (default: true)" },
+        smartCase: {
+          type: "boolean",
+          description: "Lowercase articles/prepositions (default: true)",
+        },
       },
       required: ["text"],
     },
     handler: ({ text, smartCase = true }) => {
-      const lowercase = ["a", "an", "the", "and", "but", "or", "for", "nor", "on", "at", "to", "by", "of", "in"];
+      const lowercase = [
+        "a",
+        "an",
+        "the",
+        "and",
+        "but",
+        "or",
+        "for",
+        "nor",
+        "on",
+        "at",
+        "to",
+        "by",
+        "of",
+        "in",
+      ];
 
       return (text as string)
         .toLowerCase()
@@ -165,7 +190,8 @@ export const stringTools: MiniTool[] = [
   },
   {
     name: "string_levenshtein",
-    description: "Calculate Levenshtein edit distance between two strings. Measure minimum single-character edits (insertions, deletions, substitutions) to transform one string into another. Use for fuzzy matching, spell checking, or similarity detection. Keywords: Levenshtein distance, edit distance, string similarity, fuzzy match, spell check, string diff.",
+    description:
+      "Calculate Levenshtein edit distance between two strings. Measure minimum single-character edits (insertions, deletions, substitutions) to transform one string into another. Use for fuzzy matching, spell checking, or similarity detection. Keywords: Levenshtein distance, edit distance, string similarity, fuzzy match, spell check, string diff.",
     category: "string",
     inputSchema: {
       type: "object",
@@ -193,9 +219,9 @@ export const stringTools: MiniTool[] = [
         for (let j = 1; j <= n; j++) {
           const cost = s1[i - 1] === s2[j - 1] ? 0 : 1;
           d[i][j] = Math.min(
-            d[i - 1][j] + 1,      // deletion
-            d[i][j - 1] + 1,      // insertion
-            d[i - 1][j - 1] + cost // substitution
+            d[i - 1][j] + 1, // deletion
+            d[i][j - 1] + 1, // insertion
+            d[i - 1][j - 1] + cost, // substitution
           );
         }
       }
@@ -209,7 +235,8 @@ export const stringTools: MiniTool[] = [
   },
   {
     name: "string_jaro_winkler",
-    description: "Calculate Jaro-Winkler similarity score between two strings. Measure string similarity with emphasis on matching prefixes, returns value between 0-1. Better for short strings and names than Levenshtein. Use for name matching, deduplication, or record linkage. Keywords: Jaro-Winkler, string similarity, name matching, fuzzy compare, record linkage, dedupe.",
+    description:
+      "Calculate Jaro-Winkler similarity score between two strings. Measure string similarity with emphasis on matching prefixes, returns value between 0-1. Better for short strings and names than Levenshtein. Use for name matching, deduplication, or record linkage. Keywords: Jaro-Winkler, string similarity, name matching, fuzzy compare, record linkage, dedupe.",
     category: "string",
     inputSchema: {
       type: "object",
@@ -282,7 +309,8 @@ export const stringTools: MiniTool[] = [
   },
   {
     name: "string_extract_emails",
-    description: "Extract all email addresses from text using regex. Find and return array of valid email addresses embedded in any text content. Use for data extraction, contact scraping, or text parsing. Keywords: extract emails, find emails, email regex, parse emails, scrape contacts, email pattern.",
+    description:
+      "Extract all email addresses from text using regex. Find and return array of valid email addresses embedded in any text content. Use for data extraction, contact scraping, or text parsing. Keywords: extract emails, find emails, email regex, parse emails, scrape contacts, email pattern.",
     category: "string",
     inputSchema: {
       type: "object",
@@ -304,14 +332,19 @@ export const stringTools: MiniTool[] = [
   },
   {
     name: "string_extract_urls",
-    description: "Extract all URLs from text using regex. Find and return array of HTTP/HTTPS URLs embedded in any text content. Use for link extraction, web scraping, or content analysis. Keywords: extract URLs, find links, URL regex, parse URLs, scrape links, HTTP pattern.",
+    description:
+      "Extract all URLs from text using regex. Find and return array of HTTP/HTTPS URLs embedded in any text content. Use for link extraction, web scraping, or content analysis. Keywords: extract URLs, find links, URL regex, parse URLs, scrape links, HTTP pattern.",
     category: "string",
     inputSchema: {
       type: "object",
       properties: {
         text: { type: "string", description: "Text to search" },
         unique: { type: "boolean", description: "Return only unique URLs (default: true)" },
-        protocols: { type: "array", items: { type: "string" }, description: "Protocols to match (default: ['http', 'https'])" },
+        protocols: {
+          type: "array",
+          items: { type: "string" },
+          description: "Protocols to match (default: ['http', 'https'])",
+        },
       },
       required: ["text"],
     },
@@ -321,7 +354,7 @@ export const stringTools: MiniTool[] = [
       const matches = (text as string).match(regex) || [];
 
       // Clean trailing punctuation
-      const cleaned = matches.map(url => url.replace(/[.,;:!?)]+$/, ""));
+      const cleaned = matches.map((url) => url.replace(/[.,;:!?)]+$/, ""));
 
       if (unique) {
         return [...new Set(cleaned)];
@@ -331,7 +364,8 @@ export const stringTools: MiniTool[] = [
   },
   {
     name: "string_extract_phones",
-    description: "Extract phone numbers from text using pattern matching. Find various phone number formats including international, US, and local formats. Use for contact extraction, data parsing, or text analysis. Keywords: extract phones, find phone numbers, phone regex, parse phones, contact extraction.",
+    description:
+      "Extract phone numbers from text using pattern matching. Find various phone number formats including international, US, and local formats. Use for contact extraction, data parsing, or text analysis. Keywords: extract phones, find phone numbers, phone regex, parse phones, contact extraction.",
     category: "string",
     inputSchema: {
       type: "object",
@@ -343,11 +377,12 @@ export const stringTools: MiniTool[] = [
     },
     handler: ({ text, unique = true }) => {
       // Match various phone formats
-      const regex = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{2,4}[-.\s]?\d{2,4}(?:[-.\s]?\d{2,4})?/g;
+      const regex =
+        /(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{2,4}[-.\s]?\d{2,4}(?:[-.\s]?\d{2,4})?/g;
       const matches = (text as string).match(regex) || [];
 
       // Filter out likely non-phone matches (too short or too long)
-      const filtered = matches.filter(m => {
+      const filtered = matches.filter((m) => {
         const digits = m.replace(/\D/g, "");
         return digits.length >= 7 && digits.length <= 15;
       });
@@ -360,7 +395,8 @@ export const stringTools: MiniTool[] = [
   },
   {
     name: "string_extract_hashtags",
-    description: "Extract hashtags from text. Find all #hashtag patterns in social media posts, comments, or any text. Use for social media analysis, content tagging, or trend detection. Keywords: extract hashtags, find hashtags, hashtag regex, parse tags, social media, Twitter tags.",
+    description:
+      "Extract hashtags from text. Find all #hashtag patterns in social media posts, comments, or any text. Use for social media analysis, content tagging, or trend detection. Keywords: extract hashtags, find hashtags, hashtag regex, parse tags, social media, Twitter tags.",
     category: "string",
     inputSchema: {
       type: "object",
@@ -377,7 +413,7 @@ export const stringTools: MiniTool[] = [
 
       let results: string[] = [...matches];
       if (!withHash) {
-        results = matches.map(h => h.slice(1));
+        results = matches.map((h) => h.slice(1));
       }
 
       if (unique) {
@@ -388,7 +424,8 @@ export const stringTools: MiniTool[] = [
   },
   {
     name: "string_extract_mentions",
-    description: "Extract @mentions from text. Find all @username patterns in social media posts, comments, or any text. Use for social media analysis, user tagging, or notification systems. Keywords: extract mentions, find mentions, @ symbol, parse usernames, social media, Twitter mentions.",
+    description:
+      "Extract @mentions from text. Find all @username patterns in social media posts, comments, or any text. Use for social media analysis, user tagging, or notification systems. Keywords: extract mentions, find mentions, @ symbol, parse usernames, social media, Twitter mentions.",
     category: "string",
     inputSchema: {
       type: "object",
@@ -405,7 +442,7 @@ export const stringTools: MiniTool[] = [
 
       let results: string[] = [...matches];
       if (!withAt) {
-        results = matches.map(m => m.slice(1));
+        results = matches.map((m) => m.slice(1));
       }
 
       if (unique) {
@@ -416,7 +453,8 @@ export const stringTools: MiniTool[] = [
   },
   {
     name: "string_truncate",
-    description: "Truncate string to specified length with customizable ellipsis. Shorten text for previews, summaries, or UI display while preserving word boundaries optionally. Use for text previews, UI truncation, or content summaries. Keywords: truncate string, shorten text, ellipsis, text preview, word boundary, clip text.",
+    description:
+      "Truncate string to specified length with customizable ellipsis. Shorten text for previews, summaries, or UI display while preserving word boundaries optionally. Use for text previews, UI truncation, or content summaries. Keywords: truncate string, shorten text, ellipsis, text preview, word boundary, clip text.",
     category: "string",
     inputSchema: {
       type: "object",
@@ -452,7 +490,8 @@ export const stringTools: MiniTool[] = [
   },
   {
     name: "string_word_count",
-    description: "Count words, characters, sentences, and paragraphs in text. Comprehensive text statistics for content analysis, word limits, or readability assessment. Use for content analysis, word counters, or text metrics. Keywords: word count, character count, text statistics, sentence count, paragraph count, text length.",
+    description:
+      "Count words, characters, sentences, and paragraphs in text. Comprehensive text statistics for content analysis, word limits, or readability assessment. Use for content analysis, word counters, or text metrics. Keywords: word count, character count, text statistics, sentence count, paragraph count, text length.",
     category: "string",
     inputSchema: {
       type: "object",
@@ -464,9 +503,9 @@ export const stringTools: MiniTool[] = [
     handler: ({ text }) => {
       const t = text as string;
 
-      const words = t.trim().split(/\s+/).filter(w => w.length > 0);
-      const sentences = t.split(/[.!?]+/).filter(s => s.trim().length > 0);
-      const paragraphs = t.split(/\n\s*\n/).filter(p => p.trim().length > 0);
+      const words = t.trim().split(/\s+/).filter((w) => w.length > 0);
+      const sentences = t.split(/[.!?]+/).filter((s) => s.trim().length > 0);
+      const paragraphs = t.split(/\n\s*\n/).filter((p) => p.trim().length > 0);
 
       return {
         characters: t.length,
@@ -482,7 +521,8 @@ export const stringTools: MiniTool[] = [
   },
   {
     name: "string_reverse",
-    description: "Reverse a string character by character. Handle unicode characters properly with grapheme support. Use for palindrome checking, text effects, or encoding. Keywords: reverse string, string reverse, flip text, mirror text, backwards text.",
+    description:
+      "Reverse a string character by character. Handle unicode characters properly with grapheme support. Use for palindrome checking, text effects, or encoding. Keywords: reverse string, string reverse, flip text, mirror text, backwards text.",
     category: "string",
     inputSchema: {
       type: "object",
@@ -498,7 +538,8 @@ export const stringTools: MiniTool[] = [
   },
   {
     name: "string_repeat",
-    description: "Repeat a string multiple times with optional separator. Generate repeated patterns, padding, or separators. Use for text generation, padding, or pattern creation. Keywords: repeat string, string repeat, duplicate text, multiply string, pattern generate.",
+    description:
+      "Repeat a string multiple times with optional separator. Generate repeated patterns, padding, or separators. Use for text generation, padding, or pattern creation. Keywords: repeat string, string repeat, duplicate text, multiply string, pattern generate.",
     category: "string",
     inputSchema: {
       type: "object",
@@ -519,7 +560,8 @@ export const stringTools: MiniTool[] = [
   },
   {
     name: "string_pad",
-    description: "Pad string to target length with specified character. Add padding to start, end, or both sides for alignment or formatting. Use for text alignment, number formatting, or table display. Keywords: pad string, string padding, left pad, right pad, center align, text align.",
+    description:
+      "Pad string to target length with specified character. Add padding to start, end, or both sides for alignment or formatting. Use for text alignment, number formatting, or table display. Keywords: pad string, string padding, left pad, right pad, center align, text align.",
     category: "string",
     inputSchema: {
       type: "object",
@@ -527,7 +569,11 @@ export const stringTools: MiniTool[] = [
         text: { type: "string", description: "Text to pad" },
         length: { type: "number", description: "Target length" },
         char: { type: "string", description: "Padding character (default: ' ')" },
-        position: { type: "string", enum: ["start", "end", "both"], description: "Padding position (default: 'start')" },
+        position: {
+          type: "string",
+          enum: ["start", "end", "both"],
+          description: "Padding position (default: 'start')",
+        },
       },
       required: ["text", "length"],
     },
@@ -555,7 +601,8 @@ export const stringTools: MiniTool[] = [
   },
   {
     name: "string_escape_html",
-    description: "Escape HTML special characters to prevent XSS. Convert <, >, &, \", ' to their HTML entity equivalents. Use for sanitizing user input, preventing XSS, or safe HTML rendering. Keywords: escape HTML, HTML entities, XSS prevention, sanitize HTML, encode HTML, security.",
+    description:
+      "Escape HTML special characters to prevent XSS. Convert <, >, &, \", ' to their HTML entity equivalents. Use for sanitizing user input, preventing XSS, or safe HTML rendering. Keywords: escape HTML, HTML entities, XSS prevention, sanitize HTML, encode HTML, security.",
     category: "string",
     inputSchema: {
       type: "object",
@@ -573,12 +620,13 @@ export const stringTools: MiniTool[] = [
         "'": "&#39;",
       };
 
-      return (text as string).replace(/[&<>"']/g, char => escapeMap[char]);
+      return (text as string).replace(/[&<>"']/g, (char) => escapeMap[char]);
     },
   },
   {
     name: "string_unescape_html",
-    description: "Unescape HTML entities back to characters. Convert HTML entities like &lt; &gt; &amp; back to their original characters. Use for decoding HTML content, parsing HTML text, or display. Keywords: unescape HTML, decode HTML, HTML entities, parse HTML, HTML decode.",
+    description:
+      "Unescape HTML entities back to characters. Convert HTML entities like &lt; &gt; &amp; back to their original characters. Use for decoding HTML content, parsing HTML text, or display. Keywords: unescape HTML, decode HTML, HTML entities, parse HTML, HTML decode.",
     category: "string",
     inputSchema: {
       type: "object",
@@ -603,7 +651,7 @@ export const stringTools: MiniTool[] = [
 
       return (text as string).replace(
         /&(?:amp|lt|gt|quot|apos|#39|#x27|#x2F|#47|nbsp);/g,
-        entity => unescapeMap[entity] || entity
+        (entity) => unescapeMap[entity] || entity,
       );
     },
   },

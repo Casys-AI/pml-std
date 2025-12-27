@@ -29,7 +29,13 @@ export interface AutoInitResult {
   /** Whether init was performed */
   performed: boolean;
   /** Reason for the result */
-  reason: "config_changed" | "first_run" | "tool_count_changed" | "force_reindex" | "no_change" | "error";
+  reason:
+    | "config_changed"
+    | "first_run"
+    | "tool_count_changed"
+    | "force_reindex"
+    | "no_change"
+    | "error";
   /** Number of tools discovered (if init was performed) */
   toolsCount?: number;
   /** Error message (if error occurred) */

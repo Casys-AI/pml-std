@@ -4,12 +4,13 @@
  * @module lib/std/tools/sysinfo
  */
 
-import { runCommand, type MiniTool } from "./common.ts";
+import { type MiniTool, runCommand } from "./common.ts";
 
 export const sysinfoTools: MiniTool[] = [
   {
     name: "env_get",
-    description: "Get the value of an environment variable. Check PATH, HOME, USER, or any custom env var. Returns whether the variable exists and its value. Use for configuration reading, debugging environment issues, or accessing system settings. Keywords: environment variable, env var, getenv, PATH HOME USER, config value.",
+    description:
+      "Get the value of an environment variable. Check PATH, HOME, USER, or any custom env var. Returns whether the variable exists and its value. Use for configuration reading, debugging environment issues, or accessing system settings. Keywords: environment variable, env var, getenv, PATH HOME USER, config value.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -25,7 +26,8 @@ export const sysinfoTools: MiniTool[] = [
   },
   {
     name: "env_list",
-    description: "List all environment variables or filter by prefix. View complete environment configuration, debug shell settings, or find specific variables. Use for auditing environment, debugging path issues, or configuration management. Keywords: list env, all environment variables, printenv, show environment, filter env vars.",
+    description:
+      "List all environment variables or filter by prefix. View complete environment configuration, debug shell settings, or find specific variables. Use for auditing environment, debugging path issues, or configuration management. Keywords: list env, all environment variables, printenv, show environment, filter env vars.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -48,7 +50,8 @@ export const sysinfoTools: MiniTool[] = [
   },
   {
     name: "chmod",
-    description: "Change file or directory permissions using octal modes (755, 644) or symbolic notation (+x, u+rw). Set read, write, execute permissions for user, group, others. Essential for security, making scripts executable, or fixing permission errors. Keywords: chmod, file permissions, make executable, permission mode, rwx, access rights.",
+    description:
+      "Change file or directory permissions using octal modes (755, 644) or symbolic notation (+x, u+rw). Set read, write, execute permissions for user, group, others. Essential for security, making scripts executable, or fixing permission errors. Keywords: chmod, file permissions, make executable, permission mode, rwx, access rights.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -73,7 +76,8 @@ export const sysinfoTools: MiniTool[] = [
   },
   {
     name: "chown",
-    description: "Change file or directory ownership to different user and/or group. Transfer file ownership, fix permission issues, or set up correct access for services. Supports recursive operation for directories. Keywords: chown, change owner, file ownership, user group, owner permission, transfer ownership.",
+    description:
+      "Change file or directory ownership to different user and/or group. Transfer file ownership, fix permission issues, or set up correct access for services. Supports recursive operation for directories. Keywords: chown, change owner, file ownership, user group, owner permission, transfer ownership.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -98,7 +102,8 @@ export const sysinfoTools: MiniTool[] = [
   },
   {
     name: "df",
-    description: "Show disk space usage for all mounted filesystems. View total size, used space, available space, and usage percentage per mount point. Essential for monitoring disk capacity, finding full disks, or capacity planning. Keywords: df, disk space, disk usage, free space, filesystem size, storage capacity, mount point.",
+    description:
+      "Show disk space usage for all mounted filesystems. View total size, used space, available space, and usage percentage per mount point. Essential for monitoring disk capacity, finding full disks, or capacity planning. Keywords: df, disk space, disk usage, free space, filesystem size, storage capacity, mount point.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -136,7 +141,8 @@ export const sysinfoTools: MiniTool[] = [
   },
   {
     name: "du",
-    description: "Calculate disk usage of files and directories. Find what's consuming space, get folder sizes, or audit storage usage. Can show totals, limit depth, or include all subdirectories. Essential for cleaning up disk space. Keywords: du, directory size, folder size, disk usage, space consumed, file size, storage audit.",
+    description:
+      "Calculate disk usage of files and directories. Find what's consuming space, get folder sizes, or audit storage usage. Can show totals, limit depth, or include all subdirectories. Essential for cleaning up disk space. Keywords: du, directory size, folder size, disk usage, space consumed, file size, storage audit.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -171,7 +177,8 @@ export const sysinfoTools: MiniTool[] = [
   },
   {
     name: "free",
-    description: "Display system memory usage including RAM and swap. Shows total, used, free, cached, and available memory. Essential for performance monitoring, detecting memory pressure, or capacity planning. Keywords: free memory, RAM usage, memory available, swap usage, system memory, memory stats, memory monitoring.",
+    description:
+      "Display system memory usage including RAM and swap. Shows total, used, free, cached, and available memory. Essential for performance monitoring, detecting memory pressure, or capacity planning. Keywords: free memory, RAM usage, memory available, swap usage, system memory, memory stats, memory monitoring.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -213,7 +220,8 @@ export const sysinfoTools: MiniTool[] = [
   },
   {
     name: "whoami",
-    description: "Get the current logged-in username. Quick way to identify which user account is running commands. Use for scripts, debugging permission issues, or verifying user context. Keywords: whoami, current user, username, logged in user, user identity.",
+    description:
+      "Get the current logged-in username. Quick way to identify which user account is running commands. Use for scripts, debugging permission issues, or verifying user context. Keywords: whoami, current user, username, logged in user, user identity.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -226,7 +234,8 @@ export const sysinfoTools: MiniTool[] = [
   },
   {
     name: "id",
-    description: "Get user ID (UID), group ID (GID), and all group memberships for a user. Shows numeric IDs and names. Use for debugging permission issues, checking group membership, or security auditing. Keywords: user id, uid gid, group membership, user groups, user info, id command.",
+    description:
+      "Get user ID (UID), group ID (GID), and all group memberships for a user. Shows numeric IDs and names. Use for debugging permission issues, checking group membership, or security auditing. Keywords: user id, uid gid, group membership, user groups, user info, id command.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -257,7 +266,8 @@ export const sysinfoTools: MiniTool[] = [
   },
   {
     name: "hostname",
-    description: "Get the system hostname or fully qualified domain name (FQDN). Identify the machine name in network context. Use for logging, debugging, or multi-server environments. Keywords: hostname, system name, machine name, FQDN, server name, host identity.",
+    description:
+      "Get the system hostname or fully qualified domain name (FQDN). Identify the machine name in network context. Use for logging, debugging, or multi-server environments. Keywords: hostname, system name, machine name, FQDN, server name, host identity.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -273,7 +283,8 @@ export const sysinfoTools: MiniTool[] = [
   },
   {
     name: "uptime",
-    description: "Get system uptime and load averages. Shows how long the system has been running and CPU load for 1, 5, and 15 minute intervals. Essential for monitoring server health and identifying overloaded systems. Keywords: uptime, system uptime, load average, how long running, server load, cpu load.",
+    description:
+      "Get system uptime and load averages. Shows how long the system has been running and CPU load for 1, 5, and 15 minute intervals. Essential for monitoring server health and identifying overloaded systems. Keywords: uptime, system uptime, load average, how long running, server load, cpu load.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -290,17 +301,18 @@ export const sysinfoTools: MiniTool[] = [
         uptime,
         loadAverage: loadMatch
           ? {
-              "1min": parseFloat(loadMatch[1]),
-              "5min": parseFloat(loadMatch[2]),
-              "15min": parseFloat(loadMatch[3]),
-            }
+            "1min": parseFloat(loadMatch[1]),
+            "5min": parseFloat(loadMatch[2]),
+            "15min": parseFloat(loadMatch[3]),
+          }
           : null,
       };
     },
   },
   {
     name: "uname",
-    description: "Get system kernel and OS information. Shows kernel name, hostname, kernel version, machine architecture (x86_64, arm64). Use for system identification, compatibility checks, or debugging. Keywords: uname, kernel version, os info, system architecture, linux version, machine type, platform info.",
+    description:
+      "Get system kernel and OS information. Shows kernel name, hostname, kernel version, machine architecture (x86_64, arm64). Use for system identification, compatibility checks, or debugging. Keywords: uname, kernel version, os info, system architecture, linux version, machine type, platform info.",
     category: "system",
     inputSchema: {
       type: "object",

@@ -27,7 +27,4 @@ export {
   updateWorkflowState,
 } from "../cache/workflow-state-cache.ts";
 
-export type {
-  WorkflowDAGRecord,
-  WorkflowStateRecord,
-} from "../cache/workflow-state-cache.ts";
+export type { WorkflowDAGRecord, WorkflowStateRecord } from "../cache/workflow-state-cache.ts";

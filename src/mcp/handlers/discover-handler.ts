@@ -20,7 +20,7 @@ import * as log from "@std/log";
 import type { GraphRAGEngine } from "../../graphrag/graph-engine.ts";
 import type { VectorSearch } from "../../vector/search.ts";
 import type { DAGSuggester } from "../../graphrag/dag-suggester.ts";
-import type { MCPToolResponse, MCPErrorResponse } from "../server/types.ts";
+import type { MCPErrorResponse, MCPToolResponse } from "../server/types.ts";
 import { formatMCPSuccess } from "../server/responses.ts";
 import { addBreadcrumb, captureError, startTransaction } from "../../telemetry/sentry.ts";
 import type { HybridSearchResult } from "../../graphrag/types.ts";
@@ -82,8 +82,8 @@ interface DiscoverResponse {
   meta: {
     query: string;
     filter_type: string;
-    total_found: number;      // Total matches before limit
-    returned_count: number;   // Actual results returned after limit
+    total_found: number; // Total matches before limit
+    returned_count: number; // Actual results returned after limit
     tools_count: number;
     capabilities_count: number;
   };
@@ -202,8 +202,8 @@ export async function handleDiscover(
       meta: {
         query: intent,
         filter_type: filterType,
-        total_found: results.length,  // Before limit
-        returned_count: limitedResults.length,  // After limit
+        total_found: results.length, // Before limit
+        returned_count: limitedResults.length, // After limit
         tools_count: toolsCount,
         capabilities_count: capabilitiesCount,
       },
@@ -211,7 +211,9 @@ export async function handleDiscover(
 
     const elapsedMs = performance.now() - startTime;
     log.info(
-      `discover: found ${limitedResults.length} results (${toolsCount} tools, ${capabilitiesCount} capabilities) in ${elapsedMs.toFixed(1)}ms`,
+      `discover: found ${limitedResults.length} results (${toolsCount} tools, ${capabilitiesCount} capabilities) in ${
+        elapsedMs.toFixed(1)
+      }ms`,
     );
 
     transaction.finish();

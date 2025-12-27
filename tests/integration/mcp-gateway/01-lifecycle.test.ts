@@ -12,8 +12,8 @@
 import { assertEquals, assertExists } from "@std/assert";
 import {
   createTestGatewayServer,
-  makeGatewayRequest,
   getRandomPort,
+  makeGatewayRequest,
 } from "./fixtures/gateway-test-helpers.ts";
 
 Deno.test({

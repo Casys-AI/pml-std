@@ -9,16 +9,14 @@
 
 import { assertEquals, assertExists } from "jsr:@std/assert@1";
 import {
+  type ClusterBoostDeps,
   computeClusterBoosts,
   getCapabilityPageranks,
-  type ClusterBoostDeps,
 } from "../../../../src/graphrag/clustering/boost-calculator.ts";
 import type { Capability } from "../../../../src/capabilities/types.ts";
 import type { DagScoringConfig } from "../../../../src/graphrag/dag-scoring-config.ts";
 import { DEFAULT_DAG_SCORING_CONFIG } from "../../../../src/graphrag/dag-scoring-config.ts";
-import type {
-  ClusterableCapability,
-} from "../../../../src/graphrag/spectral-clustering.ts";
+import type { ClusterableCapability } from "../../../../src/graphrag/spectral-clustering.ts";
 
 // =============================================================================
 // Mock SpectralClusteringManager
@@ -64,8 +62,7 @@ function createMockSpectralClustering(
     computeHypergraphPageRank: () => {},
     saveToCache: () => {},
     identifyActiveCluster: () => activeCluster,
-    getClusterBoost: (capability: ClusterableCapability) =>
-      clusterBoosts.get(capability.id) ?? 0,
+    getClusterBoost: (capability: ClusterableCapability) => clusterBoosts.get(capability.id) ?? 0,
     getPageRank: (capabilityId: string) => pageRanks.get(capabilityId) ?? 0,
     getAllPageRanks: () => new Map(pageRanks),
   };
@@ -649,8 +646,9 @@ Deno.test("computeClusterBoosts - realistic multi-capability scenario", () => {
 
 Deno.test("computeClusterBoosts - handles large capability sets efficiently", () => {
   // Generate 100 capabilities
-  const capabilities = Array.from({ length: 100 }, (_, i) =>
-    createTestCapability(`cap-${i}`, [`tool-${i % 10}`, `tool-${(i + 1) % 10}`]),
+  const capabilities = Array.from(
+    { length: 100 },
+    (_, i) => createTestCapability(`cap-${i}`, [`tool-${i % 10}`, `tool-${(i + 1) % 10}`]),
   );
 
   const contextTools = ["tool-0", "tool-1", "tool-2"];

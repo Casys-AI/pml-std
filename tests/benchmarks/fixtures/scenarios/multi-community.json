@@ -18,10 +18,25 @@
       { "id": "cache__set", "pageRank": 0.07, "community": 2 },
       { "id": "cache__invalidate", "pageRank": 0.05, "community": 2 },
 
-      { "id": "bridge__auth_data", "pageRank": 0.15, "community": -1, "note": "Bridge node between auth and data" },
-      { "id": "bridge__data_cache", "pageRank": 0.12, "community": -1, "note": "Bridge node between data and cache" },
+      {
+        "id": "bridge__auth_data",
+        "pageRank": 0.15,
+        "community": -1,
+        "note": "Bridge node between auth and data"
+      },
+      {
+        "id": "bridge__data_cache",
+        "pageRank": 0.12,
+        "community": -1,
+        "note": "Bridge node between data and cache"
+      },
 
-      { "id": "isolated__orphan1", "pageRank": 0.01, "community": 3, "note": "Weak community connection" },
+      {
+        "id": "isolated__orphan1",
+        "pageRank": 0.01,
+        "community": 3,
+        "note": "Weak community connection"
+      },
       { "id": "isolated__orphan2", "pageRank": 0.01, "community": 3 }
     ],
     "capabilities": [
@@ -65,38 +80,181 @@
     ]
   },
   "edges": [
-    { "source": "auth__login", "target": "auth__verify", "type": "provides", "source_type": "observed", "weight": 0.95, "count": 500 },
-    { "source": "auth__verify", "target": "auth__refresh", "type": "sequence", "source_type": "observed", "weight": 0.60, "count": 200 },
-    { "source": "auth__login", "target": "auth__logout", "type": "sequence", "source_type": "observed", "weight": 0.40, "count": 180 },
-    { "source": "auth__refresh", "target": "auth__verify", "type": "depends_on", "source_type": "static", "weight": 1.0, "count": null },
+    {
+      "source": "auth__login",
+      "target": "auth__verify",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.95,
+      "count": 500
+    },
+    {
+      "source": "auth__verify",
+      "target": "auth__refresh",
+      "type": "sequence",
+      "source_type": "observed",
+      "weight": 0.60,
+      "count": 200
+    },
+    {
+      "source": "auth__login",
+      "target": "auth__logout",
+      "type": "sequence",
+      "source_type": "observed",
+      "weight": 0.40,
+      "count": 180
+    },
+    {
+      "source": "auth__refresh",
+      "target": "auth__verify",
+      "type": "depends_on",
+      "source_type": "static",
+      "weight": 1.0,
+      "count": null
+    },
 
-    { "source": "data__query", "target": "data__insert", "type": "sequence", "source_type": "observed", "weight": 0.30, "count": 100 },
-    { "source": "data__query", "target": "data__update", "type": "sequence", "source_type": "observed", "weight": 0.45, "count": 150 },
-    { "source": "data__query", "target": "data__delete", "type": "sequence", "source_type": "observed", "weight": 0.20, "count": 60 },
-    { "source": "data__insert", "target": "data__batch", "type": "provides", "source_type": "observed", "weight": 0.70, "count": 80 },
-    { "source": "data__update", "target": "data__batch", "type": "provides", "source_type": "observed", "weight": 0.65, "count": 75 },
+    {
+      "source": "data__query",
+      "target": "data__insert",
+      "type": "sequence",
+      "source_type": "observed",
+      "weight": 0.30,
+      "count": 100
+    },
+    {
+      "source": "data__query",
+      "target": "data__update",
+      "type": "sequence",
+      "source_type": "observed",
+      "weight": 0.45,
+      "count": 150
+    },
+    {
+      "source": "data__query",
+      "target": "data__delete",
+      "type": "sequence",
+      "source_type": "observed",
+      "weight": 0.20,
+      "count": 60
+    },
+    {
+      "source": "data__insert",
+      "target": "data__batch",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.70,
+      "count": 80
+    },
+    {
+      "source": "data__update",
+      "target": "data__batch",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.65,
+      "count": 75
+    },
 
-    { "source": "cache__get", "target": "cache__set", "type": "sequence", "source_type": "observed", "weight": 0.25, "count": 300 },
-    { "source": "cache__set", "target": "cache__invalidate", "type": "sequence", "source_type": "observed", "weight": 0.15, "count": 100 },
+    {
+      "source": "cache__get",
+      "target": "cache__set",
+      "type": "sequence",
+      "source_type": "observed",
+      "weight": 0.25,
+      "count": 300
+    },
+    {
+      "source": "cache__set",
+      "target": "cache__invalidate",
+      "type": "sequence",
+      "source_type": "observed",
+      "weight": 0.15,
+      "count": 100
+    },
 
-    { "source": "auth__verify", "target": "bridge__auth_data", "type": "provides", "source_type": "observed", "weight": 0.85, "count": 400, "note": "Cross-community bridge" },
-    { "source": "bridge__auth_data", "target": "data__query", "type": "provides", "source_type": "observed", "weight": 0.88, "count": 380 },
+    {
+      "source": "auth__verify",
+      "target": "bridge__auth_data",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.85,
+      "count": 400,
+      "note": "Cross-community bridge"
+    },
+    {
+      "source": "bridge__auth_data",
+      "target": "data__query",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.88,
+      "count": 380
+    },
 
-    { "source": "cache__get", "target": "bridge__data_cache", "type": "sequence", "source_type": "observed", "weight": 0.55, "count": 200, "note": "Cross-community bridge" },
-    { "source": "bridge__data_cache", "target": "data__query", "type": "provides", "source_type": "observed", "weight": 0.75, "count": 250 },
+    {
+      "source": "cache__get",
+      "target": "bridge__data_cache",
+      "type": "sequence",
+      "source_type": "observed",
+      "weight": 0.55,
+      "count": 200,
+      "note": "Cross-community bridge"
+    },
+    {
+      "source": "bridge__data_cache",
+      "target": "data__query",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.75,
+      "count": 250
+    },
 
-    { "source": "isolated__orphan1", "target": "isolated__orphan2", "type": "sequence", "source_type": "inferred", "weight": 0.20, "count": 5 },
+    {
+      "source": "isolated__orphan1",
+      "target": "isolated__orphan2",
+      "type": "sequence",
+      "source_type": "inferred",
+      "weight": 0.20,
+      "count": 5
+    },
 
-    { "source": "meta__backend", "target": "cap__authentication", "type": "contains", "source_type": "static", "weight": 1.0, "count": null },
-    { "source": "meta__backend", "target": "cap__crud_operations", "type": "contains", "source_type": "static", "weight": 1.0, "count": null },
-    { "source": "meta__backend", "target": "cap__caching", "type": "contains", "source_type": "static", "weight": 1.0, "count": null }
+    {
+      "source": "meta__backend",
+      "target": "cap__authentication",
+      "type": "contains",
+      "source_type": "static",
+      "weight": 1.0,
+      "count": null
+    },
+    {
+      "source": "meta__backend",
+      "target": "cap__crud_operations",
+      "type": "contains",
+      "source_type": "static",
+      "weight": 1.0,
+      "count": null
+    },
+    {
+      "source": "meta__backend",
+      "target": "cap__caching",
+      "type": "contains",
+      "source_type": "static",
+      "weight": 1.0,
+      "count": null
+    }
   ],
   "testCases": {
     "louvain_detection": {
       "expectedCommunities": 4,
       "communities": [
-        { "id": 0, "nodes": ["auth__login", "auth__logout", "auth__verify", "auth__refresh"], "name": "auth" },
-        { "id": 1, "nodes": ["data__query", "data__insert", "data__update", "data__delete", "data__batch"], "name": "data" },
+        {
+          "id": 0,
+          "nodes": ["auth__login", "auth__logout", "auth__verify", "auth__refresh"],
+          "name": "auth"
+        },
+        {
+          "id": 1,
+          "nodes": ["data__query", "data__insert", "data__update", "data__delete", "data__batch"],
+          "name": "data"
+        },
         { "id": 2, "nodes": ["cache__get", "cache__set", "cache__invalidate"], "name": "cache" },
         { "id": 3, "nodes": ["isolated__orphan1", "isolated__orphan2"], "name": "isolated" }
       ],

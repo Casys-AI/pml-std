@@ -7,8 +7,8 @@
  * @see 03-incidence-matrix.md, 04-message-passing.md, 09-testing.md
  */
 
-import { assert, assertEquals, assertNotEquals, assertExists } from "@std/assert";
-import { SHGAT, createSHGATFromCapabilities } from "../../../../src/graphrag/algorithms/shgat.ts";
+import { assert, assertEquals, assertExists, assertNotEquals } from "@std/assert";
+import { createSHGATFromCapabilities, SHGAT } from "../../../../src/graphrag/algorithms/shgat.ts";
 
 // Helper to create random embedding
 function randomEmbedding(dim: number): number[] {

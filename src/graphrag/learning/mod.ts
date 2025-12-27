@@ -8,19 +8,19 @@
  */
 
 export {
+  type EpisodicEvent,
   getContextHash,
   loadEpisodeStatistics,
   parseEpisodeStatistics,
   retrieveRelevantEpisodes,
-  type EpisodicEvent,
 } from "./episodic-adapter.ts";
 
 export {
   exportLearnedPatterns,
   importLearnedPatterns,
-  registerAgentHint,
   type LearnedPatternData,
   type PatternImport,
+  registerAgentHint,
 } from "./pattern-io.ts";
 
 export {
@@ -31,23 +31,23 @@ export {
 } from "./path-level-features.ts";
 
 export {
-  flattenExecutedPath,
-  getExecutionCount,
-  resetExecutionCounter,
-  shouldRunBatchTraining,
-  traceToTrainingExamples,
-  trainSHGATOnPathTraces,
   DEFAULT_BATCH_SIZE,
   DEFAULT_MAX_TRACES,
   DEFAULT_MIN_PRIORITY,
   DEFAULT_MIN_TRACES,
   DEFAULT_PER_ALPHA,
+  flattenExecutedPath,
+  getExecutionCount,
   type PERTrainingOptions,
   type PERTrainingResult,
+  resetExecutionCounter,
+  shouldRunBatchTraining,
+  traceToTrainingExamples,
+  trainSHGATOnPathTraces,
 } from "./per-training.ts";
 
 export {
+  type OnlineLearningConfig,
   OnlineLearningController,
   startOnlineLearning,
-  type OnlineLearningConfig,
 } from "./online-learning.ts";

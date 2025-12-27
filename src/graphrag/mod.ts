@@ -33,12 +33,13 @@ export type { ClusterableCapability, ClusterAssignment } from "./spectral-cluste
 
 // Local adaptive alpha (ADR-048)
 export { LocalAlphaCalculator } from "./local-alpha.ts";
-export type { AlphaMode, NodeType, LocalAlphaResult, HeatWeights } from "./local-alpha.ts";
+export type { AlphaMode, HeatWeights, LocalAlphaResult, NodeType } from "./local-alpha.ts";
 
 // Provides edge calculator (Story 10.3)
 export {
   areTypesCompatible,
   computeCoverage,
+  type ConsumerInputs,
   createFieldMapping,
   createProvidesEdges,
   findDirectProvidesEdge,
@@ -47,7 +48,6 @@ export {
   persistProvidesEdges,
   syncAllProvidesEdges,
   syncProvidesEdgesForTool,
-  type ConsumerInputs,
 } from "./provides-edge-calculator.ts";
 
 // Core types

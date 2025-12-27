@@ -18,8 +18,8 @@
 # These define the hard limits for alpha values across all algorithms.
 # Tighter bounds = more predictable behavior, wider = more adaptive.
 
-alpha_min: 0.5    # Floor: maximum graph influence allowed
-alpha_max: 1.0    # Ceiling: pure semantic (no graph influence)
+alpha_min: 0.5 # Floor: maximum graph influence allowed
+alpha_max: 1.0 # Ceiling: pure semantic (no graph influence)
 
 # =============================================================================
 # ALPHA SCALING FACTOR
@@ -42,10 +42,10 @@ alpha_scaling_factor: 0.5
 #          where confidence = observations / threshold
 
 cold_start:
-  threshold: 5          # Minimum observations before exiting cold start
-                        # Lower = trust graph sooner, higher = more conservative
-  prior_alpha: 1.0      # Starting alpha (pure semantic - safest default)
-  target_alpha: 0.7     # Alpha when exiting cold start (slight graph influence)
+  threshold: 5 # Minimum observations before exiting cold start
+  # Lower = trust graph sooner, higher = more conservative
+  prior_alpha: 1.0 # Starting alpha (pure semantic - safest default)
+  target_alpha: 0.7 # Alpha when exiting cold start (slight graph influence)
 
 # =============================================================================
 # HEAT DIFFUSION (Passive Suggestion - Tools)
@@ -57,10 +57,10 @@ cold_start:
 # Path connectivity uses common_neighbor_factor for indirect connections (Adamic-Adar style).
 
 heat_diffusion:
-  intrinsic_weight: 0.6       # Weight of node's own connectivity (degree-based)
-  neighbor_weight: 0.4        # Weight of neighbors' connectivity (propagation)
+  intrinsic_weight: 0.6 # Weight of node's own connectivity (degree-based)
+  neighbor_weight: 0.4 # Weight of neighbors' connectivity (propagation)
   common_neighbor_factor: 0.2 # Bonus per common neighbor when no direct edge exists
-                              # Higher = value indirect connections more
+# Higher = value indirect connections more
 
 # =============================================================================
 # HIERARCHY WEIGHTS (Passive Suggestion - Capabilities)
@@ -77,9 +77,9 @@ heat_diffusion:
 #   - Meta: mostly hierarchy (abstract, defined by children)
 
 hierarchy:
-  tool:       { intrinsic: 0.5, neighbor: 0.3, hierarchy: 0.2 }
+  tool: { intrinsic: 0.5, neighbor: 0.3, hierarchy: 0.2 }
   capability: { intrinsic: 0.3, neighbor: 0.4, hierarchy: 0.3 }
-  meta:       { intrinsic: 0.2, neighbor: 0.2, hierarchy: 0.6 }
+  meta: { intrinsic: 0.2, neighbor: 0.2, hierarchy: 0.6 }
 
 # =============================================================================
 # HIERARCHY INHERITANCE FACTORS
@@ -91,8 +91,8 @@ hierarchy:
 # Higher values = parent reputation strongly influences children
 
 hierarchy_inheritance:
-  meta_to_capability: 0.7   # Capability inherits 70% of meta-capability parent's heat
-  capability_to_tool: 0.5   # Tool inherits 50% of capability parent's heat
+  meta_to_capability: 0.7 # Capability inherits 70% of meta-capability parent's heat
+  capability_to_tool: 0.5 # Tool inherits 50% of capability parent's heat
 
 # =============================================================================
 # STRUCTURAL CONFIDENCE WEIGHTS
@@ -106,6 +106,6 @@ hierarchy_inheritance:
 #   - path_heat: how strong is the connection between context and target?
 
 structural_confidence:
-  target_heat: 0.4    # Weight of target node's connectivity
-  context_heat: 0.3   # Weight of context nodes' average connectivity
-  path_heat: 0.3      # Weight of path strength (direct edges or common neighbors)
+  target_heat: 0.4 # Weight of target node's connectivity
+  context_heat: 0.3 # Weight of context nodes' average connectivity
+  path_heat: 0.3 # Weight of path strength (direct edges or common neighbors)

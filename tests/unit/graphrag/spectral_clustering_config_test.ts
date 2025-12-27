@@ -9,9 +9,9 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { join } from "@std/path";
 import {
-  SpectralClusteringConfigError,
   DEFAULT_SPECTRAL_CLUSTERING_CONFIG,
   loadSpectralClusteringConfig,
+  SpectralClusteringConfigError,
 } from "../../../src/graphrag/spectral-clustering-config.ts";
 
 Deno.test("loadSpectralClusteringConfig - returns defaults when file not found", async () => {
@@ -54,7 +54,7 @@ pagerank:
   damping_factor: 0.90
   max_iterations: 150
   convergence_threshold: 0.00001
-`
+`,
   );
 
   try {
@@ -136,14 +136,14 @@ edge_weights:
   contains: 0.8
   alternative: 0.6
   sequence: 0.5
-`
+`,
   );
 
   try {
     await assertRejects(
       async () => await loadSpectralClusteringConfig(tempFile),
       SpectralClusteringConfigError,
-      "edgeWeights.dependency"
+      "edgeWeights.dependency",
     );
   } finally {
     await Deno.remove(tempDir, { recursive: true });
@@ -161,14 +161,14 @@ cluster_detection:
   max_eigenvalues: 10
   min_clusters: 8
   max_clusters: 3
-`
+`,
   );
 
   try {
     await assertRejects(
       async () => await loadSpectralClusteringConfig(tempFile),
       SpectralClusteringConfigError,
-      "minClusters"
+      "minClusters",
     );
   } finally {
     await Deno.remove(tempDir, { recursive: true });
@@ -184,14 +184,14 @@ Deno.test("loadSpectralClusteringConfig - rejects invalid cache TTL", async () =
     `
 cache:
   ttl_minutes: 0
-`
+`,
   );
 
   try {
     await assertRejects(
       async () => await loadSpectralClusteringConfig(tempFile),
       SpectralClusteringConfigError,
-      "ttlMinutes"
+      "ttlMinutes",
     );
   } finally {
     await Deno.remove(tempDir, { recursive: true });
@@ -209,14 +209,14 @@ pagerank:
   damping_factor: 1.5
   max_iterations: 100
   convergence_threshold: 0.000001
-`
+`,
   );
 
   try {
     await assertRejects(
       async () => await loadSpectralClusteringConfig(tempFile),
       SpectralClusteringConfigError,
-      "dampingFactor"
+      "dampingFactor",
     );
   } finally {
     await Deno.remove(tempDir, { recursive: true });
@@ -236,7 +236,7 @@ edge_weights:
   contains: 1.0
   alternative: 0.8
   sequence: 0.6
-`
+`,
   );
 
   try {
@@ -267,14 +267,14 @@ Deno.test("loadSpectralClusteringConfig - rejects negative confidence threshold"
     `
 edges:
   min_confidence: -0.1
-`
+`,
   );
 
   try {
     await assertRejects(
       async () => await loadSpectralClusteringConfig(tempFile),
       SpectralClusteringConfigError,
-      "minConfidence"
+      "minConfidence",
     );
   } finally {
     await Deno.remove(tempDir, { recursive: true });

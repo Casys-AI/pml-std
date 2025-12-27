@@ -7,12 +7,7 @@
  * NOTE: Requires --unstable-broadcast-channel and --unstable-worker-options flags
  */
 
-import {
-  assertEquals,
-  assertExists,
-  assertGreater,
-  assertStringIncludes,
-} from "@std/assert";
+import { assertEquals, assertExists, assertGreater, assertStringIncludes } from "@std/assert";
 import { WorkerBridge } from "../../src/sandbox/worker-bridge.ts";
 import { CapabilityExecutor } from "../../src/capabilities/executor.ts";
 import { CapabilityCodeGenerator } from "../../src/capabilities/code-generator.ts";
@@ -155,7 +150,10 @@ Deno.test({
 
     // 6. Verify execution succeeded
     assertEquals(result.success, true);
-    const execResult = result.result as { deployed: boolean; config: { env: string; version: string } };
+    const execResult = result.result as {
+      deployed: boolean;
+      config: { env: string; version: string };
+    };
     assertEquals(execResult.deployed, true);
     assertEquals(execResult.config.env, "prod");
     assertEquals(execResult.config.version, "1.0.0");

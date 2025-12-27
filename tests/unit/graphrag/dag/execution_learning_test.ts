@@ -16,10 +16,10 @@ import { assertEquals } from "@std/assert";
 // @ts-ignore: NPM module resolution
 import graphologyPkg from "graphology";
 import {
-  updateFromCodeExecution,
   createOrUpdateEdge,
-  type ExecutionLearningGraph,
   type EdgeEventEmitter,
+  type ExecutionLearningGraph,
+  updateFromCodeExecution,
 } from "../../../../src/graphrag/dag/execution-learning.ts";
 
 const { DirectedGraph } = graphologyPkg as { DirectedGraph: new () => any };

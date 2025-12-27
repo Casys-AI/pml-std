@@ -11,14 +11,14 @@
  * @module tests/integration/mcp-gateway/rate-limiting
  */
 
-import { assertEquals, assert } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import {
   createTestGatewayServer,
+  getRandomPort,
   makeGatewayRequest,
   makeJsonRpcRequest,
   seedTestApiKeys,
   withCloudMode,
-  getRandomPort,
 } from "./fixtures/gateway-test-helpers.ts";
 
 Deno.test({
@@ -64,7 +64,9 @@ Deno.test({
       // Note: Full rate limit testing (100 requests) is expensive
       // In practice, verify rate limiting mechanism is active
       // Use the rateLimitHit variable to suppress lint warning
-      console.log(`  ✓ MCP endpoint rate limiting active (${successCount} requests succeeded, hit limit: ${rateLimitHit})`);
+      console.log(
+        `  ✓ MCP endpoint rate limiting active (${successCount} requests succeeded, hit limit: ${rateLimitHit})`,
+      );
     } finally {
       await gateway.stop();
       await cleanup();

@@ -17,7 +17,8 @@ import type { MiniTool } from "./types.ts";
 export const mathTools: MiniTool[] = [
   {
     name: "math_eval",
-    description: "Evaluate mathematical expressions safely using mathjs. Supports arithmetic (+, -, *, /, %, ^), functions (sqrt, sin, cos, tan, log, exp), and constants (pi, e). Use for calculations, formula evaluation, or scientific computing. Keywords: math eval, calculate expression, mathjs, formula, scientific calculator, arithmetic.",
+    description:
+      "Evaluate mathematical expressions safely using mathjs. Supports arithmetic (+, -, *, /, %, ^), functions (sqrt, sin, cos, tan, log, exp), and constants (pi, e). Use for calculations, formula evaluation, or scientific computing. Keywords: math eval, calculate expression, mathjs, formula, scientific calculator, arithmetic.",
     category: "math",
     inputSchema: {
       type: "object",
@@ -39,7 +40,8 @@ export const mathTools: MiniTool[] = [
   },
   {
     name: "math_stats",
-    description: "Calculate comprehensive statistics for an array of numbers: min, max, sum, mean, median, standard deviation, and variance. Get count and all major statistical measures in one call. Use for data analysis, reporting, or understanding distributions. Keywords: statistics, mean average, median, stddev, variance, descriptive stats, data analysis.",
+    description:
+      "Calculate comprehensive statistics for an array of numbers: min, max, sum, mean, median, standard deviation, and variance. Get count and all major statistical measures in one call. Use for data analysis, reporting, or understanding distributions. Keywords: statistics, mean average, median, stddev, variance, descriptive stats, data analysis.",
     category: "math",
     inputSchema: {
       type: "object",
@@ -67,7 +69,8 @@ export const mathTools: MiniTool[] = [
   },
   {
     name: "math_round",
-    description: "Round a number to specified decimal places with configurable rounding mode (round, floor, ceil). Control precision for currency, measurements, or display formatting. Use for financial calculations, formatting output, or precision control. Keywords: round number, decimal places, floor ceiling, truncate, precision, format number.",
+    description:
+      "Round a number to specified decimal places with configurable rounding mode (round, floor, ceil). Control precision for currency, measurements, or display formatting. Use for financial calculations, formatting output, or precision control. Keywords: round number, decimal places, floor ceiling, truncate, precision, format number.",
     category: "math",
     inputSchema: {
       type: "object",
@@ -97,7 +100,8 @@ export const mathTools: MiniTool[] = [
   },
   {
     name: "math_random",
-    description: "Generate random numbers within a specified range. Create single or multiple random values, choose integer or decimal output. Use for testing, simulations, games, or sampling. Keywords: random number, generate random, random range, integer random, random generator, dice roll.",
+    description:
+      "Generate random numbers within a specified range. Create single or multiple random values, choose integer or decimal output. Use for testing, simulations, games, or sampling. Keywords: random number, generate random, random range, integer random, random generator, dice roll.",
     category: "math",
     inputSchema: {
       type: "object",
@@ -119,7 +123,8 @@ export const mathTools: MiniTool[] = [
   },
   {
     name: "math_percentage",
-    description: "Calculate percentage from value and total (value/total × 100) or calculate value from percentage and total. Bidirectional percentage calculations. Use for discounts, proportions, or statistical ratios. Keywords: percentage, percent of, calculate %, ratio, proportion, percent calculation.",
+    description:
+      "Calculate percentage from value and total (value/total × 100) or calculate value from percentage and total. Bidirectional percentage calculations. Use for discounts, proportions, or statistical ratios. Keywords: percentage, percent of, calculate %, ratio, proportion, percent calculation.",
     category: "math",
     inputSchema: {
       type: "object",
@@ -141,7 +146,8 @@ export const mathTools: MiniTool[] = [
   },
   {
     name: "math_linear_regression",
-    description: "Calculate linear regression (y = mx + b) from data points. Get slope, intercept, R² correlation, and prediction function. Analyze trends, fit lines to data, or make predictions. Use for trend analysis, forecasting, or data science. Keywords: linear regression, slope intercept, R squared, trend line, fit line, predict, correlation.",
+    description:
+      "Calculate linear regression (y = mx + b) from data points. Get slope, intercept, R² correlation, and prediction function. Analyze trends, fit lines to data, or make predictions. Use for trend analysis, forecasting, or data science. Keywords: linear regression, slope intercept, R squared, trend line, fit line, predict, correlation.",
     category: "math",
     inputSchema: {
       type: "object",
@@ -169,7 +175,8 @@ export const mathTools: MiniTool[] = [
   },
   {
     name: "math_mode",
-    description: "Find the most frequent value(s) in an array of numbers. Identify the statistical mode for frequency analysis or categorical data. Use for finding common values, frequency analysis, or statistics. Keywords: mode, most frequent, frequency, common value, statistical mode, occurrence.",
+    description:
+      "Find the most frequent value(s) in an array of numbers. Identify the statistical mode for frequency analysis or categorical data. Use for finding common values, frequency analysis, or statistics. Keywords: mode, most frequent, frequency, common value, statistical mode, occurrence.",
     category: "math",
     inputSchema: {
       type: "object",
@@ -186,7 +193,8 @@ export const mathTools: MiniTool[] = [
   },
   {
     name: "math_convert",
-    description: "Convert between common unit pairs: radians/degrees, Celsius/Fahrenheit, kilometers/miles. Quick conversion for everyday unit transformations. Use for unit conversion in calculations or display. Keywords: unit convert, radians degrees, celsius fahrenheit, km miles, temperature convert, angle convert.",
+    description:
+      "Convert between common unit pairs: radians/degrees, Celsius/Fahrenheit, kilometers/miles. Quick conversion for everyday unit transformations. Use for unit conversion in calculations or display. Keywords: unit convert, radians degrees, celsius fahrenheit, km miles, temperature convert, angle convert.",
     category: "math",
     inputSchema: {
       type: "object",
@@ -241,7 +249,8 @@ export const mathTools: MiniTool[] = [
   // Inspired by IT-Tools MCP: https://github.com/wrenchpilot/it-tools-mcp
   {
     name: "math_base_convert",
-    description: "Convert numbers between numeral bases: binary (2), octal (8), decimal (10), hexadecimal (16). Translate numbers between different representations. Use for programming, debugging, or educational purposes. Keywords: base convert, binary hex, decimal to hex, number base, radix, octal, hexadecimal.",
+    description:
+      "Convert numbers between numeral bases: binary (2), octal (8), decimal (10), hexadecimal (16). Translate numbers between different representations. Use for programming, debugging, or educational purposes. Keywords: base convert, binary hex, decimal to hex, number base, radix, octal, hexadecimal.",
     category: "math",
     inputSchema: {
       type: "object",
@@ -268,7 +277,8 @@ export const mathTools: MiniTool[] = [
   },
   {
     name: "math_roman",
-    description: "Convert between Roman numerals and Arabic numbers (1-3999). Translate MCMXCIV to 1994 or vice versa. Use for document formatting, historical dates, or educational purposes. Keywords: Roman numeral, arabic number, numeral convert, MCMXCIV, Roman to number, number to Roman.",
+    description:
+      "Convert between Roman numerals and Arabic numbers (1-3999). Translate MCMXCIV to 1994 or vice versa. Use for document formatting, historical dates, or educational purposes. Keywords: Roman numeral, arabic number, numeral convert, MCMXCIV, Roman to number, number to Roman.",
     category: "math",
     inputSchema: {
       type: "object",
@@ -287,9 +297,19 @@ export const mathTools: MiniTool[] = [
     },
     handler: ({ value, action }) => {
       const romanMap: [string, number][] = [
-        ["M", 1000], ["CM", 900], ["D", 500], ["CD", 400],
-        ["C", 100], ["XC", 90], ["L", 50], ["XL", 40],
-        ["X", 10], ["IX", 9], ["V", 5], ["IV", 4], ["I", 1],
+        ["M", 1000],
+        ["CM", 900],
+        ["D", 500],
+        ["CD", 400],
+        ["C", 100],
+        ["XC", 90],
+        ["L", 50],
+        ["XL", 40],
+        ["X", 10],
+        ["IX", 9],
+        ["V", 5],
+        ["IV", 4],
+        ["I", 1],
       ];
 
       if (action === "to_roman") {
@@ -320,7 +340,8 @@ export const mathTools: MiniTool[] = [
   },
   {
     name: "math_convert_angle",
-    description: "Convert between all angle units: degrees, radians, gradians, turns, arcminutes, arcseconds. Comprehensive angle unit conversion for trigonometry or navigation. Use for scientific calculations, CAD, or astronomy. Keywords: angle convert, degrees radians, gradians, turns, arcminutes, arcseconds, trigonometry.",
+    description:
+      "Convert between all angle units: degrees, radians, gradians, turns, arcminutes, arcseconds. Comprehensive angle unit conversion for trigonometry or navigation. Use for scientific calculations, CAD, or astronomy. Keywords: angle convert, degrees radians, gradians, turns, arcminutes, arcseconds, trigonometry.",
     category: "math",
     inputSchema: {
       type: "object",
@@ -368,7 +389,8 @@ export const mathTools: MiniTool[] = [
   },
   {
     name: "math_convert_energy",
-    description: "Convert between energy units: joules, calories, kilocalories, kWh, BTU, electron volts, watt-hours, foot-pounds. Essential for physics, nutrition, or engineering calculations. Use for energy calculations or unit comparison. Keywords: energy convert, joules calories, kWh BTU, electron volt, watt hours, calorie joule.",
+    description:
+      "Convert between energy units: joules, calories, kilocalories, kWh, BTU, electron volts, watt-hours, foot-pounds. Essential for physics, nutrition, or engineering calculations. Use for energy calculations or unit comparison. Keywords: energy convert, joules calories, kWh BTU, electron volt, watt hours, calorie joule.",
     category: "math",
     inputSchema: {
       type: "object",
@@ -376,12 +398,30 @@ export const mathTools: MiniTool[] = [
         value: { type: "number", description: "Value to convert" },
         from: {
           type: "string",
-          enum: ["joules", "calories", "kilocalories", "kwh", "btu", "ev", "watt_hours", "foot_pounds"],
+          enum: [
+            "joules",
+            "calories",
+            "kilocalories",
+            "kwh",
+            "btu",
+            "ev",
+            "watt_hours",
+            "foot_pounds",
+          ],
           description: "Source unit",
         },
         to: {
           type: "string",
-          enum: ["joules", "calories", "kilocalories", "kwh", "btu", "ev", "watt_hours", "foot_pounds"],
+          enum: [
+            "joules",
+            "calories",
+            "kilocalories",
+            "kwh",
+            "btu",
+            "ev",
+            "watt_hours",
+            "foot_pounds",
+          ],
           description: "Target unit",
         },
       },
@@ -407,7 +447,8 @@ export const mathTools: MiniTool[] = [
   },
   {
     name: "math_convert_power",
-    description: "Convert between power units: watts, kilowatts, megawatts, horsepower, BTU/hour, foot-pounds/second. Essential for engineering, automotive, or HVAC calculations. Use for power ratings or equipment specs. Keywords: power convert, watts horsepower, kilowatt, megawatt, BTU per hour, power units.",
+    description:
+      "Convert between power units: watts, kilowatts, megawatts, horsepower, BTU/hour, foot-pounds/second. Essential for engineering, automotive, or HVAC calculations. Use for power ratings or equipment specs. Keywords: power convert, watts horsepower, kilowatt, megawatt, BTU per hour, power units.",
     category: "math",
     inputSchema: {
       type: "object",
@@ -415,12 +456,26 @@ export const mathTools: MiniTool[] = [
         value: { type: "number", description: "Value to convert" },
         from: {
           type: "string",
-          enum: ["watts", "kilowatts", "megawatts", "horsepower", "btu_per_hour", "foot_pounds_per_second"],
+          enum: [
+            "watts",
+            "kilowatts",
+            "megawatts",
+            "horsepower",
+            "btu_per_hour",
+            "foot_pounds_per_second",
+          ],
           description: "Source unit",
         },
         to: {
           type: "string",
-          enum: ["watts", "kilowatts", "megawatts", "horsepower", "btu_per_hour", "foot_pounds_per_second"],
+          enum: [
+            "watts",
+            "kilowatts",
+            "megawatts",
+            "horsepower",
+            "btu_per_hour",
+            "foot_pounds_per_second",
+          ],
           description: "Target unit",
         },
       },
@@ -445,7 +500,8 @@ export const mathTools: MiniTool[] = [
   // Temperature conversion - inspired by IT-Tools MCP
   {
     name: "math_convert_temperature",
-    description: "Convert between all temperature scales: Celsius, Fahrenheit, Kelvin, Rankine. Get precise temperature conversions for weather, science, or cooking. Use for international communication or scientific work. Keywords: temperature convert, Celsius Fahrenheit, Kelvin, Rankine, degrees convert, thermometer.",
+    description:
+      "Convert between all temperature scales: Celsius, Fahrenheit, Kelvin, Rankine. Get precise temperature conversions for weather, science, or cooking. Use for international communication or scientific work. Keywords: temperature convert, Celsius Fahrenheit, Kelvin, Rankine, degrees convert, thermometer.",
     category: "math",
     inputSchema: {
       type: "object",
@@ -513,7 +569,8 @@ export const mathTools: MiniTool[] = [
   },
   {
     name: "math_percentage_calc",
-    description: "Calculate various percentage operations: X% of Y, percentage change between values, increase/decrease by %, what percent is X of Y. Complete percentage calculator for business or analysis. Keywords: percentage calculator, percent change, increase decrease, percent of, markup markdown, growth rate.",
+    description:
+      "Calculate various percentage operations: X% of Y, percentage change between values, increase/decrease by %, what percent is X of Y. Complete percentage calculator for business or analysis. Keywords: percentage calculator, percent change, increase decrease, percent of, markup markdown, growth rate.",
     category: "math",
     inputSchema: {
       type: "object",
@@ -592,7 +649,8 @@ export const mathTools: MiniTool[] = [
   // Comprehensive unit conversion - inspired by calculator-server
   {
     name: "math_convert_units",
-    description: "Universal unit converter for length, weight, volume, area, speed, and data storage. Convert meters to feet, kg to lbs, liters to gallons, GB to MB, and more. Auto-detects unit category. Use for any measurement conversion. Keywords: unit converter, metric imperial, length weight volume, convert units, measurement, meters feet.",
+    description:
+      "Universal unit converter for length, weight, volume, area, speed, and data storage. Convert meters to feet, kg to lbs, liters to gallons, GB to MB, and more. Auto-detects unit category. Use for any measurement conversion. Keywords: unit converter, metric imperial, length weight volume, convert units, measurement, meters feet.",
     category: "math",
     inputSchema: {
       type: "object",
@@ -615,86 +673,169 @@ export const mathTools: MiniTool[] = [
 
       // Length conversions (base: meters)
       const length: Record<string, number> = {
-        meters: 1, m: 1, meter: 1,
-        kilometers: 1000, km: 1000,
-        centimeters: 0.01, cm: 0.01,
-        millimeters: 0.001, mm: 0.001,
-        micrometers: 1e-6, um: 1e-6,
-        nanometers: 1e-9, nm: 1e-9,
-        miles: 1609.344, mi: 1609.344,
-        yards: 0.9144, yd: 0.9144,
-        feet: 0.3048, ft: 0.3048, foot: 0.3048,
-        inches: 0.0254, in: 0.0254, inch: 0.0254,
-        nautical_miles: 1852, nmi: 1852,
-        light_years: 9.461e15, ly: 9.461e15,
+        meters: 1,
+        m: 1,
+        meter: 1,
+        kilometers: 1000,
+        km: 1000,
+        centimeters: 0.01,
+        cm: 0.01,
+        millimeters: 0.001,
+        mm: 0.001,
+        micrometers: 1e-6,
+        um: 1e-6,
+        nanometers: 1e-9,
+        nm: 1e-9,
+        miles: 1609.344,
+        mi: 1609.344,
+        yards: 0.9144,
+        yd: 0.9144,
+        feet: 0.3048,
+        ft: 0.3048,
+        foot: 0.3048,
+        inches: 0.0254,
+        in: 0.0254,
+        inch: 0.0254,
+        nautical_miles: 1852,
+        nmi: 1852,
+        light_years: 9.461e15,
+        ly: 9.461e15,
       };
 
       // Weight/mass conversions (base: kilograms)
       const weight: Record<string, number> = {
-        kilograms: 1, kg: 1,
-        grams: 0.001, g: 0.001,
-        milligrams: 1e-6, mg: 1e-6,
-        micrograms: 1e-9, ug: 1e-9,
-        metric_tons: 1000, tonnes: 1000, t: 1000,
-        pounds: 0.453592, lb: 0.453592, lbs: 0.453592,
-        ounces: 0.0283495, oz: 0.0283495,
-        stones: 6.35029, st: 6.35029,
-        short_tons: 907.185, us_tons: 907.185,
-        long_tons: 1016.05, uk_tons: 1016.05,
+        kilograms: 1,
+        kg: 1,
+        grams: 0.001,
+        g: 0.001,
+        milligrams: 1e-6,
+        mg: 1e-6,
+        micrograms: 1e-9,
+        ug: 1e-9,
+        metric_tons: 1000,
+        tonnes: 1000,
+        t: 1000,
+        pounds: 0.453592,
+        lb: 0.453592,
+        lbs: 0.453592,
+        ounces: 0.0283495,
+        oz: 0.0283495,
+        stones: 6.35029,
+        st: 6.35029,
+        short_tons: 907.185,
+        us_tons: 907.185,
+        long_tons: 1016.05,
+        uk_tons: 1016.05,
       };
 
       // Volume conversions (base: liters)
       const volume: Record<string, number> = {
-        liters: 1, l: 1, liter: 1, litres: 1,
-        milliliters: 0.001, ml: 0.001,
-        cubic_meters: 1000, m3: 1000,
-        cubic_centimeters: 0.001, cm3: 0.001, cc: 0.001,
-        gallons: 3.78541, gal: 3.78541, us_gallons: 3.78541,
-        uk_gallons: 4.54609, imperial_gallons: 4.54609,
-        quarts: 0.946353, qt: 0.946353,
-        pints: 0.473176, pt: 0.473176,
-        cups: 0.236588, cup: 0.236588,
-        fluid_ounces: 0.0295735, fl_oz: 0.0295735,
-        tablespoons: 0.0147868, tbsp: 0.0147868,
-        teaspoons: 0.00492892, tsp: 0.00492892,
+        liters: 1,
+        l: 1,
+        liter: 1,
+        litres: 1,
+        milliliters: 0.001,
+        ml: 0.001,
+        cubic_meters: 1000,
+        m3: 1000,
+        cubic_centimeters: 0.001,
+        cm3: 0.001,
+        cc: 0.001,
+        gallons: 3.78541,
+        gal: 3.78541,
+        us_gallons: 3.78541,
+        uk_gallons: 4.54609,
+        imperial_gallons: 4.54609,
+        quarts: 0.946353,
+        qt: 0.946353,
+        pints: 0.473176,
+        pt: 0.473176,
+        cups: 0.236588,
+        cup: 0.236588,
+        fluid_ounces: 0.0295735,
+        fl_oz: 0.0295735,
+        tablespoons: 0.0147868,
+        tbsp: 0.0147868,
+        teaspoons: 0.00492892,
+        tsp: 0.00492892,
       };
 
       // Area conversions (base: square meters)
       const area: Record<string, number> = {
-        square_meters: 1, m2: 1, sq_m: 1,
-        square_kilometers: 1e6, km2: 1e6, sq_km: 1e6,
-        square_centimeters: 1e-4, cm2: 1e-4, sq_cm: 1e-4,
-        square_millimeters: 1e-6, mm2: 1e-6, sq_mm: 1e-6,
-        hectares: 10000, ha: 10000,
-        acres: 4046.86, ac: 4046.86,
-        square_feet: 0.092903, ft2: 0.092903, sq_ft: 0.092903,
-        square_yards: 0.836127, yd2: 0.836127, sq_yd: 0.836127,
-        square_inches: 0.00064516, in2: 0.00064516, sq_in: 0.00064516,
-        square_miles: 2.59e6, mi2: 2.59e6, sq_mi: 2.59e6,
+        square_meters: 1,
+        m2: 1,
+        sq_m: 1,
+        square_kilometers: 1e6,
+        km2: 1e6,
+        sq_km: 1e6,
+        square_centimeters: 1e-4,
+        cm2: 1e-4,
+        sq_cm: 1e-4,
+        square_millimeters: 1e-6,
+        mm2: 1e-6,
+        sq_mm: 1e-6,
+        hectares: 10000,
+        ha: 10000,
+        acres: 4046.86,
+        ac: 4046.86,
+        square_feet: 0.092903,
+        ft2: 0.092903,
+        sq_ft: 0.092903,
+        square_yards: 0.836127,
+        yd2: 0.836127,
+        sq_yd: 0.836127,
+        square_inches: 0.00064516,
+        in2: 0.00064516,
+        sq_in: 0.00064516,
+        square_miles: 2.59e6,
+        mi2: 2.59e6,
+        sq_mi: 2.59e6,
       };
 
       // Speed conversions (base: meters per second)
       const speed: Record<string, number> = {
-        meters_per_second: 1, m_s: 1, mps: 1,
-        kilometers_per_hour: 0.277778, km_h: 0.277778, kph: 0.277778, kmh: 0.277778,
-        miles_per_hour: 0.44704, mph: 0.44704, mi_h: 0.44704,
-        feet_per_second: 0.3048, ft_s: 0.3048, fps: 0.3048,
-        knots: 0.514444, kn: 0.514444, kt: 0.514444,
+        meters_per_second: 1,
+        m_s: 1,
+        mps: 1,
+        kilometers_per_hour: 0.277778,
+        km_h: 0.277778,
+        kph: 0.277778,
+        kmh: 0.277778,
+        miles_per_hour: 0.44704,
+        mph: 0.44704,
+        mi_h: 0.44704,
+        feet_per_second: 0.3048,
+        ft_s: 0.3048,
+        fps: 0.3048,
+        knots: 0.514444,
+        kn: 0.514444,
+        kt: 0.514444,
         mach: 343, // at sea level
       };
 
       // Data conversions (base: bytes)
       const data: Record<string, number> = {
-        bytes: 1, b: 1, byte: 1,
-        kilobytes: 1024, kb: 1024,
-        megabytes: 1048576, mb: 1048576,
-        gigabytes: 1073741824, gb: 1073741824,
-        terabytes: 1099511627776, tb: 1099511627776,
-        petabytes: 1125899906842624, pb: 1125899906842624,
-        bits: 0.125, bit: 0.125,
-        kilobits: 128, kbit: 128,
-        megabits: 131072, mbit: 131072,
-        gigabits: 134217728, gbit: 134217728,
+        bytes: 1,
+        b: 1,
+        byte: 1,
+        kilobytes: 1024,
+        kb: 1024,
+        megabytes: 1048576,
+        mb: 1048576,
+        gigabytes: 1073741824,
+        gb: 1073741824,
+        terabytes: 1099511627776,
+        tb: 1099511627776,
+        petabytes: 1125899906842624,
+        pb: 1125899906842624,
+        bits: 0.125,
+        bit: 0.125,
+        kilobits: 128,
+        kbit: 128,
+        megabits: 131072,
+        mbit: 131072,
+        gigabits: 134217728,
+        gbit: 134217728,
       };
 
       const categories = { length, weight, volume, area, speed, data };
@@ -712,26 +853,40 @@ export const mathTools: MiniTool[] = [
         }
       }
 
-      throw new Error(`Cannot convert between '${from}' and '${to}'. Ensure both units are in the same category.`);
+      throw new Error(
+        `Cannot convert between '${from}' and '${to}'. Ensure both units are in the same category.`,
+      );
     },
   },
   // Financial calculations - inspired by calculator-server
   {
     name: "math_financial",
-    description: "Financial calculator for compound/simple interest, loan payments, present/future value, NPV, and ROI. Calculate mortgage payments, investment growth, or project profitability. Use for financial planning, loans, or investment analysis. Keywords: compound interest, loan payment, NPV, ROI, mortgage calculator, future value, amortization.",
+    description:
+      "Financial calculator for compound/simple interest, loan payments, present/future value, NPV, and ROI. Calculate mortgage payments, investment growth, or project profitability. Use for financial planning, loans, or investment analysis. Keywords: compound interest, loan payment, NPV, ROI, mortgage calculator, future value, amortization.",
     category: "math",
     inputSchema: {
       type: "object",
       properties: {
         operation: {
           type: "string",
-          enum: ["compound_interest", "simple_interest", "loan_payment", "present_value", "future_value", "npv", "roi"],
+          enum: [
+            "compound_interest",
+            "simple_interest",
+            "loan_payment",
+            "present_value",
+            "future_value",
+            "npv",
+            "roi",
+          ],
           description: "Financial operation",
         },
         principal: { type: "number", description: "Principal amount (P)" },
         rate: { type: "number", description: "Interest rate as percentage (e.g., 5 for 5%)" },
         time: { type: "number", description: "Time in years" },
-        periods: { type: "number", description: "Compounding periods per year (default: 12 for monthly)" },
+        periods: {
+          type: "number",
+          description: "Compounding periods per year (default: 12 for monthly)",
+        },
         payment: { type: "number", description: "Regular payment amount" },
         cashFlows: {
           type: "array",
@@ -743,7 +898,9 @@ export const mathTools: MiniTool[] = [
       },
       required: ["operation"],
     },
-    handler: ({ operation, principal, rate, time, periods = 12, cashFlows, initialInvestment, finalValue }) => {
+    handler: (
+      { operation, principal, rate, time, periods = 12, cashFlows, initialInvestment, finalValue },
+    ) => {
       const P = principal as number;
       const r = (rate as number) / 100; // Convert percentage to decimal
       const t = time as number;
@@ -855,12 +1012,14 @@ export const mathTools: MiniTool[] = [
           if (initialInvestment === undefined || finalValue === undefined) {
             throw new Error("roi requires initialInvestment and finalValue");
           }
-          const roi = ((finalValue as number) - (initialInvestment as number)) / (initialInvestment as number) * 100;
+          const roi = ((finalValue as number) - (initialInvestment as number)) /
+            (initialInvestment as number) * 100;
           return {
             initialInvestment,
             finalValue,
             roi: `${Math.round(roi * 100) / 100}%`,
-            profit: Math.round(((finalValue as number) - (initialInvestment as number)) * 100) / 100,
+            profit: Math.round(((finalValue as number) - (initialInvestment as number)) * 100) /
+              100,
           };
         }
 

@@ -6,16 +6,16 @@
  * @module mcp/handlers
  */
 
-export { handleSearchTools, handleSearchCapabilities } from "./search-handler.ts";
-export { handleDiscover, type DiscoverArgs } from "./discover-handler.ts";
-export { handleExecuteCode, type CodeExecutionDependencies } from "./code-execution-handler.ts";
-export { handleExecute, type ExecuteDependencies, type ExecuteArgs } from "./execute-handler.ts";
+export { handleSearchCapabilities, handleSearchTools } from "./search-handler.ts";
+export { type DiscoverArgs, handleDiscover } from "./discover-handler.ts";
+export { type CodeExecutionDependencies, handleExecuteCode } from "./code-execution-handler.ts";
+export { type ExecuteArgs, type ExecuteDependencies, handleExecute } from "./execute-handler.ts";
 export {
-  handleWorkflowExecution,
-  handleContinue,
   handleAbort,
-  handleReplan,
   handleApprovalResponse,
+  handleContinue,
+  handleReplan,
+  handleWorkflowExecution,
   processGeneratorUntilPause,
   type WorkflowHandlerDependencies,
 } from "./workflow-handler.ts";

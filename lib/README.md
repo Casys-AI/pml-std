@@ -17,6 +17,7 @@ lib/
 ```
 
 **Separation of concerns:**
+
 - `std/` = Pure TypeScript library, no MCP protocol
 - `*-server.ts` = MCP server bootstrap (stdio transport)
 
@@ -30,38 +31,38 @@ lib/
 
 This library is inspired by and includes tools from the following open-source MCP servers:
 
-| Source | URL | Tools Used |
-|--------|-----|------------|
-| **IT-Tools MCP** | https://github.com/wrenchpilot/it-tools-mcp | color, network, util, crypto (jwt, ulid, hmac, totp), datetime (cron, unix), format (yaml, markdown) |
-| **TextToolkit MCP** | https://github.com/Cicatriiz/text-toolkit | text (regex, lorem, slugify, nato, diff, stats) |
-| **Math MCP** | https://github.com/EthanHenrickson/math-mcp | math (mode, convert) |
-| **JSON MCP** | https://github.com/VadimNastoyashchy/json-mcp | json (flatten, unflatten, pick, omit) |
+| Source              | URL                                           | Tools Used                                                                                           |
+| ------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| **IT-Tools MCP**    | https://github.com/wrenchpilot/it-tools-mcp   | color, network, util, crypto (jwt, ulid, hmac, totp), datetime (cron, unix), format (yaml, markdown) |
+| **TextToolkit MCP** | https://github.com/Cicatriiz/text-toolkit     | text (regex, lorem, slugify, nato, diff, stats)                                                      |
+| **Math MCP**        | https://github.com/EthanHenrickson/math-mcp   | math (mode, convert)                                                                                 |
+| **JSON MCP**        | https://github.com/VadimNastoyashchy/json-mcp | json (flatten, unflatten, pick, omit)                                                                |
 
 #### Categories
 
-| Category | Count | Examples |
-|----------|-------|----------|
-| **system** | 71 | docker, git, curl, dig, ping, ps, tar, zip, ssh, rsync, kubectl, sqlite, psql, redis, ffmpeg, imagemagick, npm, pip, aws, gcloud, chmod, df, du, sed, awk, jq |
-| **agent** | 8 | delegate, decide, analyze, extract, classify, summarize, generate, compare (LLM-powered via MCP sampling) |
-| **python** | 5 | exec, eval, pip, script, version (Python execution in isolated subprocess) |
-| text | 26 | split, join, regex, case, template, slugify, nato, lorem, diff, stats, crontab, markdown_toc, ascii_art, numeronym, obfuscate, emoji_search, unicode_info, homoglyph, analyze_words, list_convert |
-| format | 25 | number, bytes, duration, truncate, yaml_to_json, json_to_yaml, toml_to_json, json_to_toml, markdown_to_html, html_to_markdown, json_to_csv, format_sql, format_phone, xml_escape, properties, format_html, format_javascript, format_xml, format_yaml |
-| crypto | 20 | hash, uuid, ulid, base64, hex, url, html, password, jwt_decode, hmac, totp, text_to_binary, generate_token, basic_auth, bcrypt, bip39, md5 |
-| collections | 20 | map, filter, sort, unique, group, chunk, zip, flatten, partition, sample |
-| algo | 20 | binary_search, group_aggregate, top_n, sort variants, quickselect |
-| math | 17 | eval, stats, round, random, mode, convert, base_convert, roman, convert_angle, convert_energy, convert_power, convert_temperature, percentage, convert_units, financial |
-| data | 11 | person, address, company, lorem, internet, finance, date, image, svg_placeholder, qr_code, barcode |
-| network | 11 | parse_url, build_url, ip_info, ipv6_info, subnet_calc, mac_format, fang_url, decode_safelink, generate_mac, generate_ipv6_ula, random_port |
-| util | 11 | http_status, mime_type, mime_reverse, rem_px, format_css, normalize_email, port_numbers, file_signature, user_agent_parse, slugify |
-| validation | 11 | email, url, uuid, ip, phone, date, json, schema, credit_card, iban |
-| state | 10 | set, get, delete, has, keys, values, clear, size, entries (KV store with TTL) |
-| json | 10 | parse, stringify, query, merge, flatten, unflatten, pick, omit, keys, compare |
-| vfs | 8 | read, write, list, mkdir, rm, stat, exists, copy |
-| transform | 8 | csv_parse, csv_stringify, xml_parse, xml_stringify |
-| datetime | 7 | now, format, diff, add, parse, cron_parse, unix |
-| color | 7 | hex_to_rgb, rgb_to_hex, rgb_to_hsl, hsl_to_rgb, palette, blend, contrast |
-| http | 6 | build_url, parse_url, headers, query_string |
-| compare | 6 | diff, levenshtein, similarity, fuzzy, deep_equal, array_diff |
+| Category    | Count | Examples                                                                                                                                                                                                                                              |
+| ----------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **system**  | 71    | docker, git, curl, dig, ping, ps, tar, zip, ssh, rsync, kubectl, sqlite, psql, redis, ffmpeg, imagemagick, npm, pip, aws, gcloud, chmod, df, du, sed, awk, jq                                                                                         |
+| **agent**   | 8     | delegate, decide, analyze, extract, classify, summarize, generate, compare (LLM-powered via MCP sampling)                                                                                                                                             |
+| **python**  | 5     | exec, eval, pip, script, version (Python execution in isolated subprocess)                                                                                                                                                                            |
+| text        | 26    | split, join, regex, case, template, slugify, nato, lorem, diff, stats, crontab, markdown_toc, ascii_art, numeronym, obfuscate, emoji_search, unicode_info, homoglyph, analyze_words, list_convert                                                     |
+| format      | 25    | number, bytes, duration, truncate, yaml_to_json, json_to_yaml, toml_to_json, json_to_toml, markdown_to_html, html_to_markdown, json_to_csv, format_sql, format_phone, xml_escape, properties, format_html, format_javascript, format_xml, format_yaml |
+| crypto      | 20    | hash, uuid, ulid, base64, hex, url, html, password, jwt_decode, hmac, totp, text_to_binary, generate_token, basic_auth, bcrypt, bip39, md5                                                                                                            |
+| collections | 20    | map, filter, sort, unique, group, chunk, zip, flatten, partition, sample                                                                                                                                                                              |
+| algo        | 20    | binary_search, group_aggregate, top_n, sort variants, quickselect                                                                                                                                                                                     |
+| math        | 17    | eval, stats, round, random, mode, convert, base_convert, roman, convert_angle, convert_energy, convert_power, convert_temperature, percentage, convert_units, financial                                                                               |
+| data        | 11    | person, address, company, lorem, internet, finance, date, image, svg_placeholder, qr_code, barcode                                                                                                                                                    |
+| network     | 11    | parse_url, build_url, ip_info, ipv6_info, subnet_calc, mac_format, fang_url, decode_safelink, generate_mac, generate_ipv6_ula, random_port                                                                                                            |
+| util        | 11    | http_status, mime_type, mime_reverse, rem_px, format_css, normalize_email, port_numbers, file_signature, user_agent_parse, slugify                                                                                                                    |
+| validation  | 11    | email, url, uuid, ip, phone, date, json, schema, credit_card, iban                                                                                                                                                                                    |
+| state       | 10    | set, get, delete, has, keys, values, clear, size, entries (KV store with TTL)                                                                                                                                                                         |
+| json        | 10    | parse, stringify, query, merge, flatten, unflatten, pick, omit, keys, compare                                                                                                                                                                         |
+| vfs         | 8     | read, write, list, mkdir, rm, stat, exists, copy                                                                                                                                                                                                      |
+| transform   | 8     | csv_parse, csv_stringify, xml_parse, xml_stringify                                                                                                                                                                                                    |
+| datetime    | 7     | now, format, diff, add, parse, cron_parse, unix                                                                                                                                                                                                       |
+| color       | 7     | hex_to_rgb, rgb_to_hex, rgb_to_hsl, hsl_to_rgb, palette, blend, contrast                                                                                                                                                                              |
+| http        | 6     | build_url, parse_url, headers, query_string                                                                                                                                                                                                           |
+| compare     | 6     | diff, levenshtein, similarity, fuzzy, deep_equal, array_diff                                                                                                                                                                                          |
 
 ## Usage
 
@@ -88,7 +89,8 @@ With category filtering (load only specific categories):
     "algo-tools": {
       "command": "deno",
       "args": [
-        "run", "--allow-all",
+        "run",
+        "--allow-all",
         "lib/mcp-tools-server.ts",
         "--categories=algo,compare,math"
       ]
@@ -100,7 +102,7 @@ With category filtering (load only specific categories):
 ### Option 2: Direct Import (TypeScript/Deno)
 
 ```typescript
-import { MiniToolsClient, getDefaultMCPClients } from "./lib/mcp-tools.ts";
+import { getDefaultMCPClients, MiniToolsClient } from "./lib/mcp-tools.ts";
 
 // All categories
 const client = new MiniToolsClient();
@@ -114,7 +116,7 @@ const tools = await client.listTools();
 // Call a tool
 const result = await client.callTool("text_split", {
   text: "hello,world",
-  separator: ","
+  separator: ",",
 });
 ```
 
@@ -138,13 +140,13 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        input: { type: "string", description: "Input value" }
+        input: { type: "string", description: "Input value" },
       },
-      required: ["input"]
+      required: ["input"],
     },
     handler: ({ input }) => {
       return { result: `Processed: ${input}` };
-    }
+    },
   },
   // ... more tools
 ];
@@ -156,7 +158,7 @@ export class MyLibraryClient {
   }
 
   async callTool(name: string, args: Record<string, unknown>) {
-    const tool = TOOLS.find(t => t.name === name);
+    const tool = TOOLS.find((t) => t.name === name);
     if (!tool) throw new Error(`Unknown tool: ${name}`);
     return tool.handler(args);
   }
@@ -207,13 +209,13 @@ class MCPServer {
 
 ## Primitives vs Connectors
 
-| | Primitives | Connectors |
-|--|------------|------------|
-| Config | None needed | API keys required |
-| Network | Offline OK | Requires network |
-| Side effects | Pure data transform | Real actions |
-| Cost | Free | API calls = $ |
-| Examples | text, algo, compare | github, slack, postgres |
+|              | Primitives          | Connectors              |
+| ------------ | ------------------- | ----------------------- |
+| Config       | None needed         | API keys required       |
+| Network      | Offline OK          | Requires network        |
+| Side effects | Pure data transform | Real actions            |
+| Cost         | Free                | API calls = $           |
+| Examples     | text, algo, compare | github, slack, postgres |
 
 **Primitives** (this library): Zero config, pure data manipulation, safe for learning.
 
@@ -262,12 +264,13 @@ The **agent** category provides LLM-powered tools using MCP Sampling (SEP-1577, 
 
 ### Transport-specific setup
 
-| Mode | Sampling Handler | Status |
-|------|------------------|--------|
-| **Claude Code** (stdio) | Built into `mcp-tools-server.ts` | ✅ Ready |
-| **Cloud/Gateway** (HTTP) | TODO: Implement in Gateway | ⚠️ Not implemented |
+| Mode                     | Sampling Handler                 | Status             |
+| ------------------------ | -------------------------------- | ------------------ |
+| **Claude Code** (stdio)  | Built into `mcp-tools-server.ts` | ✅ Ready           |
+| **Cloud/Gateway** (HTTP) | TODO: Implement in Gateway       | ⚠️ Not implemented |
 
 **Cloud mode TODO:** When implementing cloud deployment, the Gateway must:
+
 1. Handle `sampling/createMessage` requests from the MCP server
 2. Route to configured LLM API (Anthropic, OpenAI, etc.)
 3. Execute the agentic loop with tool filtering
@@ -281,13 +284,13 @@ The **python** category enables running Python code in isolated subprocesses.
 
 ### Tools
 
-| Tool | Description |
-|------|-------------|
-| `python_exec` | Execute Python code, return stdout/stderr |
-| `python_eval` | Evaluate expression, return JSON result |
-| `python_pip` | Install pip packages |
-| `python_script` | Run a Python script file |
-| `python_version` | Get Python installation info |
+| Tool             | Description                               |
+| ---------------- | ----------------------------------------- |
+| `python_exec`    | Execute Python code, return stdout/stderr |
+| `python_eval`    | Evaluate expression, return JSON result   |
+| `python_pip`     | Install pip packages                      |
+| `python_script`  | Run a Python script file                  |
+| `python_version` | Get Python installation info              |
 
 ### Requirements
 
@@ -310,13 +313,14 @@ import pandas as pd
 df = pd.read_csv('data.csv')
 print(df.describe().to_json())
   `,
-  timeout: 60000
+  timeout: 60000,
 });
 ```
 
 ## Future Libraries
 
 Planned additions:
+
 - `mcp-connectors.ts` - Curated list of external service connectors
 - `mcp-analytics.ts` - Data analysis primitives
 - `mcp-ai.ts` - AI/ML utility tools

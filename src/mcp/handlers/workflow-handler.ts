@@ -10,12 +10,15 @@
 export type { WorkflowHandlerDependencies } from "./workflow-handler-types.ts";
 
 // Re-export workflow execution
-export { handleWorkflowExecution, processGeneratorUntilPause } from "./workflow-execution-handler.ts";
+export {
+  handleWorkflowExecution,
+  processGeneratorUntilPause,
+} from "./workflow-execution-handler.ts";
 
 // Re-export control commands
 export {
-  handleContinue,
   handleAbort,
-  handleReplan,
   handleApprovalResponse,
+  handleContinue,
+  handleReplan,
 } from "./control-commands-handler.ts";

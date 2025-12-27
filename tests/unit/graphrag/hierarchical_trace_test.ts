@@ -413,7 +413,10 @@ Deno.test("ADR-041: integration - createOrUpdateEdge logic with weight calculati
   const OBSERVED_THRESHOLD = 3;
 
   // Simulated in-memory graph edge store
-  const edges = new Map<string, { count: number; weight: number; edge_type: string; edge_source: string }>();
+  const edges = new Map<
+    string,
+    { count: number; weight: number; edge_type: string; edge_source: string }
+  >();
 
   function createOrUpdateEdge(
     fromId: string,

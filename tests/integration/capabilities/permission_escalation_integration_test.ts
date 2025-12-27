@@ -16,8 +16,8 @@ import { PGliteClient } from "../../../src/db/client.ts";
 import { PermissionAuditStore } from "../../../src/capabilities/permission-audit-store.ts";
 import { CapabilityStore } from "../../../src/capabilities/capability-store.ts";
 import {
-  PermissionEscalationHandler,
   formatEscalationRequest,
+  PermissionEscalationHandler,
 } from "../../../src/capabilities/permission-escalation-handler.ts";
 import { suggestEscalation } from "../../../src/capabilities/permission-escalation.ts";
 import { MockEmbeddingModel } from "../../fixtures/mock-embedding-model.ts";

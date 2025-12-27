@@ -6,10 +6,10 @@
  * @module tests/unit/capabilities/capability_registry_test
  */
 
-import { assertEquals, assert, assertRejects } from "@std/assert";
+import { assert, assertEquals, assertRejects } from "@std/assert";
 import { CapabilityRegistry } from "../../../src/capabilities/capability-registry.ts";
 import { PGliteClient } from "../../../src/db/client.ts";
-import { MigrationRunner, getAllMigrations } from "../../../src/db/migrations.ts";
+import { getAllMigrations, MigrationRunner } from "../../../src/db/migrations.ts";
 import { createTestWorkflowPattern } from "../../fixtures/test-helpers.ts";
 
 // Test setup helper
@@ -74,17 +74,18 @@ Deno.test("CapabilityRegistry.create - rejects invalid display name", async () =
 
   // Validation happens before DB access, so dummy values are fine
   await assertRejects(
-    () => registry.create({
-      displayName: "my function", // has space - invalid
-      org: "local",
-      project: "default",
-      namespace: "fs",
-      action: "read",
-      workflowPatternId: "dummy-pattern-id",
-      hash: "abcd",
-    }),
+    () =>
+      registry.create({
+        displayName: "my function", // has space - invalid
+        org: "local",
+        project: "default",
+        namespace: "fs",
+        action: "read",
+        workflowPatternId: "dummy-pattern-id",
+        hash: "abcd",
+      }),
     Error,
-    "Invalid display name"
+    "Invalid display name",
   );
 
   await db.close();
@@ -96,17 +97,18 @@ Deno.test("CapabilityRegistry.create - rejects invalid org (starts with number)"
 
   // Validation happens before DB access, so dummy values are fine
   await assertRejects(
-    () => registry.create({
-      displayName: "valid_name",
-      org: "123invalid", // starts with number - invalid
-      project: "default",
-      namespace: "fs",
-      action: "read",
-      workflowPatternId: "dummy-pattern-id",
-      hash: "abcd",
-    }),
+    () =>
+      registry.create({
+        displayName: "valid_name",
+        org: "123invalid", // starts with number - invalid
+        project: "default",
+        namespace: "fs",
+        action: "read",
+        workflowPatternId: "dummy-pattern-id",
+        hash: "abcd",
+      }),
     Error,
-    "Invalid org component"
+    "Invalid org component",
   );
 
   await db.close();
@@ -118,17 +120,18 @@ Deno.test("CapabilityRegistry.create - rejects invalid namespace (has dot)", asy
 
   // Validation happens before DB access, so dummy values are fine
   await assertRejects(
-    () => registry.create({
-      displayName: "valid_name",
-      org: "local",
-      project: "default",
-      namespace: "fs.sub", // has dot - invalid
-      action: "read",
-      workflowPatternId: "dummy-pattern-id",
-      hash: "abcd",
-    }),
+    () =>
+      registry.create({
+        displayName: "valid_name",
+        org: "local",
+        project: "default",
+        namespace: "fs.sub", // has dot - invalid
+        action: "read",
+        workflowPatternId: "dummy-pattern-id",
+        hash: "abcd",
+      }),
     Error,
-    "Invalid namespace component"
+    "Invalid namespace component",
   );
 
   await db.close();
@@ -199,7 +202,7 @@ Deno.test("CapabilityRegistry.resolveByName - finds by display name in scope", a
   // Resolve in same scope
   const resolved = await registry.resolveByName(
     "my_reader",
-    { org: "acme", project: "webapp" }
+    { org: "acme", project: "webapp" },
   );
 
   assertEquals(resolved?.id, created.id);
@@ -228,7 +231,7 @@ Deno.test("CapabilityRegistry.resolveByName - returns null for wrong scope", asy
   // Try to resolve in different scope
   const resolved = await registry.resolveByName(
     "my_reader",
-    { org: "other", project: "project" }
+    { org: "other", project: "project" },
   );
 
   assertEquals(resolved, null);
@@ -258,7 +261,7 @@ Deno.test("CapabilityRegistry.resolveByName - finds public capability", async ()
   // Resolve from different scope
   const resolved = await registry.resolveByName(
     "public_util",
-    { org: "acme", project: "webapp" }
+    { org: "acme", project: "webapp" },
   );
 
   assertEquals(resolved?.id, created.id);
@@ -294,7 +297,7 @@ Deno.test("CapabilityRegistry.resolveByAlias - resolves via alias", async () => 
   // Resolve via alias
   const result = await registry.resolveByAlias(
     "old_reader",
-    { org: "acme", project: "webapp" }
+    { org: "acme", project: "webapp" },
   );
 
   assert(result !== null);
@@ -311,7 +314,7 @@ Deno.test("CapabilityRegistry.resolveByAlias - returns null for non-existent ali
 
   const result = await registry.resolveByAlias(
     "non_existent",
-    { org: "acme", project: "webapp" }
+    { org: "acme", project: "webapp" },
   );
 
   assertEquals(result, null);
@@ -343,7 +346,7 @@ Deno.test("CapabilityRegistry.resolveByName - falls back to alias", async () => 
   // resolveByName should find via alias when display name doesn't match
   const resolved = await registry.resolveByName(
     "legacy_name",
-    { org: "acme", project: "webapp" }
+    { org: "acme", project: "webapp" },
   );
 
   assertEquals(resolved?.id, created.id);
@@ -397,11 +400,11 @@ Deno.test("CapabilityRegistry.updateAliasChains - updates all aliases to new tar
   // Verify aliases now point to B
   const result1 = await registry.resolveByAlias(
     "alias1",
-    { org: "acme", project: "webapp" }
+    { org: "acme", project: "webapp" },
   );
   const result2 = await registry.resolveByAlias(
     "alias2",
-    { org: "acme", project: "webapp" }
+    { org: "acme", project: "webapp" },
   );
 
   assertEquals(result1?.record.id, capB.id);
@@ -460,7 +463,7 @@ Deno.test("CapabilityRegistry.updateAliasChains - scenario: A->B->C no chains", 
   // alias_a should now point directly to C (not via B)
   const result = await registry.resolveByAlias(
     "alias_a",
-    { org: "local", project: "default" }
+    { org: "local", project: "default" },
   );
 
   assertEquals(result?.record.id, capC.id);

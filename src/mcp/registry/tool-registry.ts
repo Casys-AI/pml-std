@@ -10,14 +10,14 @@ import type { MCPTool } from "../types.ts";
 
 // Import tool definitions
 import {
-  executeDagTool,
-  searchToolsTool,
-  searchCapabilitiesTool,
-  executeCodeTool,
-  continueTool,
   abortTool,
-  replanTool,
   approvalResponseTool,
+  continueTool,
+  executeCodeTool,
+  executeDagTool,
+  replanTool,
+  searchCapabilitiesTool,
+  searchToolsTool,
 } from "../tools/definitions.ts";
 
 /**

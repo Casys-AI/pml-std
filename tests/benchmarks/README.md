@@ -42,11 +42,13 @@ tests/benchmarks/
 ## Running Benchmarks
 
 ### All Benchmarks
+
 ```bash
 deno bench --allow-all tests/benchmarks/
 ```
 
 ### By Layer
+
 ```bash
 # Tactical (tool-level)
 deno bench --allow-all tests/benchmarks/tactical/
@@ -62,11 +64,13 @@ deno bench --allow-all tests/benchmarks/decision/
 ```
 
 ### Specific Algorithm
+
 ```bash
 deno bench --allow-all tests/benchmarks/tactical/pagerank.bench.ts
 ```
 
 ### Filter by Group
+
 ```bash
 # Only PageRank size scaling tests
 deno bench --allow-all --filter "pagerank-size" tests/benchmarks/tactical/
@@ -77,14 +81,16 @@ deno bench --allow-all --filter "vs" tests/benchmarks/
 
 ## The 3 Modes (ADR-050)
 
-See [ADR-050: Unified Search Simplification](../../docs/adrs/ADR-050-unified-search-simplification.md)
-See [spike: capability-pathfinding-dijkstra](../../docs/spikes/2025-12-21-capability-pathfinding-dijkstra.md)
+See
+[ADR-050: Unified Search Simplification](../../docs/adrs/ADR-050-unified-search-simplification.md)
+See
+[spike: capability-pathfinding-dijkstra](../../docs/spikes/2025-12-21-capability-pathfinding-dijkstra.md)
 
-| Mode | Function | Input | Algorithm | Benchmark |
-|------|----------|-------|-----------|-----------|
-| **Search (active)** | `unifiedSearch()` | intent | `semantic × reliability` | `unified-search.bench.ts` |
-| **Prediction (forward)** | `predictNextNode()` | intent + context | SHGAT(intent) → TARGET, DR-DSP(current, TARGET) → next | `shgat-drdsp-prediction.bench.ts` |
-| **Suggestion (backward)** | `pml_execute()` | intent | SHGAT(intent) → TARGET, DR-DSP.backward(TARGET) → DAG | `shgat-drdsp-prediction.bench.ts` |
+| Mode                      | Function            | Input            | Algorithm                                              | Benchmark                         |
+| ------------------------- | ------------------- | ---------------- | ------------------------------------------------------ | --------------------------------- |
+| **Search (active)**       | `unifiedSearch()`   | intent           | `semantic × reliability`                               | `unified-search.bench.ts`         |
+| **Prediction (forward)**  | `predictNextNode()` | intent + context | SHGAT(intent) → TARGET, DR-DSP(current, TARGET) → next | `shgat-drdsp-prediction.bench.ts` |
+| **Suggestion (backward)** | `pml_execute()`     | intent           | SHGAT(intent) → TARGET, DR-DSP.backward(TARGET) → DAG  | `shgat-drdsp-prediction.bench.ts` |
 
 ### Key Changes (2025-12-22)
 
@@ -97,38 +103,38 @@ See [spike: capability-pathfinding-dijkstra](../../docs/spikes/2025-12-21-capabi
 
 ### Implemented (Real Benchmarks)
 
-| Layer | Algorithm | File | ADR/Spike | Status |
-|-------|-----------|------|-----------|--------|
-| Tactical | PageRank | `tactical/pagerank.bench.ts` | - | ✅ Active |
-| Tactical | Louvain | `tactical/louvain.bench.ts` | - | ✅ Active |
-| Tactical | Adamic-Adar | `tactical/adamic-adar.bench.ts` | ADR-041 | ⚠️ Prediction only |
-| Tactical | Local Alpha | `tactical/local-alpha.bench.ts` | ~~ADR-048~~ | ❌ **OBSOLETE** (ADR-050) |
-| Strategic | Spectral Clustering | `strategic/spectral-clustering.bench.ts` | Story 7.4 | ✅ Active |
-| Strategic | Capability Match | `strategic/capability-match.bench.ts` | ADR-038 | ✅ Active |
-| Strategic | SHGAT | `strategic/shgat.bench.ts` | `2025-12-17-superhypergraph` | ✅ Active |
-| Strategic | SHGAT (real embeddings) | `shgat-embeddings.bench.ts` | `2025-12-17-superhypergraph` | ✅ Active |
-| Strategic | SHGAT Training | `shgat-training.bench.ts` | `2025-12-17-superhypergraph` | ✅ Active |
-| Pathfinding | Dijkstra | `pathfinding/dijkstra.bench.ts` | ADR-041 | ⚠️ Baseline only |
-| Pathfinding | DR-DSP | `pathfinding/dr-dsp.bench.ts` | `2025-12-21-capability-pathfinding` | ✅ Active |
-| Decision | Thompson Sampling | `decision/thompson-sampling.bench.ts` | ADR-049 | ✅ Active (Story 10.7c) |
-| **Mode** | Unified Search | `unified-search.bench.ts` | ADR-050 | ✅ Active |
-| **Mode** | DR-DSP + SHGAT Prediction | `shgat-drdsp-prediction.bench.ts` | ADR-050 | ✅ Active |
+| Layer       | Algorithm                 | File                                     | ADR/Spike                           | Status                    |
+| ----------- | ------------------------- | ---------------------------------------- | ----------------------------------- | ------------------------- |
+| Tactical    | PageRank                  | `tactical/pagerank.bench.ts`             | -                                   | ✅ Active                 |
+| Tactical    | Louvain                   | `tactical/louvain.bench.ts`              | -                                   | ✅ Active                 |
+| Tactical    | Adamic-Adar               | `tactical/adamic-adar.bench.ts`          | ADR-041                             | ⚠️ Prediction only        |
+| Tactical    | Local Alpha               | `tactical/local-alpha.bench.ts`          | ~~ADR-048~~                         | ❌ **OBSOLETE** (ADR-050) |
+| Strategic   | Spectral Clustering       | `strategic/spectral-clustering.bench.ts` | Story 7.4                           | ✅ Active                 |
+| Strategic   | Capability Match          | `strategic/capability-match.bench.ts`    | ADR-038                             | ✅ Active                 |
+| Strategic   | SHGAT                     | `strategic/shgat.bench.ts`               | `2025-12-17-superhypergraph`        | ✅ Active                 |
+| Strategic   | SHGAT (real embeddings)   | `shgat-embeddings.bench.ts`              | `2025-12-17-superhypergraph`        | ✅ Active                 |
+| Strategic   | SHGAT Training            | `shgat-training.bench.ts`                | `2025-12-17-superhypergraph`        | ✅ Active                 |
+| Pathfinding | Dijkstra                  | `pathfinding/dijkstra.bench.ts`          | ADR-041                             | ⚠️ Baseline only          |
+| Pathfinding | DR-DSP                    | `pathfinding/dr-dsp.bench.ts`            | `2025-12-21-capability-pathfinding` | ✅ Active                 |
+| Decision    | Thompson Sampling         | `decision/thompson-sampling.bench.ts`    | ADR-049                             | ✅ Active (Story 10.7c)   |
+| **Mode**    | Unified Search            | `unified-search.bench.ts`                | ADR-050                             | ✅ Active                 |
+| **Mode**    | DR-DSP + SHGAT Prediction | `shgat-drdsp-prediction.bench.ts`        | ADR-050                             | ✅ Active                 |
 
 ### Obsolete Benchmarks (ADR-050)
 
-| File | Reason | Superseded by |
-|------|--------|---------------|
-| `tactical/local-alpha.bench.ts` | Alpha formulas replaced by SHGAT | `shgat-drdsp-prediction.bench.ts` |
-| `tactical/adamic-adar.bench.ts` | No longer used in Search mode (no context) | SHGAT for Prediction mode |
+| File                            | Reason                                     | Superseded by                     |
+| ------------------------------- | ------------------------------------------ | --------------------------------- |
+| `tactical/local-alpha.bench.ts` | Alpha formulas replaced by SHGAT           | `shgat-drdsp-prediction.bench.ts` |
+| `tactical/adamic-adar.bench.ts` | No longer used in Search mode (no context) | SHGAT for Prediction mode         |
 
 ### Other Benchmarks
 
-| File | Description |
-|------|-------------|
-| `performance.bench.ts` | System-level performance benchmarks |
-| `context_latency_bench.ts` | Context retrieval latency tests |
-| `parallel_execution_bench.ts` | Parallel execution performance |
-| `sandbox_performance_test.ts` | Sandbox isolation overhead |
+| File                          | Description                         |
+| ----------------------------- | ----------------------------------- |
+| `performance.bench.ts`        | System-level performance benchmarks |
+| `context_latency_bench.ts`    | Context retrieval latency tests     |
+| `parallel_execution_bench.ts` | Parallel execution performance      |
+| `sandbox_performance_test.ts` | Sandbox isolation overhead          |
 
 ## Benchmark Groups
 
@@ -142,16 +148,19 @@ Each benchmark file defines groups for related tests:
 ## Scenarios
 
 ### small-graph.json
+
 - 10 tools, 3 capabilities
 - Quick validation, CI/CD integration
 - Expected runtime: < 1s
 
 ### medium-graph.json
+
 - 50 tools, 10 capabilities, 3 meta-capabilities
 - Realistic usage patterns
 - Expected runtime: < 10s
 
 ### stress-graph.json
+
 - 200 tools, 30 capabilities, 5 meta-capabilities
 - Generated via `scenario-loader.ts`
 - Performance regression detection
@@ -162,7 +171,7 @@ Each benchmark file defines groups for related tests:
 The `utils/metrics.ts` module provides:
 
 ```typescript
-import { MetricsCollector, compareAlgorithms, generateReport } from "./utils/metrics.ts";
+import { compareAlgorithms, generateReport, MetricsCollector } from "./utils/metrics.ts";
 
 const collector = new MetricsCollector();
 
@@ -192,8 +201,9 @@ const report = generateReport([comparison1, comparison2]);
 5. Update this README
 
 Example:
+
 ```typescript
-import { loadScenario, buildGraphFromScenario } from "../fixtures/scenario-loader.ts";
+import { buildGraphFromScenario, loadScenario } from "../fixtures/scenario-loader.ts";
 
 const scenario = await loadScenario("medium-graph");
 const graph = buildGraphFromScenario(scenario);
@@ -210,9 +220,12 @@ Deno.bench({
 
 ## Related Documentation
 
-- [**ADR-050: Unified Search Simplification**](../../docs/adrs/ADR-050-unified-search-simplification.md) - Current architecture (supersedes ADR-015, ADR-022, ADR-048)
-- [ADR-038: Scoring Algorithms Reference](../../docs/adrs/ADR-038-scoring-algorithms-reference.md) - Historical reference
+- [**ADR-050: Unified Search Simplification**](../../docs/adrs/ADR-050-unified-search-simplification.md) -
+  Current architecture (supersedes ADR-015, ADR-022, ADR-048)
+- [ADR-038: Scoring Algorithms Reference](../../docs/adrs/ADR-038-scoring-algorithms-reference.md) -
+  Historical reference
 - [ADR-041: Edge Weights](../../docs/adrs/ADR-041-hierarchical-trace-tracking.md)
-- ~~[ADR-048: Local Alpha](../../docs/adrs/ADR-048-local-adaptive-alpha.md)~~ - OBSOLETE (see ADR-050)
+- ~~[ADR-048: Local Alpha](../../docs/adrs/ADR-048-local-adaptive-alpha.md)~~ - OBSOLETE (see
+  ADR-050)
 - [ADR-049: Intelligent Thresholds](../../docs/adrs/ADR-049-intelligent-adaptive-thresholds.md)
 - [Spike: DR-DSP + SHGAT](../../docs/spikes/2025-12-21-capability-pathfinding-dijkstra.md)

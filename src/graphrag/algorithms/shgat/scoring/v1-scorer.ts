@@ -157,12 +157,12 @@ export class V1Scorer {
       const semanticScore = intentSim * featureWeights.semantic;
 
       // Head 1: Structure - graph topology features scaled by learned weight
-      const structureScore =
-        (features.hypergraphPageRank + (features.adamicAdar ?? 0)) * featureWeights.structure;
+      const structureScore = (features.hypergraphPageRank + (features.adamicAdar ?? 0)) *
+        featureWeights.structure;
 
       // Head 2: Temporal - usage patterns scaled by learned weight
-      const temporalScore =
-        (features.recency + (features.heatDiffusion ?? 0)) * featureWeights.temporal;
+      const temporalScore = (features.recency + (features.heatDiffusion ?? 0)) *
+        featureWeights.temporal;
 
       // Store all head scores
       const allHeadScores = [semanticScore, structureScore, temporalScore];
@@ -177,10 +177,9 @@ export class V1Scorer {
       const totalActiveWeight = activeWeights.reduce((a, b) => a + b, 0) || 1;
 
       // Weighted combination of active heads
-      const baseScore =
-        (activeWeights[0] * semanticScore +
-          activeWeights[1] * structureScore +
-          activeWeights[2] * temporalScore) /
+      const baseScore = (activeWeights[0] * semanticScore +
+        activeWeights[1] * structureScore +
+        activeWeights[2] * temporalScore) /
         totalActiveWeight;
 
       // Final score with reliability
@@ -285,10 +284,9 @@ export class V1Scorer {
       const totalActiveWeight = activeWeights.reduce((a, b) => a + b, 0) || 1;
 
       // Weighted combination of active heads
-      const baseScore =
-        (activeWeights[0] * semanticScore +
-          activeWeights[1] * structureScore +
-          activeWeights[2] * temporalScore) /
+      const baseScore = (activeWeights[0] * semanticScore +
+        activeWeights[1] * structureScore +
+        activeWeights[2] * temporalScore) /
         totalActiveWeight;
 
       // Apply sigmoid

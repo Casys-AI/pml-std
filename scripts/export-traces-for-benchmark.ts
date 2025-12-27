@@ -51,7 +51,7 @@ console.log("\n📥 Fetching traces...");
 const allTraces = await traceStore.getHighPriorityTraces(1000);
 
 // Filter traces with embeddings (required for SHGAT training)
-const tracesWithEmbeddings = allTraces.filter(t =>
+const tracesWithEmbeddings = allTraces.filter((t) =>
   t.intentEmbedding && t.intentEmbedding.length > 0
 );
 
@@ -80,7 +80,7 @@ for (const capId of capabilityIds) {
   const capResult = await db.query(
     `SELECT pattern_id, dag_structure, success_rate, description, intent_embedding
      FROM workflow_pattern WHERE pattern_id = $1`,
-    [capId]
+    [capId],
   );
   if (capResult.length > 0) {
     const row = capResult[0];
@@ -93,12 +93,10 @@ for (const capId of capabilityIds) {
       // Format 1: Direct tools_used array (code_execution type)
       if (dag.tools_used && Array.isArray(dag.tools_used)) {
         toolsUsed = dag.tools_used;
-      }
-      // Format 2: DAG with tasks array
+      } // Format 2: DAG with tasks array
       else if (dag.tasks && Array.isArray(dag.tasks)) {
         toolsUsed = dag.tasks.map((t: { tool?: string }) => t.tool).filter(Boolean);
-      }
-      // Format 3: Static structure with nodes
+      } // Format 3: Static structure with nodes
       else if (dag.nodes && Array.isArray(dag.nodes)) {
         toolsUsed = dag.nodes
           .filter((n: { type?: string }) => n.type === "task")
@@ -161,7 +159,7 @@ for (const trace of tracesWithEmbeddings) {
   // Extract context tools from task results
   const contextTools = trace.taskResults
     .slice(0, 3)
-    .map(t => t.tool)
+    .map((t) => t.tool)
     .filter(Boolean);
 
   trainingExamples.push({
@@ -186,7 +184,7 @@ const testQueries: Array<{
 // Take last 20% as test set
 const testCount = Math.max(5, Math.floor(tracesWithEmbeddings.length * 0.2));
 const testTraces = tracesWithEmbeddings
-  .filter(t => t.capabilityId && t.intentText)
+  .filter((t) => t.capabilityId && t.intentText)
   .slice(-testCount);
 
 for (const trace of testTraces) {
@@ -215,14 +213,14 @@ const output = {
     },
   },
   nodes: {
-    capabilities: capabilities.map(c => ({
+    capabilities: capabilities.map((c) => ({
       id: c.id,
       embedding: c.embedding,
       toolsUsed: c.toolsUsed,
       successRate: c.successRate,
       description: c.description,
     })),
-    tools: Array.from(toolIds).map(id => ({
+    tools: Array.from(toolIds).map((id) => ({
       id,
       // Note: tool embeddings need to be generated separately
     })),
@@ -245,7 +243,9 @@ await Deno.writeTextFile(outputFile, JSON.stringify(output, null, 2));
 
 console.log(`\n✅ Export complete!`);
 console.log(`   File: ${outputFile}`);
-console.log(`   Size: ${(new TextEncoder().encode(JSON.stringify(output)).length / 1024).toFixed(1)} KB`);
+console.log(
+  `   Size: ${(new TextEncoder().encode(JSON.stringify(output)).length / 1024).toFixed(1)} KB`,
+);
 
 // Close database connection
 await db.close();

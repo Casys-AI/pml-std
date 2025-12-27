@@ -11,7 +11,7 @@
 
 // @ts-ignore: NPM module resolution
 import { dijkstra } from "graphology-shortest-path";
-import { getEdgeWeight, type EdgeType, type EdgeSource } from "./edge-weights.ts";
+import { type EdgeSource, type EdgeType, getEdgeWeight } from "./edge-weights.ts";
 
 /**
  * Graph interface for pathfinding operations
@@ -40,7 +40,7 @@ export interface PathfindingGraph {
 export function findShortestPath(
   graph: unknown,
   fromNodeId: string,
-  toNodeId: string
+  toNodeId: string,
 ): string[] | null {
   try {
     const g = graph as PathfindingGraph;
@@ -57,7 +57,7 @@ export function findShortestPath(
         const weight = g.getEdgeAttribute(edge, "weight") as number || 0.5;
         // Invert weight to cost (min 0.1 to avoid division issues)
         return 1 / Math.max(weight, 0.1);
-      }
+      },
     );
   } catch {
     return null; // No path exists
@@ -77,7 +77,7 @@ export function findAllPaths(
   graph: unknown,
   fromNodeId: string,
   toNodeId: string,
-  maxLength: number = 4
+  maxLength: number = 4,
 ): string[][] {
   const g = graph as PathfindingGraph & {
     outNeighbors(nodeId: string): string[];
@@ -126,7 +126,7 @@ export function findAllPaths(
  */
 export function calculatePathWeight(
   graph: unknown,
-  path: string[]
+  path: string[],
 ): number {
   if (path.length < 2) return 0;
 
@@ -157,7 +157,7 @@ export function calculatePathWeight(
  */
 export function calculateAveragePathWeight(
   graph: unknown,
-  path: string[]
+  path: string[],
 ): number {
   if (path.length < 2) return 0;
 
@@ -180,7 +180,7 @@ export function hasPathWithinHops(
   graph: unknown,
   fromNodeId: string,
   toNodeId: string,
-  maxHops: number
+  maxHops: number,
 ): boolean {
   const path = findShortestPath(graph, fromNodeId, toNodeId);
   return path !== null && path.length <= maxHops + 1;

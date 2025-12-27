@@ -13,7 +13,6 @@ import type { DbClient } from "../db/types.ts";
 import type { EmbeddingModel } from "../vector/embeddings.ts";
 import type { Row } from "../db/client.ts";
 import {
-  DEFAULT_TRACE_PRIORITY,
   type CacheConfig,
   type Capability,
   type CapabilityDependency,
@@ -21,6 +20,7 @@ import {
   type CapabilityEdgeType,
   type CapabilityWithSchema,
   type CreateCapabilityDependencyInput,
+  DEFAULT_TRACE_PRIORITY,
   type ExecutionTrace,
   type ListWithSchemasOptions,
   type PermissionSet,
@@ -115,7 +115,16 @@ export class CapabilityStore {
     capability: Capability;
     trace?: ExecutionTrace;
   }> {
-    const { code: originalCode, intent, durationMs, success = true, description, toolsUsed, toolInvocations, traceData } = input;
+    const {
+      code: originalCode,
+      intent,
+      durationMs,
+      success = true,
+      description,
+      toolsUsed,
+      toolInvocations,
+      traceData,
+    } = input;
 
     // Transform capability references: display_name → FQDN (makes code robust to renames)
     let code = originalCode;
@@ -916,7 +925,9 @@ export class CapabilityStore {
         [toCapabilityId, fromCapabilityId],
       );
       if (reverseExists) {
-        logger.warn(`Potential paradox: contains cycle detected between capabilities ${fromCapabilityId} ↔ ${toCapabilityId}`);
+        logger.warn(
+          `Potential paradox: contains cycle detected between capabilities ${fromCapabilityId} ↔ ${toCapabilityId}`,
+        );
       }
     }
 
@@ -991,11 +1002,13 @@ export class CapabilityStore {
 
     switch (direction) {
       case "from":
-        query = `SELECT * FROM capability_dependency WHERE from_capability_id = $1 ORDER BY confidence_score DESC`;
+        query =
+          `SELECT * FROM capability_dependency WHERE from_capability_id = $1 ORDER BY confidence_score DESC`;
         params = [capabilityId];
         break;
       case "to":
-        query = `SELECT * FROM capability_dependency WHERE to_capability_id = $1 ORDER BY confidence_score DESC`;
+        query =
+          `SELECT * FROM capability_dependency WHERE to_capability_id = $1 ORDER BY confidence_score DESC`;
         params = [capabilityId];
         break;
       case "both":
@@ -1076,11 +1089,13 @@ export class CapabilityStore {
     intent: string,
     limit = 5,
     minSemanticScore = 0.5,
-  ): Promise<Array<{
-    capability: Capability;
-    semanticScore: number;
-    dependencies: Capability[];
-  }>> {
+  ): Promise<
+    Array<{
+      capability: Capability;
+      semanticScore: number;
+      dependencies: Capability[];
+    }>
+  > {
     // First, get the base search results
     const results = await this.searchByIntent(intent, limit, minSemanticScore);
 
@@ -1328,9 +1343,7 @@ export class CapabilityStore {
       LIMIT ${createdBy ? "$3" : "$2"}
     `;
 
-    const params = createdBy
-      ? [visibility, createdBy, limit]
-      : [visibility, limit];
+    const params = createdBy ? [visibility, createdBy, limit] : [visibility, limit];
 
     const result = await this.db.query(query, params);
 

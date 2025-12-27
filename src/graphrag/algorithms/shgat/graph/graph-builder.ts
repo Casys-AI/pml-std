@@ -10,12 +10,7 @@
  * @module graphrag/algorithms/shgat/graph/graph-builder
  */
 
-import type {
-  CapabilityNode,
-  HypergraphFeatures,
-  ToolGraphFeatures,
-  ToolNode,
-} from "../types.ts";
+import type { CapabilityNode, HypergraphFeatures, ToolGraphFeatures, ToolNode } from "../types.ts";
 import {
   createMembersFromLegacy,
   DEFAULT_HYPERGRAPH_FEATURES,

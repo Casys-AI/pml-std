@@ -7,7 +7,7 @@
  */
 
 import * as log from "@std/log";
-import type { MCPToolResponse, MCPErrorResponse } from "./types.ts";
+import type { MCPErrorResponse, MCPToolResponse } from "./types.ts";
 import type { MCPErrorCode } from "./constants.ts";
 
 /**
@@ -48,7 +48,9 @@ export function formatMCPToolError(
   message: string,
   data?: unknown,
 ): { isError: true; content: Array<{ type: string; text: string }> } {
-  const errorData = data ? { error: message, ...data as Record<string, unknown> } : { error: message };
+  const errorData = data
+    ? { error: message, ...data as Record<string, unknown> }
+    : { error: message };
 
   // Log for observability (Promtail/Loki)
   log.error(`[MCP_TOOL_ERROR] ${message}`, data ? { data } : undefined);

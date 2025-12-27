@@ -365,9 +365,7 @@ Deno.test("cap:rename - AC6: rename with description", async () => {
     description: "Reads JSON files",
   });
 
-  const queries = mockDb.queries.filter((q) =>
-    q.sql.includes("UPDATE workflow_pattern")
-  );
+  const queries = mockDb.queries.filter((q) => q.sql.includes("UPDATE workflow_pattern"));
   assertEquals(queries.length, 1);
   assertStringIncludes(queries[0].sql, "description");
 });

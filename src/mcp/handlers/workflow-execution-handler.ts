@@ -11,18 +11,18 @@ import type { DAGStructure } from "../../graphrag/types.ts";
 import type { ExecutionEvent, TaskResult } from "../../dag/types.ts";
 import type { WorkflowState } from "../../dag/state.ts";
 import type {
-  MCPToolResponse,
-  MCPErrorResponse,
   ActiveWorkflow,
+  MCPErrorResponse,
+  MCPToolResponse,
   WorkflowExecutionArgs,
 } from "../server/types.ts";
 import { ServerDefaults } from "../server/constants.ts";
 import {
-  formatMCPToolError,
-  formatMCPSuccess,
-  formatLayerComplete,
-  formatWorkflowComplete,
   formatApprovalRequired,
+  formatLayerComplete,
+  formatMCPSuccess,
+  formatMCPToolError,
+  formatWorkflowComplete,
 } from "../server/responses.ts";
 import { ControlledExecutor } from "../../dag/controlled-executor.ts";
 import { deleteWorkflowDAG, saveWorkflowDAG } from "../workflow-dag-store.ts";
@@ -34,8 +34,8 @@ import type { AdaptiveThresholdManager, ThresholdMode } from "../adaptive-thresh
 import { updateThompsonSampling } from "./execute-handler.ts";
 // Story 10.5 AC10: WorkerBridge-based executor for 100% traceability
 import {
-  createToolExecutorViaWorker,
   cleanupWorkerBridgeExecutor,
+  createToolExecutorViaWorker,
   type ExecutorContext,
 } from "../../dag/execution/workerbridge-executor.ts";
 import type { ToolDefinition } from "../../sandbox/types.ts";
@@ -83,7 +83,9 @@ export async function requiresValidation(
       try {
         const cap = await capabilityStore.findById(task.capabilityId);
         if (cap?.permissionSet && cap.permissionSet !== "minimal") {
-          log.info(`Validation required: capability ${task.capabilityId} has permissions (${cap.permissionSet})`);
+          log.info(
+            `Validation required: capability ${task.capabilityId} has permissions (${cap.permissionSet})`,
+          );
           return true;
         }
       } catch {
@@ -98,7 +100,9 @@ export async function requiresValidation(
 
       // Unknown tool → requires validation (security: don't auto-approve unknown tools)
       if (!permConfig) {
-        log.info(`Validation required: MCP tool ${task.tool} is unknown (not in mcp-permissions.yaml)`);
+        log.info(
+          `Validation required: MCP tool ${task.tool} is unknown (not in mcp-permissions.yaml)`,
+        );
         return true;
       }
 
@@ -186,8 +190,12 @@ export function smartHILCheck(
         confidence,
         requiresHIL,
         reason: requiresHIL
-          ? `confidence ${confidence.toFixed(3)} < threshold ${thresholdResult.threshold.toFixed(3)}`
-          : `confidence ${confidence.toFixed(3)} >= threshold ${thresholdResult.threshold.toFixed(3)}`,
+          ? `confidence ${confidence.toFixed(3)} < threshold ${
+            thresholdResult.threshold.toFixed(3)
+          }`
+          : `confidence ${confidence.toFixed(3)} >= threshold ${
+            thresholdResult.threshold.toFixed(3)
+          }`,
       });
     }
   }
@@ -253,7 +261,9 @@ export async function handleWorkflowExecution(
   userId?: string,
 ): Promise<MCPToolResponse | MCPErrorResponse> {
   // Story 10.7: Deprecation warning
-  log.warn("[DEPRECATED] pml:execute_dag is deprecated. Use pml:execute instead for unified execution + automatic capability learning.");
+  log.warn(
+    "[DEPRECATED] pml:execute_dag is deprecated. Use pml:execute instead for unified execution + automatic capability learning.",
+  );
 
   const workflowArgs = args as WorkflowExecutionArgs;
   const perLayerValidation = workflowArgs.config?.per_layer_validation === true;
@@ -271,7 +281,10 @@ export async function handleWorkflowExecution(
 
     // Server-side validation detection (Story 2.5-4 security fix)
     // Server decides based on DAG content - client cannot bypass
-    const serverRequiresValidation = await requiresValidation(normalizedWorkflow, deps.capabilityStore);
+    const serverRequiresValidation = await requiresValidation(
+      normalizedWorkflow,
+      deps.capabilityStore,
+    );
     const useValidation = serverRequiresValidation || perLayerValidation;
 
     log.info(`Executing explicit workflow`, {
@@ -528,10 +541,10 @@ export async function processGeneratorUntilPause(
         status: event.type === "task_complete" ? "success" : "error",
         output: event.type === "task_complete"
           ? {
-              executionTimeMs: event.executionTimeMs,
-              resultPreview: event.resultPreview,
-              resultSize: event.resultSize,
-            }
+            executionTimeMs: event.executionTimeMs,
+            resultPreview: event.resultPreview,
+            resultSize: event.resultSize,
+          }
           : undefined,
         error: event.type === "task_error" ? event.error : undefined,
       });

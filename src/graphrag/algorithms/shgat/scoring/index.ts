@@ -13,9 +13,9 @@
 export { V1Scorer } from "./v1-scorer.ts";
 export { V2Scorer } from "./v2-scorer.ts";
 export {
+  type MultiLevelForwardResult,
   MultiLevelScorer,
   type MultiLevelScorerDependencies,
-  type MultiLevelForwardResult,
 } from "./multi-level-scorer.ts";
 
 // Re-export types from shgat-types for convenience

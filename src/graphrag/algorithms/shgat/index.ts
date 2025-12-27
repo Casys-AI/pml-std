@@ -34,51 +34,51 @@ export * as math from "./utils/math.ts";
 
 // Re-export types from ./types.ts
 export type {
-  // Trace Features (v2)
-  TraceStats,
-  TraceFeatures,
-  // Configuration
-  SHGATConfig,
-  // Training Types
-  TrainingExample,
-  // Graph Feature Types
-  HypergraphFeatures,
-  ToolGraphFeatures,
-  // Node Types
-  Member,
-  ToolMember,
-  CapabilityMember,
-  ToolNode,
-  CapabilityNode,
-  LegacyCapabilityNode,
   AttentionResult,
+  CapabilityMember,
+  CapabilityNode,
+  FeatureWeights,
   ForwardCache,
-  // Multi-level message passing types (v1 refactor)
-  MultiLevelEmbeddings,
-  LevelParams,
-  MultiLevelForwardCache,
   // Legacy Types
   FusionWeights,
-  FeatureWeights,
+  // Graph Feature Types
+  HypergraphFeatures,
+  LegacyCapabilityNode,
+  LevelParams,
+  // Node Types
+  Member,
+  // Multi-level message passing types (v1 refactor)
+  MultiLevelEmbeddings,
+  MultiLevelForwardCache,
+  // Configuration
+  SHGATConfig,
+  ToolGraphFeatures,
+  ToolMember,
+  ToolNode,
+  TraceFeatures,
+  // Trace Features (v2)
+  TraceStats,
+  // Training Types
+  TrainingExample,
 } from "./types.ts";
 
 export {
-  // Constants
-  DEFAULT_TRACE_STATS,
-  NUM_TRACE_STATS,
-  DEFAULT_SHGAT_CONFIG,
-  DEFAULT_HYPERGRAPH_FEATURES,
-  DEFAULT_TOOL_GRAPH_FEATURES,
-  DEFAULT_FUSION_WEIGHTS,
-  DEFAULT_FEATURE_WEIGHTS,
   // Functions
   createDefaultTraceFeatures,
+  createMembersFromLegacy,
+  DEFAULT_FEATURE_WEIGHTS,
+  DEFAULT_FUSION_WEIGHTS,
+  DEFAULT_HYPERGRAPH_FEATURES,
+  DEFAULT_SHGAT_CONFIG,
+  DEFAULT_TOOL_GRAPH_FEATURES,
+  // Constants
+  DEFAULT_TRACE_STATS,
   getAdaptiveConfig,
+  getDirectCapabilities,
   // n-SuperHyperGraph helpers (v1 refactor)
   getDirectTools,
-  getDirectCapabilities,
-  createMembersFromLegacy,
   migrateCapabilityNode,
+  NUM_TRACE_STATS,
 } from "./types.ts";
 
 // Re-export HierarchyCycleError from graph module for easy access

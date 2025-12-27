@@ -12,7 +12,10 @@ import type { ToolExecutor } from "../../src/dag/types.ts";
 
 Deno.test("DAG code_execution integration", async (t) => {
   // Mock tool executor for MCP tools
-  const mockToolExecutor: ToolExecutor = async (toolName: string, args: Record<string, unknown>) => {
+  const mockToolExecutor: ToolExecutor = async (
+    toolName: string,
+    args: Record<string, unknown>,
+  ) => {
     // Simulate MCP tool execution
     return { result: `mcp_${toolName}_${JSON.stringify(args)}` };
   };
@@ -44,7 +47,11 @@ Deno.test("DAG code_execution integration", async (t) => {
     assertExists(taskResult.output, "Should have output");
 
     const output = taskResult.output as { result: unknown };
-    assertEquals((output.result as { computed: number }).computed, 2, "Sandbox should compute 1+1=2");
+    assertEquals(
+      (output.result as { computed: number }).computed,
+      2,
+      "Sandbox should compute 1+1=2",
+    );
 
     console.log("  ✓ code_execution task executed in sandbox");
   });
@@ -137,7 +144,9 @@ Deno.test("DAG code_execution integration", async (t) => {
     assertExists(transformResult, "Transform task should exist");
     assertEquals(transformResult?.status, "success", "Transform should succeed");
 
-    const output = transformResult?.output as { result: { transformed: boolean; hasOutput: boolean } };
+    const output = transformResult?.output as {
+      result: { transformed: boolean; hasOutput: boolean };
+    };
     assert(output.result.transformed, "Should mark as transformed");
     assert(output.result.hasOutput, "Should have received dependency output");
 
@@ -168,7 +177,10 @@ Deno.test("DAG code_execution integration", async (t) => {
     const errorResult = result.results[0];
     assertEquals(errorResult.status, "error", "Task should be marked as error");
     assertExists(errorResult.error, "Should have error message");
-    assert(errorResult.error?.includes("Intentional test error"), "Error message should be captured");
+    assert(
+      errorResult.error?.includes("Intentional test error"),
+      "Error message should be captured",
+    );
 
     console.log("  ✓ code_execution error properly captured");
   });

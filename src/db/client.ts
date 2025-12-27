@@ -15,7 +15,7 @@ import { getAgentCardsDatabasePath } from "../cli/utils.ts";
 import type { DbClient, Row, Transaction } from "./types.ts";
 
 // Re-export types for backward compatibility
-export type { Row, Transaction, DbClient } from "./types.ts";
+export type { DbClient, Row, Transaction } from "./types.ts";
 
 /**
  * PGlite client wrapper with transaction support and logging

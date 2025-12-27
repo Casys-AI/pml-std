@@ -7,8 +7,8 @@
 export {
   type AggregatedMetrics,
   type BenchmarkRun,
-  type ComparisonResult,
   compareAlgorithms,
+  type ComparisonResult,
   formatComparison,
   generateReport,
   mean,

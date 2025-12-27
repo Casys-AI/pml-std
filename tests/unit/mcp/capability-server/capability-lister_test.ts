@@ -9,7 +9,10 @@
 
 import { assertEquals, assertExists } from "@std/assert";
 import { CapabilityListerService } from "../../../../src/mcp/capability-server/services/capability-lister.ts";
-import type { CapabilityWithSchema, ListWithSchemasOptions } from "../../../../src/capabilities/types.ts";
+import type {
+  CapabilityWithSchema,
+  ListWithSchemasOptions,
+} from "../../../../src/capabilities/types.ts";
 
 // Mock CapabilityStore
 class MockCapabilityStore {

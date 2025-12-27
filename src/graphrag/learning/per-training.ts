@@ -18,8 +18,8 @@ import type { SHGAT, TrainingExample } from "../algorithms/shgat.ts";
 import type { ExecutionTraceStore } from "../../capabilities/execution-trace-store.ts";
 import type { ExecutionTrace } from "../../capabilities/types.ts";
 import {
-  type EmbeddingProvider,
   batchUpdatePrioritiesFromTDErrors,
+  type EmbeddingProvider,
 } from "../../capabilities/per-priority.ts";
 import { extractPathLevelFeatures, type PathLevelFeatures } from "./path-level-features.ts";
 import { getLogger } from "../../telemetry/logger.ts";
@@ -194,7 +194,10 @@ export async function trainSHGATOnPathTraces(
       const embedding = await embeddingProvider.getEmbedding(intent);
       intentEmbeddings.set(intent, embedding);
     } catch (error) {
-      log.warn("[PER-Training] Failed to embed intent", { intent: intent.slice(0, 50), error: String(error) });
+      log.warn("[PER-Training] Failed to embed intent", {
+        intent: intent.slice(0, 50),
+        error: String(error),
+      });
     }
   }
 
@@ -237,17 +240,17 @@ export async function trainSHGATOnPathTraces(
   // Compute IS weights for PER (Schaul et al. 2015)
   // P(i) ∝ priority^alpha, weight = (N * P(i))^(-beta) / max_weight
   const beta = 0.4; // IS exponent (anneals to 1.0 over training)
-  const tracePriorities = traces.map(t => Math.pow(t.priority + 1e-6, alpha));
+  const tracePriorities = traces.map((t) => Math.pow(t.priority + 1e-6, alpha));
   const totalPriority = tracePriorities.reduce((a, b) => a + b, 0);
-  const probs = tracePriorities.map(p => p / totalPriority);
+  const probs = tracePriorities.map((p) => p / totalPriority);
   const minProb = Math.min(...probs);
   const maxWeight = Math.pow(traces.length * minProb, -beta);
-  const traceWeights = probs.map(p => Math.pow(traces.length * p, -beta) / maxWeight);
+  const traceWeights = probs.map((p) => Math.pow(traces.length * p, -beta) / maxWeight);
 
   // Map trace index to example indices (multi-example per trace)
   const exampleWeights: number[] = [];
   for (let t = 0; t < traces.length; t++) {
-    const numExamplesFromTrace = (traces[t].executedPath?.length ?? 0);
+    const numExamplesFromTrace = traces[t].executedPath?.length ?? 0;
     for (let e = 0; e < numExamplesFromTrace; e++) {
       exampleWeights.push(traceWeights[t]);
     }

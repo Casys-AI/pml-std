@@ -184,10 +184,14 @@ export function createCapabilityRecordsMigration(): Migration {
         // Comments are optional - continue if they fail
       }
 
-      log.info("✓ Migration 021 complete: capability_records and capability_aliases tables created");
+      log.info(
+        "✓ Migration 021 complete: capability_records and capability_aliases tables created",
+      );
     },
     down: async (db: DbClient) => {
-      log.info("Migration 021 rollback: Dropping capability_records and capability_aliases tables...");
+      log.info(
+        "Migration 021 rollback: Dropping capability_records and capability_aliases tables...",
+      );
 
       // Drop aliases first (has FK to records)
       await db.exec("DROP INDEX IF EXISTS idx_capability_aliases_target");

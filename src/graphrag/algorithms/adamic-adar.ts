@@ -9,7 +9,7 @@
  * @module graphrag/algorithms/adamic-adar
  */
 
-import { getEdgeWeight, type EdgeType, type EdgeSource } from "./edge-weights.ts";
+import { type EdgeSource, type EdgeType, getEdgeWeight } from "./edge-weights.ts";
 
 /**
  * Graph interface for Adamic-Adar operations
@@ -47,7 +47,7 @@ export interface AdamicAdarResult {
 export function computeAdamicAdar(
   graph: unknown,
   nodeId: string,
-  limit: number = 10
+  limit: number = 10,
 ): AdamicAdarResult[] {
   const g = graph as AdamicAdarGraph;
 
@@ -66,13 +66,13 @@ export function computeAdamicAdar(
       const attrs = g.getEdgeAttributes(nodeId, neighbor);
       edgeWeight = getEdgeWeight(
         (attrs.edge_type as EdgeType) || "sequence",
-        (attrs.edge_source as EdgeSource) || "inferred"
+        (attrs.edge_source as EdgeSource) || "inferred",
       );
     } else if (g.hasEdge(neighbor, nodeId)) {
       const attrs = g.getEdgeAttributes(neighbor, nodeId);
       edgeWeight = getEdgeWeight(
         (attrs.edge_type as EdgeType) || "sequence",
-        (attrs.edge_source as EdgeSource) || "inferred"
+        (attrs.edge_source as EdgeSource) || "inferred",
       );
     }
 
@@ -102,7 +102,7 @@ export function computeAdamicAdar(
 export function adamicAdarBetween(
   graph: unknown,
   nodeId1: string,
-  nodeId2: string
+  nodeId2: string,
 ): number {
   const g = graph as AdamicAdarGraph;
 
@@ -139,7 +139,7 @@ export function adamicAdarBetween(
 export function computeGraphRelatedness(
   graph: unknown,
   nodeId: string,
-  contextNodes: string[]
+  contextNodes: string[],
 ): number {
   const g = graph as AdamicAdarGraph;
 
@@ -174,7 +174,7 @@ export function computeGraphRelatedness(
 export function getNeighbors(
   graph: unknown,
   nodeId: string,
-  direction: "in" | "out" | "both" = "both"
+  direction: "in" | "out" | "both" = "both",
 ): string[] {
   const g = graph as AdamicAdarGraph & {
     inNeighbors(nodeId: string): string[];
@@ -208,7 +208,7 @@ export function findSimilarNodes(
   graph: unknown,
   contextNodes: string[],
   limit: number = 10,
-  excludeContext: boolean = true
+  excludeContext: boolean = true,
 ): AdamicAdarResult[] {
   const aggregatedScores = new Map<string, number>();
   const contextSet = new Set(contextNodes);

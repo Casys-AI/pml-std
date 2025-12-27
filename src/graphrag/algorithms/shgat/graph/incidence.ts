@@ -14,7 +14,7 @@
  */
 
 import type { CapabilityNode } from "../types.ts";
-import { getDirectTools, getDirectCapabilities } from "../types.ts";
+import { getDirectCapabilities, getDirectTools } from "../types.ts";
 import type { HierarchyResult } from "./hierarchy.ts";
 
 /**

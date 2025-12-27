@@ -39,7 +39,9 @@ export function createUnifyCapabilityNamingMigration(): Migration {
         await db.exec(`
           ALTER TABLE workflow_pattern DROP COLUMN name
         `);
-        log.info("  ✓ Dropped workflow_pattern.name column (now using capability_records.display_name)");
+        log.info(
+          "  ✓ Dropped workflow_pattern.name column (now using capability_records.display_name)",
+        );
       } else {
         log.info("  ✓ workflow_pattern.name column already removed (idempotent)");
       }

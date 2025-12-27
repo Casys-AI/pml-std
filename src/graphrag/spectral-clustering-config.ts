@@ -227,7 +227,12 @@ function validateSpectralClusteringConfig(config: SpectralClusteringConfig): voi
   checkRange("edges.minConfidence", config.edges.minConfidence, 0, 1);
 
   // Cluster detection
-  checkPositiveInt("clusterDetection.maxEigenvalues", config.clusterDetection.maxEigenvalues, 2, 50);
+  checkPositiveInt(
+    "clusterDetection.maxEigenvalues",
+    config.clusterDetection.maxEigenvalues,
+    2,
+    50,
+  );
   checkPositiveInt("clusterDetection.minClusters", config.clusterDetection.minClusters, 1, 10);
   checkPositiveInt("clusterDetection.maxClusters", config.clusterDetection.maxClusters, 2, 20);
 

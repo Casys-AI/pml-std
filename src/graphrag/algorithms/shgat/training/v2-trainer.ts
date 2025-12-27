@@ -14,8 +14,12 @@
  * @module graphrag/algorithms/shgat/training/v2-trainer
  */
 
-import type { SHGATConfig, TraceStats, TraceFeatures } from "../types.ts";
-import type { HeadParams, FusionMLPParams, V2GradientAccumulators } from "../initialization/parameters.ts";
+import type { SHGATConfig, TraceFeatures, TraceStats } from "../types.ts";
+import type {
+  FusionMLPParams,
+  HeadParams,
+  V2GradientAccumulators,
+} from "../initialization/parameters.ts";
 import * as math from "../utils/math.ts";
 
 // ============================================================================
@@ -29,13 +33,13 @@ export interface V2ForwardCache {
   score: number;
   headScores: number[];
   // Intermediates for backprop
-  combined: number[];        // Input to W_proj
-  projected: number[];       // Output of W_proj (before ReLU)
-  projectedRelu: number[];   // Output after ReLU
+  combined: number[]; // Input to W_proj
+  projected: number[]; // Output of W_proj (before ReLU)
+  projectedRelu: number[]; // Output after ReLU
   perHeadCache: Array<{ Q: number[]; K: number[]; V: number[]; attention: number }>;
-  mlpHidden: number[];       // Hidden layer of fusionMLP (before ReLU)
-  mlpHiddenRelu: number[];   // After ReLU
-  mlpOutput: number;         // Before sigmoid
+  mlpHidden: number[]; // Hidden layer of fusionMLP (before ReLU)
+  mlpHiddenRelu: number[]; // After ReLU
+  mlpOutput: number; // Before sigmoid
 }
 
 // ============================================================================
@@ -97,7 +101,7 @@ export function forwardV2WithCache(
       projected[i] += W_proj[i][j] * combined[j];
     }
   }
-  const projectedRelu = projected.map(x => Math.max(0, x));
+  const projectedRelu = projected.map((x) => Math.max(0, x));
 
   // === Step 3: Compute head scores ===
   const headScores: number[] = [];
@@ -151,7 +155,7 @@ export function forwardV2WithCache(
       mlpHidden[i] += fusionMLP.W1[i][j] * headScores[j];
     }
   }
-  const mlpHiddenRelu = mlpHidden.map(x => Math.max(0, x));
+  const mlpHiddenRelu = mlpHidden.map((x) => Math.max(0, x));
 
   // Layer 2: output = W2 @ mlpHiddenRelu + b2
   let mlpOutput = fusionMLP.b2;
@@ -240,8 +244,8 @@ export function backwardV2(
     const dQK = dAttention * attention * (1 - attention) / scale;
 
     // d(Q·K)/dQ[i] = K[i], d(Q·K)/dK[i] = Q[i]
-    const dQ = K.map(k => dQK * k);
-    const dK = Q.map(q => dQK * q);
+    const dQ = K.map((k) => dQK * k);
+    const dK = Q.map((q) => dQK * q);
 
     // Backprop through W_q, W_k, W_v (accumulate into projectedRelu gradient)
     for (let i = 0; i < hiddenDim; i++) {

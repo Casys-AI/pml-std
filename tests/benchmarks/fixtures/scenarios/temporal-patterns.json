@@ -3,24 +3,97 @@
   "description": "Time-based patterns for testing temporal edge weighting and recency effects",
   "nodes": {
     "tools": [
-      { "id": "recent__tool1", "pageRank": 0.12, "community": 0, "lastUsed": "2024-12-21T10:00:00Z" },
-      { "id": "recent__tool2", "pageRank": 0.11, "community": 0, "lastUsed": "2024-12-21T09:30:00Z" },
-      { "id": "recent__tool3", "pageRank": 0.10, "community": 0, "lastUsed": "2024-12-21T09:00:00Z" },
+      {
+        "id": "recent__tool1",
+        "pageRank": 0.12,
+        "community": 0,
+        "lastUsed": "2024-12-21T10:00:00Z"
+      },
+      {
+        "id": "recent__tool2",
+        "pageRank": 0.11,
+        "community": 0,
+        "lastUsed": "2024-12-21T09:30:00Z"
+      },
+      {
+        "id": "recent__tool3",
+        "pageRank": 0.10,
+        "community": 0,
+        "lastUsed": "2024-12-21T09:00:00Z"
+      },
 
-      { "id": "stale__tool1", "pageRank": 0.08, "community": 1, "lastUsed": "2024-12-01T10:00:00Z" },
-      { "id": "stale__tool2", "pageRank": 0.07, "community": 1, "lastUsed": "2024-11-15T10:00:00Z" },
-      { "id": "stale__tool3", "pageRank": 0.05, "community": 1, "lastUsed": "2024-10-01T10:00:00Z" },
+      {
+        "id": "stale__tool1",
+        "pageRank": 0.08,
+        "community": 1,
+        "lastUsed": "2024-12-01T10:00:00Z"
+      },
+      {
+        "id": "stale__tool2",
+        "pageRank": 0.07,
+        "community": 1,
+        "lastUsed": "2024-11-15T10:00:00Z"
+      },
+      {
+        "id": "stale__tool3",
+        "pageRank": 0.05,
+        "community": 1,
+        "lastUsed": "2024-10-01T10:00:00Z"
+      },
 
-      { "id": "trending__up", "pageRank": 0.15, "community": 2, "trend": "increasing", "usageVelocity": 5.0 },
-      { "id": "trending__down", "pageRank": 0.06, "community": 2, "trend": "decreasing", "usageVelocity": -2.0 },
-      { "id": "trending__stable", "pageRank": 0.09, "community": 2, "trend": "stable", "usageVelocity": 0.1 },
+      {
+        "id": "trending__up",
+        "pageRank": 0.15,
+        "community": 2,
+        "trend": "increasing",
+        "usageVelocity": 5.0
+      },
+      {
+        "id": "trending__down",
+        "pageRank": 0.06,
+        "community": 2,
+        "trend": "decreasing",
+        "usageVelocity": -2.0
+      },
+      {
+        "id": "trending__stable",
+        "pageRank": 0.09,
+        "community": 2,
+        "trend": "stable",
+        "usageVelocity": 0.1
+      },
 
-      { "id": "burst__peak", "pageRank": 0.18, "community": 3, "note": "High activity in short burst" },
-      { "id": "burst__quiet", "pageRank": 0.04, "community": 3, "note": "Low activity after burst" },
+      {
+        "id": "burst__peak",
+        "pageRank": 0.18,
+        "community": 3,
+        "note": "High activity in short burst"
+      },
+      {
+        "id": "burst__quiet",
+        "pageRank": 0.04,
+        "community": 3,
+        "note": "Low activity after burst"
+      },
 
-      { "id": "periodic__morning", "pageRank": 0.08, "community": 4, "activeHours": [8, 9, 10, 11] },
-      { "id": "periodic__afternoon", "pageRank": 0.07, "community": 4, "activeHours": [13, 14, 15, 16] },
-      { "id": "periodic__evening", "pageRank": 0.05, "community": 4, "activeHours": [18, 19, 20, 21] }
+      {
+        "id": "periodic__morning",
+        "pageRank": 0.08,
+        "community": 4,
+        "activeHours": [8, 9, 10, 11]
+      },
+      {
+        "id": "periodic__afternoon",
+        "pageRank": 0.07,
+        "community": 4,
+        "activeHours": [13, 14, 15, 16]
+      },
+      {
+        "id": "periodic__evening",
+        "pageRank": 0.05,
+        "community": 4,
+        "activeHours": [18, 19, 20, 21]
+      }
     ],
     "capabilities": [
       {
@@ -59,21 +132,100 @@
     "metaCapabilities": []
   },
   "edges": [
-    { "source": "recent__tool1", "target": "recent__tool2", "type": "sequence", "source_type": "observed", "weight": 0.92, "count": 45, "lastObserved": "2024-12-21T10:00:00Z" },
-    { "source": "recent__tool2", "target": "recent__tool3", "type": "sequence", "source_type": "observed", "weight": 0.88, "count": 40, "lastObserved": "2024-12-21T09:30:00Z" },
+    {
+      "source": "recent__tool1",
+      "target": "recent__tool2",
+      "type": "sequence",
+      "source_type": "observed",
+      "weight": 0.92,
+      "count": 45,
+      "lastObserved": "2024-12-21T10:00:00Z"
+    },
+    {
+      "source": "recent__tool2",
+      "target": "recent__tool3",
+      "type": "sequence",
+      "source_type": "observed",
+      "weight": 0.88,
+      "count": 40,
+      "lastObserved": "2024-12-21T09:30:00Z"
+    },
 
-    { "source": "stale__tool1", "target": "stale__tool2", "type": "sequence", "source_type": "observed", "weight": 0.85, "count": 100, "lastObserved": "2024-12-01T10:00:00Z" },
-    { "source": "stale__tool2", "target": "stale__tool3", "type": "sequence", "source_type": "observed", "weight": 0.80, "count": 80, "lastObserved": "2024-10-01T10:00:00Z" },
+    {
+      "source": "stale__tool1",
+      "target": "stale__tool2",
+      "type": "sequence",
+      "source_type": "observed",
+      "weight": 0.85,
+      "count": 100,
+      "lastObserved": "2024-12-01T10:00:00Z"
+    },
+    {
+      "source": "stale__tool2",
+      "target": "stale__tool3",
+      "type": "sequence",
+      "source_type": "observed",
+      "weight": 0.80,
+      "count": 80,
+      "lastObserved": "2024-10-01T10:00:00Z"
+    },
 
-    { "source": "trending__up", "target": "trending__stable", "type": "provides", "source_type": "observed", "weight": 0.90, "count": 200, "trend": "increasing" },
-    { "source": "trending__stable", "target": "trending__down", "type": "provides", "source_type": "observed", "weight": 0.70, "count": 50, "trend": "decreasing" },
+    {
+      "source": "trending__up",
+      "target": "trending__stable",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.90,
+      "count": 200,
+      "trend": "increasing"
+    },
+    {
+      "source": "trending__stable",
+      "target": "trending__down",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.70,
+      "count": 50,
+      "trend": "decreasing"
+    },
 
-    { "source": "burst__peak", "target": "burst__quiet", "type": "sequence", "source_type": "observed", "weight": 0.95, "count": 500, "burstWindow": "2024-12-20T14:00:00Z/2024-12-20T15:00:00Z" },
+    {
+      "source": "burst__peak",
+      "target": "burst__quiet",
+      "type": "sequence",
+      "source_type": "observed",
+      "weight": 0.95,
+      "count": 500,
+      "burstWindow": "2024-12-20T14:00:00Z/2024-12-20T15:00:00Z"
+    },
 
-    { "source": "periodic__morning", "target": "periodic__afternoon", "type": "sequence", "source_type": "observed", "weight": 0.75, "count": 30, "note": "Session handoff" },
-    { "source": "periodic__afternoon", "target": "periodic__evening", "type": "sequence", "source_type": "observed", "weight": 0.60, "count": 20 },
+    {
+      "source": "periodic__morning",
+      "target": "periodic__afternoon",
+      "type": "sequence",
+      "source_type": "observed",
+      "weight": 0.75,
+      "count": 30,
+      "note": "Session handoff"
+    },
+    {
+      "source": "periodic__afternoon",
+      "target": "periodic__evening",
+      "type": "sequence",
+      "source_type": "observed",
+      "weight": 0.60,
+      "count": 20
+    },
 
-    { "source": "recent__tool1", "target": "stale__tool1", "type": "depends_on", "source_type": "static", "weight": 0.50, "count": null, "note": "Cross-freshness dependency" }
+    {
+      "source": "recent__tool1",
+      "target": "stale__tool1",
+      "type": "depends_on",
+      "source_type": "static",
+      "weight": 0.50,
+      "count": null,
+      "note": "Cross-freshness dependency"
+    }
   ],
   "episodicEvents": [
     {

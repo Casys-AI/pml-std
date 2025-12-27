@@ -13,11 +13,11 @@
 
 import { assertEquals, assertNotEquals, assertStrictEquals } from "@std/assert";
 import {
-  suggestEscalation,
-  isValidEscalation,
   getValidEscalationTargets,
-  isSecurityCritical,
   isSandboxEscapePermission,
+  isSecurityCritical,
+  isValidEscalation,
+  suggestEscalation,
 } from "../../../src/capabilities/permission-escalation.ts";
 
 // ===================================================================
@@ -25,7 +25,8 @@ import {
 // ===================================================================
 
 Deno.test("suggestEscalation - parses network permission denied error", () => {
-  const error = "PermissionDenied: Requires net access to api.example.com:443, run again with --allow-net";
+  const error =
+    "PermissionDenied: Requires net access to api.example.com:443, run again with --allow-net";
   const result = suggestEscalation(error, "cap-123", "minimal");
 
   assertNotEquals(result, null);

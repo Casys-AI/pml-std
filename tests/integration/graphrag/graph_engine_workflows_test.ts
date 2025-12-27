@@ -14,7 +14,7 @@
  * @module tests/integration/graphrag/graph_engine_workflows_test
  */
 
-import { assertEquals, assert, assertExists } from "@std/assert";
+import { assert, assertEquals, assertExists } from "@std/assert";
 import { PGliteClient } from "../../../src/db/client.ts";
 import { GraphRAGEngine } from "../../../src/graphrag/graph-engine.ts";
 import { getAllMigrations, MigrationRunner } from "../../../src/db/migrations.ts";
@@ -35,14 +35,23 @@ async function setupTestDb(): Promise<PGliteClient> {
 /**
  * Seed database with test tools
  */
-async function seedTools(db: PGliteClient, tools: Array<{ id: string; name: string; server: string }>): Promise<void> {
+async function seedTools(
+  db: PGliteClient,
+  tools: Array<{ id: string; name: string; server: string }>,
+): Promise<void> {
   for (const tool of tools) {
     // Create a simple embedding (1024-dim vector for testing - matches DB schema)
     const embedding = new Array(1024).fill(0).map((_, i) => (i % 10) / 10);
     await db.query(
       `INSERT INTO tool_embedding (tool_id, tool_name, server_id, embedding, metadata)
        VALUES ($1, $2, $3, $4, $5)`,
-      [tool.id, tool.name, tool.server, JSON.stringify(embedding), JSON.stringify({ description: `Tool ${tool.name}` })]
+      [
+        tool.id,
+        tool.name,
+        tool.server,
+        JSON.stringify(embedding),
+        JSON.stringify({ description: `Tool ${tool.name}` }),
+      ],
     );
   }
 }
@@ -52,13 +61,29 @@ async function seedTools(db: PGliteClient, tools: Array<{ id: string; name: stri
  */
 async function seedDependencies(
   db: PGliteClient,
-  deps: Array<{ from: string; to: string; count: number; confidence: number; edgeType?: string; edgeSource?: string }>
+  deps: Array<
+    {
+      from: string;
+      to: string;
+      count: number;
+      confidence: number;
+      edgeType?: string;
+      edgeSource?: string;
+    }
+  >,
 ): Promise<void> {
   for (const dep of deps) {
     await db.query(
       `INSERT INTO tool_dependency (from_tool_id, to_tool_id, observed_count, confidence_score, edge_type, edge_source)
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      [dep.from, dep.to, dep.count, dep.confidence, dep.edgeType || "sequence", dep.edgeSource || "inferred"]
+      [
+        dep.from,
+        dep.to,
+        dep.count,
+        dep.confidence,
+        dep.edgeType || "sequence",
+        dep.edgeSource || "inferred",
+      ],
     );
   }
 }
@@ -138,7 +163,7 @@ Deno.test("Integration - multiple updateFromExecution calls accumulate edge coun
   for (let i = 0; i < 3; i++) {
     const execution: WorkflowExecution = {
       executedAt: new Date(),
-    executionId: `exec-${i}`,
+      executionId: `exec-${i}`,
       intentText: "A then B",
       dagStructure: {
         tasks: [
@@ -197,7 +222,7 @@ Deno.test("Integration - learned edges influence DAG building via pathfinding", 
   for (let i = 0; i < 5; i++) {
     const execution: WorkflowExecution = {
       executedAt: new Date(),
-    executionId: `learn-${i}`,
+      executionId: `learn-${i}`,
       intentText: "Direct path",
       dagStructure: {
         tasks: [
@@ -312,7 +337,14 @@ Deno.test("Integration - edge weights consistent across sync/learning/build cycl
 
   // Seed with specific edge type and source
   await seedDependencies(db, [
-    { from: "tool:X", to: "tool:Y", count: 5, confidence: 0.8, edgeType: "dependency", edgeSource: "observed" },
+    {
+      from: "tool:X",
+      to: "tool:Y",
+      count: 5,
+      confidence: 0.8,
+      edgeType: "dependency",
+      edgeSource: "observed",
+    },
   ]);
 
   await engine.syncFromDatabase();
@@ -488,7 +520,7 @@ Deno.test("Integration - PageRank recomputed after execution learning", async ()
   for (let i = 1; i <= 3; i++) {
     const execution: WorkflowExecution = {
       executedAt: new Date(),
-    executionId: `pr-exec-${i}`,
+      executionId: `pr-exec-${i}`,
       intentText: `Spoke${i} to hub`,
       dagStructure: {
         tasks: [

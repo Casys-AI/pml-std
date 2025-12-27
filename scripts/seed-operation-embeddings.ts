@@ -44,7 +44,7 @@ async function seedOperationEmbeddings() {
       // Check if already exists
       const existing = await db.query(
         `SELECT tool_id FROM tool_embedding WHERE tool_id = $1`,
-        [operation.toolId]
+        [operation.toolId],
       );
 
       if (existing.length > 0) {
@@ -65,7 +65,7 @@ async function seedOperationEmbeddings() {
               source: "pure_operations",
             }),
             operation.toolId,
-          ]
+          ],
         );
         updated++;
         log.info(`  ↻ Updated ${operation.toolId}`);
@@ -84,7 +84,7 @@ async function seedOperationEmbeddings() {
               category: operation.category,
               source: "pure_operations",
             }),
-          ]
+          ],
         );
         inserted++;
         log.info(`  ✓ Inserted ${operation.toolId}`);
@@ -97,7 +97,7 @@ async function seedOperationEmbeddings() {
 
   // 4. Verify results
   const totalInDB = await db.query(
-    `SELECT COUNT(*) as count FROM tool_embedding WHERE tool_id LIKE 'code:%'`
+    `SELECT COUNT(*) as count FROM tool_embedding WHERE tool_id LIKE 'code:%'`,
   );
   const count = totalInDB[0]?.count as number;
 

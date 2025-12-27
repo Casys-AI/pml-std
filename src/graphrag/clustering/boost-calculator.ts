@@ -10,10 +10,7 @@
 import * as log from "@std/log";
 import type { DagScoringConfig } from "../dag-scoring-config.ts";
 import type { Capability } from "../../capabilities/types.ts";
-import {
-  type ClusterableCapability,
-  SpectralClusteringManager,
-} from "../spectral-clustering.ts";
+import { type ClusterableCapability, SpectralClusteringManager } from "../spectral-clustering.ts";
 import type { LocalAlphaCalculator } from "../local-alpha.ts";
 
 /**

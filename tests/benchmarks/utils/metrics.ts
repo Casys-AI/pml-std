@@ -77,9 +77,7 @@ export class MetricsCollector {
 
     const durationMs = performance.now() - start;
     const memAfter = Deno.memoryUsage?.()?.heapUsed;
-    const memoryUsedMb = memBefore && memAfter
-      ? (memAfter - memBefore) / 1024 / 1024
-      : undefined;
+    const memoryUsedMb = memBefore && memAfter ? (memAfter - memBefore) / 1024 / 1024 : undefined;
 
     this.record({
       algorithm,
@@ -273,14 +271,30 @@ export function formatComparison(result: ComparisonResult): string {
   lines.push("");
   lines.push("| Metric | Baseline | Candidate |");
   lines.push("|--------|----------|-----------|");
-  lines.push(`| Mean | ${result.baseline.meanMs.toFixed(2)}ms | ${result.candidate.meanMs.toFixed(2)}ms |`);
-  lines.push(`| Median | ${result.baseline.medianMs.toFixed(2)}ms | ${result.candidate.medianMs.toFixed(2)}ms |`);
-  lines.push(`| Std Dev | ${result.baseline.stdDevMs.toFixed(2)}ms | ${result.candidate.stdDevMs.toFixed(2)}ms |`);
-  lines.push(`| P95 | ${result.baseline.p95Ms.toFixed(2)}ms | ${result.candidate.p95Ms.toFixed(2)}ms |`);
+  lines.push(
+    `| Mean | ${result.baseline.meanMs.toFixed(2)}ms | ${result.candidate.meanMs.toFixed(2)}ms |`,
+  );
+  lines.push(
+    `| Median | ${result.baseline.medianMs.toFixed(2)}ms | ${
+      result.candidate.medianMs.toFixed(2)
+    }ms |`,
+  );
+  lines.push(
+    `| Std Dev | ${result.baseline.stdDevMs.toFixed(2)}ms | ${
+      result.candidate.stdDevMs.toFixed(2)
+    }ms |`,
+  );
+  lines.push(
+    `| P95 | ${result.baseline.p95Ms.toFixed(2)}ms | ${result.candidate.p95Ms.toFixed(2)}ms |`,
+  );
   lines.push("");
   lines.push(`Speedup: ${result.speedupFactor.toFixed(2)}x`);
   lines.push(`P-value: ${result.pValue?.toFixed(4) ?? "N/A"}`);
-  lines.push(`Winner: ${result.winner} (${result.significantDifference ? "significant" : "not significant"})`);
+  lines.push(
+    `Winner: ${result.winner} (${
+      result.significantDifference ? "significant" : "not significant"
+    })`,
+  );
 
   return lines.join("\n");
 }

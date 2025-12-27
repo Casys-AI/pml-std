@@ -8,7 +8,7 @@
  */
 
 import type { DAGStructure } from "../types.ts";
-import { findShortestPath, calculateAveragePathWeight } from "../algorithms/pathfinding.ts";
+import { calculateAveragePathWeight, findShortestPath } from "../algorithms/pathfinding.ts";
 
 /**
  * Graph interface for DAG building operations
@@ -82,7 +82,7 @@ export function buildDAG(graph: DAGBuilderGraph, candidateTools: string[]): DAGS
 function breakCycles(
   adjacency: boolean[][],
   edgeWeights: number[][],
-  n: number
+  n: number,
 ): void {
   for (let i = 0; i < n; i++) {
     for (let j = i + 1; j < n; j++) {

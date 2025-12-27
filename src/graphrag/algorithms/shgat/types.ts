@@ -77,7 +77,8 @@ export const DEFAULT_TRACE_STATS: TraceStats = {
  * Number of scalar features in TraceStats (derived from DEFAULT_TRACE_STATS)
  * = 11 scalar fields + 6 errorTypeAffinity values = 17
  */
-export const NUM_TRACE_STATS = Object.keys(DEFAULT_TRACE_STATS).length - 1 + DEFAULT_TRACE_STATS.errorTypeAffinity.length;
+export const NUM_TRACE_STATS = Object.keys(DEFAULT_TRACE_STATS).length - 1 +
+  DEFAULT_TRACE_STATS.errorTypeAffinity.length;
 // -1 because errorTypeAffinity is counted as array length, not as 1 key
 
 /**

@@ -11,7 +11,8 @@ import type { MiniTool } from "./types.ts";
 export const httpTools: MiniTool[] = [
   {
     name: "http_get",
-    description: "Make HTTP GET request to fetch data from a URL. Retrieve API responses, download web content, or check endpoints. Supports custom headers and response types (json, text, blob). Use for REST API calls, data fetching, or web scraping. Keywords: HTTP GET, fetch API, REST GET, download URL, API request, web fetch.",
+    description:
+      "Make HTTP GET request to fetch data from a URL. Retrieve API responses, download web content, or check endpoints. Supports custom headers and response types (json, text, blob). Use for REST API calls, data fetching, or web scraping. Keywords: HTTP GET, fetch API, REST GET, download URL, API request, web fetch.",
     category: "http",
     inputSchema: {
       type: "object",
@@ -59,7 +60,8 @@ export const httpTools: MiniTool[] = [
   },
   {
     name: "http_post",
-    description: "Make HTTP POST request to send data to a server. Submit forms, create resources, or authenticate with APIs. Supports JSON, form-urlencoded, and plain text body formats. Use for REST API calls, form submissions, or data creation. Keywords: HTTP POST, send data, API post, submit form, create resource, REST POST.",
+    description:
+      "Make HTTP POST request to send data to a server. Submit forms, create resources, or authenticate with APIs. Supports JSON, form-urlencoded, and plain text body formats. Use for REST API calls, form submissions, or data creation. Keywords: HTTP POST, send data, API post, submit form, create resource, REST POST.",
     category: "http",
     inputSchema: {
       type: "object",
@@ -113,7 +115,8 @@ export const httpTools: MiniTool[] = [
   },
   {
     name: "http_request",
-    description: "Make HTTP request with any method (GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS). Full control over request configuration including headers and body. Use for REST APIs, custom HTTP operations, or when GET/POST shortcuts are insufficient. Keywords: HTTP request, fetch, PUT PATCH DELETE, REST API, custom request, HTTP method.",
+    description:
+      "Make HTTP request with any method (GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS). Full control over request configuration including headers and body. Use for REST APIs, custom HTTP operations, or when GET/POST shortcuts are insufficient. Keywords: HTTP request, fetch, PUT PATCH DELETE, REST API, custom request, HTTP method.",
     category: "http",
     inputSchema: {
       type: "object",
@@ -169,7 +172,8 @@ export const httpTools: MiniTool[] = [
   },
   {
     name: "http_build_url",
-    description: "Build URL by combining base URL with query parameters. Construct API URLs dynamically, add search params, or prepare request URLs. Properly encodes parameter values. Use for URL construction, API calls with filters, or pagination. Keywords: build URL, query params, URL encode, add parameters, construct URL, querystring.",
+    description:
+      "Build URL by combining base URL with query parameters. Construct API URLs dynamically, add search params, or prepare request URLs. Properly encodes parameter values. Use for URL construction, API calls with filters, or pagination. Keywords: build URL, query params, URL encode, add parameters, construct URL, querystring.",
     category: "http",
     inputSchema: {
       type: "object",
@@ -193,7 +197,8 @@ export const httpTools: MiniTool[] = [
   },
   {
     name: "http_parse_url",
-    description: "Parse URL into its components (protocol, host, port, path, query params, hash). Extract parts of a URL for analysis or manipulation. Use for URL validation, extracting domains, or parsing API endpoints. Keywords: parse URL, URL components, extract domain, URL parts, hostname, query params.",
+    description:
+      "Parse URL into its components (protocol, host, port, path, query params, hash). Extract parts of a URL for analysis or manipulation. Use for URL validation, extracting domains, or parsing API endpoints. Keywords: parse URL, URL components, extract domain, URL parts, hostname, query params.",
     category: "http",
     inputSchema: {
       type: "object",
@@ -224,7 +229,8 @@ export const httpTools: MiniTool[] = [
   },
   {
     name: "http_encode_uri",
-    description: "Encode or decode URI components and full URIs. Handle special characters in URLs, prepare strings for URL inclusion, or decode URL-encoded text. Use for URL safety, encoding query values, or decoding received URLs. Keywords: URL encode, URI encode, encodeURIComponent, decode URL, percent encoding, escape URL.",
+    description:
+      "Encode or decode URI components and full URIs. Handle special characters in URLs, prepare strings for URL inclusion, or decode URL-encoded text. Use for URL safety, encoding query values, or decoding received URLs. Keywords: URL encode, URI encode, encodeURIComponent, decode URL, percent encoding, escape URL.",
     category: "http",
     inputSchema: {
       type: "object",

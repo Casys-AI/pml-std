@@ -8,11 +8,11 @@
 import { assertEquals, assertExists } from "@std/assert";
 import { CapabilityMCPServer } from "../../../../src/mcp/capability-server/server.ts";
 import type {
+  Capability,
   CapabilityRecord,
   CapabilityWithSchema,
-  Capability,
-  Scope,
   ListWithSchemasOptions,
+  Scope,
 } from "../../../../src/capabilities/types.ts";
 
 // Mock CapabilityStore

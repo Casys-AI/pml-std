@@ -1,4 +1,3 @@
-
 import { assertEquals, assertExists } from "@std/assert";
 import { CapabilityMatcher } from "../../../src/capabilities/matcher.ts";
 import type { CapabilityStore } from "../../../src/capabilities/capability-store.ts";
@@ -76,7 +75,7 @@ Deno.test("CapabilityMatcher - rejects match below threshold", async () => {
   // Score = 0.6 * 1.2 = 0.72
   // Threshold = 0.80
   (thresholds as any).setThresholds({ suggestionThreshold: 0.80, explicitThreshold: 0.50 });
-  
+
   const cap = createCap("cap-1", 1.0);
   (store as any).setSearchResults([{ capability: cap, semanticScore: 0.6 }]);
 

@@ -27,7 +27,7 @@ import type { DbClient } from "../../db/types.ts";
 import type { ContextBuilder } from "../../sandbox/context-builder.ts";
 import type { DRDSP } from "../../graphrag/algorithms/dr-dsp.ts";
 import type { SHGAT } from "../../graphrag/algorithms/shgat.ts";
-import type { JsonValue, TraceTaskResult, LogicalOperation } from "../../capabilities/types.ts";
+import type { JsonValue, LogicalOperation, TraceTaskResult } from "../../capabilities/types.ts";
 import type { DagScoringConfig } from "../../graphrag/dag-scoring-config.ts";
 import type { EmbeddingModelInterface } from "../../vector/embeddings.ts";
 import type { ExecutionTraceStore } from "../../capabilities/execution-trace-store.ts";
@@ -437,7 +437,10 @@ async function executeDirectMode(
         }
 
         // Check if any tool requires HIL approval (unknown or approvalMode: hil)
-        const needsApproval = await requiresValidation({ tasks: optimizedDAG.tasks }, deps.capabilityStore);
+        const needsApproval = await requiresValidation(
+          { tasks: optimizedDAG.tasks },
+          deps.capabilityStore,
+        );
         if (needsApproval) {
           log.info("[pml:execute] DAG contains tools requiring approval, delegating to HIL", {
             tools: optimizedDAG.tasks.map((t) => t.tool),
@@ -471,7 +474,7 @@ async function executeDirectMode(
             status: r.status,
             output: r.output,
             executionTimeMs: r.executionTimeMs ?? 0,
-          }])
+          }]),
         );
 
         const logicalTrace = generateLogicalTrace(optimizedDAG, physicalResultsMap);
@@ -488,7 +491,7 @@ async function executeDirectMode(
         // Build task results for trace (using physical tasks with logical detail)
         // Phase 2a: Include fusion metadata for UI display
         const taskResults: TraceTaskResult[] = physicalResults.results.map((physicalResult) => {
-          const physicalTask = optimizedDAG.tasks.find(t => t.id === physicalResult.taskId);
+          const physicalTask = optimizedDAG.tasks.find((t) => t.id === physicalResult.taskId);
           const logicalTaskIds = optimizedDAG.physicalToLogical.get(physicalResult.taskId) || [];
           const fused = logicalTaskIds.length > 1;
 
@@ -496,11 +499,11 @@ async function executeDirectMode(
           if (fused) {
             // Extract logical operations for fused task
             const estimatedDuration = (physicalResult.executionTimeMs || 0) / logicalTaskIds.length;
-            logicalOps = logicalTaskIds.map(logicalId => {
-              const logicalTask = optimizedDAG.logicalDAG.tasks.find(t => t.id === logicalId);
+            logicalOps = logicalTaskIds.map((logicalId) => {
+              const logicalTask = optimizedDAG.logicalDAG.tasks.find((t) => t.id === logicalId);
               return {
                 toolId: logicalTask?.tool || "unknown",
-                durationMs: estimatedDuration
+                durationMs: estimatedDuration,
               };
             });
           }
@@ -515,7 +518,7 @@ async function executeDirectMode(
             layerIndex: physicalResult.layerIndex,
             // Phase 2a: Fusion metadata
             isFused: fused,
-            logicalOperations: logicalOps
+            logicalOperations: logicalOps,
           };
         });
 
@@ -535,15 +538,18 @@ async function executeDirectMode(
         // Count failed_safe tasks (these are NOT counted in failedTasks but still represent failures)
         // Pure code operations like code:filter are safe-to-fail but should NOT save as success
         const failedSafeTasks = physicalResults.results.filter(
-          (r) => r.status === "failed_safe"
+          (r) => r.status === "failed_safe",
         ).length;
         const hasAnyFailure = physicalResults.failedTasks > 0 || failedSafeTasks > 0;
 
         if (failedSafeTasks > 0) {
-          log.info("[pml:execute] Code tasks failed (safe-to-fail), capability will be saved with success=false", {
-            failedSafeTasks,
-            failedTasks: physicalResults.failedTasks,
-          });
+          log.info(
+            "[pml:execute] Code tasks failed (safe-to-fail), capability will be saved with success=false",
+            {
+              failedSafeTasks,
+              failedTasks: physicalResults.failedTasks,
+            },
+          );
         }
 
         // Create capability with trace data
@@ -787,8 +793,8 @@ async function executeByNameMode(
   const codeSnippet = wpResult[0].code_snippet as string;
   const parametersSchema = wpResult[0].parameters_schema
     ? (typeof wpResult[0].parameters_schema === "string"
-        ? JSON.parse(wpResult[0].parameters_schema as string)
-        : wpResult[0].parameters_schema)
+      ? JSON.parse(wpResult[0].parameters_schema as string)
+      : wpResult[0].parameters_schema)
     : undefined;
 
   if (!codeSnippet) {
@@ -880,7 +886,7 @@ async function executeByNameMode(
             status: r.status,
             output: r.output,
             executionTimeMs: r.executionTimeMs ?? 0,
-          }])
+          }]),
         );
 
         const logicalTrace = generateLogicalTrace(optimizedDAG, physicalResultsMap);

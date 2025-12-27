@@ -19,10 +19,10 @@
 
 import { assertGreater } from "@std/assert";
 import {
-  unifiedSearch,
   createMockGraph,
   createMockVectorSearch,
   type SearchableNode,
+  unifiedSearch,
   type UnifiedVectorSearch,
 } from "../../src/graphrag/algorithms/unified-search.ts";
 import { EmbeddingModel } from "../../src/vector/embeddings.ts";
@@ -160,16 +160,18 @@ const nodes = new Map<string, SearchableNode>([
   // Meta-capabilities (group of capabilities)
   ["meta:devops", {
     id: "meta:devops",
-    type: "capability",  // Treated as capability in search
+    type: "capability", // Treated as capability in search
     name: "DevOps automation",
-    description: "Complete DevOps workflow including code deployment, data migration, and system synchronization",
+    description:
+      "Complete DevOps workflow including code deployment, data migration, and system synchronization",
     successRate: 0.70,
   }],
   ["meta:data-ops", {
     id: "meta:data-ops",
     type: "capability",
     name: "Data operations suite",
-    description: "Comprehensive data management including backup, sync, migration, and database operations",
+    description:
+      "Comprehensive data management including backup, sync, migration, and database operations",
     successRate: 0.72,
   }],
 ]);
@@ -183,7 +185,7 @@ const graph = createMockGraph([
   { from: "fs:read", to: "fs:write", weight: 0.9 },
   { from: "fs:read", to: "fs:list", weight: 0.85 },
   { from: "fs:write", to: "fs:list", weight: 0.7 },
-  { from: "fs:list", to: "fs:read", weight: 0.8 },  // Bidirectional
+  { from: "fs:list", to: "fs:read", weight: 0.8 }, // Bidirectional
 
   // ==========================================================================
   // Database Operations Cluster
@@ -191,21 +193,21 @@ const graph = createMockGraph([
   { from: "db:query", to: "db:update", weight: 0.85 },
   { from: "db:query", to: "db:insert", weight: 0.8 },
   { from: "db:insert", to: "db:update", weight: 0.75 },
-  { from: "db:update", to: "db:query", weight: 0.7 },  // Bidirectional
+  { from: "db:update", to: "db:query", weight: 0.7 }, // Bidirectional
 
   // ==========================================================================
   // Git Operations Cluster
   // ==========================================================================
   { from: "git:status", to: "git:commit", weight: 0.95 },
   { from: "git:commit", to: "git:push", weight: 0.9 },
-  { from: "git:status", to: "git:push", weight: 0.6 },  // Sometimes skip commit
-  { from: "git:push", to: "git:status", weight: 0.5 },  // Check after push
+  { from: "git:status", to: "git:push", weight: 0.6 }, // Sometimes skip commit
+  { from: "git:push", to: "git:status", weight: 0.5 }, // Check after push
 
   // ==========================================================================
   // API Operations Cluster
   // ==========================================================================
   { from: "api:get", to: "api:post", weight: 0.7 },
-  { from: "api:post", to: "api:get", weight: 0.6 },  // Often paired
+  { from: "api:post", to: "api:get", weight: 0.6 }, // Often paired
 
   // ==========================================================================
   // Cross-Domain Edges (realistic workflows)
@@ -246,9 +248,9 @@ const graph = createMockGraph([
   // ==========================================================================
   // Capability → Capability Edges (workflow dependencies)
   // ==========================================================================
-  { from: "cap:file-backup", to: "cap:data-sync", weight: 0.6 },  // Backup before sync
-  { from: "cap:data-sync", to: "cap:data-migration", weight: 0.7 },  // Sync enables migration
-  { from: "cap:code-deploy", to: "cap:data-migration", weight: 0.5 },  // Deploy may need migration
+  { from: "cap:file-backup", to: "cap:data-sync", weight: 0.6 }, // Backup before sync
+  { from: "cap:data-sync", to: "cap:data-migration", weight: 0.7 }, // Sync enables migration
+  { from: "cap:code-deploy", to: "cap:data-migration", weight: 0.5 }, // Deploy may need migration
 
   // ==========================================================================
   // Meta-Capability → Capability/Tool Edges
@@ -406,7 +408,8 @@ const queryTests: QueryTest[] = [
 
   // File backup workflow
   {
-    query: "I need to read all important files, compress them, and store them in a safe backup location",
+    query:
+      "I need to read all important files, compress them, and store them in a safe backup location",
     expectedTop1: "cap:file-backup",
     expectedTop3: ["cap:file-backup", "fs:read", "fs:write"],
     difficulty: "hard",
@@ -420,7 +423,8 @@ const queryTests: QueryTest[] = [
 
   // Data sync workflow
   {
-    query: "fetch customer data from the remote API and update our local database with the latest records",
+    query:
+      "fetch customer data from the remote API and update our local database with the latest records",
     expectedTop1: "cap:data-sync",
     expectedTop3: ["cap:data-sync", "api:get", "db:insert"],
     difficulty: "hard",
@@ -434,7 +438,8 @@ const queryTests: QueryTest[] = [
 
   // Code deployment workflow
   {
-    query: "commit all the code changes, push to remote repository, and deploy to production environment",
+    query:
+      "commit all the code changes, push to remote repository, and deploy to production environment",
     expectedTop1: "cap:code-deploy",
     expectedTop3: ["cap:code-deploy", "git:push", "git:commit"],
     difficulty: "hard",
@@ -448,7 +453,8 @@ const queryTests: QueryTest[] = [
 
   // Data migration workflow
   {
-    query: "extract data from the legacy database, transform it, and load into the new system via API",
+    query:
+      "extract data from the legacy database, transform it, and load into the new system via API",
     expectedTop1: "cap:data-migration",
     expectedTop3: ["cap:data-migration", "db:query", "api:post"],
     difficulty: "hard",
@@ -469,7 +475,8 @@ const queryTests: QueryTest[] = [
     difficulty: "hard",
   },
   {
-    query: "query the database for outdated records, then send them to the remote API for processing",
+    query:
+      "query the database for outdated records, then send them to the remote API for processing",
     expectedTop1: "cap:data-migration",
     expectedTop3: ["cap:data-migration", "db:query", "api:post"],
     difficulty: "hard",
@@ -700,10 +707,24 @@ async function runBenchmark() {
     console.log("╔══════════════════════════════════════════════════════════╗");
     console.log("║                    PRECISION RESULTS                     ║");
     console.log("╠══════════════════════════════════════════════════════════╣");
-    console.log(`║ Hit@1:  ${(precision.hit1 * 100).toFixed(1).padStart(5)}%                                        ║`);
-    console.log(`║ Hit@3:  ${(precision.hit3 * 100).toFixed(1).padStart(5)}%                                        ║`);
-    console.log(`║ Hit@5:  ${(precision.hit5 * 100).toFixed(1).padStart(5)}%                                        ║`);
-    console.log(`║ MRR:    ${precision.mrr.toFixed(3).padStart(6)}                                        ║`);
+    console.log(
+      `║ Hit@1:  ${
+        (precision.hit1 * 100).toFixed(1).padStart(5)
+      }%                                        ║`,
+    );
+    console.log(
+      `║ Hit@3:  ${
+        (precision.hit3 * 100).toFixed(1).padStart(5)
+      }%                                        ║`,
+    );
+    console.log(
+      `║ Hit@5:  ${
+        (precision.hit5 * 100).toFixed(1).padStart(5)
+      }%                                        ║`,
+    );
+    console.log(
+      `║ MRR:    ${precision.mrr.toFixed(3).padStart(6)}                                        ║`,
+    );
     console.log("╚══════════════════════════════════════════════════════════╝\n");
 
     // Print detailed results by difficulty
@@ -714,7 +735,9 @@ async function runBenchmark() {
       const tests = precision.queryResults.filter((r) => r.difficulty === difficulty);
       if (tests.length === 0) continue;
       const stats = precision.byDifficulty[difficulty];
-      console.log(`\n[${difficulty.toUpperCase()}] Hit@1: ${stats.hit1}/${stats.count}, Hit@5: ${stats.hit5}/${stats.count}`);
+      console.log(
+        `\n[${difficulty.toUpperCase()}] Hit@1: ${stats.hit1}/${stats.count}, Hit@5: ${stats.hit5}/${stats.count}`,
+      );
       for (const r of tests) {
         const icon = r.correct ? "✅" : r.rank > 0 && r.rank <= 5 ? "🔶" : "❌";
         console.log(`${icon} "${r.query.substring(0, 50)}${r.query.length > 50 ? "..." : ""}"`);
@@ -735,7 +758,6 @@ async function runBenchmark() {
     console.log("\n╔════════════════════════════════════════════════════════════╗");
     console.log("║                    BENCHMARK PASSED                        ║");
     console.log("╚════════════════════════════════════════════════════════════╝\n");
-
   } finally {
     console.log("🧹 Disposing embedding model...");
     await embedder.dispose();
@@ -751,7 +773,7 @@ if (import.meta.main) {
 }
 
 // Also export for Deno.bench latency tests (with mock, not real embeddings)
-export { queryTests, nodes, graph };
+export { graph, nodes, queryTests };
 
 // ============================================================================
 // Deno.bench Latency Benchmarks (using mocks for fast execution)

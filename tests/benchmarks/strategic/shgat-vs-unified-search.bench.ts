@@ -19,7 +19,7 @@ import { EmbeddingModel } from "../../../src/vector/embeddings.ts";
 
 // Load fixture
 const fixtureData = JSON.parse(
-  await Deno.readTextFile("tests/benchmarks/fixtures/scenarios/medium-graph.json")
+  await Deno.readTextFile("tests/benchmarks/fixtures/scenarios/medium-graph.json"),
 );
 
 interface ToolNode {
@@ -65,7 +65,7 @@ interface EdgeData {
 function unifiedSearchScore(
   queryEmbedding: number[],
   capabilityEmbedding: number[],
-  successRate: number
+  successRate: number,
 ): number {
   // Cosine similarity
   let dot = 0, normQ = 0, normC = 0;
@@ -135,7 +135,11 @@ async function runBenchmark() {
       });
     }
 
-    console.log(`   ✓ ${capabilities.length} capabilities in ${((performance.now() - startCaps) / 1000).toFixed(1)}s`);
+    console.log(
+      `   ✓ ${capabilities.length} capabilities in ${
+        ((performance.now() - startCaps) / 1000).toFixed(1)
+      }s`,
+    );
 
     // ========================================================================
     // Generate embeddings for tools (needed for SHGAT)
@@ -150,7 +154,11 @@ async function runBenchmark() {
       toolEmbeddings.set(tool.id, embedding);
     }
 
-    console.log(`   ✓ ${toolEmbeddings.size} tools in ${((performance.now() - startTools) / 1000).toFixed(1)}s`);
+    console.log(
+      `   ✓ ${toolEmbeddings.size} tools in ${
+        ((performance.now() - startTools) / 1000).toFixed(1)
+      }s`,
+    );
 
     // ========================================================================
     // Build SHGAT
@@ -169,7 +177,9 @@ async function runBenchmark() {
     );
 
     const stats = shgat.getStats();
-    console.log(`   ✓ ${stats.registeredCapabilities} capabilities, ${stats.paramCount.toLocaleString()} parameters\n`);
+    console.log(
+      `   ✓ ${stats.registeredCapabilities} capabilities, ${stats.paramCount.toLocaleString()} parameters\n`,
+    );
 
     // ========================================================================
     // Run comparison on test queries
@@ -193,16 +203,16 @@ async function runBenchmark() {
       const queryEmb = await embedder.encode(intent);
 
       // --- Unified Search ---
-      const usScores = capabilities.map(cap => ({
+      const usScores = capabilities.map((cap) => ({
         id: cap.id,
         score: unifiedSearchScore(queryEmb, cap.embedding, cap.successRate),
       }));
       usScores.sort((a, b) => b.score - a.score);
-      const usRank = usScores.findIndex(r => r.id === expectedCapability) + 1;
+      const usRank = usScores.findIndex((r) => r.id === expectedCapability) + 1;
 
       // --- SHGAT ---
       const shgatResults = shgat.scoreAllCapabilities(queryEmb);
-      const shgatRank = shgatResults.findIndex(r => r.capabilityId === expectedCapability) + 1;
+      const shgatRank = shgatResults.findIndex((r) => r.capabilityId === expectedCapability) + 1;
 
       // Track results
       const usTop1 = usRank === 1;
@@ -229,7 +239,11 @@ async function runBenchmark() {
       const shgatEmoji = shgatTop1 ? "✅" : shgatTop3 ? "🔶" : "❌";
       const shortIntent = intent.length > 43 ? intent.substring(0, 40) + "..." : intent;
 
-      console.log(`  ${shortIntent.padEnd(45)} | ${expectedCapability.padEnd(18)} | ${usEmoji} | ${shgatEmoji}`);
+      console.log(
+        `  ${shortIntent.padEnd(45)} | ${
+          expectedCapability.padEnd(18)
+        } | ${usEmoji} | ${shgatEmoji}`,
+      );
     }
 
     console.log("─".repeat(85));
@@ -248,13 +262,25 @@ async function runBenchmark() {
 
     console.log(`\n  ${"Algorithm".padEnd(20)} | ${"Top-1".padEnd(12)} | ${"Top-3".padEnd(12)}`);
     console.log("  " + "─".repeat(50));
-    console.log(`  ${"Unified Search".padEnd(20)} | ${`${usCorrectTop1}/${testQueries.length} (${usTop1Pct}%)`.padEnd(12)} | ${`${usCorrectTop3}/${testQueries.length} (${usTop3Pct}%)`.padEnd(12)}`);
-    console.log(`  ${"SHGAT".padEnd(20)} | ${`${shgatCorrectTop1}/${testQueries.length} (${shgatTop1Pct}%)`.padEnd(12)} | ${`${shgatCorrectTop3}/${testQueries.length} (${shgatTop3Pct}%)`.padEnd(12)}`);
+    console.log(
+      `  ${"Unified Search".padEnd(20)} | ${
+        `${usCorrectTop1}/${testQueries.length} (${usTop1Pct}%)`.padEnd(12)
+      } | ${`${usCorrectTop3}/${testQueries.length} (${usTop3Pct}%)`.padEnd(12)}`,
+    );
+    console.log(
+      `  ${"SHGAT".padEnd(20)} | ${
+        `${shgatCorrectTop1}/${testQueries.length} (${shgatTop1Pct}%)`.padEnd(12)
+      } | ${`${shgatCorrectTop3}/${testQueries.length} (${shgatTop3Pct}%)`.padEnd(12)}`,
+    );
 
     // Improvement
     const improvement = shgatCorrectTop1 - usCorrectTop1;
     const improvementPct = ((shgatCorrectTop1 - usCorrectTop1) / usCorrectTop1 * 100).toFixed(1);
-    console.log(`\n  📈 SHGAT improvement: ${improvement > 0 ? "+" : ""}${improvement} queries (${improvement > 0 ? "+" : ""}${improvementPct}%)`);
+    console.log(
+      `\n  📈 SHGAT improvement: ${improvement > 0 ? "+" : ""}${improvement} queries (${
+        improvement > 0 ? "+" : ""
+      }${improvementPct}%)`,
+    );
 
     // ========================================================================
     // Per-capability breakdown
@@ -263,7 +289,11 @@ async function runBenchmark() {
     console.log("📊 PER-CAPABILITY BREAKDOWN:");
     console.log("═".repeat(85));
 
-    console.log(`\n  ${"Capability".padEnd(22)} | ${"US Top-1".padEnd(12)} | ${"SHGAT Top-1".padEnd(12)} | Winner`);
+    console.log(
+      `\n  ${"Capability".padEnd(22)} | ${"US Top-1".padEnd(12)} | ${
+        "SHGAT Top-1".padEnd(12)
+      } | Winner`,
+    );
     console.log("  " + "─".repeat(60));
 
     for (const [capId, stats] of [...perCapability.entries()].sort()) {
@@ -273,7 +303,11 @@ async function runBenchmark() {
       if (stats.shgat > stats.us) winner = "SHGAT ✅";
       else if (stats.us > stats.shgat) winner = "US ⚠️";
 
-      console.log(`  ${capId.padEnd(22)} | ${`${stats.us}/${stats.total} (${usPct}%)`.padEnd(12)} | ${`${stats.shgat}/${stats.total} (${shgatPct}%)`.padEnd(12)} | ${winner}`);
+      console.log(
+        `  ${capId.padEnd(22)} | ${`${stats.us}/${stats.total} (${usPct}%)`.padEnd(12)} | ${
+          `${stats.shgat}/${stats.total} (${shgatPct}%)`.padEnd(12)
+        } | ${winner}`,
+      );
     }
 
     // ========================================================================
@@ -290,17 +324,17 @@ async function runBenchmark() {
       const queryEmb = await embedder.encode(intent);
 
       // US
-      const usScores = capabilities.map(cap => ({
+      const usScores = capabilities.map((cap) => ({
         id: cap.id,
         score: unifiedSearchScore(queryEmb, cap.embedding, cap.successRate),
       }));
       usScores.sort((a, b) => b.score - a.score);
-      const usRank = usScores.findIndex(r => r.id === expectedCapability) + 1;
+      const usRank = usScores.findIndex((r) => r.id === expectedCapability) + 1;
       if (usRank > 0) usMrr += 1 / usRank;
 
       // SHGAT
       const shgatResults = shgat.scoreAllCapabilities(queryEmb);
-      const shgatRank = shgatResults.findIndex(r => r.capabilityId === expectedCapability) + 1;
+      const shgatRank = shgatResults.findIndex((r) => r.capabilityId === expectedCapability) + 1;
       if (shgatRank > 0) shgatMrr += 1 / shgatRank;
     }
 
@@ -309,7 +343,11 @@ async function runBenchmark() {
 
     console.log(`\n  Unified Search MRR: ${usMrr.toFixed(4)}`);
     console.log(`  SHGAT MRR:          ${shgatMrr.toFixed(4)}`);
-    console.log(`  Improvement:        ${shgatMrr > usMrr ? "+" : ""}${((shgatMrr - usMrr) / usMrr * 100).toFixed(1)}%`);
+    console.log(
+      `  Improvement:        ${shgatMrr > usMrr ? "+" : ""}${
+        ((shgatMrr - usMrr) / usMrr * 100).toFixed(1)
+      }%`,
+    );
 
     // ========================================================================
     // SUGGESTION MODE (Backward) - SHGAT + DR-DSP
@@ -360,7 +398,7 @@ async function runBenchmark() {
       const queryEmb = await embedder.encode(intent);
 
       // Unified Search pick
-      const usScores = capabilities.map(cap => ({
+      const usScores = capabilities.map((cap) => ({
         id: cap.id,
         score: unifiedSearchScore(queryEmb, cap.embedding, cap.successRate),
         tools: cap.toolsUsed,
@@ -371,11 +409,17 @@ async function runBenchmark() {
       // SHGAT pick
       const shgatResults = shgat.scoreAllCapabilities(queryEmb);
       const shgatBest = shgatResults[0];
-      const shgatCap = capabilities.find(c => c.id === shgatBest.capabilityId)!;
+      const shgatCap = capabilities.find((c) => c.id === shgatBest.capabilityId)!;
 
       // Check if DR-DSP can find paths for both
-      const usPath = drdsp.findShortestHyperpath(usBest.tools[0], usBest.tools[usBest.tools.length - 1]);
-      const shgatPath = drdsp.findShortestHyperpath(shgatCap.toolsUsed[0], shgatCap.toolsUsed[shgatCap.toolsUsed.length - 1]);
+      const usPath = drdsp.findShortestHyperpath(
+        usBest.tools[0],
+        usBest.tools[usBest.tools.length - 1],
+      );
+      const shgatPath = drdsp.findShortestHyperpath(
+        shgatCap.toolsUsed[0],
+        shgatCap.toolsUsed[shgatCap.toolsUsed.length - 1],
+      );
 
       // Score: correct capability + valid path
       const usCorrect = usBest.id === expectedCapability;
@@ -400,7 +444,11 @@ async function runBenchmark() {
       const usStatus = `${usCorrect ? "✓" : "✗"}/${usPath.found ? "✓" : "✗"}`;
       const shgatStatus = `${shgatCorrect ? "✓" : "✗"}/${shgatPath.found ? "✓" : "✗"}`;
 
-      console.log(`  ${shortIntent.padEnd(40)} | ${usStatus.padEnd(9)} | ${shgatStatus.padEnd(12)} | ${winner}`);
+      console.log(
+        `  ${shortIntent.padEnd(40)} | ${usStatus.padEnd(9)} | ${
+          shgatStatus.padEnd(12)
+        } | ${winner}`,
+      );
     }
 
     console.log("\n  Legend: Cap/Path (✓=correct/found, ✗=wrong/not found)");
@@ -434,8 +482,8 @@ async function runBenchmark() {
     ];
 
     // Filter to tools that exist in fixture
-    const toolIds = (fixtureData.nodes.tools as ToolNode[]).map(t => t.id);
-    const validToolQueries = toolQueries.filter(q => toolIds.includes(q.expectedTool));
+    const toolIds = (fixtureData.nodes.tools as ToolNode[]).map((t) => t.id);
+    const validToolQueries = toolQueries.filter((q) => toolIds.includes(q.expectedTool));
 
     if (validToolQueries.length === 0) {
       console.log("  ⚠️ No matching tool queries found in fixture - skipping tool benchmark");
@@ -469,7 +517,10 @@ async function runBenchmark() {
             normQ += queryEmb[i] * queryEmb[i];
             normT += toolEmb[i] * toolEmb[i];
           }
-          cosineScores.push({ id: toolId, score: dot / (Math.sqrt(normQ) * Math.sqrt(normT) + 1e-8) });
+          cosineScores.push({
+            id: toolId,
+            score: dot / (Math.sqrt(normQ) * Math.sqrt(normT) + 1e-8),
+          });
         }
         cosineScores.sort((a, b) => b.score - a.score);
         const cosineTop1 = cosineScores[0]?.id === expectedTool;
@@ -482,13 +533,23 @@ async function runBenchmark() {
 
         const cosEmoji = cosineTop1 ? "✅" : "❌";
         const shgatEmoji = shgatTop1 ? "✅" : "❌";
-        console.log(`  ${intent.padEnd(35)} | ${expectedTool.padEnd(15)} | ${cosEmoji}  | ${shgatEmoji}`);
+        console.log(
+          `  ${intent.padEnd(35)} | ${expectedTool.padEnd(15)} | ${cosEmoji}  | ${shgatEmoji}`,
+        );
       }
 
       console.log("  " + "─".repeat(70));
       console.log(`\n  Tool Scoring Results (${validToolQueries.length} queries):`);
-      console.log(`    Cosine Baseline:    ${cosineCorrect}/${validToolQueries.length} (${(cosineCorrect/validToolQueries.length*100).toFixed(0)}%)`);
-      console.log(`    SHGAT Multi-Head:   ${shgatToolCorrect}/${validToolQueries.length} (${(shgatToolCorrect/validToolQueries.length*100).toFixed(0)}%)`);
+      console.log(
+        `    Cosine Baseline:    ${cosineCorrect}/${validToolQueries.length} (${
+          (cosineCorrect / validToolQueries.length * 100).toFixed(0)
+        }%)`,
+      );
+      console.log(
+        `    SHGAT Multi-Head:   ${shgatToolCorrect}/${validToolQueries.length} (${
+          (shgatToolCorrect / validToolQueries.length * 100).toFixed(0)
+        }%)`,
+      );
 
       const toolImprovement = shgatToolCorrect - cosineCorrect;
       if (toolImprovement > 0) {
@@ -522,7 +583,6 @@ async function runBenchmark() {
     console.log("\n╔════════════════════════════════════════════════════════════╗");
     console.log("║                    BENCHMARK COMPLETE                      ║");
     console.log("╚════════════════════════════════════════════════════════════╝\n");
-
   } finally {
     console.log("🧹 Disposing embedding model...");
     await embedder.dispose();

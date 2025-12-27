@@ -7,15 +7,12 @@
  */
 
 export {
-  syncGraphFromDatabase,
-  persistEdgesToDatabase,
   persistCapabilityDependency,
+  persistEdgesToDatabase,
   persistWorkflowExecution,
   type SyncableGraph,
+  syncGraphFromDatabase,
   type SyncResult,
 } from "./db-sync.ts";
 
-export {
-  GraphEventEmitter,
-  createGraphEventEmitter,
-} from "./event-emitter.ts";
+export { createGraphEventEmitter, GraphEventEmitter } from "./event-emitter.ts";

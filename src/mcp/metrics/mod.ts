@@ -5,8 +5,8 @@
  */
 
 export {
-  MetricsCollector,
   handleMetrics,
-  type MetricsTimeRange,
+  MetricsCollector,
   type MetricsResponse,
+  type MetricsTimeRange,
 } from "./collector.ts";

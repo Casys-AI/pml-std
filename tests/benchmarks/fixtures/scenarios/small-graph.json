@@ -33,13 +33,62 @@
     ]
   },
   "edges": [
-    { "source": "fs__read", "target": "fs__write", "type": "sequence", "source_type": "observed", "weight": 0.8, "count": 15 },
-    { "source": "fs__read", "target": "json__parse", "type": "sequence", "source_type": "observed", "weight": 0.6, "count": 8 },
-    { "source": "db__query", "target": "db__update", "type": "dependency", "source_type": "observed", "weight": 0.9, "count": 22 },
-    { "source": "db__query", "target": "db__insert", "type": "sequence", "source_type": "inferred", "weight": 0.5, "count": 5 },
-    { "source": "http__get", "target": "json__parse", "type": "dependency", "source_type": "observed", "weight": 0.95, "count": 30 },
-    { "source": "json__parse", "target": "db__insert", "type": "sequence", "source_type": "observed", "weight": 0.7, "count": 12 },
-    { "source": "http__post", "target": "json__stringify", "type": "dependency", "source_type": "template", "weight": 0.4, "count": 2 }
+    {
+      "source": "fs__read",
+      "target": "fs__write",
+      "type": "sequence",
+      "source_type": "observed",
+      "weight": 0.8,
+      "count": 15
+    },
+    {
+      "source": "fs__read",
+      "target": "json__parse",
+      "type": "sequence",
+      "source_type": "observed",
+      "weight": 0.6,
+      "count": 8
+    },
+    {
+      "source": "db__query",
+      "target": "db__update",
+      "type": "dependency",
+      "source_type": "observed",
+      "weight": 0.9,
+      "count": 22
+    },
+    {
+      "source": "db__query",
+      "target": "db__insert",
+      "type": "sequence",
+      "source_type": "inferred",
+      "weight": 0.5,
+      "count": 5
+    },
+    {
+      "source": "http__get",
+      "target": "json__parse",
+      "type": "dependency",
+      "source_type": "observed",
+      "weight": 0.95,
+      "count": 30
+    },
+    {
+      "source": "json__parse",
+      "target": "db__insert",
+      "type": "sequence",
+      "source_type": "observed",
+      "weight": 0.7,
+      "count": 12
+    },
+    {
+      "source": "http__post",
+      "target": "json__stringify",
+      "type": "dependency",
+      "source_type": "template",
+      "weight": 0.4,
+      "count": 2
+    }
   ],
   "expectedResults": {
     "pageRank": {

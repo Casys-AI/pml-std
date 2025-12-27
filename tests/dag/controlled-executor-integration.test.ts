@@ -31,7 +31,7 @@
 import { assert, assertEquals, assertExists, assertRejects } from "jsr:@std/assert@1";
 import { ControlledExecutor } from "../../src/dag/controlled-executor.ts";
 import type { DAGStructure } from "../../src/graphrag/types.ts";
-import type { ToolExecutor, ExecutorConfig, ExecutionEvent } from "../../src/dag/types.ts";
+import type { ExecutionEvent, ExecutorConfig, ToolExecutor } from "../../src/dag/types.ts";
 import { PGliteClient } from "../../src/db/client.ts";
 import { getAllMigrations, MigrationRunner } from "../../src/db/migrations.ts";
 
@@ -92,12 +92,16 @@ async function collectEvents(
     events.push(event);
 
     // Auto-approve HIL if requested
-    if (config?.autoApproveHIL && event.type === "decision_required" && event.decisionType === "HIL") {
+    if (
+      config?.autoApproveHIL && event.type === "decision_required" && event.decisionType === "HIL"
+    ) {
       executor.enqueueCommand({ type: "approval_response", checkpointId: "auto", approved: true });
     }
 
     // Auto-continue AIL if requested
-    if (config?.autoContinueAIL && event.type === "decision_required" && event.decisionType === "AIL") {
+    if (
+      config?.autoContinueAIL && event.type === "decision_required" && event.decisionType === "AIL"
+    ) {
       executor.enqueueCommand({ type: "continue", reason: "auto-continue" });
     }
 
@@ -124,8 +128,20 @@ Deno.test("Integration: Full DAG execution with mixed task types", async (t) => 
     const dag: DAGStructure = {
       tasks: [
         // Layer 0: Independent tasks
-        { id: "fetch1", type: "mcp_tool", tool: "api:fetch", arguments: { url: "test1" }, dependsOn: [] },
-        { id: "fetch2", type: "mcp_tool", tool: "api:fetch", arguments: { url: "test2" }, dependsOn: [] },
+        {
+          id: "fetch1",
+          type: "mcp_tool",
+          tool: "api:fetch",
+          arguments: { url: "test1" },
+          dependsOn: [],
+        },
+        {
+          id: "fetch2",
+          type: "mcp_tool",
+          tool: "api:fetch",
+          arguments: { url: "test2" },
+          dependsOn: [],
+        },
         // Layer 1: Code task depending on Layer 0
         {
           id: "process",
@@ -175,7 +191,9 @@ Deno.test("Integration: Full DAG execution with mixed task types", async (t) => 
     const layer1Start = events.find((e) => e.type === "layer_start" && e.layerIndex === 1);
     assertExists(layer1Start);
 
-    const processComplete = events.find((e) => e.type === "task_complete" && e.taskId === "process");
+    const processComplete = events.find((e) =>
+      e.type === "task_complete" && e.taskId === "process"
+    );
     assertExists(processComplete);
 
     // Layer 2 events
@@ -200,7 +218,13 @@ Deno.test("Integration: Full DAG execution with mixed task types", async (t) => 
 
     const dag: DAGStructure = {
       tasks: [
-        { id: "source", type: "mcp_tool", tool: "data:get", arguments: { key: "test" }, dependsOn: [] },
+        {
+          id: "source",
+          type: "mcp_tool",
+          tool: "data:get",
+          arguments: { key: "test" },
+          dependsOn: [],
+        },
         {
           id: "transform",
           type: "code_execution",
@@ -293,7 +317,9 @@ Deno.test("Integration: Full DAG execution with mixed task types", async (t) => 
       assert(warningEvent.message.includes("Safe-to-fail"));
     }
 
-    const nextTaskComplete = events.find((e) => e.type === "task_complete" && e.taskId === "next_task");
+    const nextTaskComplete = events.find((e) =>
+      e.type === "task_complete" && e.taskId === "next_task"
+    );
     assertExists(nextTaskComplete);
 
     console.log("  ✓ Safe-to-fail tasks emit warnings and workflow continues");
@@ -374,15 +400,20 @@ Deno.test("Integration: Checkpoint save and restore", async (t) => {
     // Should NOT re-execute task1
     const task1Events = resumeEvents.filter((e) => {
       return (
-        (e.type === "task_start" || e.type === "task_complete" || e.type === "task_error" || e.type === "task_warning") &&
+        (e.type === "task_start" || e.type === "task_complete" || e.type === "task_error" ||
+          e.type === "task_warning") &&
         e.taskId === "task1"
       );
     });
     assertEquals(task1Events.length, 0);
 
     // Should execute task2 and task3
-    const task2Complete = resumeEvents.find((e) => e.type === "task_complete" && e.taskId === "task2");
-    const task3Complete = resumeEvents.find((e) => e.type === "task_complete" && e.taskId === "task3");
+    const task2Complete = resumeEvents.find((e) =>
+      e.type === "task_complete" && e.taskId === "task2"
+    );
+    const task3Complete = resumeEvents.find((e) =>
+      e.type === "task_complete" && e.taskId === "task3"
+    );
     assertExists(task2Complete);
     assertExists(task3Complete);
 
@@ -429,212 +460,250 @@ Deno.test({
   sanitizeOps: false, // Timer leaks from CommandQueue.waitForCommand are expected in HIL/AIL tests
   sanitizeResources: false,
   fn: async (t) => {
-  await t.step("AIL per_layer triggers after each layer", async () => {
-    const config: ExecutorConfig = {
-      ail: { enabled: true, decision_points: "per_layer" },
-      hil: { enabled: false, approval_required: "never" },
-      timeouts: { ail: 5000 },
-    };
+    await t.step("AIL per_layer triggers after each layer", async () => {
+      const config: ExecutorConfig = {
+        ail: { enabled: true, decision_points: "per_layer" },
+        hil: { enabled: false, approval_required: "never" },
+        timeouts: { ail: 5000 },
+      };
 
-    const mockToolExecutor = createMockToolExecutor();
-    const executor = new ControlledExecutor(mockToolExecutor, config);
+      const mockToolExecutor = createMockToolExecutor();
+      const executor = new ControlledExecutor(mockToolExecutor, config);
 
-    const dag: DAGStructure = {
-      tasks: [
-        { id: "task1", type: "mcp_tool", tool: "test:tool1", arguments: {}, dependsOn: [] },
-        { id: "task2", type: "mcp_tool", tool: "test:tool2", arguments: {}, dependsOn: ["task1"] },
-      ],
-    };
+      const dag: DAGStructure = {
+        tasks: [
+          { id: "task1", type: "mcp_tool", tool: "test:tool1", arguments: {}, dependsOn: [] },
+          {
+            id: "task2",
+            type: "mcp_tool",
+            tool: "test:tool2",
+            arguments: {},
+            dependsOn: ["task1"],
+          },
+        ],
+      };
 
-    const events = await collectEvents(executor, dag, { autoContinueAIL: true });
+      const events = await collectEvents(executor, dag, { autoContinueAIL: true });
 
-    // Should have 2 AIL decision points (one per layer)
-    const ailEvents = events.filter((e) => e.type === "decision_required" && e.decisionType === "AIL");
-    assertEquals(ailEvents.length, 2);
+      // Should have 2 AIL decision points (one per layer)
+      const ailEvents = events.filter((e) =>
+        e.type === "decision_required" && e.decisionType === "AIL"
+      );
+      assertEquals(ailEvents.length, 2);
 
-    console.log("  ✓ AIL per_layer triggers correctly");
-  });
-
-  await t.step("AIL on_error triggers only when tasks fail", async () => {
-    const config: ExecutorConfig = {
-      ail: { enabled: true, decision_points: "on_error" },
-      hil: { enabled: false, approval_required: "never" },
-      timeouts: { ail: 5000 },
-    };
-
-    const mockToolExecutor = createMockToolExecutor();
-    const executor = new ControlledExecutor(mockToolExecutor, config);
-
-    const dag: DAGStructure = {
-      tasks: [
-        { id: "task1", type: "mcp_tool", tool: "test:tool1", arguments: {}, dependsOn: [] },
-        { id: "task2", type: "mcp_tool", tool: "test:tool2", arguments: {}, dependsOn: ["task1"] },
-      ],
-    };
-
-    const events = await collectEvents(executor, dag);
-
-    // Should have NO AIL decision points (no errors)
-    const ailEvents = events.filter((e) => e.type === "decision_required" && e.decisionType === "AIL");
-    assertEquals(ailEvents.length, 0);
-
-    console.log("  ✓ AIL on_error does not trigger without errors");
-  });
-
-  await t.step({
-    name: "HIL always requires approval after each layer",
-    fn: async () => {
-    const config: ExecutorConfig = {
-      ail: { enabled: false, decision_points: "manual" },
-      hil: { enabled: true, approval_required: "always" },
-      timeouts: { hil: 5000 },
-    };
-
-    const mockToolExecutor = createMockToolExecutor();
-    const executor = new ControlledExecutor(mockToolExecutor, config);
-
-    const dag: DAGStructure = {
-      tasks: [
-        { id: "task1", type: "mcp_tool", tool: "test:tool1", arguments: {}, dependsOn: [] },
-        { id: "task2", type: "mcp_tool", tool: "test:tool2", arguments: {}, dependsOn: ["task1"] },
-      ],
-    };
-
-    const events = await collectEvents(executor, dag, { autoApproveHIL: true });
-
-    // Should have 2 HIL decision points (one per layer)
-    const hilEvents = events.filter((e) => e.type === "decision_required" && e.decisionType === "HIL");
-    assertEquals(hilEvents.length, 2);
-
-    // Verify summary includes layer details
-    hilEvents.forEach((event) => {
-      if (event.type === "decision_required") {
-        assert(event.description.includes("Workflow Approval Checkpoint"));
-        assert(event.description.includes("Layer"));
-      }
+      console.log("  ✓ AIL per_layer triggers correctly");
     });
 
-      console.log("  ✓ HIL always triggers and includes summary");
-    },
-  });
+    await t.step("AIL on_error triggers only when tasks fail", async () => {
+      const config: ExecutorConfig = {
+        ail: { enabled: true, decision_points: "on_error" },
+        hil: { enabled: false, approval_required: "never" },
+        timeouts: { ail: 5000 },
+      };
 
-  await t.step({
-    name: "HIL critical_only is deprecated and does not trigger",
-    fn: async () => {
-    // NOTE: critical_only was based on deprecated sideEffects field
-    // Now returns false - validation is handled server-side via mcp-permissions.yaml
-    const config: ExecutorConfig = {
-      ail: { enabled: false, decision_points: "manual" },
-      hil: { enabled: true, approval_required: "critical_only" },
-      timeouts: { hil: 5000 },
-    };
+      const mockToolExecutor = createMockToolExecutor();
+      const executor = new ControlledExecutor(mockToolExecutor, config);
 
-    const mockToolExecutor = createMockToolExecutor();
-    const executor = new ControlledExecutor(mockToolExecutor, config);
+      const dag: DAGStructure = {
+        tasks: [
+          { id: "task1", type: "mcp_tool", tool: "test:tool1", arguments: {}, dependsOn: [] },
+          {
+            id: "task2",
+            type: "mcp_tool",
+            tool: "test:tool2",
+            arguments: {},
+            dependsOn: ["task1"],
+          },
+        ],
+      };
 
-    const dag: DAGStructure = {
-      tasks: [
-        { id: "safe_task", type: "mcp_tool", tool: "test:read", arguments: {}, dependsOn: [] },
-        {
-          id: "critical_task",
-          type: "mcp_tool",
-          tool: "test:write",
-          arguments: {},
-          dependsOn: ["safe_task"],
-        },
-      ],
-    };
+      const events = await collectEvents(executor, dag);
 
-    const events = await collectEvents(executor, dag, { autoApproveHIL: true });
+      // Should have NO AIL decision points (no errors)
+      const ailEvents = events.filter((e) =>
+        e.type === "decision_required" && e.decisionType === "AIL"
+      );
+      assertEquals(ailEvents.length, 0);
 
-    // critical_only is deprecated - should NOT trigger HIL (returns false)
-    const hilEvents = events.filter((e) => e.type === "decision_required" && e.decisionType === "HIL");
-    assertEquals(hilEvents.length, 0);
+      console.log("  ✓ AIL on_error does not trigger without errors");
+    });
 
-      console.log("  ✓ HIL critical_only is deprecated (no HIL events)");
-    },
-  });
+    await t.step({
+      name: "HIL always requires approval after each layer",
+      fn: async () => {
+        const config: ExecutorConfig = {
+          ail: { enabled: false, decision_points: "manual" },
+          hil: { enabled: true, approval_required: "always" },
+          timeouts: { hil: 5000 },
+        };
 
-  await t.step({
-    name: "HIL rejection aborts workflow",
-    fn: async () => {
-    const config: ExecutorConfig = {
-      ail: { enabled: false, decision_points: "manual" },
-      hil: { enabled: true, approval_required: "always" },
-      timeouts: { hil: 5000 },
-    };
+        const mockToolExecutor = createMockToolExecutor();
+        const executor = new ControlledExecutor(mockToolExecutor, config);
 
-    const mockToolExecutor = createMockToolExecutor();
-    const executor = new ControlledExecutor(mockToolExecutor, config);
+        const dag: DAGStructure = {
+          tasks: [
+            { id: "task1", type: "mcp_tool", tool: "test:tool1", arguments: {}, dependsOn: [] },
+            {
+              id: "task2",
+              type: "mcp_tool",
+              tool: "test:tool2",
+              arguments: {},
+              dependsOn: ["task1"],
+            },
+          ],
+        };
 
-    const dag: DAGStructure = {
-      tasks: [
-        { id: "task1", type: "mcp_tool", tool: "test:tool1", arguments: {}, dependsOn: [] },
-        { id: "task2", type: "mcp_tool", tool: "test:tool2", arguments: {}, dependsOn: ["task1"] },
-      ],
-    };
+        const events = await collectEvents(executor, dag, { autoApproveHIL: true });
 
-    const streamGen = executor.executeStream(dag);
+        // Should have 2 HIL decision points (one per layer)
+        const hilEvents = events.filter((e) =>
+          e.type === "decision_required" && e.decisionType === "HIL"
+        );
+        assertEquals(hilEvents.length, 2);
 
-    await assertRejects(
-      async () => {
-        for await (const event of streamGen) {
-          if (event.type === "decision_required" && event.decisionType === "HIL") {
-            // Reject approval
-            executor.enqueueCommand({
-              type: "approval_response",
-              checkpointId: "test",
-              approved: false,
-              feedback: "Test rejection",
-            });
+        // Verify summary includes layer details
+        hilEvents.forEach((event) => {
+          if (event.type === "decision_required") {
+            assert(event.description.includes("Workflow Approval Checkpoint"));
+            assert(event.description.includes("Layer"));
           }
-        }
+        });
+
+        console.log("  ✓ HIL always triggers and includes summary");
       },
-      Error,
-      "aborted by human",
-    );
+    });
 
-      console.log("  ✓ HIL rejection aborts workflow");
-    },
-  });
+    await t.step({
+      name: "HIL critical_only is deprecated and does not trigger",
+      fn: async () => {
+        // NOTE: critical_only was based on deprecated sideEffects field
+        // Now returns false - validation is handled server-side via mcp-permissions.yaml
+        const config: ExecutorConfig = {
+          ail: { enabled: false, decision_points: "manual" },
+          hil: { enabled: true, approval_required: "critical_only" },
+          timeouts: { hil: 5000 },
+        };
 
-  await t.step({
-    name: "AIL abort command stops execution",
-    fn: async () => {
-    const config: ExecutorConfig = {
-      ail: { enabled: true, decision_points: "per_layer" },
-      hil: { enabled: false, approval_required: "never" },
-      timeouts: { ail: 5000 },
-    };
+        const mockToolExecutor = createMockToolExecutor();
+        const executor = new ControlledExecutor(mockToolExecutor, config);
 
-    const mockToolExecutor = createMockToolExecutor();
-    const executor = new ControlledExecutor(mockToolExecutor, config);
+        const dag: DAGStructure = {
+          tasks: [
+            { id: "safe_task", type: "mcp_tool", tool: "test:read", arguments: {}, dependsOn: [] },
+            {
+              id: "critical_task",
+              type: "mcp_tool",
+              tool: "test:write",
+              arguments: {},
+              dependsOn: ["safe_task"],
+            },
+          ],
+        };
 
-    const dag: DAGStructure = {
-      tasks: [
-        { id: "task1", type: "mcp_tool", tool: "test:tool1", arguments: {}, dependsOn: [] },
-        { id: "task2", type: "mcp_tool", tool: "test:tool2", arguments: {}, dependsOn: ["task1"] },
-      ],
-    };
+        const events = await collectEvents(executor, dag, { autoApproveHIL: true });
 
-    const streamGen = executor.executeStream(dag);
+        // critical_only is deprecated - should NOT trigger HIL (returns false)
+        const hilEvents = events.filter((e) =>
+          e.type === "decision_required" && e.decisionType === "HIL"
+        );
+        assertEquals(hilEvents.length, 0);
 
-    await assertRejects(
-      async () => {
-        for await (const event of streamGen) {
-          if (event.type === "decision_required" && event.decisionType === "AIL") {
-            // Send abort command
-            executor.enqueueCommand({ type: "abort", reason: "Test abort" });
-          }
-        }
+        console.log("  ✓ HIL critical_only is deprecated (no HIL events)");
       },
-      Error,
-      "aborted by agent",
-    );
+    });
 
-      console.log("  ✓ AIL abort command stops execution");
-    },
-  });
+    await t.step({
+      name: "HIL rejection aborts workflow",
+      fn: async () => {
+        const config: ExecutorConfig = {
+          ail: { enabled: false, decision_points: "manual" },
+          hil: { enabled: true, approval_required: "always" },
+          timeouts: { hil: 5000 },
+        };
+
+        const mockToolExecutor = createMockToolExecutor();
+        const executor = new ControlledExecutor(mockToolExecutor, config);
+
+        const dag: DAGStructure = {
+          tasks: [
+            { id: "task1", type: "mcp_tool", tool: "test:tool1", arguments: {}, dependsOn: [] },
+            {
+              id: "task2",
+              type: "mcp_tool",
+              tool: "test:tool2",
+              arguments: {},
+              dependsOn: ["task1"],
+            },
+          ],
+        };
+
+        const streamGen = executor.executeStream(dag);
+
+        await assertRejects(
+          async () => {
+            for await (const event of streamGen) {
+              if (event.type === "decision_required" && event.decisionType === "HIL") {
+                // Reject approval
+                executor.enqueueCommand({
+                  type: "approval_response",
+                  checkpointId: "test",
+                  approved: false,
+                  feedback: "Test rejection",
+                });
+              }
+            }
+          },
+          Error,
+          "aborted by human",
+        );
+
+        console.log("  ✓ HIL rejection aborts workflow");
+      },
+    });
+
+    await t.step({
+      name: "AIL abort command stops execution",
+      fn: async () => {
+        const config: ExecutorConfig = {
+          ail: { enabled: true, decision_points: "per_layer" },
+          hil: { enabled: false, approval_required: "never" },
+          timeouts: { ail: 5000 },
+        };
+
+        const mockToolExecutor = createMockToolExecutor();
+        const executor = new ControlledExecutor(mockToolExecutor, config);
+
+        const dag: DAGStructure = {
+          tasks: [
+            { id: "task1", type: "mcp_tool", tool: "test:tool1", arguments: {}, dependsOn: [] },
+            {
+              id: "task2",
+              type: "mcp_tool",
+              tool: "test:tool2",
+              arguments: {},
+              dependsOn: ["task1"],
+            },
+          ],
+        };
+
+        const streamGen = executor.executeStream(dag);
+
+        await assertRejects(
+          async () => {
+            for await (const event of streamGen) {
+              if (event.type === "decision_required" && event.decisionType === "AIL") {
+                // Send abort command
+                executor.enqueueCommand({ type: "abort", reason: "Test abort" });
+              }
+            }
+          },
+          Error,
+          "aborted by agent",
+        );
+
+        console.log("  ✓ AIL abort command stops execution");
+      },
+    });
   },
 });
 
@@ -650,7 +719,13 @@ Deno.test("Integration: Task routing and execution", async (t) => {
     const dag: DAGStructure = {
       tasks: [
         // MCP tool
-        { id: "mcp_task", type: "mcp_tool", tool: "api:fetch", arguments: { url: "test" }, dependsOn: [] },
+        {
+          id: "mcp_task",
+          type: "mcp_tool",
+          tool: "api:fetch",
+          arguments: { url: "test" },
+          dependsOn: [],
+        },
         // Code execution
         {
           id: "code_task",
@@ -685,7 +760,13 @@ Deno.test("Integration: Task routing and execution", async (t) => {
 
     const dag: DAGStructure = {
       tasks: [
-        { id: "source", type: "mcp_tool", tool: "data:get", arguments: { value: 10 }, dependsOn: [] },
+        {
+          id: "source",
+          type: "mcp_tool",
+          tool: "data:get",
+          arguments: { value: 10 },
+          dependsOn: [],
+        },
         {
           id: "compute",
           type: "code_execution",
@@ -708,7 +789,9 @@ Deno.test("Integration: Task routing and execution", async (t) => {
 
     const events = await collectEvents(executor, dag);
 
-    const computeComplete = events.find((e) => e.type === "task_complete" && e.taskId === "compute");
+    const computeComplete = events.find((e) =>
+      e.type === "task_complete" && e.taskId === "compute"
+    );
     assertExists(computeComplete);
 
     const workflowComplete = events.find((e) => e.type === "workflow_complete");
@@ -722,61 +805,73 @@ Deno.test("Integration: Task routing and execution", async (t) => {
     name: "Failed dependencies are passed to dependent tasks",
     ignore: false,
     fn: async () => {
-    const mockToolExecutor = createMockToolExecutor({ failOnTasks: ["failing_source"] });
-    const executor = new ControlledExecutor(mockToolExecutor, { taskTimeout: 30000 });
+      const mockToolExecutor = createMockToolExecutor({ failOnTasks: ["failing_source"] });
+      const executor = new ControlledExecutor(mockToolExecutor, { taskTimeout: 30000 });
 
-    const dag: DAGStructure = {
-      tasks: [
-        {
-          id: "failing_source",
-          type: "mcp_tool",
-          tool: "data:fail",
-          arguments: { _taskId: "failing_source" },
-          dependsOn: [],
-        },
-        {
-          id: "dependent",
-          type: "code_execution",
-          tool: "sandbox",
-          code: `
+      const dag: DAGStructure = {
+        tasks: [
+          {
+            id: "failing_source",
+            type: "mcp_tool",
+            tool: "data:fail",
+            arguments: { _taskId: "failing_source" },
+            dependsOn: [],
+          },
+          {
+            id: "dependent",
+            type: "code_execution",
+            tool: "sandbox",
+            code: `
             // Per dependency-resolver.ts, error dependencies throw an error
             // This test verifies that the error propagates correctly
             return { data: deps.failing_source };
           `,
-          arguments: {},
-          dependsOn: ["failing_source"],
-        },
-      ],
-    };
+            arguments: {},
+            dependsOn: ["failing_source"],
+          },
+        ],
+      };
 
-    const events = await collectEvents(executor, dag);
+      const events = await collectEvents(executor, dag);
 
-    // Source should fail
-    const sourceError = events.find((e) => e.type === "task_error" && e.taskId === "failing_source");
-    assertExists(sourceError, "Source task should have failed");
+      // Source should fail
+      const sourceError = events.find((e) =>
+        e.type === "task_error" && e.taskId === "failing_source"
+      );
+      assertExists(sourceError, "Source task should have failed");
 
-    // The dependent task is in the next layer, so it WILL start
-    const dependentStart = events.find((e) => e.type === "task_start" && e.taskId === "dependent");
-    assertExists(dependentStart, "Dependent task should have started");
+      // The dependent task is in the next layer, so it WILL start
+      const dependentStart = events.find((e) =>
+        e.type === "task_start" && e.taskId === "dependent"
+      );
+      assertExists(dependentStart, "Dependent task should have started");
 
-    // Per dependency-resolver.ts line 33-34: "if (depResult?.status === 'error') throw new Error(...)"
-    // So the dependent task SHOULD fail due to dependency resolution error
-    const dependentError = events.find((e) => e.type === "task_error" && e.taskId === "dependent");
+      // Per dependency-resolver.ts line 33-34: "if (depResult?.status === 'error') throw new Error(...)"
+      // So the dependent task SHOULD fail due to dependency resolution error
+      const dependentError = events.find((e) =>
+        e.type === "task_error" && e.taskId === "dependent"
+      );
 
-    const workflowComplete = events.find((e) => e.type === "workflow_complete");
-    assertExists(workflowComplete);
+      const workflowComplete = events.find((e) => e.type === "workflow_complete");
+      assertExists(workflowComplete);
 
-    // Verify at least the source task failed
-    assert(workflowComplete.failedTasks >= 1, "At least source task should fail");
+      // Verify at least the source task failed
+      assert(workflowComplete.failedTasks >= 1, "At least source task should fail");
 
-    // If dependency resolver correctly throws, both should fail
-    // If not, this reveals current behavior for documentation
-    if (dependentError) {
-      assertEquals(workflowComplete.failedTasks, 2, "Both tasks should fail per dependency-resolver.ts");
-      console.log("  ✓ Failed dependencies halt dependent tasks (dependency resolver throws)");
-    } else {
-      console.log("  ⚠ Failed dependencies passed through (dependency resolver does not throw for MCP tasks)");
-    }
+      // If dependency resolver correctly throws, both should fail
+      // If not, this reveals current behavior for documentation
+      if (dependentError) {
+        assertEquals(
+          workflowComplete.failedTasks,
+          2,
+          "Both tasks should fail per dependency-resolver.ts",
+        );
+        console.log("  ✓ Failed dependencies halt dependent tasks (dependency resolver throws)");
+      } else {
+        console.log(
+          "  ⚠ Failed dependencies passed through (dependency resolver does not throw for MCP tasks)",
+        );
+      }
     },
   });
 });
@@ -872,7 +967,10 @@ Deno.test("Integration: Event stream ordering and completeness", async (t) => {
 
     // Verify timestamps increase
     for (let i = 1; i < events.length; i++) {
-      assert(events[i].timestamp >= events[i - 1].timestamp, `Timestamp out of order at index ${i}`);
+      assert(
+        events[i].timestamp >= events[i - 1].timestamp,
+        `Timestamp out of order at index ${i}`,
+      );
     }
 
     console.log("  ✓ Event timestamps are monotonically increasing");
@@ -971,7 +1069,9 @@ Deno.test("Integration: Error handling and resilience", async (t) => {
 
     const events = await collectEvents(executor, dag);
 
-    const successComplete = events.find((e) => e.type === "task_complete" && e.taskId === "success_task");
+    const successComplete = events.find((e) =>
+      e.type === "task_complete" && e.taskId === "success_task"
+    );
     const failureError = events.find((e) => e.type === "task_error" && e.taskId === "failing_task");
 
     assertExists(successComplete);
@@ -1090,7 +1190,10 @@ Deno.test("Integration: Performance and concurrency", async (t) => {
 
     // Sequential would take ~200ms (4 * 50ms)
     // Parallel should take ~50-100ms (with overhead)
-    assert(totalTime < 150, `Execution took ${totalTime}ms, expected < 150ms for parallel execution`);
+    assert(
+      totalTime < 150,
+      `Execution took ${totalTime}ms, expected < 150ms for parallel execution`,
+    );
 
     const workflowComplete = events.find((e) => e.type === "workflow_complete");
     assertExists(workflowComplete);
@@ -1103,43 +1206,47 @@ Deno.test("Integration: Performance and concurrency", async (t) => {
     name: "Layer dependencies enforced correctly",
     ignore: false,
     fn: async () => {
-    const mockToolExecutor = createMockToolExecutor();
-    const executor = new ControlledExecutor(mockToolExecutor, { taskTimeout: 30000 });
+      const mockToolExecutor = createMockToolExecutor();
+      const executor = new ControlledExecutor(mockToolExecutor, { taskTimeout: 30000 });
 
-    const dag: DAGStructure = {
-      tasks: [
-        // Layer 0
-        { id: "l0_task1", type: "mcp_tool", tool: "test:tool1", arguments: {}, dependsOn: [] },
-        { id: "l0_task2", type: "mcp_tool", tool: "test:tool2", arguments: {}, dependsOn: [] },
-        // Layer 1
-        {
-          id: "l1_task",
-          type: "mcp_tool",
-          tool: "test:tool3",
-          arguments: {},
-          dependsOn: ["l0_task1", "l0_task2"],
-        },
-      ],
-    };
+      const dag: DAGStructure = {
+        tasks: [
+          // Layer 0
+          { id: "l0_task1", type: "mcp_tool", tool: "test:tool1", arguments: {}, dependsOn: [] },
+          { id: "l0_task2", type: "mcp_tool", tool: "test:tool2", arguments: {}, dependsOn: [] },
+          // Layer 1
+          {
+            id: "l1_task",
+            type: "mcp_tool",
+            tool: "test:tool3",
+            arguments: {},
+            dependsOn: ["l0_task1", "l0_task2"],
+          },
+        ],
+      };
 
-    const events = await collectEvents(executor, dag);
+      const events = await collectEvents(executor, dag);
 
-    // Find when l0 tasks complete
-    const l0_task1_complete = events.find((e) => e.type === "task_complete" && e.taskId === "l0_task1");
-    const l0_task2_complete = events.find((e) => e.type === "task_complete" && e.taskId === "l0_task2");
-    const l1_task_start = events.find((e) => e.type === "task_start" && e.taskId === "l1_task");
+      // Find when l0 tasks complete
+      const l0_task1_complete = events.find((e) =>
+        e.type === "task_complete" && e.taskId === "l0_task1"
+      );
+      const l0_task2_complete = events.find((e) =>
+        e.type === "task_complete" && e.taskId === "l0_task2"
+      );
+      const l1_task_start = events.find((e) => e.type === "task_start" && e.taskId === "l1_task");
 
-    assertExists(l0_task1_complete);
-    assertExists(l0_task2_complete);
-    assertExists(l1_task_start);
+      assertExists(l0_task1_complete);
+      assertExists(l0_task2_complete);
+      assertExists(l1_task_start);
 
-    // l1_task should start AFTER at least one l0 task completes
-    // (Due to parallel execution, timestamps may be very close, so we just verify they all happened)
-    const maxL0Time = Math.max(l0_task1_complete.timestamp, l0_task2_complete.timestamp);
-    assert(
-      l1_task_start.timestamp >= maxL0Time,
-      `l1_task_start (${l1_task_start.timestamp}) should be >= max l0 completion (${maxL0Time})`,
-    );
+      // l1_task should start AFTER at least one l0 task completes
+      // (Due to parallel execution, timestamps may be very close, so we just verify they all happened)
+      const maxL0Time = Math.max(l0_task1_complete.timestamp, l0_task2_complete.timestamp);
+      assert(
+        l1_task_start.timestamp >= maxL0Time,
+        `l1_task_start (${l1_task_start.timestamp}) should be >= max l0 completion (${maxL0Time})`,
+      );
 
       console.log("  ✓ Layer dependencies enforced correctly");
     },

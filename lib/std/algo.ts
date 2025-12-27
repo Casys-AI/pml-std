@@ -7,23 +7,23 @@
  */
 
 import {
-  Heap,
-  MinHeap,
-  MaxHeap,
-  FibonacciHeap,
-  Trie,
-  SuffixArray,
-  LRUCache,
-  LRUMap,
+  BiMap,
   BloomFilter,
   CircularBuffer,
+  DefaultMap,
+  FibonacciHeap,
+  Heap,
+  LinkedList,
+  LRUCache,
+  LRUMap,
+  MaxHeap,
+  MinHeap,
+  MultiSet,
   Queue,
   Stack,
-  LinkedList,
-  BiMap,
-  DefaultMap,
-  MultiSet,
   StaticDisjointSet,
+  SuffixArray,
+  Trie,
 } from "mnemonist";
 import type { MiniTool } from "./types.ts";
 
@@ -34,7 +34,8 @@ export const algoTools: MiniTool[] = [
   // Priority Queue / Heap operations
   {
     name: "algo_heap_create",
-    description: "Create a min-heap or max-heap data structure (priority queue). Efficiently get minimum/maximum element. Use for task scheduling, event processing, dijkstra's algorithm, or top-K problems. Keywords: heap, priority queue, min heap, max heap, priority scheduling.",
+    description:
+      "Create a min-heap or max-heap data structure (priority queue). Efficiently get minimum/maximum element. Use for task scheduling, event processing, dijkstra's algorithm, or top-K problems. Keywords: heap, priority queue, min heap, max heap, priority scheduling.",
     category: "algo",
     inputSchema: {
       type: "object",
@@ -58,7 +59,8 @@ export const algoTools: MiniTool[] = [
   },
   {
     name: "algo_heap_push",
-    description: "Add items to an existing heap/priority queue. Maintains heap property automatically. Use to insert new elements for processing in priority order. Keywords: heap push, enqueue priority, add to heap.",
+    description:
+      "Add items to an existing heap/priority queue. Maintains heap property automatically. Use to insert new elements for processing in priority order. Keywords: heap push, enqueue priority, add to heap.",
     category: "algo",
     inputSchema: {
       type: "object",
@@ -79,7 +81,8 @@ export const algoTools: MiniTool[] = [
   },
   {
     name: "algo_heap_pop",
-    description: "Remove and return the top element (min or max) from heap. Extract highest/lowest priority item. Use to process elements in order or get next scheduled task. Keywords: heap pop, dequeue, extract min max, get priority item.",
+    description:
+      "Remove and return the top element (min or max) from heap. Extract highest/lowest priority item. Use to process elements in order or get next scheduled task. Keywords: heap pop, dequeue, extract min max, get priority item.",
     category: "algo",
     inputSchema: {
       type: "object",
@@ -103,7 +106,8 @@ export const algoTools: MiniTool[] = [
   // Trie operations
   {
     name: "algo_trie_create",
-    description: "Create a trie (prefix tree) for efficient string operations. Store words for fast prefix search, autocomplete, or spell checking. O(k) lookup where k is word length. Keywords: trie, prefix tree, autocomplete, word search, dictionary structure.",
+    description:
+      "Create a trie (prefix tree) for efficient string operations. Store words for fast prefix search, autocomplete, or spell checking. O(k) lookup where k is word length. Keywords: trie, prefix tree, autocomplete, word search, dictionary structure.",
     category: "algo",
     inputSchema: {
       type: "object",
@@ -126,7 +130,8 @@ export const algoTools: MiniTool[] = [
   },
   {
     name: "algo_trie_add",
-    description: "Add words to an existing trie. Build up your prefix tree with new entries. Use for growing dictionaries or adding searchable terms. Keywords: trie insert, add word, dictionary add.",
+    description:
+      "Add words to an existing trie. Build up your prefix tree with new entries. Use for growing dictionaries or adding searchable terms. Keywords: trie insert, add word, dictionary add.",
     category: "algo",
     inputSchema: {
       type: "object",
@@ -147,7 +152,8 @@ export const algoTools: MiniTool[] = [
   },
   {
     name: "algo_trie_find",
-    description: "Find all words matching a prefix in trie. Power autocomplete suggestions, search-as-you-type, or prefix matching. Returns all words starting with the given prefix. Keywords: trie search, prefix match, autocomplete, find by prefix.",
+    description:
+      "Find all words matching a prefix in trie. Power autocomplete suggestions, search-as-you-type, or prefix matching. Returns all words starting with the given prefix. Keywords: trie search, prefix match, autocomplete, find by prefix.",
     category: "algo",
     inputSchema: {
       type: "object",
@@ -167,7 +173,8 @@ export const algoTools: MiniTool[] = [
   // LRU Cache operations
   {
     name: "algo_lru_create",
-    description: "Create an LRU (Least Recently Used) cache with fixed capacity. Automatically evicts oldest unused entries when full. Essential for caching, memoization, or memory-bounded storage. Keywords: LRU cache, least recently used, cache eviction, memoization cache.",
+    description:
+      "Create an LRU (Least Recently Used) cache with fixed capacity. Automatically evicts oldest unused entries when full. Essential for caching, memoization, or memory-bounded storage. Keywords: LRU cache, least recently used, cache eviction, memoization cache.",
     category: "algo",
     inputSchema: {
       type: "object",
@@ -185,7 +192,8 @@ export const algoTools: MiniTool[] = [
   },
   {
     name: "algo_lru_set",
-    description: "Store a key-value pair in LRU cache. Entry becomes most recently used. May evict oldest entry if at capacity. Keywords: cache set, store in cache, LRU put.",
+    description:
+      "Store a key-value pair in LRU cache. Entry becomes most recently used. May evict oldest entry if at capacity. Keywords: cache set, store in cache, LRU put.",
     category: "algo",
     inputSchema: {
       type: "object",
@@ -205,7 +213,8 @@ export const algoTools: MiniTool[] = [
   },
   {
     name: "algo_lru_get",
-    description: "Retrieve value from LRU cache by key. Marks entry as recently used. Returns undefined if not found or evicted. Keywords: cache get, retrieve from cache, LRU lookup.",
+    description:
+      "Retrieve value from LRU cache by key. Marks entry as recently used. Returns undefined if not found or evicted. Keywords: cache get, retrieve from cache, LRU lookup.",
     category: "algo",
     inputSchema: {
       type: "object",
@@ -226,7 +235,8 @@ export const algoTools: MiniTool[] = [
   // Bloom Filter operations
   {
     name: "algo_bloom_create",
-    description: "Create a Bloom filter for memory-efficient probabilistic set membership. May have false positives but never false negatives. Ideal for checking if element was definitely NOT seen. Keywords: bloom filter, probabilistic set, membership test, space efficient.",
+    description:
+      "Create a Bloom filter for memory-efficient probabilistic set membership. May have false positives but never false negatives. Ideal for checking if element was definitely NOT seen. Keywords: bloom filter, probabilistic set, membership test, space efficient.",
     category: "algo",
     inputSchema: {
       type: "object",
@@ -244,7 +254,8 @@ export const algoTools: MiniTool[] = [
   },
   {
     name: "algo_bloom_add",
-    description: "Add items to Bloom filter. Elements cannot be removed. Use for tracking seen items, duplicate detection, or cache existence checks. Keywords: bloom add, mark as seen, bloom insert.",
+    description:
+      "Add items to Bloom filter. Elements cannot be removed. Use for tracking seen items, duplicate detection, or cache existence checks. Keywords: bloom add, mark as seen, bloom insert.",
     category: "algo",
     inputSchema: {
       type: "object",
@@ -265,7 +276,8 @@ export const algoTools: MiniTool[] = [
   },
   {
     name: "algo_bloom_test",
-    description: "Test if item might exist in Bloom filter. Returns true if 'possibly in set', false if 'definitely not in set'. Use for quick negative checks before expensive lookups. Keywords: bloom test, check membership, exists check.",
+    description:
+      "Test if item might exist in Bloom filter. Returns true if 'possibly in set', false if 'definitely not in set'. Use for quick negative checks before expensive lookups. Keywords: bloom test, check membership, exists check.",
     category: "algo",
     inputSchema: {
       type: "object",
@@ -285,7 +297,8 @@ export const algoTools: MiniTool[] = [
   // Circular Buffer operations
   {
     name: "algo_circular_create",
-    description: "Create a circular/ring buffer with fixed capacity. New items overwrite oldest when full. Perfect for sliding windows, recent history, or bounded logging. Keywords: circular buffer, ring buffer, bounded queue, sliding window.",
+    description:
+      "Create a circular/ring buffer with fixed capacity. New items overwrite oldest when full. Perfect for sliding windows, recent history, or bounded logging. Keywords: circular buffer, ring buffer, bounded queue, sliding window.",
     category: "algo",
     inputSchema: {
       type: "object",
@@ -303,7 +316,8 @@ export const algoTools: MiniTool[] = [
   },
   {
     name: "algo_circular_push",
-    description: "Add items to circular buffer. Overwrites oldest entries when at capacity. Use for streaming data or fixed-size history. Keywords: ring buffer push, circular add, append to ring.",
+    description:
+      "Add items to circular buffer. Overwrites oldest entries when at capacity. Use for streaming data or fixed-size history. Keywords: ring buffer push, circular add, append to ring.",
     category: "algo",
     inputSchema: {
       type: "object",
@@ -324,7 +338,8 @@ export const algoTools: MiniTool[] = [
   },
   {
     name: "algo_circular_toArray",
-    description: "Export circular buffer contents as array in insertion order. Get current state of ring buffer. Use for inspection, serialization, or processing. Keywords: ring buffer export, get buffer contents, circular to array.",
+    description:
+      "Export circular buffer contents as array in insertion order. Get current state of ring buffer. Use for inspection, serialization, or processing. Keywords: ring buffer export, get buffer contents, circular to array.",
     category: "algo",
     inputSchema: {
       type: "object",
@@ -343,7 +358,8 @@ export const algoTools: MiniTool[] = [
   // Disjoint Set (Union-Find) operations
   {
     name: "algo_unionfind_create",
-    description: "Create a Union-Find (disjoint set) data structure. Track connected components, detect cycles in graphs. Essential for Kruskal's algorithm, network connectivity, or clustering. Keywords: union find, disjoint set, connected components, cycle detection.",
+    description:
+      "Create a Union-Find (disjoint set) data structure. Track connected components, detect cycles in graphs. Essential for Kruskal's algorithm, network connectivity, or clustering. Keywords: union find, disjoint set, connected components, cycle detection.",
     category: "algo",
     inputSchema: {
       type: "object",
@@ -361,7 +377,8 @@ export const algoTools: MiniTool[] = [
   },
   {
     name: "algo_unionfind_union",
-    description: "Merge two elements into the same set/component. Connect nodes in a graph. Use for building connected components or grouping related items. Keywords: union operation, merge sets, connect nodes.",
+    description:
+      "Merge two elements into the same set/component. Connect nodes in a graph. Use for building connected components or grouping related items. Keywords: union operation, merge sets, connect nodes.",
     category: "algo",
     inputSchema: {
       type: "object",
@@ -381,7 +398,8 @@ export const algoTools: MiniTool[] = [
   },
   {
     name: "algo_unionfind_connected",
-    description: "Check if two elements belong to the same set/component. Test connectivity between nodes. Use for graph connectivity queries or equivalence class checks. Keywords: find connected, same component, connectivity test.",
+    description:
+      "Check if two elements belong to the same set/component. Test connectivity between nodes. Use for graph connectivity queries or equivalence class checks. Keywords: find connected, same component, connectivity test.",
     category: "algo",
     inputSchema: {
       type: "object",
@@ -402,7 +420,8 @@ export const algoTools: MiniTool[] = [
   // General instance management
   {
     name: "algo_delete",
-    description: "Delete an algorithm data structure instance by ID. Free memory when done with a heap, trie, cache, or other structure. Use for cleanup or resource management. Keywords: delete structure, remove instance, cleanup memory.",
+    description:
+      "Delete an algorithm data structure instance by ID. Free memory when done with a heap, trie, cache, or other structure. Use for cleanup or resource management. Keywords: delete structure, remove instance, cleanup memory.",
     category: "algo",
     inputSchema: {
       type: "object",
@@ -418,7 +437,8 @@ export const algoTools: MiniTool[] = [
   },
   {
     name: "algo_list",
-    description: "List all active algorithm data structure instances. See what heaps, tries, caches, and other structures are currently allocated. Use for debugging or inventory. Keywords: list instances, show structures, active data structures.",
+    description:
+      "List all active algorithm data structure instances. See what heaps, tries, caches, and other structures are currently allocated. Use for debugging or inventory. Keywords: list instances, show structures, active data structures.",
     category: "algo",
     inputSchema: {
       type: "object",
@@ -431,4 +451,14 @@ export const algoTools: MiniTool[] = [
 ];
 
 // Re-export unused imports for potential future use
-export { FibonacciHeap, SuffixArray, LRUMap, Queue, Stack, LinkedList, BiMap, DefaultMap, MultiSet };
+export {
+  BiMap,
+  DefaultMap,
+  FibonacciHeap,
+  LinkedList,
+  LRUMap,
+  MultiSet,
+  Queue,
+  Stack,
+  SuffixArray,
+};

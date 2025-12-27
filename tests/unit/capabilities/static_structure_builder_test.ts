@@ -107,7 +107,10 @@ Deno.test("StaticStructureBuilder - parse if statement creates decision node", a
   const decisionNodes = structure.nodes.filter((n) => n.type === "decision");
   assertEquals(decisionNodes.length, 1);
   if (decisionNodes[0].type === "decision") {
-    assertEquals(decisionNodes[0].condition.includes("file") || decisionNodes[0].condition.includes("exists"), true);
+    assertEquals(
+      decisionNodes[0].condition.includes("file") || decisionNodes[0].condition.includes("exists"),
+      true,
+    );
   }
 
   // Should have conditional edge
@@ -358,71 +361,71 @@ Deno.test({
   sanitizeResources: false, // EventBus uses BroadcastChannel
   sanitizeOps: false, // EventBus async ops
   fn: async () => {
-  const db = await setupTestDb();
-  const builder = new StaticStructureBuilder(db);
+    const db = await setupTestDb();
+    const builder = new StaticStructureBuilder(db);
 
-  // Create a mock embedding model with all required interface methods
-  class MockEmbeddingModel {
-    async load(): Promise<void> {}
-    async encode(_text: string): Promise<number[]> {
-      return new Array(1024).fill(0.1);
+    // Create a mock embedding model with all required interface methods
+    class MockEmbeddingModel {
+      async load(): Promise<void> {}
+      async encode(_text: string): Promise<number[]> {
+        return new Array(1024).fill(0.1);
+      }
+      isLoaded(): boolean {
+        return true;
+      }
     }
-    isLoaded(): boolean {
-      return true;
-    }
-  }
-  const mockEmbeddingModel = new MockEmbeddingModel();
+    const mockEmbeddingModel = new MockEmbeddingModel();
 
-  // Import CapabilityStore dynamically to avoid circular deps
-  const { CapabilityStore } = await import("../../../src/capabilities/capability-store.ts");
+    // Import CapabilityStore dynamically to avoid circular deps
+    const { CapabilityStore } = await import("../../../src/capabilities/capability-store.ts");
 
-  // Create CapabilityStore WITH StaticStructureBuilder (AC10)
-  const store = new CapabilityStore(
-    db,
-    mockEmbeddingModel as any, // Cast to bypass EmbeddingModel class type (interface satisfied)
-    undefined, // schemaInferrer
-    undefined, // permissionInferrer
-    builder, // staticStructureBuilder - AC10
-  );
+    // Create CapabilityStore WITH StaticStructureBuilder (AC10)
+    const store = new CapabilityStore(
+      db,
+      mockEmbeddingModel as any, // Cast to bypass EmbeddingModel class type (interface satisfied)
+      undefined, // schemaInferrer
+      undefined, // permissionInferrer
+      builder, // staticStructureBuilder - AC10
+    );
 
-  // Save a capability with MCP tool calls
-  const code = `
+    // Save a capability with MCP tool calls
+    const code = `
     const file = await mcp.filesystem.read_file({ path: "/test.json" });
     if (file.content) {
       await mcp.filesystem.write_file({ path: "/output.json", content: file.content });
     }
   `;
 
-  const { capability } = await store.saveCapability({
-    code,
-    intent: "Read a file and write it if it has content",
-    durationMs: 100,
-    success: true,
-  });
+    const { capability } = await store.saveCapability({
+      code,
+      intent: "Read a file and write it if it has content",
+      durationMs: 100,
+      success: true,
+    });
 
-  assertExists(capability);
-  assertExists(capability.id);
+    assertExists(capability);
+    assertExists(capability.id);
 
-  // Verify static_structure was stored in dag_structure
-  const result = await db.query(
-    `SELECT dag_structure FROM workflow_pattern WHERE pattern_id = $1`,
-    [capability.id],
-  );
+    // Verify static_structure was stored in dag_structure
+    const result = await db.query(
+      `SELECT dag_structure FROM workflow_pattern WHERE pattern_id = $1`,
+      [capability.id],
+    );
 
-  assertEquals(result.length, 1);
-  const dagStructure = result[0].dag_structure as Record<string, unknown>;
+    assertEquals(result.length, 1);
+    const dagStructure = result[0].dag_structure as Record<string, unknown>;
 
-  // AC10: static_structure should be present in dag_structure
-  assertExists(dagStructure.static_structure, "static_structure should be in dag_structure");
+    // AC10: static_structure should be present in dag_structure
+    assertExists(dagStructure.static_structure, "static_structure should be in dag_structure");
 
-  const staticStructure = dagStructure.static_structure as { nodes: unknown[]; edges: unknown[] };
-  assertEquals(Array.isArray(staticStructure.nodes), true);
-  assertEquals(Array.isArray(staticStructure.edges), true);
+    const staticStructure = dagStructure.static_structure as { nodes: unknown[]; edges: unknown[] };
+    assertEquals(Array.isArray(staticStructure.nodes), true);
+    assertEquals(Array.isArray(staticStructure.edges), true);
 
-  // Should have detected nodes: 2 tasks + 1 decision
-  assertEquals(staticStructure.nodes.length >= 2, true, "Should have at least 2 task nodes");
+    // Should have detected nodes: 2 tasks + 1 decision
+    assertEquals(staticStructure.nodes.length >= 2, true, "Should have at least 2 task nodes");
 
-  await db.close();
+    await db.close();
   },
 });
 
@@ -519,7 +522,10 @@ Deno.test("StaticStructureBuilder - extract literal object (nested) argument (AC
 
     const configValue = structure.nodes[0].arguments!.config.value as Record<string, unknown>;
     assertEquals(configValue.method, "POST");
-    assertEquals((configValue.headers as Record<string, string>)["Content-Type"], "application/json");
+    assertEquals(
+      (configValue.headers as Record<string, string>)["Content-Type"],
+      "application/json",
+    );
   }
 
   await db.close();
@@ -562,7 +568,7 @@ Deno.test("StaticStructureBuilder - detect reference argument (member expression
   assertEquals(structure.nodes.length, 2);
 
   // Second node should have reference argument
-  const secondNode = structure.nodes.find(n => n.type === "task" && n.tool === "json:parse");
+  const secondNode = structure.nodes.find((n) => n.type === "task" && n.tool === "json:parse");
   assertExists(secondNode);
 
   if (secondNode?.type === "task") {
@@ -799,7 +805,7 @@ Deno.test("inferDecisions - handles multiple decision nodes", async () => {
   const decisions = StaticStructureBuilder.inferDecisions(structure, executedPath);
 
   assertEquals(decisions.length, 2);
-  assertEquals(decisions.every(d => d.outcome === "true"), true);
+  assertEquals(decisions.every((d) => d.outcome === "true"), true);
 
   await db.close();
 });

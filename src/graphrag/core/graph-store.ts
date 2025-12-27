@@ -11,7 +11,9 @@
 import graphologyPkg from "graphology";
 import { parseToolId } from "../search/autocomplete.ts";
 
-const { DirectedGraph } = graphologyPkg as { DirectedGraph: new (options?: { allowSelfLoops?: boolean }) => GraphologyInstance };
+const { DirectedGraph } = graphologyPkg as {
+  DirectedGraph: new (options?: { allowSelfLoops?: boolean }) => GraphologyInstance;
+};
 
 /**
  * Graphology instance interface (partial)
@@ -40,7 +42,14 @@ interface GraphologyInstance {
   outNeighbors(nodeId: string): string[];
   degree(nodeId: string): number;
   forEachNode(callback: (nodeId: string, attrs: Record<string, unknown>) => void): void;
-  forEachEdge(callback: (edge: string, attrs: Record<string, unknown>, source: string, target: string) => void): void;
+  forEachEdge(
+    callback: (
+      edge: string,
+      attrs: Record<string, unknown>,
+      source: string,
+      target: string,
+    ) => void,
+  ): void;
 }
 
 /**
@@ -290,7 +299,7 @@ export class GraphStore {
    * Iterate over all edges
    */
   forEachEdge(
-    callback: (edge: string, attrs: EdgeAttributes, source: string, target: string) => void
+    callback: (edge: string, attrs: EdgeAttributes, source: string, target: string) => void,
   ): void {
     this.graph.forEachEdge((edge, attrs, source, target) => {
       callback(edge, attrs as EdgeAttributes, source, target);
@@ -330,7 +339,7 @@ export class GraphStore {
    */
   getSnapshot(
     pageRanks: Record<string, number>,
-    communities: Record<string, string>
+    communities: Record<string, string>,
   ): GraphSnapshot {
     const nodes = this.graph.nodes().map((toolId) => {
       const { server, name: label } = parseToolId(toolId);
@@ -346,7 +355,10 @@ export class GraphStore {
     });
 
     const edges = this.graph.edges().map((edgeKey) => {
-      const edge = this.graph.getEdgeAttributes(this.graph.source(edgeKey), this.graph.target(edgeKey));
+      const edge = this.graph.getEdgeAttributes(
+        this.graph.source(edgeKey),
+        this.graph.target(edgeKey),
+      );
       return {
         source: this.graph.source(edgeKey),
         target: this.graph.target(edgeKey),

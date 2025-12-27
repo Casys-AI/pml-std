@@ -139,9 +139,7 @@ Deno.test({
       assert(listResult.tools.length > 0);
 
       // Verify workflow tool is present (renamed in Story 2.5-4)
-      const workflowTool = listResult.tools.find((t: MCPTool) =>
-        t.name === "pml:execute_dag"
-      );
+      const workflowTool = listResult.tools.find((t: MCPTool) => t.name === "pml:execute_dag");
       assertExists(workflowTool);
 
       // 5. Test call_tool for single tool (simulating Claude Code calling a tool)
@@ -404,7 +402,8 @@ Deno.test({
 });
 
 Deno.test({
-  name: "MCP Gateway E2E - deprecated pml:search_tools still works (Story 10.6 AC11 backward compat)",
+  name:
+    "MCP Gateway E2E - deprecated pml:search_tools still works (Story 10.6 AC11 backward compat)",
   async fn() {
     const db = createDefaultClient();
     await db.connect();
@@ -471,7 +470,8 @@ Deno.test({
 });
 
 Deno.test({
-  name: "MCP Gateway E2E - deprecated pml:search_capabilities still works (Story 10.6 AC11 backward compat)",
+  name:
+    "MCP Gateway E2E - deprecated pml:search_capabilities still works (Story 10.6 AC11 backward compat)",
   async fn() {
     const db = createDefaultClient();
     await db.connect();

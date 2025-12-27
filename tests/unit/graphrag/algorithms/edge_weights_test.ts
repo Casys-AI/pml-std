@@ -13,11 +13,11 @@
 
 import { assertEquals } from "@std/assert";
 import {
-  getEdgeWeight,
-  determineEdgeSource,
   calculateInitialWeight,
-  EDGE_TYPE_WEIGHTS,
+  determineEdgeSource,
   EDGE_SOURCE_MODIFIERS,
+  EDGE_TYPE_WEIGHTS,
+  getEdgeWeight,
   OBSERVED_THRESHOLD,
 } from "../../../../src/graphrag/algorithms/edge-weights.ts";
 

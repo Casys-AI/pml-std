@@ -96,16 +96,24 @@ export function generateFQDN(components: FQDNComponents): string {
 
   // Validate each component
   if (!COMPONENT_REGEX.test(org)) {
-    throw new Error(`Invalid org component: "${org}". Must be alphanumeric with underscores/hyphens, starting with letter or underscore.`);
+    throw new Error(
+      `Invalid org component: "${org}". Must be alphanumeric with underscores/hyphens, starting with letter or underscore.`,
+    );
   }
   if (!COMPONENT_REGEX.test(project)) {
-    throw new Error(`Invalid project component: "${project}". Must be alphanumeric with underscores/hyphens, starting with letter or underscore.`);
+    throw new Error(
+      `Invalid project component: "${project}". Must be alphanumeric with underscores/hyphens, starting with letter or underscore.`,
+    );
   }
   if (!COMPONENT_REGEX.test(namespace)) {
-    throw new Error(`Invalid namespace component: "${namespace}". Must be alphanumeric with underscores/hyphens, starting with letter or underscore.`);
+    throw new Error(
+      `Invalid namespace component: "${namespace}". Must be alphanumeric with underscores/hyphens, starting with letter or underscore.`,
+    );
   }
   if (!COMPONENT_REGEX.test(action)) {
-    throw new Error(`Invalid action component: "${action}". Must be alphanumeric with underscores/hyphens, starting with letter or underscore.`);
+    throw new Error(
+      `Invalid action component: "${action}". Must be alphanumeric with underscores/hyphens, starting with letter or underscore.`,
+    );
   }
   if (!HASH_REGEX.test(hash)) {
     throw new Error(`Invalid hash: "${hash}". Must be exactly 4 lowercase hex characters.`);
@@ -132,7 +140,7 @@ export function parseFQDN(fqdn: string): FQDNComponents {
 
   if (parts.length !== 5) {
     throw new Error(
-      `Invalid FQDN format: "${fqdn}". Expected 5 parts (org.project.namespace.action.hash), got ${parts.length}.`
+      `Invalid FQDN format: "${fqdn}". Expected 5 parts (org.project.namespace.action.hash), got ${parts.length}.`,
     );
   }
 
@@ -245,7 +253,7 @@ export async function generateFQDNFromCode(
   project: string,
   namespace: string,
   action: string,
-  code: string
+  code: string,
 ): Promise<string> {
   const hash = await generateHash(code);
   return generateFQDN({ org, project, namespace, action, hash });
@@ -262,7 +270,7 @@ export async function generateFQDNFromCode(
 export function fqdnBelongsToScope(
   fqdn: string,
   org: string,
-  project: string
+  project: string,
 ): boolean {
   try {
     const components = parseFQDN(fqdn);

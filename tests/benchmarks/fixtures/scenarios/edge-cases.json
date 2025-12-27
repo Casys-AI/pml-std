@@ -15,8 +15,18 @@
       { "id": "chain__mid2", "pageRank": 0.05, "community": 1 },
       { "id": "chain__mid3", "pageRank": 0.05, "community": 1 },
       { "id": "chain__end", "pageRank": 0.05, "community": 1, "note": "Long chain end" },
-      { "id": "new__cold1", "pageRank": 0.01, "community": 2, "note": "Cold start - 1 observation" },
-      { "id": "new__cold2", "pageRank": 0.01, "community": 2, "note": "Cold start - 2 observations" }
+      {
+        "id": "new__cold1",
+        "pageRank": 0.01,
+        "community": 2,
+        "note": "Cold start - 1 observation"
+      },
+      {
+        "id": "new__cold2",
+        "pageRank": 0.01,
+        "community": 2,
+        "note": "Cold start - 2 observations"
+      }
     ],
     "capabilities": [
       {
@@ -63,19 +73,88 @@
     ]
   },
   "edges": [
-    { "source": "hub__central", "target": "hub__spoke1", "type": "depends_on", "source_type": "observed", "weight": 0.9, "count": 50 },
-    { "source": "hub__central", "target": "hub__spoke2", "type": "depends_on", "source_type": "observed", "weight": 0.9, "count": 45 },
-    { "source": "hub__central", "target": "hub__spoke3", "type": "depends_on", "source_type": "observed", "weight": 0.85, "count": 40 },
-    { "source": "hub__central", "target": "hub__spoke4", "type": "depends_on", "source_type": "observed", "weight": 0.8, "count": 35 },
-    { "source": "chain__start", "target": "chain__mid1", "type": "provides", "source_type": "observed", "weight": 0.95, "count": 100 },
-    { "source": "chain__mid1", "target": "chain__mid2", "type": "provides", "source_type": "observed", "weight": 0.90, "count": 95 },
-    { "source": "chain__mid2", "target": "chain__mid3", "type": "provides", "source_type": "observed", "weight": 0.85, "count": 90 },
-    { "source": "chain__mid3", "target": "chain__end", "type": "provides", "source_type": "observed", "weight": 0.80, "count": 85 },
-    { "source": "new__cold1", "target": "new__cold2", "type": "sequence", "source_type": "inferred", "weight": 0.3, "count": 1 }
+    {
+      "source": "hub__central",
+      "target": "hub__spoke1",
+      "type": "depends_on",
+      "source_type": "observed",
+      "weight": 0.9,
+      "count": 50
+    },
+    {
+      "source": "hub__central",
+      "target": "hub__spoke2",
+      "type": "depends_on",
+      "source_type": "observed",
+      "weight": 0.9,
+      "count": 45
+    },
+    {
+      "source": "hub__central",
+      "target": "hub__spoke3",
+      "type": "depends_on",
+      "source_type": "observed",
+      "weight": 0.85,
+      "count": 40
+    },
+    {
+      "source": "hub__central",
+      "target": "hub__spoke4",
+      "type": "depends_on",
+      "source_type": "observed",
+      "weight": 0.8,
+      "count": 35
+    },
+    {
+      "source": "chain__start",
+      "target": "chain__mid1",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.95,
+      "count": 100
+    },
+    {
+      "source": "chain__mid1",
+      "target": "chain__mid2",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.90,
+      "count": 95
+    },
+    {
+      "source": "chain__mid2",
+      "target": "chain__mid3",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.85,
+      "count": 90
+    },
+    {
+      "source": "chain__mid3",
+      "target": "chain__end",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.80,
+      "count": 85
+    },
+    {
+      "source": "new__cold1",
+      "target": "new__cold2",
+      "type": "sequence",
+      "source_type": "inferred",
+      "weight": 0.3,
+      "count": 1
+    }
   ],
   "expectedResults": {
     "dijkstra": {
-      "path_chain__start_to_chain__end": ["chain__start", "chain__mid1", "chain__mid2", "chain__mid3", "chain__end"],
+      "path_chain__start_to_chain__end": [
+        "chain__start",
+        "chain__mid1",
+        "chain__mid2",
+        "chain__mid3",
+        "chain__end"
+      ],
       "path_isolated_to_hub": null
     },
     "louvain": {

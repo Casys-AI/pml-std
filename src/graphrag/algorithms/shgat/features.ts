@@ -7,7 +7,7 @@
  * @module graphrag/algorithms/shgat-features
  */
 
-import { computeAdamicAdar, adamicAdarBetween, type AdamicAdarGraph } from "./adamic-adar.ts";
+import { adamicAdarBetween, type AdamicAdarGraph, computeAdamicAdar } from "./adamic-adar.ts";
 import type { HypergraphFeatures, ToolGraphFeatures } from "./shgat.ts";
 
 // ============================================================================
@@ -190,8 +190,7 @@ export function computeToolHeatDiffusion(
       ? neighbors.reduce((sum, n) => sum + (intrinsicHeat.get(n) || 0), 0) / neighbors.length
       : 0;
 
-    const heat =
-      config.intrinsicWeight * (intrinsicHeat.get(nodeId) || 0) +
+    const heat = config.intrinsicWeight * (intrinsicHeat.get(nodeId) || 0) +
       config.neighborWeight * neighborHeat;
 
     heatScores.set(nodeId, Math.min(1, heat));
@@ -261,8 +260,7 @@ export function computeCapabilityHeatDiffusion(
         neighborCaps.size
       : 0;
 
-    const propagated =
-      config.intrinsicWeight * baseHeat +
+    const propagated = config.intrinsicWeight * baseHeat +
       config.neighborWeight * neighborHeat * config.hierarchyDecay;
 
     propagatedHeat.set(capId, Math.min(1, propagated));

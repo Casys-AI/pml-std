@@ -11,11 +11,11 @@
 
 import { loadScenario } from "../fixtures/scenario-loader.ts";
 import {
-  ThompsonSampler,
   classifyToolRisk,
-  makeDecision,
   createThompsonForMode,
+  makeDecision,
   type RiskCategory,
+  ThompsonSampler,
   type ThresholdMode,
 } from "../../../src/graphrag/algorithms/thompson.ts";
 

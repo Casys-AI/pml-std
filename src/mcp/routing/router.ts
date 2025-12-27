@@ -11,11 +11,11 @@ import type { RouteContext } from "./types.ts";
 
 // Import route handlers from handlers/
 import {
-  handleGraphRoutes,
   handleCapabilitiesRoutes,
+  handleGraphRoutes,
+  handleHealthRoutes,
   handleMetricsRoutes,
   handleToolsRoutes,
-  handleHealthRoutes,
 } from "./handlers/mod.ts";
 
 /**

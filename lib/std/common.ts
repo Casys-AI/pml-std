@@ -14,7 +14,7 @@ export type { MiniTool };
 export async function runCommand(
   cmd: string,
   args: string[],
-  options?: { cwd?: string; timeout?: number }
+  options?: { cwd?: string; timeout?: number },
 ): Promise<{ stdout: string; stderr: string; code: number }> {
   try {
     const command = new Deno.Command(cmd, {

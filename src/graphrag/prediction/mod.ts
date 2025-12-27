@@ -8,26 +8,23 @@
  */
 
 export {
-  DANGEROUS_OPERATIONS,
-  isDangerousOperation,
   type AlphaResult,
   type CapabilityContextMatch,
+  DANGEROUS_OPERATIONS,
   type EdgeData,
   type EpisodeStats,
   type EpisodeStatsMap,
+  isDangerousOperation,
 } from "./types.ts";
 
 export {
   adjustConfidenceFromEpisodes,
   applyLocalAlpha,
+  type CapabilityPredictionDeps,
   createCapabilityTask,
   getCapabilityToolsUsed,
   injectMatchingCapabilities,
   predictCapabilities,
-  type CapabilityPredictionDeps,
 } from "./capabilities.ts";
 
-export {
-  suggestAlternatives,
-  type AlternativeSuggestionDeps,
-} from "./alternatives.ts";
+export { type AlternativeSuggestionDeps, suggestAlternatives } from "./alternatives.ts";

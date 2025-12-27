@@ -138,7 +138,7 @@ export const pgliteTools: MiniTool[] = [
         for (const table of tables) {
           try {
             const countResult = await (pglite as any).query(
-              `SELECT COUNT(*) as count FROM "${table.table_name}"`
+              `SELECT COUNT(*) as count FROM "${table.table_name}"`,
             );
             table.row_count = Number(countResult.rows[0]?.count || 0);
           } catch {
@@ -166,25 +166,32 @@ export const pgliteTools: MiniTool[] = [
     handler: async ({ table, dbPath: customPath }) => {
       const pglite = await getDb(customPath as string | undefined);
 
-      const columnsResult = await (pglite as any).query(`
+      const columnsResult = await (pglite as any).query(
+        `
         SELECT column_name, data_type, character_maximum_length,
                is_nullable, column_default, ordinal_position
         FROM information_schema.columns
         WHERE table_schema = 'public' AND table_name = $1
         ORDER BY ordinal_position
-      `, [table]);
+      `,
+        [table],
+      );
 
-      const pkResult = await (pglite as any).query(`
+      const pkResult = await (pglite as any).query(
+        `
         SELECT a.attname
         FROM pg_index i
         JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
         JOIN pg_class c ON c.oid = i.indrelid
         WHERE c.relname = $1 AND i.indisprimary
-      `, [table]);
+      `,
+        [table],
+      );
 
       const primaryKeys = pkResult.rows.map((r: any) => r.attname);
 
-      const fkResult = await (pglite as any).query(`
+      const fkResult = await (pglite as any).query(
+        `
         SELECT kcu.column_name,
                ccu.table_name AS foreign_table_name,
                ccu.column_name AS foreign_column_name
@@ -194,7 +201,9 @@ export const pgliteTools: MiniTool[] = [
         JOIN information_schema.constraint_column_usage AS ccu
           ON ccu.constraint_name = tc.constraint_name
         WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_name = $1
-      `, [table]);
+      `,
+        [table],
+      );
 
       return {
         table,
@@ -247,7 +256,7 @@ export const pgliteTools: MiniTool[] = [
       for (const { table_name } of tablesResult.rows) {
         try {
           const countResult = await (pglite as any).query(
-            `SELECT COUNT(*) as count FROM "${table_name}"`
+            `SELECT COUNT(*) as count FROM "${table_name}"`,
           );
           const count = Number(countResult.rows[0]?.count || 0);
           tableSizes[table_name] = count;
@@ -362,7 +371,11 @@ export const pgliteTools: MiniTool[] = [
       type: "object",
       properties: {
         pattern: { type: "string", description: "Text pattern to search for (case-insensitive)" },
-        tables: { type: "array", items: { type: "string" }, description: "Tables to search (optional)" },
+        tables: {
+          type: "array",
+          items: { type: "string" },
+          description: "Tables to search (optional)",
+        },
         limit: { type: "number", description: "Max results per table (default: 10)" },
         dbPath: { type: "string", description: "Database path (optional)" },
       },
@@ -380,12 +393,15 @@ export const pgliteTools: MiniTool[] = [
 
       for (const tableName of targetTables) {
         try {
-          const columnsResult = await (pglite as any).query(`
+          const columnsResult = await (pglite as any).query(
+            `
             SELECT column_name
             FROM information_schema.columns
             WHERE table_schema = 'public' AND table_name = $1
               AND data_type IN ('text', 'character varying', 'varchar', 'char')
-          `, [tableName]);
+          `,
+            [tableName],
+          );
 
           if (columnsResult.rows.length === 0) continue;
 
@@ -395,7 +411,7 @@ export const pgliteTools: MiniTool[] = [
 
           const searchResult = await (pglite as any).query(
             `SELECT * FROM "${tableName}" WHERE ${conditions} LIMIT ${safeLimit}`,
-            [searchPattern]
+            [searchPattern],
           );
 
           if (searchResult.rows.length > 0) {

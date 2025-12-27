@@ -56,7 +56,8 @@ const lcs = <T>(a: T[], b: T[]): T[] => {
 export const diffTools: MiniTool[] = [
   {
     name: "diff_lines",
-    description: "Compare two texts line by line and generate diff. Show added, removed, and unchanged lines with line numbers. Use for code review, version comparison, or change tracking. Keywords: line diff, text compare, code diff, version diff, compare lines, git diff.",
+    description:
+      "Compare two texts line by line and generate diff. Show added, removed, and unchanged lines with line numbers. Use for code review, version comparison, or change tracking. Keywords: line diff, text compare, code diff, version diff, compare lines, git diff.",
     category: "diff",
     inputSchema: {
       type: "object",
@@ -80,8 +81,10 @@ export const diffTools: MiniTool[] = [
       let oi = 0, ni = 0, ci = 0;
 
       while (oi < oldLines.length || ni < newLines.length) {
-        if (ci < common.length && oi < oldLines.length && oldLines[oi] === common[ci] &&
-            ni < newLines.length && newLines[ni] === common[ci]) {
+        if (
+          ci < common.length && oi < oldLines.length && oldLines[oi] === common[ci] &&
+          ni < newLines.length && newLines[ni] === common[ci]
+        ) {
           changes.push({
             type: "equal",
             value: common[ci],
@@ -175,13 +178,13 @@ export const diffTools: MiniTool[] = [
       // Statistics
       const stats = {
         totalLines: Math.max(oldLines.length, newLines.length),
-        additions: changes.filter(c => c.type === "insert").length,
-        deletions: changes.filter(c => c.type === "delete").length,
-        unchanged: changes.filter(c => c.type === "equal").length,
+        additions: changes.filter((c) => c.type === "insert").length,
+        deletions: changes.filter((c) => c.type === "delete").length,
+        unchanged: changes.filter((c) => c.type === "equal").length,
       };
 
       return {
-        changes: changes.filter(c => c.type !== "equal" || context > 0),
+        changes: changes.filter((c) => c.type !== "equal" || context > 0),
         unified: hasChanges ? unifiedLines.join("\n") : "(no changes)",
         stats,
         identical: !hasChanges,
@@ -190,7 +193,8 @@ export const diffTools: MiniTool[] = [
   },
   {
     name: "diff_words",
-    description: "Compare two texts word by word. Show added and removed words inline for fine-grained comparison. Use for document editing, proofreading, or detailed change review. Keywords: word diff, inline diff, word compare, fine diff, text changes, edit distance.",
+    description:
+      "Compare two texts word by word. Show added and removed words inline for fine-grained comparison. Use for document editing, proofreading, or detailed change review. Keywords: word diff, inline diff, word compare, fine diff, text changes, edit distance.",
     category: "diff",
     inputSchema: {
       type: "object",
@@ -233,11 +237,15 @@ export const diffTools: MiniTool[] = [
       let oi = 0, ni = 0, ci = 0;
 
       while (oi < oldTokens.length || ni < newTokens.length) {
-        if (ci < common.length &&
-            oi < oldTokens.length && oldTokens[oi] === common[ci] &&
-            ni < newTokens.length && newTokens[ni] === common[ci]) {
+        if (
+          ci < common.length &&
+          oi < oldTokens.length && oldTokens[oi] === common[ci] &&
+          ni < newTokens.length && newTokens[ni] === common[ci]
+        ) {
           changes.push({ type: "equal", value: common[ci] });
-          oi++; ni++; ci++;
+          oi++;
+          ni++;
+          ci++;
         } else if (ci < common.length && ni < newTokens.length && newTokens[ni] === common[ci]) {
           changes.push({ type: "delete", value: oldTokens[oi] });
           oi++;
@@ -269,20 +277,21 @@ export const diffTools: MiniTool[] = [
       }
 
       return {
-        changes: changes.filter(c => c.type !== "equal"),
+        changes: changes.filter((c) => c.type !== "equal"),
         marked,
         stats: {
-          wordsAdded: changes.filter(c => c.type === "insert" && /\w/.test(c.value)).length,
-          wordsRemoved: changes.filter(c => c.type === "delete" && /\w/.test(c.value)).length,
-          wordsUnchanged: changes.filter(c => c.type === "equal" && /\w/.test(c.value)).length,
+          wordsAdded: changes.filter((c) => c.type === "insert" && /\w/.test(c.value)).length,
+          wordsRemoved: changes.filter((c) => c.type === "delete" && /\w/.test(c.value)).length,
+          wordsUnchanged: changes.filter((c) => c.type === "equal" && /\w/.test(c.value)).length,
         },
-        identical: changes.every(c => c.type === "equal"),
+        identical: changes.every((c) => c.type === "equal"),
       };
     },
   },
   {
     name: "diff_chars",
-    description: "Compare two texts character by character. Show exact character-level differences for precise comparison. Use for debugging, password comparison hints, or precise editing. Keywords: char diff, character compare, exact diff, byte compare, precise diff.",
+    description:
+      "Compare two texts character by character. Show exact character-level differences for precise comparison. Use for debugging, password comparison hints, or precise editing. Keywords: char diff, character compare, exact diff, byte compare, precise diff.",
     category: "diff",
     inputSchema: {
       type: "object",
@@ -308,11 +317,15 @@ export const diffTools: MiniTool[] = [
       let oi = 0, ni = 0, ci = 0;
 
       while (oi < oldChars.length || ni < newChars.length) {
-        if (ci < common.length &&
-            oi < oldChars.length && oldChars[oi] === common[ci] &&
-            ni < newChars.length && newChars[ni] === common[ci]) {
+        if (
+          ci < common.length &&
+          oi < oldChars.length && oldChars[oi] === common[ci] &&
+          ni < newChars.length && newChars[ni] === common[ci]
+        ) {
           changes.push({ type: "equal", value: common[ci] });
-          oi++; ni++; ci++;
+          oi++;
+          ni++;
+          ci++;
         } else if (ci < common.length && ni < newChars.length && newChars[ni] === common[ci]) {
           changes.push({ type: "delete", value: oldChars[oi] });
           oi++;
@@ -345,18 +358,20 @@ export const diffTools: MiniTool[] = [
       return {
         changes: compacted,
         stats: {
-          charsAdded: changes.filter(c => c.type === "insert").length,
-          charsRemoved: changes.filter(c => c.type === "delete").length,
-          charsUnchanged: changes.filter(c => c.type === "equal").length,
+          charsAdded: changes.filter((c) => c.type === "insert").length,
+          charsRemoved: changes.filter((c) => c.type === "delete").length,
+          charsUnchanged: changes.filter((c) => c.type === "equal").length,
         },
-        identical: changes.every(c => c.type === "equal"),
-        truncated: (oldText as string).length > (maxLength as number) || (newText as string).length > (maxLength as number),
+        identical: changes.every((c) => c.type === "equal"),
+        truncated: (oldText as string).length > (maxLength as number) ||
+          (newText as string).length > (maxLength as number),
       };
     },
   },
   {
     name: "diff_unified",
-    description: "Generate unified diff format output. Create standard diff format compatible with patch command. Use for generating patches, version control, or standard diff output. Keywords: unified diff, patch format, git diff format, standard diff, diff output, create patch.",
+    description:
+      "Generate unified diff format output. Create standard diff format compatible with patch command. Use for generating patches, version control, or standard diff output. Keywords: unified diff, patch format, git diff format, standard diff, diff output, create patch.",
     category: "diff",
     inputSchema: {
       type: "object",
@@ -378,16 +393,25 @@ export const diffTools: MiniTool[] = [
       const common = lcs(oldLines, newLines);
 
       // Build changes
-      type LineDiff = { type: "equal" | "delete" | "insert"; line: string; oldNum?: number; newNum?: number };
+      type LineDiff = {
+        type: "equal" | "delete" | "insert";
+        line: string;
+        oldNum?: number;
+        newNum?: number;
+      };
       const diffs: LineDiff[] = [];
       let oi = 0, ni = 0, ci = 0;
 
       while (oi < oldLines.length || ni < newLines.length) {
-        if (ci < common.length &&
-            oi < oldLines.length && oldLines[oi] === common[ci] &&
-            ni < newLines.length && newLines[ni] === common[ci]) {
+        if (
+          ci < common.length &&
+          oi < oldLines.length && oldLines[oi] === common[ci] &&
+          ni < newLines.length && newLines[ni] === common[ci]
+        ) {
           diffs.push({ type: "equal", line: oldLines[oi], oldNum: oi + 1, newNum: ni + 1 });
-          oi++; ni++; ci++;
+          oi++;
+          ni++;
+          ci++;
         } else if (ci < common.length && ni < newLines.length && newLines[ni] === common[ci]) {
           diffs.push({ type: "delete", line: oldLines[oi], oldNum: oi + 1 });
           oi++;
@@ -434,10 +458,10 @@ export const diffTools: MiniTool[] = [
             const hunkEnd = Math.min(i + context, diffs.length);
             const hunk = diffs.slice(hunkStart, hunkEnd);
 
-            const oldStart = hunk.find(d => d.oldNum)?.oldNum || 1;
-            const newStart = hunk.find(d => d.newNum)?.newNum || 1;
-            const oldCount = hunk.filter(d => d.type !== "insert").length;
-            const newCount = hunk.filter(d => d.type !== "delete").length;
+            const oldStart = hunk.find((d) => d.oldNum)?.oldNum || 1;
+            const newStart = hunk.find((d) => d.newNum)?.newNum || 1;
+            const oldCount = hunk.filter((d) => d.type !== "insert").length;
+            const newCount = hunk.filter((d) => d.type !== "delete").length;
 
             output.push(`@@ -${oldStart},${oldCount} +${newStart},${newCount} @@`);
 
@@ -454,10 +478,10 @@ export const diffTools: MiniTool[] = [
       // Handle remaining hunk
       if (hunkStart !== -1) {
         const hunk = diffs.slice(hunkStart);
-        const oldStart = hunk.find(d => d.oldNum)?.oldNum || 1;
-        const newStart = hunk.find(d => d.newNum)?.newNum || 1;
-        const oldCount = hunk.filter(d => d.type !== "insert").length;
-        const newCount = hunk.filter(d => d.type !== "delete").length;
+        const oldStart = hunk.find((d) => d.oldNum)?.oldNum || 1;
+        const newStart = hunk.find((d) => d.newNum)?.newNum || 1;
+        const oldCount = hunk.filter((d) => d.type !== "insert").length;
+        const newCount = hunk.filter((d) => d.type !== "delete").length;
 
         output.push(`@@ -${oldStart},${oldCount} +${newStart},${newCount} @@`);
 
@@ -467,21 +491,22 @@ export const diffTools: MiniTool[] = [
         }
       }
 
-      const hasChanges = diffs.some(d => d.type !== "equal");
+      const hasChanges = diffs.some((d) => d.type !== "equal");
 
       return {
         unified: hasChanges ? output.join("\n") : "",
         hasChanges,
         stats: {
-          additions: diffs.filter(d => d.type === "insert").length,
-          deletions: diffs.filter(d => d.type === "delete").length,
+          additions: diffs.filter((d) => d.type === "insert").length,
+          deletions: diffs.filter((d) => d.type === "delete").length,
         },
       };
     },
   },
   {
     name: "diff_apply_patch",
-    description: "Apply a unified diff patch to text. Transform original text using patch additions and deletions. Use for applying patches, version merging, or automated updates. Keywords: apply patch, patch text, merge diff, apply changes, unified patch, diff apply.",
+    description:
+      "Apply a unified diff patch to text. Transform original text using patch additions and deletions. Use for applying patches, version merging, or automated updates. Keywords: apply patch, patch text, merge diff, apply changes, unified patch, diff apply.",
     category: "diff",
     inputSchema: {
       type: "object",
@@ -520,7 +545,9 @@ export const diffTools: MiniTool[] = [
             };
             hunks.push(currentHunk);
           }
-        } else if (currentHunk && (line.startsWith("-") || line.startsWith("+") || line.startsWith(" "))) {
+        } else if (
+          currentHunk && (line.startsWith("-") || line.startsWith("+") || line.startsWith(" "))
+        ) {
           currentHunk.changes.push({
             type: line[0] === "-" ? "delete" : line[0] === "+" ? "insert" : "context",
             line: line.slice(1),
@@ -552,21 +579,32 @@ export const diffTools: MiniTool[] = [
       return {
         result: result.join("\n"),
         hunksApplied: hunks.length,
-        linesAdded: hunks.reduce((sum, h) => sum + h.changes.filter(c => c.type === "insert").length, 0),
-        linesRemoved: hunks.reduce((sum, h) => sum + h.changes.filter(c => c.type === "delete").length, 0),
+        linesAdded: hunks.reduce(
+          (sum, h) => sum + h.changes.filter((c) => c.type === "insert").length,
+          0,
+        ),
+        linesRemoved: hunks.reduce(
+          (sum, h) => sum + h.changes.filter((c) => c.type === "delete").length,
+          0,
+        ),
       };
     },
   },
   {
     name: "diff_similarity",
-    description: "Calculate text similarity score between two strings. Get percentage similarity using various algorithms. Use for duplicate detection, fuzzy matching, or content comparison. Keywords: text similarity, similarity score, compare percentage, fuzzy compare, content similarity, match score.",
+    description:
+      "Calculate text similarity score between two strings. Get percentage similarity using various algorithms. Use for duplicate detection, fuzzy matching, or content comparison. Keywords: text similarity, similarity score, compare percentage, fuzzy compare, content similarity, match score.",
     category: "diff",
     inputSchema: {
       type: "object",
       properties: {
         text1: { type: "string", description: "First text" },
         text2: { type: "string", description: "Second text" },
-        method: { type: "string", enum: ["lcs", "jaccard", "cosine"], description: "Similarity method (default: lcs)" },
+        method: {
+          type: "string",
+          enum: ["lcs", "jaccard", "cosine"],
+          description: "Similarity method (default: lcs)",
+        },
       },
       required: ["text1", "text2"],
     },
@@ -584,7 +622,7 @@ export const diffTools: MiniTool[] = [
           // Word-based Jaccard similarity
           const words1 = new Set(t1.toLowerCase().split(/\s+/));
           const words2 = new Set(t2.toLowerCase().split(/\s+/));
-          const intersection = new Set([...words1].filter(w => words2.has(w)));
+          const intersection = new Set([...words1].filter((w) => words2.has(w)));
           const union = new Set([...words1, ...words2]);
           similarity = (intersection.size / union.size) * 100;
           break;
@@ -598,8 +636,8 @@ export const diffTools: MiniTool[] = [
           const freq1: Record<string, number> = {};
           const freq2: Record<string, number> = {};
 
-          words1.forEach(w => freq1[w] = (freq1[w] || 0) + 1);
-          words2.forEach(w => freq2[w] = (freq2[w] || 0) + 1);
+          words1.forEach((w) => freq1[w] = (freq1[w] || 0) + 1);
+          words2.forEach((w) => freq2[w] = (freq2[w] || 0) + 1);
 
           const allWords = new Set([...Object.keys(freq1), ...Object.keys(freq2)]);
 
@@ -642,14 +680,19 @@ export const diffTools: MiniTool[] = [
   },
   {
     name: "diff_highlight",
-    description: "Generate HTML-highlighted diff output. Create visual diff with colored additions/deletions for web display. Use for code review UIs, document comparison, or change visualization. Keywords: HTML diff, visual diff, highlight changes, colored diff, web diff, diff display.",
+    description:
+      "Generate HTML-highlighted diff output. Create visual diff with colored additions/deletions for web display. Use for code review UIs, document comparison, or change visualization. Keywords: HTML diff, visual diff, highlight changes, colored diff, web diff, diff display.",
     category: "diff",
     inputSchema: {
       type: "object",
       properties: {
         oldText: { type: "string", description: "Original text" },
         newText: { type: "string", description: "Modified text" },
-        mode: { type: "string", enum: ["inline", "sideBySide"], description: "Display mode (default: inline)" },
+        mode: {
+          type: "string",
+          enum: ["inline", "sideBySide"],
+          description: "Display mode (default: inline)",
+        },
       },
       required: ["oldText", "newText"],
     },
@@ -664,11 +707,15 @@ export const diffTools: MiniTool[] = [
       let oi = 0, ni = 0, ci = 0;
 
       while (oi < oldLines.length || ni < newLines.length) {
-        if (ci < common.length &&
-            oi < oldLines.length && oldLines[oi] === common[ci] &&
-            ni < newLines.length && newLines[ni] === common[ci]) {
+        if (
+          ci < common.length &&
+          oi < oldLines.length && oldLines[oi] === common[ci] &&
+          ni < newLines.length && newLines[ni] === common[ci]
+        ) {
           diffs.push({ type: "equal", oldLine: oldLines[oi], newLine: newLines[ni] });
-          oi++; ni++; ci++;
+          oi++;
+          ni++;
+          ci++;
         } else if (ci < common.length && ni < newLines.length && newLines[ni] === common[ci]) {
           diffs.push({ type: "delete", oldLine: oldLines[oi] });
           oi++;
@@ -688,13 +735,14 @@ export const diffTools: MiniTool[] = [
       }
 
       // Escape HTML
-      const escape = (s: string) => s
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
+      const escape = (s: string) =>
+        s
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
 
       if (mode === "sideBySide") {
-        const rows = diffs.map(d => {
+        const rows = diffs.map((d) => {
           const oldCell = d.oldLine !== undefined
             ? `<td class="${d.type === "delete" ? "del" : ""}">${escape(d.oldLine)}</td>`
             : "<td></td>";
@@ -712,7 +760,7 @@ export const diffTools: MiniTool[] = [
       }
 
       // Inline mode
-      const lines = diffs.map(d => {
+      const lines = diffs.map((d) => {
         if (d.type === "delete") {
           return `<div class="del">- ${escape(d.oldLine || "")}</div>`;
         } else if (d.type === "insert") {
@@ -724,7 +772,8 @@ export const diffTools: MiniTool[] = [
 
       return {
         html: `<div class="diff inline">${lines.join("")}</div>`,
-        css: `.diff .del { background: #ffeef0; color: #b31d28; } .diff .ins { background: #e6ffec; color: #22863a; } .diff .ctx { color: #444; }`,
+        css:
+          `.diff .del { background: #ffeef0; color: #b31d28; } .diff .ins { background: #e6ffec; color: #22863a; } .diff .ctx { color: #444; }`,
         mode: "inline",
       };
     },

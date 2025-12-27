@@ -107,8 +107,7 @@ Deno.test({
     );
 
     // Sequential workflows can use either steps or edges
-    const hasSequence =
-      (sequentialWorkflow.steps && sequentialWorkflow.steps.length >= 2) ||
+    const hasSequence = (sequentialWorkflow.steps && sequentialWorkflow.steps.length >= 2) ||
       (sequentialWorkflow.edges && sequentialWorkflow.edges.length >= 1);
     assertEquals(hasSequence, true, "Sequential workflow should have steps or edges");
   },

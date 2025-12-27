@@ -12,9 +12,9 @@
  * @module tests/integration/capability_records_migration_test
  */
 
-import { assertEquals, assert } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import { PGliteClient } from "../../src/db/client.ts";
-import { MigrationRunner, getAllMigrations } from "../../src/db/migrations.ts";
+import { getAllMigrations, MigrationRunner } from "../../src/db/migrations.ts";
 import { CapabilityRegistry } from "../../src/capabilities/capability-registry.ts";
 
 // Test setup helper
@@ -122,7 +122,8 @@ Deno.test("Migration 021 - preserves existing workflow_pattern data", async () =
   // Create a proper 1024-dim zero vector for testing
   const zeroVector = Array(1024).fill(0).map(() => Math.random());
 
-  await db.query(`
+  await db.query(
+    `
     INSERT INTO workflow_pattern (
       pattern_id, pattern_hash, dag_structure, intent_embedding,
       usage_count, success_rate, avg_duration_ms,
@@ -132,7 +133,9 @@ Deno.test("Migration 021 - preserves existing workflow_pattern data", async () =
       5, 0.9, 100,
       'test_pattern', 'A test pattern', 'const x = 1;', 'abcd1234'
     )
-  `, [`[${zeroVector.join(",")}]`]);
+  `,
+    [`[${zeroVector.join(",")}]`],
+  );
 
   // Verify data exists
   const beforeMigration = await db.queryOne(`
@@ -235,14 +238,14 @@ Deno.test("Integration - scope resolution priority", async () => {
   // Resolution in acme.webapp should find local first
   const resolved1 = await registry.resolveByName(
     "shared_name",
-    { org: "acme", project: "webapp" }
+    { org: "acme", project: "webapp" },
   );
   assertEquals(resolved1?.id, localCap.id);
 
   // Resolution in other scope should find public
   const resolved2 = await registry.resolveByName(
     "shared_name",
-    { org: "other", project: "other" }
+    { org: "other", project: "other" },
   );
   assertEquals(resolved2?.id, publicCap.id);
 

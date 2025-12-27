@@ -15,8 +15,14 @@ import { withTimeout } from "../utils/timeout.ts";
 // SDK modules (lazy loaded)
 // deno-lint-ignore no-explicit-any
 let MCPClientClass: any;
-let StreamableHTTPClientTransportClass: new (url: URL, options?: { requestInit?: RequestInit }) => unknown;
-let createSmitheryUrlFn: (serverUrl: string, options: { config: Record<string, unknown>; apiKey: string }) => URL;
+let StreamableHTTPClientTransportClass: new (
+  url: URL,
+  options?: { requestInit?: RequestInit },
+) => unknown;
+let createSmitheryUrlFn: (
+  serverUrl: string,
+  options: { config: Record<string, unknown>; apiKey: string },
+) => URL;
 let sdkInitialized = false;
 
 /**
@@ -142,9 +148,7 @@ export class SmitheryMCPClient implements MCPClientBase {
       }
 
       // Build headers from server config if present
-      const headers: Record<string, string> = this.server.headers
-        ? { ...this.server.headers }
-        : {};
+      const headers: Record<string, string> = this.server.headers ? { ...this.server.headers } : {};
 
       // Normalize URL: createSmitheryUrl expects base URL WITHOUT /mcp suffix
       // It adds /mcp + query params (config & api_key) automatically
@@ -213,7 +217,9 @@ export class SmitheryMCPClient implements MCPClientBase {
         `list_tools for ${this.server.id}`,
       ) as { tools?: Array<{ name?: string; description?: string; inputSchema?: unknown }> };
 
-      const tools: MCPTool[] = (response.tools || []).map((tool: { name?: string; description?: string; inputSchema?: unknown }) => ({
+      const tools: MCPTool[] = (response.tools || []).map((
+        tool: { name?: string; description?: string; inputSchema?: unknown },
+      ) => ({
         name: String(tool.name || ""),
         description: String(tool.description || ""),
         inputSchema: (tool.inputSchema as Record<string, unknown>) || {},

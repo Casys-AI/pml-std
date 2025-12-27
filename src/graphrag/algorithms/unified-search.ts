@@ -70,10 +70,12 @@ export interface UnifiedVectorSearch {
    * @param minScore - Minimum similarity threshold
    * @returns Array of { nodeId, score }
    */
-  search(query: string, limit: number, minScore: number): Promise<Array<{
-    nodeId: string;
-    score: number;
-  }>>;
+  search(query: string, limit: number, minScore: number): Promise<
+    Array<{
+      nodeId: string;
+      score: number;
+    }>
+  >;
 }
 
 /**
@@ -187,7 +189,7 @@ export function calculateAdaptiveAlpha(graph: UnifiedSearchGraph): number {
  */
 export function calculateReliabilityFactor(
   successRate: number,
-  config: ReliabilityConfig = DEFAULT_RELIABILITY_CONFIG
+  config: ReliabilityConfig = DEFAULT_RELIABILITY_CONFIG,
 ): number {
   if (successRate < config.penaltyThreshold) {
     return config.penaltyFactor;
@@ -207,7 +209,7 @@ export function computeUnifiedScore(
   graphScore: number,
   alpha: number,
   reliabilityFactor: number,
-  transitiveReliability: number = 1.0
+  transitiveReliability: number = 1.0,
 ): ScoreBreakdown {
   const hybridBeforeReliability = alpha * semanticScore + (1 - alpha) * graphScore;
   const combinedReliability = reliabilityFactor * transitiveReliability;
@@ -249,7 +251,7 @@ export async function unifiedSearch(
   graph: UnifiedSearchGraph,
   nodes: Map<string, SearchableNode>,
   query: string,
-  options: UnifiedSearchOptions = {}
+  options: UnifiedSearchOptions = {},
 ): Promise<UnifiedSearchResult[]> {
   const {
     limit = 10,
@@ -306,7 +308,7 @@ export async function unifiedSearch(
       graphScore,
       nodeAlpha,
       reliabilityFactor,
-      transitiveReliability
+      transitiveReliability,
     );
 
     results.push({
@@ -316,7 +318,8 @@ export async function unifiedSearch(
       description: node.description,
       semanticScore: Math.round(semanticScore * 100) / 100,
       graphScore: Math.round(graphScore * 100) / 100,
-      reliabilityFactor: Math.round(breakdown.reliabilityFactor * breakdown.transitiveReliability * 100) / 100,
+      reliabilityFactor:
+        Math.round(breakdown.reliabilityFactor * breakdown.transitiveReliability * 100) / 100,
       alpha: Math.round(nodeAlpha * 100) / 100,
       finalScore: Math.round(breakdown.final * 100) / 100,
       serverId: node.serverId,
@@ -332,7 +335,7 @@ export async function unifiedSearch(
  * Create a simple in-memory vector search for testing
  */
 export function createMockVectorSearch(
-  nodes: Map<string, SearchableNode>
+  nodes: Map<string, SearchableNode>,
 ): UnifiedVectorSearch {
   return {
     async search(query: string, limit: number, minScore: number) {
@@ -345,7 +348,7 @@ export function createMockVectorSearch(
 
         // Calculate simple overlap score
         const queryWords = queryLower.split(/\s+/);
-        const matchingWords = queryWords.filter(w => text.includes(w));
+        const matchingWords = queryWords.filter((w) => text.includes(w));
         const score = matchingWords.length / queryWords.length;
 
         if (score >= minScore) {
@@ -363,7 +366,7 @@ export function createMockVectorSearch(
  * Create a mock graph for testing
  */
 export function createMockGraph(
-  edges: Array<{ from: string; to: string; weight?: number }>
+  edges: Array<{ from: string; to: string; weight?: number }>,
 ): UnifiedSearchGraph {
   const adjacency = new Map<string, Set<string>>();
   const reverseAdjacency = new Map<string, Set<string>>();
@@ -387,8 +390,7 @@ export function createMockGraph(
     order: allNodes.size,
     size: edges.length,
     hasNode: (nodeId: string) => allNodes.has(nodeId),
-    hasEdge: (source: string, target: string) =>
-      adjacency.get(source)?.has(target) || false,
+    hasEdge: (source: string, target: string) => adjacency.get(source)?.has(target) || false,
     neighbors: (nodeId: string) => [
       ...(adjacency.get(nodeId) || []),
       ...(reverseAdjacency.get(nodeId) || []),

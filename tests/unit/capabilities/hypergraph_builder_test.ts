@@ -13,8 +13,8 @@
 import { assertEquals, assertExists } from "@std/assert";
 import { HypergraphBuilder } from "../../../src/capabilities/hypergraph-builder.ts";
 import type {
-  CapabilityResponseInternal,
   CapabilityDependencyEdge,
+  CapabilityResponseInternal,
 } from "../../../src/capabilities/types.ts";
 import type { GraphSnapshot } from "../../../src/graphrag/graph-engine.ts";
 
@@ -201,8 +201,16 @@ Deno.test("HypergraphBuilder - creates capability_link edges for shared tools", 
 Deno.test("HypergraphBuilder - creates capability_link with correct sharedTools count", () => {
   const builder = new HypergraphBuilder();
   // Two capabilities sharing 2 tools
-  const cap1 = createMockCapability("uuid-1", ["filesystem:read", "github:create_issue", "slack:post_message"]);
-  const cap2 = createMockCapability("uuid-2", ["filesystem:read", "slack:post_message", "http:fetch"]);
+  const cap1 = createMockCapability("uuid-1", [
+    "filesystem:read",
+    "github:create_issue",
+    "slack:post_message",
+  ]);
+  const cap2 = createMockCapability("uuid-2", [
+    "filesystem:read",
+    "slack:post_message",
+    "http:fetch",
+  ]);
 
   const result = builder.buildCompoundGraph([cap1, cap2], undefined);
 

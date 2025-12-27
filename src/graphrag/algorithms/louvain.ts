@@ -45,7 +45,7 @@ export interface LouvainResult {
  */
 export function detectCommunities(
   graph: unknown,
-  options: LouvainOptions = {}
+  options: LouvainOptions = {},
 ): LouvainResult {
   const startTime = performance.now();
 
@@ -57,7 +57,9 @@ export function detectCommunities(
   const computeTimeMs = performance.now() - startTime;
 
   log.debug(
-    `[Louvain] Detected ${communityCount} communities for ${Object.keys(communities).length} nodes (${computeTimeMs.toFixed(1)}ms)`
+    `[Louvain] Detected ${communityCount} communities for ${
+      Object.keys(communities).length
+    } nodes (${computeTimeMs.toFixed(1)}ms)`,
   );
 
   return { communities, communityCount, computeTimeMs };
@@ -72,7 +74,7 @@ export function detectCommunities(
  */
 export function getNodeCommunity(
   communities: Record<string, string>,
-  nodeId: string
+  nodeId: string,
 ): string | undefined {
   return communities[nodeId];
 }
@@ -88,7 +90,7 @@ export function getNodeCommunity(
 export function findCommunityMembers(
   communities: Record<string, string>,
   nodeId: string,
-  excludeSelf: boolean = true
+  excludeSelf: boolean = true,
 ): string[] {
   const community = communities[nodeId];
   if (!community) return [];
@@ -115,7 +117,7 @@ export function getCommunityCount(communities: Record<string, string>): number {
  * @returns Map of community ID to member count
  */
 export function getCommunityDistribution(
-  communities: Record<string, string>
+  communities: Record<string, string>,
 ): Map<string, number> {
   const distribution = new Map<string, number>();
 
@@ -137,7 +139,7 @@ export function getCommunityDistribution(
 export function areInSameCommunity(
   communities: Record<string, string>,
   nodeId1: string,
-  nodeId2: string
+  nodeId2: string,
 ): boolean {
   const comm1 = communities[nodeId1];
   const comm2 = communities[nodeId2];

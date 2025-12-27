@@ -55,7 +55,7 @@ Deno.test("syntax-highlight: detectLanguage detects JSON", async () => {
   assertEquals(detectLanguage('{"name": "test", "value": 123}'), "json");
 
   // Valid JSON array
-  assertEquals(detectLanguage('[1, 2, 3]'), "json");
+  assertEquals(detectLanguage("[1, 2, 3]"), "json");
 });
 
 Deno.test("syntax-highlight: highlightCode returns content", async () => {

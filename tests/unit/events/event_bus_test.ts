@@ -13,7 +13,12 @@
 
 import { assertEquals, assertExists } from "@std/assert";
 import { EventBus } from "../../../src/events/event-bus.ts";
-import type { PmlEvent, EventType, ToolEndPayload, ToolStartPayload } from "../../../src/events/types.ts";
+import type {
+  EventType,
+  PmlEvent,
+  ToolEndPayload,
+  ToolStartPayload,
+} from "../../../src/events/types.ts";
 
 Deno.test("EventBus", async (t) => {
   await t.step("creates instance with BroadcastChannel", () => {
@@ -333,9 +338,15 @@ Deno.test("EventBus", async (t) => {
     const bus = new EventBus();
     const results: number[] = [];
 
-    bus.on("tool.start", () => { results.push(1); });
-    bus.on("tool.start", () => { results.push(2); });
-    bus.on("tool.start", () => { results.push(3); });
+    bus.on("tool.start", () => {
+      results.push(1);
+    });
+    bus.on("tool.start", () => {
+      results.push(2);
+    });
+    bus.on("tool.start", () => {
+      results.push(3);
+    });
 
     bus.emit({ type: "tool.start", source: "test", payload: {} });
     await new Promise((r) => setTimeout(r, 10));
@@ -370,7 +381,11 @@ Deno.test("EventBus", async (t) => {
     console.log(`EventBus emit: ${avgPerEmit.toFixed(3)}ms avg (${iterations} iterations)`);
 
     // Requirement: < 1ms per emit
-    assertEquals(avgPerEmit < 1, true, `Emit overhead ${avgPerEmit.toFixed(3)}ms exceeds 1ms limit`);
+    assertEquals(
+      avgPerEmit < 1,
+      true,
+      `Emit overhead ${avgPerEmit.toFixed(3)}ms exceeds 1ms limit`,
+    );
 
     bus.close();
   });

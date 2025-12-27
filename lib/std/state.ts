@@ -148,7 +148,8 @@ export const stateTools: MiniTool[] = [
 
       if (pattern) {
         const regex = new RegExp(
-          "^" + (pattern as string).replace(/\./g, "\\.").replace(/\*/g, ".*").replace(/\?/g, ".") + "$"
+          "^" + (pattern as string).replace(/\./g, "\\.").replace(/\*/g, ".*").replace(/\?/g, ".") +
+            "$",
         );
         keys = keys.filter((k) => regex.test(k));
       }
@@ -174,7 +175,8 @@ export const stateTools: MiniTool[] = [
       }
 
       const regex = new RegExp(
-        "^" + (pattern as string).replace(/\./g, "\\.").replace(/\*/g, ".*").replace(/\?/g, ".") + "$"
+        "^" + (pattern as string).replace(/\./g, "\\.").replace(/\*/g, ".*").replace(/\?/g, ".") +
+          "$",
       );
       let count = 0;
       for (const key of stateStorage.keys()) {
@@ -266,12 +268,20 @@ export const stateTools: MiniTool[] = [
       const entry = stateStorage.get(k);
       const current = (typeof entry?.value === "object" && entry.value !== null) ? entry.value : {};
 
-      const deepMerge = (target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> => {
+      const deepMerge = (
+        target: Record<string, unknown>,
+        source: Record<string, unknown>,
+      ): Record<string, unknown> => {
         const result = { ...target };
         for (const [key, val] of Object.entries(source)) {
-          if (deep && val && typeof val === "object" && !Array.isArray(val) &&
-              result[key] && typeof result[key] === "object" && !Array.isArray(result[key])) {
-            result[key] = deepMerge(result[key] as Record<string, unknown>, val as Record<string, unknown>);
+          if (
+            deep && val && typeof val === "object" && !Array.isArray(val) &&
+            result[key] && typeof result[key] === "object" && !Array.isArray(result[key])
+          ) {
+            result[key] = deepMerge(
+              result[key] as Record<string, unknown>,
+              val as Record<string, unknown>,
+            );
           } else {
             result[key] = val;
           }
@@ -279,7 +289,10 @@ export const stateTools: MiniTool[] = [
         return result;
       };
 
-      const merged = deepMerge(current as Record<string, unknown>, value as Record<string, unknown>);
+      const merged = deepMerge(
+        current as Record<string, unknown>,
+        value as Record<string, unknown>,
+      );
       const now = new Date();
       stateStorage.set(k, {
         value: merged,

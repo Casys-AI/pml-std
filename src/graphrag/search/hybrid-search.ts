@@ -85,7 +85,7 @@ export async function searchToolsHybrid(
   graph: HybridSearchGraph,
   _pageRanks: Record<string, number>, // Reserved for future PageRank boosting (ADR-022)
   query: string,
-  options: HybridSearchOptions = {}
+  options: HybridSearchOptions = {},
 ): Promise<HybridSearchResult[]> {
   const startTime = performance.now();
   const {
@@ -122,7 +122,9 @@ export async function searchToolsHybrid(
     const globalAlpha = Math.max(0.5, 1.0 - density * 2);
 
     log.debug(
-      `[searchToolsHybrid] globalAlpha=${globalAlpha.toFixed(2)}, expansion=${expansionMultiplier}x (density=${density.toFixed(4)}, edges=${edgeCount})`
+      `[searchToolsHybrid] globalAlpha=${
+        globalAlpha.toFixed(2)
+      }, expansion=${expansionMultiplier}x (density=${density.toFixed(4)}, edges=${edgeCount})`,
     );
 
     // 4. Compute hybrid scores for each candidate with local alpha (ADR-048)
@@ -142,14 +144,18 @@ export async function searchToolsHybrid(
           "active",
           result.toolId,
           "tool",
-          contextTools
+          contextTools,
         );
         localAlpha = breakdown.alpha;
         alphaAlgorithm = breakdown.algorithm;
         coldStart = breakdown.coldStart;
       }
 
-      alphaBreakdowns.set(result.toolId, { alpha: localAlpha, algorithm: alphaAlgorithm, coldStart });
+      alphaBreakdowns.set(result.toolId, {
+        alpha: localAlpha,
+        algorithm: alphaAlgorithm,
+        coldStart,
+      });
 
       const finalScore = localAlpha * result.score + (1 - localAlpha) * graphScore;
 
@@ -237,7 +243,9 @@ export async function searchToolsHybrid(
 
     const elapsedMs = performance.now() - startTime;
     log.info(
-      `[searchToolsHybrid] "${query}" → ${topResults.length} results (alpha=${globalAlpha.toFixed(2)}, ${elapsedMs.toFixed(1)}ms)`
+      `[searchToolsHybrid] "${query}" → ${topResults.length} results (alpha=${
+        globalAlpha.toFixed(2)
+      }, ${elapsedMs.toFixed(1)}ms)`,
     );
 
     return topResults;

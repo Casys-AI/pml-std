@@ -56,14 +56,21 @@ const detectFormat = (value: string): string | undefined => {
 export const schemaTools: MiniTool[] = [
   {
     name: "schema_infer",
-    description: "Infer JSON Schema from sample data. Analyze data structure to generate a JSON Schema definition with types, required fields, and formats. Use for API documentation, data validation setup, or schema generation. Keywords: infer schema, JSON schema, generate schema, data schema, type inference, schema from data.",
+    description:
+      "Infer JSON Schema from sample data. Analyze data structure to generate a JSON Schema definition with types, required fields, and formats. Use for API documentation, data validation setup, or schema generation. Keywords: infer schema, JSON schema, generate schema, data schema, type inference, schema from data.",
     category: "schema",
     inputSchema: {
       type: "object",
       properties: {
         data: { description: "Sample data to analyze (object or array)" },
-        detectFormats: { type: "boolean", description: "Detect string formats like email, uri, date (default: true)" },
-        includeExamples: { type: "boolean", description: "Include example values (default: false)" },
+        detectFormats: {
+          type: "boolean",
+          description: "Detect string formats like email, uri, date (default: true)",
+        },
+        includeExamples: {
+          type: "boolean",
+          description: "Include example values (default: false)",
+        },
       },
       required: ["data"],
     },
@@ -79,7 +86,9 @@ export const schemaTools: MiniTool[] = [
             return { type: "boolean" };
 
           case "number": {
-            const schema: JSONSchema = { type: Number.isInteger(value as number) ? "integer" : "number" };
+            const schema: JSONSchema = {
+              type: Number.isInteger(value as number) ? "integer" : "number",
+            };
             return schema;
           }
 
@@ -102,7 +111,7 @@ export const schemaTools: MiniTool[] = [
             const itemSchemas = arr.map((item, i) => infer(item, [...path, `[${i}]`]));
 
             // Try to merge schemas
-            const types = new Set(itemSchemas.map(s => JSON.stringify(s)));
+            const types = new Set(itemSchemas.map((s) => JSON.stringify(s)));
             if (types.size === 1) {
               return { type: "array", items: itemSchemas[0] };
             }
@@ -110,7 +119,7 @@ export const schemaTools: MiniTool[] = [
             // Mixed types - use anyOf
             return {
               type: "array",
-              items: { anyOf: [...types].map(t => JSON.parse(t)) },
+              items: { anyOf: [...types].map((t) => JSON.parse(t)) },
             };
           }
 
@@ -155,7 +164,8 @@ export const schemaTools: MiniTool[] = [
   },
   {
     name: "schema_to_typescript",
-    description: "Generate TypeScript type/interface from JSON Schema or data. Convert schema definitions to TypeScript for type-safe code. Use for API client generation, type definitions, or codegen. Keywords: TypeScript types, schema to type, generate interface, type codegen, JSON to TypeScript.",
+    description:
+      "Generate TypeScript type/interface from JSON Schema or data. Convert schema definitions to TypeScript for type-safe code. Use for API client generation, type definitions, or codegen. Keywords: TypeScript types, schema to type, generate interface, type codegen, JSON to TypeScript.",
     category: "schema",
     inputSchema: {
       type: "object",
@@ -204,7 +214,7 @@ export const schemaTools: MiniTool[] = [
         }
 
         if (s.enum) {
-          return s.enum.map(v => JSON.stringify(v)).join(" | ");
+          return s.enum.map((v) => JSON.stringify(v)).join(" | ");
         }
 
         if (s.const !== undefined) {
@@ -213,11 +223,11 @@ export const schemaTools: MiniTool[] = [
 
         if (s.anyOf || s.oneOf) {
           const variants = s.anyOf || s.oneOf;
-          return variants!.map(v => schemaToTS(v, level)).join(" | ");
+          return variants!.map((v) => schemaToTS(v, level)).join(" | ");
         }
 
         if (s.allOf) {
-          return s.allOf.map(v => schemaToTS(v, level)).join(" & ");
+          return s.allOf.map((v) => schemaToTS(v, level)).join(" & ");
         }
 
         const type = Array.isArray(s.type) ? s.type[0] : s.type;
@@ -275,13 +285,18 @@ export const schemaTools: MiniTool[] = [
   },
   {
     name: "schema_merge",
-    description: "Merge multiple JSON Schemas into one combined schema. Combine schemas from different data samples to create a comprehensive type. Use for evolving APIs, data aggregation, or schema unification. Keywords: merge schema, combine schemas, union schema, aggregate types, schema union.",
+    description:
+      "Merge multiple JSON Schemas into one combined schema. Combine schemas from different data samples to create a comprehensive type. Use for evolving APIs, data aggregation, or schema unification. Keywords: merge schema, combine schemas, union schema, aggregate types, schema union.",
     category: "schema",
     inputSchema: {
       type: "object",
       properties: {
         schemas: { type: "array", description: "Array of JSON Schemas to merge" },
-        strategy: { type: "string", enum: ["union", "intersection"], description: "Merge strategy (default: union)" },
+        strategy: {
+          type: "string",
+          enum: ["union", "intersection"],
+          description: "Merge strategy (default: union)",
+        },
       },
       required: ["schemas"],
     },
@@ -365,7 +380,8 @@ export const schemaTools: MiniTool[] = [
   },
   {
     name: "schema_diff",
-    description: "Compare two JSON Schemas and show differences. Identify added, removed, or changed properties and types. Use for schema versioning, API evolution, or migration planning. Keywords: schema diff, compare schemas, schema changes, type diff, API changes, version diff.",
+    description:
+      "Compare two JSON Schemas and show differences. Identify added, removed, or changed properties and types. Use for schema versioning, API evolution, or migration planning. Keywords: schema diff, compare schemas, schema changes, type diff, API changes, version diff.",
     category: "schema",
     inputSchema: {
       type: "object",
@@ -401,7 +417,12 @@ export const schemaTools: MiniTool[] = [
 
         // Compare types
         if (a.type !== b.type) {
-          diffs.push({ path: `${path}.type`, type: "type_changed", oldValue: a.type, newValue: b.type });
+          diffs.push({
+            path: `${path}.type`,
+            type: "type_changed",
+            oldValue: a.type,
+            newValue: b.type,
+          });
         }
 
         // Compare required
@@ -429,7 +450,7 @@ export const schemaTools: MiniTool[] = [
             compare(
               a.properties?.[key],
               b.properties?.[key],
-              `${path}.properties.${key}`
+              `${path}.properties.${key}`,
             );
           }
         }
@@ -441,7 +462,12 @@ export const schemaTools: MiniTool[] = [
 
         // Compare format
         if (a.format !== b.format) {
-          diffs.push({ path: `${path}.format`, type: "changed", oldValue: a.format, newValue: b.format });
+          diffs.push({
+            path: `${path}.format`,
+            type: "changed",
+            oldValue: a.format,
+            newValue: b.format,
+          });
         }
       };
 
@@ -452,16 +478,17 @@ export const schemaTools: MiniTool[] = [
         diffCount: diffs.length,
         diffs,
         summary: {
-          added: diffs.filter(d => d.type === "added").length,
-          removed: diffs.filter(d => d.type === "removed").length,
-          changed: diffs.filter(d => d.type === "changed" || d.type === "type_changed").length,
+          added: diffs.filter((d) => d.type === "added").length,
+          removed: diffs.filter((d) => d.type === "removed").length,
+          changed: diffs.filter((d) => d.type === "changed" || d.type === "type_changed").length,
         },
       };
     },
   },
   {
     name: "schema_analyze",
-    description: "Analyze JSON data structure and provide statistics. Get depth, property counts, type distribution, and complexity metrics. Use for data exploration, documentation, or optimization. Keywords: analyze data, data stats, structure analysis, type distribution, complexity, data profiling.",
+    description:
+      "Analyze JSON data structure and provide statistics. Get depth, property counts, type distribution, and complexity metrics. Use for data exploration, documentation, or optimization. Keywords: analyze data, data stats, structure analysis, type distribution, complexity, data profiling.",
     category: "schema",
     inputSchema: {
       type: "object",
@@ -495,26 +522,29 @@ export const schemaTools: MiniTool[] = [
         if (type === "array") {
           const arr = value as unknown[];
           totalArrayItems += arr.length;
-          arr.forEach(item => analyze(item, depth + 1));
+          arr.forEach((item) => analyze(item, depth + 1));
         }
 
         if (type === "object") {
           const obj = value as Record<string, unknown>;
           const keys = Object.keys(obj);
           totalProperties += keys.length;
-          keys.forEach(key => analyze(obj[key], depth + 1));
+          keys.forEach((key) => analyze(obj[key], depth + 1));
         }
       };
 
       analyze(data);
 
       // Calculate complexity score (0-100)
-      const complexity = Math.min(100, Math.round(
-        (maxDepth * 10) +
-        (totalProperties * 2) +
-        (Object.keys(typeCounts).length * 5) +
-        (totalArrayItems > 10 ? 10 : totalArrayItems)
-      ));
+      const complexity = Math.min(
+        100,
+        Math.round(
+          (maxDepth * 10) +
+            (totalProperties * 2) +
+            (Object.keys(typeCounts).length * 5) +
+            (totalArrayItems > 10 ? 10 : totalArrayItems),
+        ),
+      );
 
       return {
         maxDepth,
@@ -524,13 +554,20 @@ export const schemaTools: MiniTool[] = [
         typeDistribution: typeCounts,
         detectedFormats: Object.keys(formats).length > 0 ? formats : null,
         complexity,
-        complexityLevel: complexity < 20 ? "simple" : complexity < 50 ? "moderate" : complexity < 80 ? "complex" : "very complex",
+        complexityLevel: complexity < 20
+          ? "simple"
+          : complexity < 50
+          ? "moderate"
+          : complexity < 80
+          ? "complex"
+          : "very complex",
       };
     },
   },
   {
     name: "schema_sample",
-    description: "Generate sample data from JSON Schema. Create example values that conform to schema definition. Use for API mocking, test data, or documentation examples. Keywords: sample data, mock data, schema example, generate sample, test data, fixture.",
+    description:
+      "Generate sample data from JSON Schema. Create example values that conform to schema definition. Use for API mocking, test data, or documentation examples. Keywords: sample data, mock data, schema example, generate sample, test data, fixture.",
     category: "schema",
     inputSchema: {
       type: "object",

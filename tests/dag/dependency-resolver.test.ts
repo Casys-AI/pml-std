@@ -14,8 +14,18 @@ import type { TaskResult } from "../../src/dag/types.ts";
 Deno.test("Dependency Resolver - M2 Fix Validation", async (t) => {
   await t.step("All dependencies found and successful → returns map", () => {
     const previousResults = new Map<string, TaskResult>([
-      ["task1", { taskId: "task1", status: "success", output: { data: "result1" }, executionTimeMs: 100 }],
-      ["task2", { taskId: "task2", status: "success", output: { data: "result2" }, executionTimeMs: 200 }],
+      ["task1", {
+        taskId: "task1",
+        status: "success",
+        output: { data: "result1" },
+        executionTimeMs: 100,
+      }],
+      ["task2", {
+        taskId: "task2",
+        status: "success",
+        output: { data: "result2" },
+        executionTimeMs: 200,
+      }],
     ]);
 
     const deps = resolveDependencies(["task1", "task2"], previousResults);
@@ -56,7 +66,12 @@ Deno.test("Dependency Resolver - M2 Fix Validation", async (t) => {
     // Story 3.5: Safe-to-fail tasks should be included in dependencies
     const previousResults = new Map<string, TaskResult>([
       ["task1", { taskId: "task1", status: "success", output: { data: "ok" } }],
-      ["task2", { taskId: "task2", status: "failed_safe" as const, output: null, error: "Optional task failed" }],
+      ["task2", {
+        taskId: "task2",
+        status: "failed_safe" as const,
+        output: null,
+        error: "Optional task failed",
+      }],
     ]);
 
     const deps = resolveDependencies(["task1", "task2"], previousResults);
@@ -181,21 +196,28 @@ Deno.test("Dependency Resolver - M2 Fix Validation", async (t) => {
     } catch (error) {
       const message = (error as Error).message;
       assertEquals(message.includes("fetch_user_data"), true, "Error should include task ID");
-      assertEquals(message.includes("Network timeout"), true, "Error should include original error message");
+      assertEquals(
+        message.includes("Network timeout"),
+        true,
+        "Error should include original error message",
+      );
     }
   });
 
-  await t.step("Duplicate dependency IDs → deduplication not required (caller responsibility)", () => {
-    // If caller passes duplicates, we don't deduplicate - just process all
-    const previousResults = new Map<string, TaskResult>([
-      ["task1", { taskId: "task1", status: "success", output: { data: "ok" } }],
-    ]);
+  await t.step(
+    "Duplicate dependency IDs → deduplication not required (caller responsibility)",
+    () => {
+      // If caller passes duplicates, we don't deduplicate - just process all
+      const previousResults = new Map<string, TaskResult>([
+        ["task1", { taskId: "task1", status: "success", output: { data: "ok" } }],
+      ]);
 
-    const deps = resolveDependencies(["task1", "task1"], previousResults);
+      const deps = resolveDependencies(["task1", "task1"], previousResults);
 
-    // Both references should point to same TaskResult
-    assertEquals(deps["task1"].status, "success");
-  });
+      // Both references should point to same TaskResult
+      assertEquals(deps["task1"].status, "success");
+    },
+  );
 
   await t.step("Real-world: Code execution with MCP dependency", () => {
     const previousResults = new Map<string, TaskResult>([
@@ -204,7 +226,7 @@ Deno.test("Dependency Resolver - M2 Fix Validation", async (t) => {
         {
           taskId: "fetch_data",
           status: "success",
-          output: { result: "mcp_server:getData_{\"key\":\"test\"}" },
+          output: { result: 'mcp_server:getData_{"key":"test"}' },
           executionTimeMs: 150,
         },
       ],
@@ -219,11 +241,22 @@ Deno.test("Dependency Resolver - M2 Fix Validation", async (t) => {
   await t.step("Real-world: Capability with multiple dependencies", () => {
     const previousResults = new Map<string, TaskResult>([
       ["mcp_fetch", { taskId: "mcp_fetch", status: "success", output: { data: [1, 2, 3] } }],
-      ["code_transform", { taskId: "code_transform", status: "success", output: { result: { transformed: true } } }],
-      ["optional_check", { taskId: "optional_check", status: "failed_safe" as const, output: null }],
+      ["code_transform", {
+        taskId: "code_transform",
+        status: "success",
+        output: { result: { transformed: true } },
+      }],
+      ["optional_check", {
+        taskId: "optional_check",
+        status: "failed_safe" as const,
+        output: null,
+      }],
     ]);
 
-    const deps = resolveDependencies(["mcp_fetch", "code_transform", "optional_check"], previousResults);
+    const deps = resolveDependencies(
+      ["mcp_fetch", "code_transform", "optional_check"],
+      previousResults,
+    );
 
     assertEquals(Object.keys(deps).length, 3);
     assertEquals(deps["mcp_fetch"].status, "success");

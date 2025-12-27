@@ -7,9 +7,9 @@
  */
 
 export {
-  GraphStore,
   createGraphStore,
-  type NodeAttributes,
   type EdgeAttributes,
   type GraphSnapshot,
+  GraphStore,
+  type NodeAttributes,
 } from "./graph-store.ts";

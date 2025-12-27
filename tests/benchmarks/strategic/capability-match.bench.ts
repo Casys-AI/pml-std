@@ -9,10 +9,7 @@
  * @module tests/benchmarks/strategic/capability-match
  */
 
-import {
-  generateStressGraph,
-  loadScenario,
-} from "../fixtures/scenario-loader.ts";
+import { generateStressGraph, loadScenario } from "../fixtures/scenario-loader.ts";
 
 // ============================================================================
 // Setup

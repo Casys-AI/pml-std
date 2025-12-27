@@ -429,7 +429,11 @@ Deno.test("Event Flow Integration", async (t) => {
     const avgDuration = durations.reduce((a, b) => a + b, 0) / iterations;
     console.log(`Event emission avg: ${avgDuration.toFixed(3)}ms over ${iterations} iterations`);
 
-    assertEquals(avgDuration < 1, true, `Avg emission ${avgDuration.toFixed(3)}ms exceeds 1ms limit`);
+    assertEquals(
+      avgDuration < 1,
+      true,
+      `Avg emission ${avgDuration.toFixed(3)}ms exceeds 1ms limit`,
+    );
   });
 });
 

@@ -8,16 +8,16 @@
  * - Cold Start: Bayesian fallback
  */
 
-import { assertEquals, assertAlmostEquals, assert } from "@std/assert";
+import { assert, assertAlmostEquals, assertEquals } from "@std/assert";
 import { assertRejects } from "@std/assert";
 import {
-  LocalAlphaCalculator,
-  loadLocalAlphaConfig,
-  DEFAULT_LOCAL_ALPHA_CONFIG,
-  LocalAlphaConfigError,
   type AlphaMode,
-  type NodeType,
+  DEFAULT_LOCAL_ALPHA_CONFIG,
+  loadLocalAlphaConfig,
+  LocalAlphaCalculator,
   type LocalAlphaConfig,
+  LocalAlphaConfigError,
+  type NodeType,
 } from "../../../src/graphrag/local-alpha.ts";
 
 // Mock Graphology-like graph
@@ -39,8 +39,10 @@ function createMockGraph() {
     hasEdge: (source: string, target: string) => {
       let found = false;
       edges.forEach((edge) => {
-        if ((edge.source === source && edge.target === target) ||
-            (edge.source === target && edge.target === source)) {
+        if (
+          (edge.source === source && edge.target === target) ||
+          (edge.source === target && edge.target === source)
+        ) {
           found = true;
         }
       });
@@ -188,7 +190,10 @@ Deno.test("LocalAlphaCalculator - active mode with coherent embeddings returns l
   // With identical embeddings, correlation is undefined (division by zero in Pearson)
   // The algorithm should handle this gracefully - check it doesn't crash
   // and returns a reasonable alpha value
-  assert(result.alpha >= 0.5 && result.alpha <= 1.0, `Alpha ${result.alpha} should be in [0.5, 1.0]`);
+  assert(
+    result.alpha >= 0.5 && result.alpha <= 1.0,
+    `Alpha ${result.alpha} should be in [0.5, 1.0]`,
+  );
 });
 
 Deno.test("LocalAlphaCalculator - active mode with divergent embeddings returns high alpha", () => {
@@ -280,7 +285,9 @@ Deno.test("LocalAlphaCalculator - passive tool mode considers path heat from con
     getChildren: () => [],
   });
 
-  const result = calculator.getLocalAlphaWithBreakdown("passive", "tool:target", "tool", ["tool:ctx"]);
+  const result = calculator.getLocalAlphaWithBreakdown("passive", "tool:target", "tool", [
+    "tool:ctx",
+  ]);
 
   assertEquals(result.algorithm, "heat_diffusion");
   assert(Number(result.inputs.pathHeat) > 0, "Path heat should be positive with direct edge");
@@ -303,7 +310,12 @@ Deno.test("LocalAlphaCalculator - passive capability mode uses hierarchical heat
     getChildren: () => [],
   });
 
-  const result = calculator.getLocalAlphaWithBreakdown("passive", "cap:read_file", "capability", []);
+  const result = calculator.getLocalAlphaWithBreakdown(
+    "passive",
+    "cap:read_file",
+    "capability",
+    [],
+  );
 
   assertEquals(result.algorithm, "heat_hierarchical");
 });
@@ -325,7 +337,12 @@ Deno.test("LocalAlphaCalculator - capability inherits heat from meta parent", ()
     getChildren: () => [],
   });
 
-  const resultWithParent = calculator.getLocalAlphaWithBreakdown("passive", "cap:read_file", "capability", []);
+  const resultWithParent = calculator.getLocalAlphaWithBreakdown(
+    "passive",
+    "cap:read_file",
+    "capability",
+    [],
+  );
 
   // With a parent, the capability should inherit some heat
   assert(resultWithParent.inputs.heat !== undefined, "Should have heat input");
@@ -484,8 +501,8 @@ Deno.test("DEFAULT_LOCAL_ALPHA_CONFIG - has valid default values", () => {
 
   // Structural confidence weights should sum to 1.0
   const scSum = config.structuralConfidence.targetHeat +
-                config.structuralConfidence.contextHeat +
-                config.structuralConfidence.pathHeat;
+    config.structuralConfidence.contextHeat +
+    config.structuralConfidence.pathHeat;
   assertAlmostEquals(scSum, 1.0, 0.01);
 });
 
@@ -585,7 +602,9 @@ Deno.test("loadLocalAlphaConfig - rejects alphaMin >= alphaMax", async () => {
   // Create a temp file with invalid config
   const tempPath = await Deno.makeTempFile({ suffix: ".yaml" });
   try {
-    await Deno.writeTextFile(tempPath, `
+    await Deno.writeTextFile(
+      tempPath,
+      `
 alpha_min: 0.8
 alpha_max: 0.5
 alpha_scaling_factor: 0.5
@@ -608,7 +627,8 @@ structural_confidence:
   target_heat: 0.4
   context_heat: 0.3
   path_heat: 0.3
-`);
+`,
+    );
 
     await assertRejects(
       () => loadLocalAlphaConfig(tempPath),
@@ -623,7 +643,9 @@ structural_confidence:
 Deno.test("loadLocalAlphaConfig - rejects hierarchy weights not summing to 1.0", async () => {
   const tempPath = await Deno.makeTempFile({ suffix: ".yaml" });
   try {
-    await Deno.writeTextFile(tempPath, `
+    await Deno.writeTextFile(
+      tempPath,
+      `
 alpha_min: 0.5
 alpha_max: 1.0
 alpha_scaling_factor: 0.5
@@ -646,7 +668,8 @@ structural_confidence:
   target_heat: 0.4
   context_heat: 0.3
   path_heat: 0.3
-`);
+`,
+    );
 
     await assertRejects(
       () => loadLocalAlphaConfig(tempPath),
@@ -661,7 +684,9 @@ structural_confidence:
 Deno.test("loadLocalAlphaConfig - rejects values outside [0, 1] range", async () => {
   const tempPath = await Deno.makeTempFile({ suffix: ".yaml" });
   try {
-    await Deno.writeTextFile(tempPath, `
+    await Deno.writeTextFile(
+      tempPath,
+      `
 alpha_min: 0.5
 alpha_max: 1.5  # Invalid: > 1.0
 alpha_scaling_factor: 0.5
@@ -684,7 +709,8 @@ structural_confidence:
   target_heat: 0.4
   context_heat: 0.3
   path_heat: 0.3
-`);
+`,
+    );
 
     await assertRejects(
       () => loadLocalAlphaConfig(tempPath),
@@ -699,7 +725,9 @@ structural_confidence:
 Deno.test("loadLocalAlphaConfig - rejects cold_start threshold < 1", async () => {
   const tempPath = await Deno.makeTempFile({ suffix: ".yaml" });
   try {
-    await Deno.writeTextFile(tempPath, `
+    await Deno.writeTextFile(
+      tempPath,
+      `
 alpha_min: 0.5
 alpha_max: 1.0
 alpha_scaling_factor: 0.5
@@ -722,7 +750,8 @@ structural_confidence:
   target_heat: 0.4
   context_heat: 0.3
   path_heat: 0.3
-`);
+`,
+    );
 
     await assertRejects(
       () => loadLocalAlphaConfig(tempPath),

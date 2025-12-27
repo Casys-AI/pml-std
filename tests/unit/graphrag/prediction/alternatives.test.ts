@@ -7,10 +7,10 @@
  * @module tests/unit/graphrag/prediction/alternatives.test
  */
 
-import { assertEquals, assertExists, assertAlmostEquals } from "jsr:@std/assert@1";
+import { assertAlmostEquals, assertEquals, assertExists } from "jsr:@std/assert@1";
 import {
-  suggestAlternatives,
   type AlternativeSuggestionDeps,
+  suggestAlternatives,
 } from "../../../../src/graphrag/prediction/alternatives.ts";
 import type { Capability, CapabilityDependency } from "../../../../src/capabilities/types.ts";
 import type { EpisodeStatsMap } from "../../../../src/graphrag/prediction/types.ts";
@@ -88,7 +88,9 @@ function createMockDependency(
 /**
  * Create mock AlternativeSuggestionDeps
  */
-function createMockDeps(overrides: Partial<AlternativeSuggestionDeps> = {}): AlternativeSuggestionDeps {
+function createMockDeps(
+  overrides: Partial<AlternativeSuggestionDeps> = {},
+): AlternativeSuggestionDeps {
   return {
     capabilityStore: createMockCapabilityStore(),
     graphEngine: createMockGraphEngine() as any,

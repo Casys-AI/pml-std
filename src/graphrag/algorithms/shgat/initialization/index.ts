@@ -7,34 +7,34 @@
  */
 
 export {
-  // Types
-  type LayerParams,
-  type HeadParams,
+  countLevelParameters,
+  // Statistics
+  countParameters,
+  // Level params serialization (v1 refactor)
+  exportLevelParams,
+  // Legacy serialization
+  exportParams,
   type FusionMLPParams,
-  type SHGATParams,
-  type V2GradientAccumulators,
-  // Tensor initialization
-  initTensor3D,
-  initMatrix,
-  initVector,
-  zerosLike2D,
-  zerosLike3D,
+  // Adaptive configuration (v1 refactor)
+  getAdaptiveHeadsByGraphSize,
+  getLevelParams,
+  type HeadParams,
+  importLevelParams,
+  importParams,
+  // Multi-level parameter initialization (v1 refactor)
+  initializeLevelParameters,
   // Parameter initialization
   initializeParameters,
   initializeV2GradientAccumulators,
+  initMatrix,
+  // Tensor initialization
+  initTensor3D,
+  initVector,
+  // Types
+  type LayerParams,
   resetV2GradientAccumulators,
-  // Multi-level parameter initialization (v1 refactor)
-  initializeLevelParameters,
-  countLevelParameters,
-  getLevelParams,
-  // Level params serialization (v1 refactor)
-  exportLevelParams,
-  importLevelParams,
-  // Adaptive configuration (v1 refactor)
-  getAdaptiveHeadsByGraphSize,
-  // Legacy serialization
-  exportParams,
-  importParams,
-  // Statistics
-  countParameters,
+  type SHGATParams,
+  type V2GradientAccumulators,
+  zerosLike2D,
+  zerosLike3D,
 } from "./parameters.ts";

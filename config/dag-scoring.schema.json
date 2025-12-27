@@ -80,7 +80,12 @@
           "description": "Max hops for dependency path extraction"
         }
       },
-      "required": ["hybrid_search_candidates", "ranked_candidates", "community_members", "alternatives"],
+      "required": [
+        "hybrid_search_candidates",
+        "ranked_candidates",
+        "community_members",
+        "alternatives"
+      ],
       "additionalProperties": false
     },
     "weights": {
@@ -315,7 +320,12 @@
           "default": 0.10
         }
       },
-      "required": ["base_confidence", "pagerank_boost_cap", "edge_weight_boost_cap", "adamic_adar_boost_cap"],
+      "required": [
+        "base_confidence",
+        "pagerank_boost_cap",
+        "edge_weight_boost_cap",
+        "adamic_adar_boost_cap"
+      ],
       "additionalProperties": false
     },
     "cooccurrence": {
@@ -391,7 +401,13 @@
           "default": 0.01
         }
       },
-      "required": ["success_boost_factor", "success_boost_cap", "failure_penalty_factor", "failure_penalty_cap", "failure_exclusion_rate"],
+      "required": [
+        "success_boost_factor",
+        "success_boost_cap",
+        "failure_penalty_factor",
+        "failure_penalty_cap",
+        "failure_exclusion_rate"
+      ],
       "additionalProperties": false
     },
     "alternatives": {
@@ -467,6 +483,17 @@
       "additionalProperties": false
     }
   },
-  "required": ["limits", "weights", "thresholds", "caps", "hop_confidence", "community", "cooccurrence", "episodic", "capability", "defaults"],
+  "required": [
+    "limits",
+    "weights",
+    "thresholds",
+    "caps",
+    "hop_confidence",
+    "community",
+    "cooccurrence",
+    "episodic",
+    "capability",
+    "defaults"
+  ],
   "additionalProperties": false
 }

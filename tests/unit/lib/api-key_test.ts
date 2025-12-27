@@ -1,10 +1,9 @@
-
 import { assertEquals, assertMatch, assertNotEquals } from "@std/assert";
 import {
   generateApiKey,
+  getApiKeyPrefix,
   hashApiKey,
   verifyApiKey,
-  getApiKeyPrefix
 } from "../../../src/lib/api-key.ts";
 
 Deno.test("generateApiKey - format correct", () => {

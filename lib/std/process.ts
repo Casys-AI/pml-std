@@ -4,12 +4,13 @@
  * @module lib/std/tools/process
  */
 
-import { runCommand, type MiniTool } from "./common.ts";
+import { type MiniTool, runCommand } from "./common.ts";
 
 export const processTools: MiniTool[] = [
   {
     name: "ps_list",
-    description: "List running processes with detailed resource usage. Shows CPU%, memory%, PID, user, and command for each process. Filter by name or user, sort by resource consumption. Use for finding resource-hungry processes, debugging, or monitoring system load. Keywords: ps aux, process list, running programs, CPU usage, memory usage, task manager, top processes.",
+    description:
+      "List running processes with detailed resource usage. Shows CPU%, memory%, PID, user, and command for each process. Filter by name or user, sort by resource consumption. Use for finding resource-hungry processes, debugging, or monitoring system load. Keywords: ps aux, process list, running programs, CPU usage, memory usage, task manager, top processes.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -21,7 +22,8 @@ export const processTools: MiniTool[] = [
       },
     },
     handler: async ({ filter, user, sort = "cpu", limit = 20 }) => {
-      const sortField = { cpu: "-%cpu", mem: "-%mem", pid: "pid", time: "-time" }[sort as string] || "-%cpu";
+      const sortField = { cpu: "-%cpu", mem: "-%mem", pid: "pid", time: "-time" }[sort as string] ||
+        "-%cpu";
       const args = ["aux", "--sort", sortField];
 
       const result = await runCommand("ps", args);
@@ -62,7 +64,8 @@ export const processTools: MiniTool[] = [
   },
   {
     name: "which_command",
-    description: "Find the full path of an executable command. Checks if a command exists and returns its location in PATH. Use to verify command availability, find binary locations, or debug PATH issues. Keywords: which, command path, binary location, executable path, find command, PATH lookup.",
+    description:
+      "Find the full path of an executable command. Checks if a command exists and returns its location in PATH. Use to verify command availability, find binary locations, or debug PATH issues. Keywords: which, command path, binary location, executable path, find command, PATH lookup.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -82,7 +85,8 @@ export const processTools: MiniTool[] = [
   },
   {
     name: "kill_process",
-    description: "Terminate a process by PID or name using signals. Send SIGTERM for graceful shutdown or SIGKILL to force stop. Use to stop hung processes, restart services, or clean up runaway programs. Keywords: kill process, stop program, pkill, terminate, SIGTERM, SIGKILL, force quit, end task.",
+    description:
+      "Terminate a process by PID or name using signals. Send SIGTERM for graceful shutdown or SIGKILL to force stop. Use to stop hung processes, restart services, or clean up runaway programs. Keywords: kill process, stop program, pkill, terminate, SIGTERM, SIGKILL, force quit, end task.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -112,7 +116,8 @@ export const processTools: MiniTool[] = [
   },
   {
     name: "lsof",
-    description: "List open files, network connections, and ports in use. Find which process is using a specific port, file, or show all connections for a PID. Essential for debugging port conflicts, finding file locks, or auditing network activity. Keywords: lsof, open files, port in use, file handles, network connections, who is using port, file locks.",
+    description:
+      "List open files, network connections, and ports in use. Find which process is using a specific port, file, or show all connections for a PID. Essential for debugging port conflicts, finding file locks, or auditing network activity. Keywords: lsof, open files, port in use, file handles, network connections, who is using port, file locks.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -151,7 +156,8 @@ export const processTools: MiniTool[] = [
   },
   {
     name: "which",
-    description: "Find the location of a command in PATH. Shows the full path to an executable, optionally listing all matches. Use to check if a tool is installed, find where binaries are located, or resolve command conflicts. Keywords: which command, find binary, command location, executable path, PATH search.",
+    description:
+      "Find the location of a command in PATH. Shows the full path to an executable, optionally listing all matches. Use to check if a tool is installed, find where binaries are located, or resolve command conflicts. Keywords: which command, find binary, command location, executable path, PATH search.",
     category: "system",
     inputSchema: {
       type: "object",

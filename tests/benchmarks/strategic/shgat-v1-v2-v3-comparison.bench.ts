@@ -24,8 +24,8 @@
 
 import {
   createSHGATFromCapabilities,
-  trainSHGATOnEpisodesKHead,
   type TrainingExample,
+  trainSHGATOnEpisodesKHead,
 } from "../../../src/graphrag/algorithms/shgat.ts";
 import {
   DEFAULT_TRACE_STATS,
@@ -44,10 +44,30 @@ console.log("📦 Loading production-traces scenario (from PostgreSQL)...");
 const scenario = await loadScenario("production-traces");
 
 // Type for fixture with embeddings
-type CapWithEmb = { id: string; embedding: number[]; toolsUsed: string[]; successRate: number; parents?: string[]; children?: string[]; description?: string; level?: number };
+type CapWithEmb = {
+  id: string;
+  embedding: number[];
+  toolsUsed: string[];
+  successRate: number;
+  parents?: string[];
+  children?: string[];
+  description?: string;
+  level?: number;
+};
 type ToolWithEmb = { id: string; embedding: number[]; pageRank: number; community: number };
-type EventWithEmb = { intent: string; intentEmbedding: number[]; contextTools: string[]; selectedCapability: string; outcome: string };
-type QueryWithEmb = { intent: string; intentEmbedding: number[]; expectedCapability: string; difficulty: string };
+type EventWithEmb = {
+  intent: string;
+  intentEmbedding: number[];
+  contextTools: string[];
+  selectedCapability: string;
+  outcome: string;
+};
+type QueryWithEmb = {
+  intent: string;
+  intentEmbedding: number[];
+  expectedCapability: string;
+  difficulty: string;
+};
 
 const rawCaps = scenario.nodes.capabilities as CapWithEmb[];
 const rawTools = scenario.nodes.tools as ToolWithEmb[];
@@ -56,8 +76,17 @@ const rawQueries = (scenario as { testQueries?: QueryWithEmb[] }).testQueries ||
 
 // Build capabilities array from pre-computed embeddings
 console.log("🧮 Loading pre-computed embeddings...");
-type RawCap = CapWithEmb & { hypergraphFeatures?: { spectralCluster: number; hypergraphPageRank: number; cooccurrence: number; recency: number; adamicAdar?: number; heatDiffusion?: number } };
-const capabilities = (rawCaps as RawCap[]).map(c => ({
+type RawCap = CapWithEmb & {
+  hypergraphFeatures?: {
+    spectralCluster: number;
+    hypergraphPageRank: number;
+    cooccurrence: number;
+    recency: number;
+    adamicAdar?: number;
+    heatDiffusion?: number;
+  };
+};
+const capabilities = (rawCaps as RawCap[]).map((c) => ({
   id: c.id,
   embedding: c.embedding,
   toolsUsed: c.toolsUsed,
@@ -77,7 +106,7 @@ for (const t of rawTools) {
 
 // Build training data from pre-computed embeddings
 console.log("📚 Building training data...");
-const trainingExamples: TrainingExample[] = rawEvents.map(event => ({
+const trainingExamples: TrainingExample[] = rawEvents.map((event) => ({
   intentEmbedding: event.intentEmbedding,
   contextTools: event.contextTools,
   candidateId: event.selectedCapability,
@@ -109,8 +138,8 @@ interface TestQuery {
   difficulty: string;
 }
 
-const testQueries: TestQuery[] = rawQueries.map(q => {
-  const cap = capabilities.find(c => c.id === q.expectedCapability);
+const testQueries: TestQuery[] = rawQueries.map((q) => {
+  const cap = capabilities.find((c) => c.id === q.expectedCapability);
   return {
     intent: q.intentEmbedding,
     contextToolIds: cap?.toolsUsed.slice(0, 2) || [],
@@ -152,7 +181,11 @@ interface AccuracyMetrics {
 
 function computeAccuracyMetrics(
   queries: TestQuery[],
-  scoreFn: (intent: number[], traceFeaturesMap: Map<string, TraceFeatures>, contextToolIds: string[]) => Array<{ capabilityId: string; score: number }>,
+  scoreFn: (
+    intent: number[],
+    traceFeaturesMap: Map<string, TraceFeatures>,
+    contextToolIds: string[],
+  ) => Array<{ capabilityId: string; score: number }>,
 ): AccuracyMetrics {
   let totalReciprocal = 0;
   let hit1Count = 0;
@@ -212,19 +245,29 @@ Deno.bench({
 // Compute accuracy for each version
 const v1Accuracy = computeAccuracyMetrics(
   testQueries,
-  (intent, _, __) => shgat.scoreAllCapabilities(intent).map((r) => ({ capabilityId: r.capabilityId, score: r.score })),
+  (intent, _, __) =>
+    shgat.scoreAllCapabilities(intent).map((r) => ({
+      capabilityId: r.capabilityId,
+      score: r.score,
+    })),
 );
 
 const v2Accuracy = computeAccuracyMetrics(
   testQueries,
   (intent, traceFeaturesMap, contextToolIds) =>
-    shgat.scoreAllCapabilitiesV2(intent, traceFeaturesMap, contextToolIds).map((r) => ({ capabilityId: r.capabilityId, score: r.score })),
+    shgat.scoreAllCapabilitiesV2(intent, traceFeaturesMap, contextToolIds).map((r) => ({
+      capabilityId: r.capabilityId,
+      score: r.score,
+    })),
 );
 
 const v3Accuracy = computeAccuracyMetrics(
   testQueries,
   (intent, traceFeaturesMap, contextToolIds) =>
-    shgat.scoreAllCapabilitiesV3(intent, traceFeaturesMap, contextToolIds).map((r) => ({ capabilityId: r.capabilityId, score: r.score })),
+    shgat.scoreAllCapabilitiesV3(intent, traceFeaturesMap, contextToolIds).map((r) => ({
+      capabilityId: r.capabilityId,
+      score: r.score,
+    })),
 );
 
 // Print accuracy comparison table
@@ -284,7 +327,7 @@ console.log("=".repeat(80));
 
 // Test with the trained SHGAT using real hierarchical data from fixture
 // Query: "orchestrate end-to-end business process" -> expected: cap__full_stack (level 3)
-const hierQuery = testQueries.find(q => q.expectedCapabilityId === "cap__full_stack");
+const hierQuery = testQueries.find((q) => q.expectedCapabilityId === "cap__full_stack");
 if (hierQuery) {
   const hierResults = shgat.scoreAllCapabilities(hierQuery.intent);
 
@@ -294,9 +337,11 @@ if (hierQuery) {
   console.log("Expected: cap__full_stack (level 3) should rank highest\n");
 
   hierResults.slice(0, 8).forEach((r, i) => {
-    const cap = capabilities.find(c => c.id === r.capabilityId);
+    const cap = capabilities.find((c) => c.id === r.capabilityId);
     const level = (cap as { level?: number } & typeof cap)?.level ?? "?";
-    console.log(`  ${i + 1}. ${r.capabilityId.padEnd(25)} score=${r.score.toFixed(4)} (level ${level})`);
+    console.log(
+      `  ${i + 1}. ${r.capabilityId.padEnd(25)} score=${r.score.toFixed(4)} (level ${level})`,
+    );
   });
 
   const topResult = hierResults[0];
@@ -304,7 +349,8 @@ if (hierQuery) {
   console.log(`\nHierarchy Precision: ${hierarchyPrecision}`);
 
   // Test: Parent-Child score relationship (cap__application_core contains cap__data_layer)
-  const appCoreScore = hierResults.find((r) => r.capabilityId === "cap__application_core")?.score ?? 0;
+  const appCoreScore = hierResults.find((r) => r.capabilityId === "cap__application_core")?.score ??
+    0;
   const dataLayerScore = hierResults.find((r) => r.capabilityId === "cap__data_layer")?.score ?? 0;
   const apiLayerScore = hierResults.find((r) => r.capabilityId === "cap__api_layer")?.score ?? 0;
 
@@ -319,8 +365,12 @@ console.log("\n" + "-".repeat(50));
 console.log("PRECISION BY DIFFICULTY LEVEL");
 console.log("-".repeat(50));
 
-const difficultyGroups = { easy: [] as TestQuery[], medium: [] as TestQuery[], hard: [] as TestQuery[] };
-testQueries.forEach(q => {
+const difficultyGroups = {
+  easy: [] as TestQuery[],
+  medium: [] as TestQuery[],
+  hard: [] as TestQuery[],
+};
+testQueries.forEach((q) => {
   if (q.difficulty in difficultyGroups) {
     difficultyGroups[q.difficulty as keyof typeof difficultyGroups].push(q);
   }
@@ -332,7 +382,7 @@ for (const [difficulty, queries] of Object.entries(difficultyGroups)) {
   let hit1 = 0, hit3 = 0, totalReciprocal = 0;
   for (const q of queries) {
     const results = shgat.scoreAllCapabilities(q.intent);
-    const rank = results.findIndex(r => r.capabilityId === q.expectedCapabilityId) + 1;
+    const rank = results.findIndex((r) => r.capabilityId === q.expectedCapabilityId) + 1;
     if (rank > 0) {
       totalReciprocal += 1 / rank;
       if (rank === 1) hit1++;
@@ -340,7 +390,13 @@ for (const [difficulty, queries] of Object.entries(difficultyGroups)) {
     }
   }
   const mrr = totalReciprocal / queries.length;
-  console.log(`  ${difficulty.toUpperCase().padEnd(8)} (${queries.length} queries): MRR=${mrr.toFixed(3)}, Hit@1=${(hit1/queries.length*100).toFixed(1)}%, Hit@3=${(hit3/queries.length*100).toFixed(1)}%`);
+  console.log(
+    `  ${difficulty.toUpperCase().padEnd(8)} (${queries.length} queries): MRR=${
+      mrr.toFixed(3)
+    }, Hit@1=${(hit1 / queries.length * 100).toFixed(1)}%, Hit@3=${
+      (hit3 / queries.length * 100).toFixed(1)
+    }%`,
+  );
 }
 
 console.log("=".repeat(80) + "\n");

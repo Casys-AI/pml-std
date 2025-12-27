@@ -145,7 +145,12 @@ Deno.test("RequestDispatcher - Simple Path Matching", async (t) => {
     dispatcher.register("*", "/test", () => Promise.resolve(new Response("OK")));
 
     const getReq = new Request("http://test.com/test", { method: "GET" });
-    const getResult = await dispatcher.dispatch(getReq, new URL(getReq.url), createMockContext(), {});
+    const getResult = await dispatcher.dispatch(
+      getReq,
+      new URL(getReq.url),
+      createMockContext(),
+      {},
+    );
     assertExists(getResult);
 
     const postReq = new Request("http://test.com/test", { method: "POST" });

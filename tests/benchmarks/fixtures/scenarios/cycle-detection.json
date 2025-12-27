@@ -41,17 +41,82 @@
     "metaCapabilities": []
   },
   "edges": [
-    { "source": "cycle__a", "target": "cycle__b", "type": "provides", "source_type": "observed", "weight": 0.90, "count": 100 },
-    { "source": "cycle__b", "target": "cycle__c", "type": "provides", "source_type": "observed", "weight": 0.85, "count": 95 },
-    { "source": "cycle__c", "target": "cycle__a", "type": "provides", "source_type": "observed", "weight": 0.80, "count": 90, "note": "Creates direct cycle A→B→C→A" },
+    {
+      "source": "cycle__a",
+      "target": "cycle__b",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.90,
+      "count": 100
+    },
+    {
+      "source": "cycle__b",
+      "target": "cycle__c",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.85,
+      "count": 95
+    },
+    {
+      "source": "cycle__c",
+      "target": "cycle__a",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.80,
+      "count": 90,
+      "note": "Creates direct cycle A→B→C→A"
+    },
 
-    { "source": "indirect__x", "target": "indirect__y", "type": "provides", "source_type": "observed", "weight": 0.88, "count": 80 },
-    { "source": "indirect__y", "target": "indirect__z", "type": "sequence", "source_type": "observed", "weight": 0.82, "count": 75 },
-    { "source": "indirect__z", "target": "indirect__w", "type": "provides", "source_type": "observed", "weight": 0.78, "count": 70 },
-    { "source": "indirect__w", "target": "indirect__x", "type": "depends_on", "source_type": "inferred", "weight": 0.60, "count": 40, "note": "Creates indirect cycle X→Y→Z→W→X" },
+    {
+      "source": "indirect__x",
+      "target": "indirect__y",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.88,
+      "count": 80
+    },
+    {
+      "source": "indirect__y",
+      "target": "indirect__z",
+      "type": "sequence",
+      "source_type": "observed",
+      "weight": 0.82,
+      "count": 75
+    },
+    {
+      "source": "indirect__z",
+      "target": "indirect__w",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.78,
+      "count": 70
+    },
+    {
+      "source": "indirect__w",
+      "target": "indirect__x",
+      "type": "depends_on",
+      "source_type": "inferred",
+      "weight": 0.60,
+      "count": 40,
+      "note": "Creates indirect cycle X→Y→Z→W→X"
+    },
 
-    { "source": "acyclic__start", "target": "acyclic__mid", "type": "provides", "source_type": "observed", "weight": 0.95, "count": 150 },
-    { "source": "acyclic__mid", "target": "acyclic__end", "type": "provides", "source_type": "observed", "weight": 0.92, "count": 145 }
+    {
+      "source": "acyclic__start",
+      "target": "acyclic__mid",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.95,
+      "count": 150
+    },
+    {
+      "source": "acyclic__mid",
+      "target": "acyclic__end",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.92,
+      "count": 145
+    }
   ],
   "testCases": {
     "direct_cycle": {

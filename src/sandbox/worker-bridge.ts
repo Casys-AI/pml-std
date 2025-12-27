@@ -345,9 +345,13 @@ export class WorkerBridge {
           // Story 11.2: Build taskResults from tool traces for execution trace persistence
           const sortedTraces = [...this.traces].sort((a, b) => a.ts - b.ts);
           const taskResults: TraceTaskResult[] = sortedTraces
-            .filter((t): t is TraceEvent & { tool: string; args?: Record<string, unknown>; result?: unknown } =>
-              t.type === "tool_end" && "tool" in t
-            )
+            .filter((
+              t,
+            ): t is TraceEvent & {
+              tool: string;
+              args?: Record<string, unknown>;
+              result?: unknown;
+            } => t.type === "tool_end" && "tool" in t)
             .map((t, idx) => ({
               taskId: `task-${idx}`,
               tool: t.tool,
@@ -633,7 +637,14 @@ export class WorkerBridge {
         eventBus.emit({
           type: "tool.end",
           source: "worker-bridge",
-          payload: { toolId, traceId: id, success: !capResult.isError, durationMs, parentTraceId, result: safeResult },
+          payload: {
+            toolId,
+            traceId: id,
+            success: !capResult.isError,
+            durationMs,
+            parentTraceId,
+            result: safeResult,
+          },
         });
         // Send result back to Worker
         const response: RPCResultMessage = {

@@ -42,4 +42,4 @@ export function isPermissionError(errorMessage: string): boolean {
 }
 
 // Re-export for convenience
-export { suggestEscalation, formatEscalationRequest };
+export { formatEscalationRequest, suggestEscalation };

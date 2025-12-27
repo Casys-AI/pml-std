@@ -296,7 +296,12 @@ export function createServeCommand() {
         const adaptiveThresholdManager = new AdaptiveThresholdManager({}, db);
         const capabilityMatcher = new CapabilityMatcher(capabilityStore, adaptiveThresholdManager);
 
-        const dagSuggester = new DAGSuggester(graphEngine, vectorSearch, capabilityMatcher, capabilityStore);
+        const dagSuggester = new DAGSuggester(
+          graphEngine,
+          vectorSearch,
+          capabilityMatcher,
+          capabilityStore,
+        );
 
         // Story 7.6: Wire AlgorithmTracer for observability (ADR-039)
         const algorithmTracer = new AlgorithmTracer(db);

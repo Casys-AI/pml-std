@@ -27,15 +27,12 @@
 
 import { assertEquals, assertGreater } from "@std/assert";
 import {
-  SHGAT,
   createSHGATFromCapabilities,
-  trainSHGATOnEpisodes,
+  SHGAT,
   type TrainingExample,
+  trainSHGATOnEpisodes,
 } from "../../../src/graphrag/algorithms/shgat.ts";
-import {
-  DRDSP,
-  type Hyperedge,
-} from "../../../src/graphrag/algorithms/dr-dsp.ts";
+import { DRDSP, type Hyperedge } from "../../../src/graphrag/algorithms/dr-dsp.ts";
 import { EmbeddingModel } from "../../../src/vector/embeddings.ts";
 import { loadScenario, type ScenarioData } from "../fixtures/scenario-loader.ts";
 
@@ -110,20 +107,22 @@ async function loadDataWithEmbeddings(embedder: EmbeddingModel): Promise<{
 
   console.log("  Generating embeddings for capabilities...");
   const capabilities: CapabilityWithEmbedding[] = [];
-  for (const cap of scenario.nodes.capabilities as Array<{
-    id: string;
-    description: string;
-    toolsUsed: string[];
-    successRate: number;
-    hypergraphFeatures?: {
-      spectralCluster: number;
-      hypergraphPageRank: number;
-      cooccurrence: number;
-      recency: number;
-      adamicAdar: number;
-      heatDiffusion: number;
-    };
-  }>) {
+  for (
+    const cap of scenario.nodes.capabilities as Array<{
+      id: string;
+      description: string;
+      toolsUsed: string[];
+      successRate: number;
+      hypergraphFeatures?: {
+        spectralCluster: number;
+        hypergraphPageRank: number;
+        cooccurrence: number;
+        recency: number;
+        adamicAdar: number;
+        heatDiffusion: number;
+      };
+    }>
+  ) {
     const embedding = await embedder.encode(cap.description);
     capabilities.push({
       id: cap.id,
@@ -147,22 +146,84 @@ async function loadDataWithEmbeddings(embedder: EmbeddingModel): Promise<{
   // NOTE: Backward mode queries should be descriptive enough to match capability descriptions
   const testQueries: TestQuery[] = [
     // Cold start scenarios (descriptive queries for better embedding match)
-    { intent: "read and write files on disk, manage local filesystem directories and file contents", contextTool: null, expectedCapability: "cap__file_ops", expectedNextTool: "fs__read", alternatives: [] },
-    { intent: "query database records, execute SQL statements and manage relational database tables with transactions", contextTool: null, expectedCapability: "cap__db_crud", expectedNextTool: "db__query", alternatives: [] },
-    { intent: "call external HTTP REST API endpoints, make GET POST PUT web requests to remote servers", contextTool: null, expectedCapability: "cap__rest_api", expectedNextTool: "http__get", alternatives: [] },
+    {
+      intent: "read and write files on disk, manage local filesystem directories and file contents",
+      contextTool: null,
+      expectedCapability: "cap__file_ops",
+      expectedNextTool: "fs__read",
+      alternatives: [],
+    },
+    {
+      intent:
+        "query database records, execute SQL statements and manage relational database tables with transactions",
+      contextTool: null,
+      expectedCapability: "cap__db_crud",
+      expectedNextTool: "db__query",
+      alternatives: [],
+    },
+    {
+      intent:
+        "call external HTTP REST API endpoints, make GET POST PUT web requests to remote servers",
+      contextTool: null,
+      expectedCapability: "cap__rest_api",
+      expectedNextTool: "http__get",
+      alternatives: [],
+    },
 
     // With context (in-progress scenarios)
-    { intent: "write to file after reading", contextTool: "fs__read", expectedCapability: "cap__file_ops", expectedNextTool: "fs__write", alternatives: [] },
-    { intent: "insert record after query", contextTool: "db__query", expectedCapability: "cap__db_crud", expectedNextTool: "db__insert", alternatives: [] },
-    { intent: "parse JSON from API response", contextTool: "http__get", expectedCapability: "cap__rest_api", expectedNextTool: "json__parse", alternatives: [] },
+    {
+      intent: "write to file after reading",
+      contextTool: "fs__read",
+      expectedCapability: "cap__file_ops",
+      expectedNextTool: "fs__write",
+      alternatives: [],
+    },
+    {
+      intent: "insert record after query",
+      contextTool: "db__query",
+      expectedCapability: "cap__db_crud",
+      expectedNextTool: "db__insert",
+      alternatives: [],
+    },
+    {
+      intent: "parse JSON from API response",
+      contextTool: "http__get",
+      expectedCapability: "cap__rest_api",
+      expectedNextTool: "json__parse",
+      alternatives: [],
+    },
 
     // Cross-domain scenarios
-    { intent: "cache the database query result", contextTool: "db__query", expectedCapability: "cap__caching", expectedNextTool: "cache__set", alternatives: ["cap__db_crud"] },
-    { intent: "log the API response", contextTool: "http__post", expectedCapability: "cap__logging", expectedNextTool: "log__info", alternatives: ["cap__rest_api"] },
+    {
+      intent: "cache the database query result",
+      contextTool: "db__query",
+      expectedCapability: "cap__caching",
+      expectedNextTool: "cache__set",
+      alternatives: ["cap__db_crud"],
+    },
+    {
+      intent: "log the API response",
+      contextTool: "http__post",
+      expectedCapability: "cap__logging",
+      expectedNextTool: "log__info",
+      alternatives: ["cap__rest_api"],
+    },
 
     // Authentication flow
-    { intent: "validate user session token", contextTool: "auth__login", expectedCapability: "cap__auth_flow", expectedNextTool: "auth__validate", alternatives: [] },
-    { intent: "refresh expired authentication", contextTool: "auth__validate", expectedCapability: "cap__auth_flow", expectedNextTool: "auth__refresh", alternatives: [] },
+    {
+      intent: "validate user session token",
+      contextTool: "auth__login",
+      expectedCapability: "cap__auth_flow",
+      expectedNextTool: "auth__validate",
+      alternatives: [],
+    },
+    {
+      intent: "refresh expired authentication",
+      contextTool: "auth__validate",
+      expectedCapability: "cap__auth_flow",
+      expectedNextTool: "auth__refresh",
+      alternatives: [],
+    },
   ];
 
   console.log("  Generating embeddings for test queries...");
@@ -179,7 +240,7 @@ async function loadDataWithEmbeddings(embedder: EmbeddingModel): Promise<{
 
 function buildSHGAT(
   capabilities: CapabilityWithEmbedding[],
-  toolEmbeddings: Map<string, number[]>
+  toolEmbeddings: Map<string, number[]>,
 ): SHGAT {
   const capData = capabilities.map((cap) => ({
     id: cap.id,
@@ -222,7 +283,7 @@ function buildDRDSP(capabilities: CapabilityWithEmbedding[]): DRDSP {
  */
 function generateTrainingExamples(
   capabilities: CapabilityWithEmbedding[],
-  count: number = 100
+  count: number = 100,
 ): TrainingExample[] {
   const examples: TrainingExample[] = [];
 
@@ -231,9 +292,7 @@ function generateTrainingExamples(
 
     // Simulate intent embedding with noise (like real user intents vary)
     const noiseScale = 0.05 + Math.random() * 0.15; // 5-20% variation
-    const intentEmbedding = cap.embedding.map((v) =>
-      v + (Math.random() - 0.5) * noiseScale
-    );
+    const intentEmbedding = cap.embedding.map((v) => v + (Math.random() - 0.5) * noiseScale);
 
     // Simulate different execution points (cold start, mid-execution, near-complete)
     const executionProgress = Math.random();
@@ -266,7 +325,11 @@ async function trainSHGAT(
   shgat: SHGAT,
   capabilities: CapabilityWithEmbedding[],
   toolEmbeddings: Map<string, number[]>,
-  options: { epochs: number; batchSize: number; examples: number } = { epochs: 5, batchSize: 16, examples: 100 }
+  options: { epochs: number; batchSize: number; examples: number } = {
+    epochs: 5,
+    batchSize: 16,
+    examples: 100,
+  },
 ): Promise<{ loss: number; epochs: number; accuracy: number }> {
   const trainingExamples = generateTrainingExamples(capabilities, options.examples);
 
@@ -274,7 +337,7 @@ async function trainSHGAT(
     shgat,
     trainingExamples,
     (id) => toolEmbeddings.get(id) || null,
-    { epochs: options.epochs, batchSize: options.batchSize }
+    { epochs: options.epochs, batchSize: options.batchSize },
   );
 
   return {
@@ -292,7 +355,7 @@ function predictWithSHGATOnly(
   shgat: SHGAT,
   capabilities: CapabilityWithEmbedding[],
   intentEmbedding: number[],
-  contextTool: string | null
+  contextTool: string | null,
 ): PredictionResult {
   const scores = shgat.scoreAllCapabilities(intentEmbedding);
   const best = scores[0];
@@ -328,7 +391,7 @@ function predictWithSHGATAndDRDSP(
   drdsp: DRDSP,
   capabilities: CapabilityWithEmbedding[],
   intentEmbedding: number[],
-  contextTool: string | null
+  contextTool: string | null,
 ): PredictionResult {
   const scores = shgat.scoreAllCapabilities(intentEmbedding);
 
@@ -377,15 +440,26 @@ function runComparison(
   shgat: SHGAT,
   drdsp: DRDSP,
   capabilities: CapabilityWithEmbedding[],
-  testQueries: TestQuery[]
+  testQueries: TestQuery[],
 ): ComparisonResult[] {
   const results: ComparisonResult[] = [];
 
   for (const query of testQueries) {
     if (!query.intentEmbedding) continue;
 
-    const shgatResult = predictWithSHGATOnly(shgat, capabilities, query.intentEmbedding, query.contextTool);
-    const drdspResult = predictWithSHGATAndDRDSP(shgat, drdsp, capabilities, query.intentEmbedding, query.contextTool);
+    const shgatResult = predictWithSHGATOnly(
+      shgat,
+      capabilities,
+      query.intentEmbedding,
+      query.contextTool,
+    );
+    const drdspResult = predictWithSHGATAndDRDSP(
+      shgat,
+      drdsp,
+      capabilities,
+      query.intentEmbedding,
+      query.contextTool,
+    );
 
     const expectedCaps = [query.expectedCapability, ...(query.alternatives || [])];
 
@@ -399,11 +473,13 @@ function runComparison(
     // Also check if path leads to capability's target (last tool)
     const expectedCap = capabilities.find((c) => c.id === query.expectedCapability);
     const capTarget = expectedCap?.toolsUsed[expectedCap.toolsUsed.length - 1];
-    const drdspPathValid = drdspResult.pathFound && capTarget && drdspResult.path.includes(capTarget);
+    const drdspPathValid = drdspResult.pathFound && capTarget &&
+      drdspResult.path.includes(capTarget);
 
     const shgatScore = (shgatCapCorrect ? 2 : 0) + (shgatToolCorrect ? 1 : 0);
     // DR-DSP: capability (2) + path contains expected tool (1) + valid path to target (1)
-    const drdspScore = (drdspCapCorrect ? 2 : 0) + (drdspPathContainsExpected ? 1 : 0) + (drdspPathValid ? 1 : 0);
+    const drdspScore = (drdspCapCorrect ? 2 : 0) + (drdspPathContainsExpected ? 1 : 0) +
+      (drdspPathValid ? 1 : 0);
 
     let winner: "shgat" | "drdsp" | "tie" = "tie";
     if (drdspScore > shgatScore) winner = "drdsp";
@@ -455,7 +531,9 @@ if (import.meta.main) {
   try {
     console.log("Loading data and generating embeddings...");
     const { capabilities, toolEmbeddings, testQueries } = await loadDataWithEmbeddings(embedder);
-    console.log(`  ${capabilities.length} capabilities, ${toolEmbeddings.size} tools, ${testQueries.length} queries\n`);
+    console.log(
+      `  ${capabilities.length} capabilities, ${toolEmbeddings.size} tools, ${testQueries.length} queries\n`,
+    );
 
     const shgat = buildSHGAT(capabilities, toolEmbeddings);
     const drdsp = buildDRDSP(capabilities);
@@ -467,20 +545,28 @@ if (import.meta.main) {
     const trainResult = await trainSHGAT(shgat, capabilities, toolEmbeddings, {
       epochs: 5,
       batchSize: 16,
-      examples: 200,  // 200 examples = ~20 per capability
+      examples: 200, // 200 examples = ~20 per capability
     });
-    console.log(`  Training complete: loss=${trainResult.loss.toFixed(4)}, accuracy=${(trainResult.accuracy * 100).toFixed(1)}%`);
+    console.log(
+      `  Training complete: loss=${trainResult.loss.toFixed(4)}, accuracy=${
+        (trainResult.accuracy * 100).toFixed(1)
+      }%`,
+    );
 
     // Show learned fusion weights
     const stats = shgat.getStats();
-    console.log(`  Fusion weights: semantic=${stats.fusionWeights?.semantic?.toFixed(3) || 'N/A'}, ` +
-                `structure=${stats.fusionWeights?.structure?.toFixed(3) || 'N/A'}, ` +
-                `temporal=${stats.fusionWeights?.temporal?.toFixed(3) || 'N/A'}\n`);
+    console.log(
+      `  Fusion weights: semantic=${stats.fusionWeights?.semantic?.toFixed(3) || "N/A"}, ` +
+        `structure=${stats.fusionWeights?.structure?.toFixed(3) || "N/A"}, ` +
+        `temporal=${stats.fusionWeights?.temporal?.toFixed(3) || "N/A"}\n`,
+    );
 
     // Separate queries by mode
-    const backwardQueries = testQueries.filter(q => q.contextTool === null);
-    const forwardQueries = testQueries.filter(q => q.contextTool !== null);
-    console.log(`Running comparison: ${backwardQueries.length} backward, ${forwardQueries.length} forward queries\n`);
+    const backwardQueries = testQueries.filter((q) => q.contextTool === null);
+    const forwardQueries = testQueries.filter((q) => q.contextTool !== null);
+    console.log(
+      `Running comparison: ${backwardQueries.length} backward, ${forwardQueries.length} forward queries\n`,
+    );
     const results = runComparison(shgat, drdsp, capabilities, testQueries);
 
     // ========================================================================
@@ -501,15 +587,27 @@ if (import.meta.main) {
     console.log("-".repeat(85));
     for (let i = 0; i < backwardResults.length; i++) {
       const r = backwardResults[i];
-      const expected = testQueries.find(q => q.contextTool === null && q.intent.startsWith(r.query.substring(0, 20)))?.expectedCapability || "?";
+      const expected = testQueries.find((q) =>
+        q.contextTool === null && q.intent.startsWith(r.query.substring(0, 20))
+      )?.expectedCapability || "?";
       const icon = r.shgatDrdsp.capCorrect ? "✅" : "❌";
-      console.log(`${icon} ${r.query.substring(0, 38).padEnd(40)} | ${r.shgatDrdsp.capability.padEnd(20)} | ${expected.padEnd(20)}`);
+      console.log(
+        `${icon} ${r.query.substring(0, 38).padEnd(40)} | ${r.shgatDrdsp.capability.padEnd(20)} | ${
+          expected.padEnd(20)
+        }`,
+      );
     }
 
-    const backwardCapAcc = backwardResults.filter((r) => r.shgatDrdsp.capCorrect).length / (backwardResults.length || 1);
-    const backwardPathValid = backwardResults.filter((r) => r.shgatDrdsp.pathValid).length / (backwardResults.length || 1);
+    const backwardCapAcc = backwardResults.filter((r) => r.shgatDrdsp.capCorrect).length /
+      (backwardResults.length || 1);
+    const backwardPathValid = backwardResults.filter((r) => r.shgatDrdsp.pathValid).length /
+      (backwardResults.length || 1);
     console.log("-".repeat(65));
-    console.log(`Backward: Cap=${(backwardCapAcc * 100).toFixed(0)}%, PathValid=${(backwardPathValid * 100).toFixed(0)}%`);
+    console.log(
+      `Backward: Cap=${(backwardCapAcc * 100).toFixed(0)}%, PathValid=${
+        (backwardPathValid * 100).toFixed(0)
+      }%`,
+    );
 
     console.log("\n┌─────────────────────────────────────────────────────────────────────┐");
     console.log("│ FORWARD MODE (Prediction) - With context, in-progress              │");
@@ -523,10 +621,16 @@ if (import.meta.main) {
       console.log(`${r.query.substring(0, 38).padEnd(40)} | ${dc}  | ${dp}   | ${dv}`);
     }
 
-    const forwardCapAcc = forwardResults.filter((r) => r.shgatDrdsp.capCorrect).length / (forwardResults.length || 1);
-    const forwardPathValid = forwardResults.filter((r) => r.shgatDrdsp.pathValid).length / (forwardResults.length || 1);
+    const forwardCapAcc = forwardResults.filter((r) => r.shgatDrdsp.capCorrect).length /
+      (forwardResults.length || 1);
+    const forwardPathValid = forwardResults.filter((r) => r.shgatDrdsp.pathValid).length /
+      (forwardResults.length || 1);
     console.log("-".repeat(65));
-    console.log(`Forward: Cap=${(forwardCapAcc * 100).toFixed(0)}%, PathValid=${(forwardPathValid * 100).toFixed(0)}%`);
+    console.log(
+      `Forward: Cap=${(forwardCapAcc * 100).toFixed(0)}%, PathValid=${
+        (forwardPathValid * 100).toFixed(0)
+      }%`,
+    );
 
     // ========================================================================
     // SUMMARY
@@ -535,15 +639,28 @@ if (import.meta.main) {
     console.log("MODE COMPARISON SUMMARY");
     console.log("═".repeat(100));
 
-    console.log(`\n${"Mode".padEnd(20)} | ${"Cap Accuracy".padEnd(15)} | ${"Path Valid".padEnd(15)} | Queries`);
+    console.log(
+      `\n${"Mode".padEnd(20)} | ${"Cap Accuracy".padEnd(15)} | ${
+        "Path Valid".padEnd(15)
+      } | Queries`,
+    );
     console.log("-".repeat(70));
-    console.log(`${"Backward (no ctx)".padEnd(20)} | ${(backwardCapAcc * 100).toFixed(0)}%`.padEnd(37) + ` | ${(backwardPathValid * 100).toFixed(0)}%`.padEnd(17) + ` | ${backwardResults.length}`);
-    console.log(`${"Forward (with ctx)".padEnd(20)} | ${(forwardCapAcc * 100).toFixed(0)}%`.padEnd(37) + ` | ${(forwardPathValid * 100).toFixed(0)}%`.padEnd(17) + ` | ${forwardResults.length}`);
+    console.log(
+      `${"Backward (no ctx)".padEnd(20)} | ${(backwardCapAcc * 100).toFixed(0)}%`.padEnd(37) +
+        ` | ${(backwardPathValid * 100).toFixed(0)}%`.padEnd(17) + ` | ${backwardResults.length}`,
+    );
+    console.log(
+      `${"Forward (with ctx)".padEnd(20)} | ${(forwardCapAcc * 100).toFixed(0)}%`.padEnd(37) +
+        ` | ${(forwardPathValid * 100).toFixed(0)}%`.padEnd(17) + ` | ${forwardResults.length}`,
+    );
 
     const overallCapAcc = results.filter((r) => r.shgatDrdsp.capCorrect).length / results.length;
     const overallPathValid = results.filter((r) => r.shgatDrdsp.pathValid).length / results.length;
     console.log("-".repeat(70));
-    console.log(`${"OVERALL".padEnd(20)} | ${(overallCapAcc * 100).toFixed(0)}%`.padEnd(37) + ` | ${(overallPathValid * 100).toFixed(0)}%`.padEnd(17) + ` | ${results.length}`);
+    console.log(
+      `${"OVERALL".padEnd(20)} | ${(overallCapAcc * 100).toFixed(0)}%`.padEnd(37) +
+        ` | ${(overallPathValid * 100).toFixed(0)}%`.padEnd(17) + ` | ${results.length}`,
+    );
 
     console.log("\n" + "═".repeat(100));
 
@@ -556,17 +673,61 @@ if (import.meta.main) {
 
     // Test queries specifically for tool scoring (with context)
     const toolQueries = [
-      { intent: "read file contents", context: ["fs__open"], expectedTool: "fs__read", expectedCap: "cap__file_read" },
-      { intent: "write data to file", context: ["fs__open", "fs__read"], expectedTool: "fs__write", expectedCap: "cap__file_write" },
-      { intent: "query database records", context: ["db__connect"], expectedTool: "db__query", expectedCap: "cap__db_query" },
-      { intent: "insert new record", context: ["db__connect", "db__query"], expectedTool: "db__insert", expectedCap: "cap__db_insert" },
-      { intent: "call API endpoint", context: ["http__init"], expectedTool: "http__get", expectedCap: "cap__api_call" },
-      { intent: "parse response", context: ["http__init", "http__get"], expectedTool: "json__parse", expectedCap: "cap__api_call" },
-      { intent: "authenticate user", context: [], expectedTool: "auth__validate", expectedCap: "cap__auth_flow" },
-      { intent: "refresh token", context: ["auth__validate"], expectedTool: "auth__refresh", expectedCap: "cap__auth_flow" },
+      {
+        intent: "read file contents",
+        context: ["fs__open"],
+        expectedTool: "fs__read",
+        expectedCap: "cap__file_read",
+      },
+      {
+        intent: "write data to file",
+        context: ["fs__open", "fs__read"],
+        expectedTool: "fs__write",
+        expectedCap: "cap__file_write",
+      },
+      {
+        intent: "query database records",
+        context: ["db__connect"],
+        expectedTool: "db__query",
+        expectedCap: "cap__db_query",
+      },
+      {
+        intent: "insert new record",
+        context: ["db__connect", "db__query"],
+        expectedTool: "db__insert",
+        expectedCap: "cap__db_insert",
+      },
+      {
+        intent: "call API endpoint",
+        context: ["http__init"],
+        expectedTool: "http__get",
+        expectedCap: "cap__api_call",
+      },
+      {
+        intent: "parse response",
+        context: ["http__init", "http__get"],
+        expectedTool: "json__parse",
+        expectedCap: "cap__api_call",
+      },
+      {
+        intent: "authenticate user",
+        context: [],
+        expectedTool: "auth__validate",
+        expectedCap: "cap__auth_flow",
+      },
+      {
+        intent: "refresh token",
+        context: ["auth__validate"],
+        expectedTool: "auth__refresh",
+        expectedCap: "cap__auth_flow",
+      },
     ];
 
-    console.log(`\n${"Intent".padEnd(25)} | ${"Context".padEnd(25)} | ${"Expected".padEnd(15)} | ${"SHGAT Top-1".padEnd(15)} | ${"SHGAT+DR-DSP".padEnd(15)} | Winner`);
+    console.log(
+      `\n${"Intent".padEnd(25)} | ${"Context".padEnd(25)} | ${"Expected".padEnd(15)} | ${
+        "SHGAT Top-1".padEnd(15)
+      } | ${"SHGAT+DR-DSP".padEnd(15)} | Winner`,
+    );
     console.log("-".repeat(120));
 
     let toolShgatWins = 0, toolDrdspWins = 0, toolTies = 0;
@@ -579,7 +740,7 @@ if (import.meta.main) {
       // SHGAT direct tool scoring
       const toolScores = shgat.scoreAllTools(intentEmb);
       const shgatTop1 = toolScores[0]?.toolId || "none";
-      const shgatTop3Tools = toolScores.slice(0, 3).map(t => t.toolId);
+      const shgatTop3Tools = toolScores.slice(0, 3).map((t) => t.toolId);
       const shgatCorrect = shgatTop1 === tq.expectedTool;
       const shgatIn3 = shgatTop3Tools.includes(tq.expectedTool);
 
@@ -615,8 +776,11 @@ if (import.meta.main) {
       if (drdspCorrect) drdspToolTop1++;
       // DR-DSP top-3 not directly comparable (path validation)
 
-      const winner = drdspCorrect && !shgatCorrect ? "DR-DSP ✨" :
-                     shgatCorrect && !drdspCorrect ? "SHGAT ✨" : "Tie";
+      const winner = drdspCorrect && !shgatCorrect
+        ? "DR-DSP ✨"
+        : shgatCorrect && !drdspCorrect
+        ? "SHGAT ✨"
+        : "Tie";
 
       if (drdspCorrect && !shgatCorrect) toolDrdspWins++;
       else if (shgatCorrect && !drdspCorrect) toolShgatWins++;
@@ -626,7 +790,11 @@ if (import.meta.main) {
       const shgatIcon = shgatCorrect ? "✅ " + shgatTop1 : "❌ " + shgatTop1;
       const drdspIcon = drdspCorrect ? "✅ " + drdspBest : "❌ " + drdspBest;
 
-      console.log(`${tq.intent.padEnd(25)} | ${contextStr.padEnd(25)} | ${tq.expectedTool.padEnd(15)} | ${shgatIcon.padEnd(15)} | ${drdspIcon.padEnd(15)} | ${winner}`);
+      console.log(
+        `${tq.intent.padEnd(25)} | ${contextStr.padEnd(25)} | ${tq.expectedTool.padEnd(15)} | ${
+          shgatIcon.padEnd(15)
+        } | ${drdspIcon.padEnd(15)} | ${winner}`,
+      );
     }
 
     console.log("-".repeat(120));
@@ -636,8 +804,14 @@ if (import.meta.main) {
     console.log("═".repeat(80));
     console.log(`\n${"Metric".padEnd(25)} | ${"SHGAT".padEnd(15)} | ${"SHGAT+DR-DSP".padEnd(15)}`);
     console.log("-".repeat(60));
-    console.log(`${"Top-1 Accuracy".padEnd(25)} | ${((shgatToolTop1 / toolQueries.length) * 100).toFixed(0)}%`.padEnd(42) + ` | ${((drdspToolTop1 / toolQueries.length) * 100).toFixed(0)}%`);
-    console.log(`${"Top-3 Accuracy".padEnd(25)} | ${((shgatToolTop3 / toolQueries.length) * 100).toFixed(0)}%`.padEnd(42) + ` | N/A (path-based)`);
+    console.log(
+      `${"Top-1 Accuracy".padEnd(25)} | ${((shgatToolTop1 / toolQueries.length) * 100).toFixed(0)}%`
+        .padEnd(42) + ` | ${((drdspToolTop1 / toolQueries.length) * 100).toFixed(0)}%`,
+    );
+    console.log(
+      `${"Top-3 Accuracy".padEnd(25)} | ${((shgatToolTop3 / toolQueries.length) * 100).toFixed(0)}%`
+        .padEnd(42) + ` | N/A (path-based)`,
+    );
 
     console.log("\n" + "═".repeat(80));
     console.log("TOOL WINNER DISTRIBUTION");
@@ -646,10 +820,13 @@ if (import.meta.main) {
     console.log(`  DR-DSP wins:  ${toolDrdspWins}`);
     console.log(`  Ties:         ${toolTies}`);
 
-    const toolOverall = toolDrdspWins > toolShgatWins ? "SHGAT+DR-DSP" : toolDrdspWins < toolShgatWins ? "SHGAT Only" : "Tie";
+    const toolOverall = toolDrdspWins > toolShgatWins
+      ? "SHGAT+DR-DSP"
+      : toolDrdspWins < toolShgatWins
+      ? "SHGAT Only"
+      : "Tie";
     console.log(`\n  TOOL SCORING WINNER: ${toolOverall}`);
     console.log("═".repeat(80));
-
   } finally {
     console.log("\nDisposing embedding model...");
     await embedder.dispose();
@@ -728,9 +905,11 @@ Deno.test("Comparison: DR-DSP reports path status", async () => {
   const drdsp = buildDRDSP(capabilities);
 
   const result = predictWithSHGATAndDRDSP(
-    shgat, drdsp, capabilities,
+    shgat,
+    drdsp,
+    capabilities,
     mockEmbedding("test intent"),
-    "fs__read"
+    "fs__read",
   );
 
   assertEquals(typeof result.pathFound, "boolean", "Should report path status");
@@ -744,7 +923,7 @@ Deno.test("Comparison: DR-DSP reports path status", async () => {
 // ============================================================================
 
 const benchScenario = JSON.parse(
-  await Deno.readTextFile("tests/benchmarks/fixtures/scenarios/medium-graph.json")
+  await Deno.readTextFile("tests/benchmarks/fixtures/scenarios/medium-graph.json"),
 );
 
 const benchCaps = (benchScenario.nodes.capabilities as Array<{

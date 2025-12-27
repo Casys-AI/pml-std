@@ -271,8 +271,8 @@ export class HypergraphBuilder {
       // Validate edge_type (Story 10.3: added "provides")
       const rawEdgeType = dep.edge_type || "dependency";
       const edgeType = ["contains", "sequence", "dependency", "alternative", "provides"].includes(
-        rawEdgeType,
-      )
+          rawEdgeType,
+        )
         ? (rawEdgeType as "contains" | "sequence" | "dependency" | "alternative" | "provides")
         : "dependency";
 
@@ -297,9 +297,7 @@ export class HypergraphBuilder {
 
     logger.debug("Added capability dependency edges", {
       inputCount: dependencies.length,
-      addedCount: edges.filter((e) =>
-        e.data.id.startsWith("dep-")
-      ).length,
+      addedCount: edges.filter((e) => e.data.id.startsWith("dep-")).length,
     });
   }
 

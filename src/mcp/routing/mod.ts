@@ -8,30 +8,30 @@
  */
 
 // Router
-export { routeRequest, logRoutes } from "./router.ts";
+export { logRoutes, routeRequest } from "./router.ts";
 
 // Dispatcher (for custom route registration)
 export { RequestDispatcher, type RouteDefinition } from "./dispatcher.ts";
 
 // Middleware utilities
 export {
-  isPublicRoute,
-  getAllowedOrigin,
   buildCorsHeaders,
+  getAllowedOrigin,
   handleCorsPrelight,
-  unauthorizedResponse,
+  isPublicRoute,
   rateLimitResponse,
+  unauthorizedResponse,
 } from "./middleware.ts";
 
 // Types and response helpers
 export type { RouteContext, RouteHandler } from "./types.ts";
-export { jsonResponse, errorResponse } from "./types.ts";
+export { errorResponse, jsonResponse } from "./types.ts";
 
 // Re-export handlers for direct access if needed
 export {
-  handleGraphRoutes,
   handleCapabilitiesRoutes,
+  handleGraphRoutes,
+  handleHealthRoutes,
   handleMetricsRoutes,
   handleToolsRoutes,
-  handleHealthRoutes,
 } from "./handlers/mod.ts";

@@ -11,7 +11,7 @@ import * as log from "@std/log";
 import type { DagScoringConfig } from "../dag-scoring-config.ts";
 import type { WorkflowPredictionState } from "../types.ts";
 import type { EpisodicMemoryStore } from "../../learning/episodic-memory-store.ts";
-import type { EpisodeStatsMap, EpisodeStats } from "../prediction/types.ts";
+import type { EpisodeStats, EpisodeStatsMap } from "../prediction/types.ts";
 import type { EpisodicEvent, PredictionData } from "../../learning/types.ts";
 
 // Re-export EpisodicEvent from canonical source (snake_case external convention)
@@ -90,7 +90,9 @@ export async function retrieveRelevantEpisodes(
 
     const retrievalTime = performance.now() - startTime;
     log.debug(
-      `[episodic-adapter] Retrieved ${episodes.length} episodes for context ${contextHash} (${retrievalTime.toFixed(1)}ms)`,
+      `[episodic-adapter] Retrieved ${episodes.length} episodes for context ${contextHash} (${
+        retrievalTime.toFixed(1)
+      }ms)`,
     );
 
     return episodes;

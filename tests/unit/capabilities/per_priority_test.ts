@@ -15,13 +15,13 @@
  * @module tests/unit/capabilities/per_priority_test
  */
 
-import { assertEquals, assertAlmostEquals } from "@std/assert";
+import { assertAlmostEquals, assertEquals } from "@std/assert";
 import {
   calculateTDError,
   COLD_START_PRIORITY,
   type EmbeddingProvider,
 } from "../../../src/capabilities/per-priority.ts";
-import { SHGAT, DEFAULT_SHGAT_CONFIG } from "../../../src/graphrag/algorithms/shgat.ts";
+import { DEFAULT_SHGAT_CONFIG, SHGAT } from "../../../src/graphrag/algorithms/shgat.ts";
 
 /**
  * Mock embedding provider for tests
@@ -48,27 +48,27 @@ function createTestSHGAT(options?: {
   if (options?.withTools || options?.withCapabilities) {
     const tools = options?.withTools
       ? [
-          { id: "tool1", embedding: new Array(1024).fill(0.3) },
-          { id: "tool2", embedding: new Array(1024).fill(0.6) },
-          { id: "tool3", embedding: new Array(1024).fill(0.9) },
-        ]
+        { id: "tool1", embedding: new Array(1024).fill(0.3) },
+        { id: "tool2", embedding: new Array(1024).fill(0.6) },
+        { id: "tool3", embedding: new Array(1024).fill(0.9) },
+      ]
       : [];
 
     const capabilities = options?.withCapabilities
       ? [
-          {
-            id: "cap1",
-            embedding: new Array(1024).fill(0.4),
-            toolsUsed: ["tool1"],
-            successRate: 0.8,
-          },
-          {
-            id: "cap2",
-            embedding: new Array(1024).fill(0.7),
-            toolsUsed: ["tool2", "tool3"],
-            successRate: 0.9,
-          },
-        ]
+        {
+          id: "cap1",
+          embedding: new Array(1024).fill(0.4),
+          toolsUsed: ["tool1"],
+          successRate: 0.8,
+        },
+        {
+          id: "cap2",
+          embedding: new Array(1024).fill(0.7),
+          toolsUsed: ["tool2", "tool3"],
+          successRate: 0.9,
+        },
+      ]
       : [];
 
     shgat.buildFromData(tools, capabilities);

@@ -45,7 +45,7 @@ export interface PageRankResult {
  */
 export function computePageRank(
   graph: unknown,
-  options: PageRankOptions = {}
+  options: PageRankOptions = {},
 ): PageRankResult {
   const startTime = performance.now();
 
@@ -55,7 +55,11 @@ export function computePageRank(
   });
 
   const computeTimeMs = performance.now() - startTime;
-  log.debug(`[PageRank] Computed scores for ${Object.keys(scores).length} nodes (${computeTimeMs.toFixed(1)}ms)`);
+  log.debug(
+    `[PageRank] Computed scores for ${Object.keys(scores).length} nodes (${
+      computeTimeMs.toFixed(1)
+    }ms)`,
+  );
 
   return { scores, computeTimeMs };
 }
@@ -69,7 +73,7 @@ export function computePageRank(
  */
 export function getPageRankScore(
   scores: Record<string, number>,
-  nodeId: string
+  nodeId: string,
 ): number {
   return scores[nodeId] || 0;
 }
@@ -83,7 +87,7 @@ export function getPageRankScore(
  */
 export function getTopPageRankNodes(
   scores: Record<string, number>,
-  n: number
+  n: number,
 ): Array<{ toolId: string; score: number }> {
   return Object.entries(scores)
     .map(([toolId, score]) => ({ toolId, score }))

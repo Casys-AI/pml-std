@@ -593,7 +593,15 @@ export type GraphNodeType = "intent" | "tool" | "operation" | "capability" | "re
 /**
  * Operation category for pure code operations
  */
-export type OperationCategory = "array" | "string" | "object" | "math" | "json" | "binary" | "logical" | "bitwise";
+export type OperationCategory =
+  | "array"
+  | "string"
+  | "object"
+  | "math"
+  | "json"
+  | "binary"
+  | "logical"
+  | "bitwise";
 
 /**
  * Base attributes for graph nodes

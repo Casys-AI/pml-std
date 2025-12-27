@@ -14,11 +14,11 @@
 
 import { assertEquals, assertThrows } from "@std/assert";
 import {
-  isPureOperation,
-  isCodeOperation,
   getOperationName,
-  validatePureTask,
+  isCodeOperation,
+  isPureOperation,
   PURE_OPERATIONS,
+  validatePureTask,
 } from "../../../src/capabilities/pure-operations.ts";
 
 // =============================================================================

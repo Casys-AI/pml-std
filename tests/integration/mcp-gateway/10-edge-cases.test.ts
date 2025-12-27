@@ -12,12 +12,12 @@
  * @module tests/integration/mcp-gateway/edge-cases
  */
 
-import { assertEquals, assertExists, assert } from "@std/assert";
+import { assert, assertEquals, assertExists } from "@std/assert";
 import {
-  createTestGatewayServer,
-  makeGatewayRequest,
   connectSSE,
+  createTestGatewayServer,
   getRandomPort,
+  makeGatewayRequest,
 } from "./fixtures/gateway-test-helpers.ts";
 
 Deno.test({

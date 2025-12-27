@@ -12,21 +12,18 @@
 
 import type { DbClient } from "../db/types.ts";
 import type {
-  CapabilityRecord,
-  CapabilityAlias,
   AliasResolutionResult,
-  Scope,
-  CapabilityVisibility,
+  CapabilityAlias,
+  CapabilityRecord,
   CapabilityRouting,
+  CapabilityVisibility,
+  Scope,
 } from "./types.ts";
-import {
-  generateFQDN,
-  isValidMCPName,
-} from "./fqdn.ts";
+import { generateFQDN, isValidMCPName } from "./fqdn.ts";
 import * as log from "@std/log";
 
 // Re-export for convenience
-export type { Scope, CapabilityRecord, CapabilityAlias, AliasResolutionResult };
+export type { AliasResolutionResult, CapabilityAlias, CapabilityRecord, Scope };
 
 /**
  * Input for creating a new capability record
@@ -87,7 +84,7 @@ export class CapabilityRegistry {
     // Validate display name for MCP compatibility
     if (!isValidMCPName(input.displayName)) {
       throw new Error(
-        `Invalid display name: "${input.displayName}". Must be alphanumeric with underscores, hyphens, and colons only.`
+        `Invalid display name: "${input.displayName}". Must be alphanumeric with underscores, hyphens, and colons only.`,
       );
     }
 
@@ -104,7 +101,8 @@ export class CapabilityRegistry {
     const createdBy = input.createdBy || "local";
 
     // Insert into database - code/description/params/tools are in workflow_pattern via FK
-    await this.db.query(`
+    await this.db.query(
+      `
       INSERT INTO capability_records (
         id, display_name, org, project, namespace, action, hash,
         workflow_pattern_id, created_by, created_at, visibility, routing, tags
@@ -118,21 +116,23 @@ export class CapabilityRegistry {
         updated_at = NOW(),
         version = capability_records.version + 1,
         tags = EXCLUDED.tags
-    `, [
-      fqdn,
-      input.displayName,
-      input.org,
-      input.project,
-      input.namespace,
-      input.action,
-      input.hash,
-      input.workflowPatternId,
-      createdBy,
-      now.toISOString(),
-      input.visibility || "private",
-      input.routing || "local",
-      input.tags || [],
-    ]);
+    `,
+      [
+        fqdn,
+        input.displayName,
+        input.org,
+        input.project,
+        input.namespace,
+        input.action,
+        input.hash,
+        input.workflowPatternId,
+        createdBy,
+        now.toISOString(),
+        input.visibility || "private",
+        input.routing || "local",
+        input.tags || [],
+      ],
+    );
 
     // Fetch and return the created record
     const record = await this.getByFqdn(fqdn);
@@ -153,7 +153,7 @@ export class CapabilityRegistry {
   async getByFqdn(fqdn: string): Promise<CapabilityRecord | null> {
     const rows = await this.db.query(
       `SELECT * FROM capability_records WHERE id = $1`,
-      [fqdn]
+      [fqdn],
     );
 
     if (rows.length === 0) {
@@ -177,13 +177,13 @@ export class CapabilityRegistry {
    */
   async resolveByName(
     name: string,
-    scope: Scope
+    scope: Scope,
   ): Promise<CapabilityRecord | null> {
     // 1. Try exact match in current scope
     const exactMatch = await this.db.query(
       `SELECT * FROM capability_records
        WHERE org = $1 AND project = $2 AND display_name = $3`,
-      [scope.org, scope.project, name]
+      [scope.org, scope.project, name],
     );
 
     if (exactMatch.length > 0) {
@@ -201,7 +201,7 @@ export class CapabilityRegistry {
       `SELECT * FROM capability_records
        WHERE display_name = $1 AND visibility = 'public'
        LIMIT 1`,
-      [name]
+      [name],
     );
 
     if (publicMatch.length > 0) {
@@ -222,13 +222,13 @@ export class CapabilityRegistry {
    */
   async resolveByAlias(
     alias: string,
-    scope: Scope
+    scope: Scope,
   ): Promise<AliasResolutionResult | null> {
     // Look up in alias table
     const aliasRows = await this.db.query(
       `SELECT target_fqdn FROM capability_aliases
        WHERE org = $1 AND project = $2 AND alias = $3`,
-      [scope.org, scope.project, alias]
+      [scope.org, scope.project, alias],
     );
 
     if (aliasRows.length === 0) {
@@ -246,7 +246,7 @@ export class CapabilityRegistry {
     // Log deprecation warning (AC8)
     log.warn(
       `Deprecated: Using alias "${alias}" for capability "${record.displayName}" (${targetFqdn}). ` +
-      `Update your code to use the new name.`
+        `Update your code to use the new name.`,
     );
 
     return {
@@ -268,7 +268,7 @@ export class CapabilityRegistry {
     org: string,
     project: string,
     alias: string,
-    targetFqdn: string
+    targetFqdn: string,
   ): Promise<void> {
     // Validate target exists
     const target = await this.getByFqdn(targetFqdn);
@@ -279,7 +279,7 @@ export class CapabilityRegistry {
     // Validate alias name for MCP compatibility
     if (!isValidMCPName(alias)) {
       throw new Error(
-        `Invalid alias: "${alias}". Must be alphanumeric with underscores, hyphens, and colons only.`
+        `Invalid alias: "${alias}". Must be alphanumeric with underscores, hyphens, and colons only.`,
       );
     }
 
@@ -290,7 +290,7 @@ export class CapabilityRegistry {
        ON CONFLICT (org, project, alias) DO UPDATE SET
          target_fqdn = EXCLUDED.target_fqdn,
          created_at = NOW()`,
-      [alias, org, project, targetFqdn]
+      [alias, org, project, targetFqdn],
     );
 
     log.info(`Created alias: ${alias} -> ${targetFqdn} (scope: ${org}.${project})`);
@@ -319,14 +319,14 @@ export class CapabilityRegistry {
        SET target_fqdn = $1
        WHERE target_fqdn = $2
        RETURNING alias`,
-      [newFqdn, oldFqdn]
+      [newFqdn, oldFqdn],
     );
 
     const count = result.length;
     if (count > 0) {
       log.info(
         `Updated ${count} alias(es) from ${oldFqdn} to ${newFqdn}: ` +
-        result.map((r) => r.alias as string).join(", ")
+          result.map((r) => r.alias as string).join(", "),
       );
     }
 
@@ -375,7 +375,7 @@ export class CapabilityRegistry {
       oldRecord.org,
       oldRecord.project,
       oldRecord.displayName,
-      newRecord.id
+      newRecord.id,
     );
 
     // Update all existing aliases to point to new FQDN (AC9)
@@ -384,7 +384,7 @@ export class CapabilityRegistry {
     // Delete old record using query (PGlite requires query for parameterized SQL)
     await this.db.query(
       `DELETE FROM capability_records WHERE id = $1`,
-      [oldFqdn]
+      [oldFqdn],
     );
 
     log.info(`Renamed capability: ${oldFqdn} -> ${newRecord.id}`);
@@ -402,14 +402,14 @@ export class CapabilityRegistry {
   async listByScope(
     scope: Scope,
     limit = 100,
-    offset = 0
+    offset = 0,
   ): Promise<CapabilityRecord[]> {
     const rows = await this.db.query(
       `SELECT * FROM capability_records
        WHERE org = $1 AND project = $2
        ORDER BY display_name ASC
        LIMIT $3 OFFSET $4`,
-      [scope.org, scope.project, limit, offset]
+      [scope.org, scope.project, limit, offset],
     );
 
     return rows.map((row) => this.rowToRecord(row));
@@ -424,7 +424,7 @@ export class CapabilityRegistry {
   async getAliases(fqdn: string): Promise<CapabilityAlias[]> {
     const rows = await this.db.query(
       `SELECT * FROM capability_aliases WHERE target_fqdn = $1`,
-      [fqdn]
+      [fqdn],
     );
 
     return rows.map((row) => ({
@@ -446,7 +446,7 @@ export class CapabilityRegistry {
   async recordUsage(
     fqdn: string,
     success: boolean,
-    latencyMs: number
+    latencyMs: number,
   ): Promise<void> {
     // Use query (PGlite requires query for parameterized SQL)
     await this.db.query(
@@ -457,7 +457,7 @@ export class CapabilityRegistry {
          total_latency_ms = total_latency_ms + $3,
          updated_at = NOW()
        WHERE id = $1`,
-      [fqdn, success, latencyMs]
+      [fqdn, success, latencyMs],
     );
   }
 

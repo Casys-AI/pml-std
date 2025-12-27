@@ -15,17 +15,17 @@
  */
 
 import {
+  assertAlmostEquals,
   assertEquals,
   assertExists,
   assertGreater,
   assertLessOrEqual,
-  assertAlmostEquals,
 } from "@std/assert";
 import { PGliteClient } from "../../../../src/db/client.ts";
 import { getAllMigrations, MigrationRunner } from "../../../../src/db/migrations.ts";
 import {
-  TraceFeatureExtractor,
   DEFAULT_EXTRACTOR_CONFIG,
+  TraceFeatureExtractor,
 } from "../../../../src/graphrag/algorithms/trace-feature-extractor.ts";
 import { DEFAULT_TRACE_STATS } from "../../../../src/graphrag/algorithms/shgat.ts";
 
@@ -59,16 +59,19 @@ async function insertTestTraces(
   }>,
 ): Promise<void> {
   for (const trace of traces) {
-    await db.query(`
+    await db.query(
+      `
       INSERT INTO execution_trace (
         executed_path, success, duration_ms, executed_at
       ) VALUES ($1, $2, $3, $4)
-    `, [
-      trace.executedPath,
-      trace.success,
-      trace.durationMs,
-      trace.executedAt ?? new Date(),
-    ]);
+    `,
+      [
+        trace.executedPath,
+        trace.success,
+        trace.durationMs,
+        trace.executedAt ?? new Date(),
+      ],
+    );
   }
 }
 
@@ -783,7 +786,11 @@ Deno.test("TraceFeatureExtractor - tool appearing multiple times in path", async
 
   // Tool appears multiple times in same path
   await insertTestTraces(db, [
-    { executedPath: ["repeat-tool", "other", "repeat-tool", "end"], success: true, durationMs: 100 },
+    {
+      executedPath: ["repeat-tool", "other", "repeat-tool", "end"],
+      success: true,
+      durationMs: 100,
+    },
   ]);
 
   // Should not crash, stats should be computed

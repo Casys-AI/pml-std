@@ -8,8 +8,12 @@
  */
 
 import type { TraceEvent } from "../../sandbox/types.ts";
-import type { EdgeType, EdgeSource } from "../algorithms/edge-weights.ts";
-import { EDGE_TYPE_WEIGHTS, EDGE_SOURCE_MODIFIERS, OBSERVED_THRESHOLD } from "../algorithms/edge-weights.ts";
+import type { EdgeSource, EdgeType } from "../algorithms/edge-weights.ts";
+import {
+  EDGE_SOURCE_MODIFIERS,
+  EDGE_TYPE_WEIGHTS,
+  OBSERVED_THRESHOLD,
+} from "../algorithms/edge-weights.ts";
 import { persistCapabilityDependency } from "../sync/db-sync.ts";
 import type { DbClient } from "../../db/types.ts";
 import { isCodeOperation, isPureOperation } from "../../capabilities/pure-operations.ts";
@@ -77,7 +81,7 @@ export async function updateFromCodeExecution(
   graph: ExecutionLearningGraph,
   db: DbClient,
   traces: TraceEvent[],
-  eventEmitter?: EdgeEventEmitter
+  eventEmitter?: EdgeEventEmitter,
 ): Promise<ExecutionLearningResult> {
   if (traces.length < 1) {
     return { nodesCreated: 0, edgesCreated: 0, edgesUpdated: 0 };
@@ -146,7 +150,7 @@ export async function updateFromCodeExecution(
         parentNodeId,
         childNodeId,
         "contains",
-        eventEmitter
+        eventEmitter,
       );
 
       if (edgeResult === "created") result.edgesCreated++;
@@ -158,7 +162,7 @@ export async function updateFromCodeExecution(
           db,
           parentNodeId.replace("capability:", ""),
           childNodeId.replace("capability:", ""),
-          "contains"
+          "contains",
         );
       }
     }
@@ -173,7 +177,7 @@ export async function updateFromCodeExecution(
           children[i],
           children[i + 1],
           "sequence",
-          eventEmitter
+          eventEmitter,
         );
 
         if (edgeResult === "created") result.edgesCreated++;
@@ -200,7 +204,7 @@ export async function createOrUpdateEdge(
   fromId: string,
   toId: string,
   edgeType: EdgeType,
-  eventEmitter?: EdgeEventEmitter
+  eventEmitter?: EdgeEventEmitter,
 ): Promise<"created" | "updated" | "none"> {
   const baseWeight = EDGE_TYPE_WEIGHTS[edgeType];
 
@@ -286,7 +290,7 @@ export interface TaskResultWithLayer {
 export async function learnSequenceEdgesFromTasks(
   graph: ExecutionLearningGraph,
   tasks: TaskResultWithLayer[],
-  eventEmitter?: EdgeEventEmitter
+  eventEmitter?: EdgeEventEmitter,
 ): Promise<{ edgesCreated: number; edgesUpdated: number }> {
   const result = { edgesCreated: 0, edgesUpdated: 0 };
 
@@ -344,7 +348,7 @@ export async function learnSequenceEdgesFromTasks(
           fromTask.tool,
           toTask.tool,
           "sequence",
-          eventEmitter
+          eventEmitter,
         );
 
         if (edgeResult === "created") result.edgesCreated++;

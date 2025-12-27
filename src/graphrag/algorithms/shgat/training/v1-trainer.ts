@@ -15,8 +15,14 @@
  * @module graphrag/algorithms/shgat/training/v1-trainer
  */
 
-import type { SHGATConfig, TrainingExample, FusionWeights, FeatureWeights, ForwardCache } from "../types.ts";
-import type { LayerParams, HeadParams } from "../initialization/parameters.ts";
+import type {
+  FeatureWeights,
+  ForwardCache,
+  FusionWeights,
+  SHGATConfig,
+  TrainingExample,
+} from "../types.ts";
+import type { HeadParams, LayerParams } from "../initialization/parameters.ts";
 import { zerosLike3D } from "../initialization/parameters.ts";
 import * as math from "../utils/math.ts";
 
@@ -54,7 +60,17 @@ export interface V1TrainingContext {
   featureWeights: FeatureWeights;
   W_intent: number[][];
   getCapabilityIndex: (id: string) => number | undefined;
-  getCapabilityNode: (id: string) => { successRate: number; hypergraphFeatures?: { hypergraphPageRank: number; adamicAdar?: number; recency: number; heatDiffusion?: number } } | undefined;
+  getCapabilityNode: (
+    id: string,
+  ) => {
+    successRate: number;
+    hypergraphFeatures?: {
+      hypergraphPageRank: number;
+      adamicAdar?: number;
+      recency: number;
+      heatDiffusion?: number;
+    };
+  } | undefined;
   forward: () => { E: number[][]; cache: ForwardCache };
   projectIntent: (intent: number[]) => number[];
 }
@@ -84,8 +100,9 @@ export function initV1Gradients(
   return {
     fusionGradients: { semantic: 0, structure: 0, temporal: 0 },
     featureGradients: { semantic: 0, structure: 0, temporal: 0 },
-    W_intent_gradients: Array.from({ length: propagatedDim }, () =>
-      Array(config.embeddingDim).fill(0)
+    W_intent_gradients: Array.from(
+      { length: propagatedDim },
+      () => Array(config.embeddingDim).fill(0),
     ),
     layerGradients: grads,
   };
@@ -104,8 +121,9 @@ export function resetV1Gradients(
 
   // propagatedDim = hiddenDim (matches message passing output after concatHeads)
   const propagatedDim = config.hiddenDim;
-  grads.W_intent_gradients = Array.from({ length: propagatedDim }, () =>
-    Array(config.embeddingDim).fill(0)
+  grads.W_intent_gradients = Array.from(
+    { length: propagatedDim },
+    () => Array(config.embeddingDim).fill(0),
   );
 
   for (let l = 0; l < config.numLayers; l++) {
@@ -292,7 +310,8 @@ export function applyFeatureGradients(
   const l2 = config.l2Lambda;
 
   featureWeights.semantic -= lr * (grads.featureGradients.semantic + l2 * featureWeights.semantic);
-  featureWeights.structure -= lr * (grads.featureGradients.structure + l2 * featureWeights.structure);
+  featureWeights.structure -= lr *
+    (grads.featureGradients.structure + l2 * featureWeights.structure);
   featureWeights.temporal -= lr * (grads.featureGradients.temporal + l2 * featureWeights.temporal);
 }
 

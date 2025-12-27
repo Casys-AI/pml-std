@@ -4,11 +4,11 @@
  * Phase 2a: Tests that operations and tools are created with correct node types
  */
 
-import { assertEquals, assert } from "https://deno.land/std@0.208.0/assert/mod.ts";
+import { assert, assertEquals } from "https://deno.land/std@0.208.0/assert/mod.ts";
 import {
+  type ExecutionLearningGraph,
   learnSequenceEdgesFromTasks,
   type TaskResultWithLayer,
-  type ExecutionLearningGraph,
 } from "../../../src/graphrag/dag/execution-learning.ts";
 
 /**
@@ -150,9 +150,15 @@ Deno.test("learnSequenceEdgesFromTasks - handles mixed operation and tool nodes"
   assertEquals(graph.getNodeAttributes("code:map")?.type, "operation");
 
   // Verify edges were created
-  assert(graph.hasEdge("github:search_issues", "code:filter"), "Should have edge from MCP to operation");
+  assert(
+    graph.hasEdge("github:search_issues", "code:filter"),
+    "Should have edge from MCP to operation",
+  );
   assert(graph.hasEdge("code:filter", "code:map"), "Should have edge between operations");
-  assert(graph.hasEdge("code:map", "github:create_comment"), "Should have edge from operation to MCP");
+  assert(
+    graph.hasEdge("code:map", "github:create_comment"),
+    "Should have edge from operation to MCP",
+  );
 });
 
 // =============================================================================

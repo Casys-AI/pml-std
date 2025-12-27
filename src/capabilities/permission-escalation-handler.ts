@@ -154,7 +154,8 @@ export class PermissionEscalationHandler {
       return {
         handled: false,
         approved: false,
-        error: `Maximum escalation retries (${this.MAX_ESCALATION_RETRIES}) reached for this execution`,
+        error:
+          `Maximum escalation retries (${this.MAX_ESCALATION_RETRIES}) reached for this execution`,
       };
     }
 

@@ -58,20 +58,22 @@ interface ToolSchema {
  *
  * @internal This type is not exported - use StaticStructureNode for external APIs
  */
-type InternalNode = {
-  /** Unique node identifier (e.g., "n1", "d1", "f1") */
-  id: string;
-  /** AST traversal position for ordering sequence edges */
-  position: number;
-  /** Parent scope for conditional/parallel containment (e.g., "d1:true", "f1") */
-  parentScope?: string;
-} & (
-  | { type: "task"; tool: string; arguments?: ArgumentsStructure; code?: string }
-  | { type: "decision"; condition: string }
-  | { type: "capability"; capabilityId: string }
-  | { type: "fork" }
-  | { type: "join" }
-);
+type InternalNode =
+  & {
+    /** Unique node identifier (e.g., "n1", "d1", "f1") */
+    id: string;
+    /** AST traversal position for ordering sequence edges */
+    position: number;
+    /** Parent scope for conditional/parallel containment (e.g., "d1:true", "f1") */
+    parentScope?: string;
+  }
+  & (
+    | { type: "task"; tool: string; arguments?: ArgumentsStructure; code?: string }
+    | { type: "decision"; condition: string }
+    | { type: "capability"; capabilityId: string }
+    | { type: "fork" }
+    | { type: "join" }
+  );
 
 /**
  * StaticStructureBuilder - Analyzes code to extract control flow and data flow
@@ -143,7 +145,9 @@ export class StaticStructureBuilder {
    * SWC spans use 1-based byte offsets that accumulate globally,
    * so we subtract the base offset to get the relative position
    */
-  private extractCodeFromSpan(span: { start: number; end: number } | undefined): string | undefined {
+  private extractCodeFromSpan(
+    span: { start: number; end: number } | undefined,
+  ): string | undefined {
     if (!span || !this.originalCode) return undefined;
     // Adjust for SWC global offset accumulation
     const relativeStart = span.start - this.spanBaseOffset;
@@ -383,10 +387,22 @@ export class StaticStructureBuilder {
 
       // Array operations (filter, map, reduce, etc.) - Phase 1
       const arrayOps = [
-        "filter", "map", "reduce", "flatMap",
-        "find", "findIndex", "some", "every",
-        "sort", "reverse", "slice", "concat", "join",
-        "includes", "indexOf", "lastIndexOf",
+        "filter",
+        "map",
+        "reduce",
+        "flatMap",
+        "find",
+        "findIndex",
+        "some",
+        "every",
+        "sort",
+        "reverse",
+        "slice",
+        "concat",
+        "join",
+        "includes",
+        "indexOf",
+        "lastIndexOf",
       ];
 
       const methodName = chain[chain.length - 1];
@@ -405,14 +421,28 @@ export class StaticStructureBuilder {
           parentScope,
           code, // Original code extracted via span
         });
-        logger.debug("Detected array operation", { operation: methodName, nodeId, codeExtracted: !!code });
+        logger.debug("Detected array operation", {
+          operation: methodName,
+          nodeId,
+          codeExtracted: !!code,
+        });
         return false; // Continue recursing
       }
 
       // String operations
       const stringOps = [
-        "split", "replace", "replaceAll", "trim", "trimStart", "trimEnd",
-        "toLowerCase", "toUpperCase", "substring", "substr", "match", "matchAll",
+        "split",
+        "replace",
+        "replaceAll",
+        "trim",
+        "trimStart",
+        "trimEnd",
+        "toLowerCase",
+        "toUpperCase",
+        "substring",
+        "substr",
+        "match",
+        "matchAll",
       ];
 
       if (stringOps.includes(methodName)) {
@@ -420,9 +450,7 @@ export class StaticStructureBuilder {
 
         // Extract code via SWC span
         const span = n.span as { start: number; end: number } | undefined;
-        const code = span
-          ? this.extractCodeFromSpan(span)
-          : undefined;
+        const code = span ? this.extractCodeFromSpan(span) : undefined;
 
         nodes.push({
           id: nodeId,
@@ -432,20 +460,25 @@ export class StaticStructureBuilder {
           parentScope,
           code, // Original code extracted via span
         });
-        logger.debug("Detected string operation", { operation: methodName, nodeId, codeExtracted: !!code });
+        logger.debug("Detected string operation", {
+          operation: methodName,
+          nodeId,
+          codeExtracted: !!code,
+        });
         return false;
       }
 
       // Object operations (Object.keys, Object.values, etc.)
-      if (chain[0] === "Object" && ["keys", "values", "entries", "fromEntries", "assign"].includes(chain[1])) {
+      if (
+        chain[0] === "Object" &&
+        ["keys", "values", "entries", "fromEntries", "assign"].includes(chain[1])
+      ) {
         const nodeId = this.generateNodeId("task");
         const operation = chain[1];
 
         // Extract code via SWC span
         const span = n.span as { start: number; end: number } | undefined;
-        const code = span
-          ? this.extractCodeFromSpan(span)
-          : undefined;
+        const code = span ? this.extractCodeFromSpan(span) : undefined;
 
         nodes.push({
           id: nodeId,
@@ -460,15 +493,15 @@ export class StaticStructureBuilder {
       }
 
       // Math operations
-      if (chain[0] === "Math" && ["max", "min", "abs", "floor", "ceil", "round"].includes(chain[1])) {
+      if (
+        chain[0] === "Math" && ["max", "min", "abs", "floor", "ceil", "round"].includes(chain[1])
+      ) {
         const nodeId = this.generateNodeId("task");
         const operation = chain[1];
 
         // Extract code via SWC span
         const span = n.span as { start: number; end: number } | undefined;
-        const code = span
-          ? this.extractCodeFromSpan(span)
-          : undefined;
+        const code = span ? this.extractCodeFromSpan(span) : undefined;
 
         nodes.push({
           id: nodeId,
@@ -489,9 +522,7 @@ export class StaticStructureBuilder {
 
         // Extract code via SWC span
         const span = n.span as { start: number; end: number } | undefined;
-        const code = span
-          ? this.extractCodeFromSpan(span)
-          : undefined;
+        const code = span ? this.extractCodeFromSpan(span) : undefined;
 
         nodes.push({
           id: nodeId,
@@ -952,9 +983,7 @@ export class StaticStructureBuilder {
 
     // Extract code via SWC span
     const span = n.span as { start: number; end: number } | undefined;
-    const code = span
-      ? this.extractCodeFromSpan(span)
-      : undefined;
+    const code = span ? this.extractCodeFromSpan(span) : undefined;
 
     nodes.push({
       id: nodeId,
@@ -965,7 +994,12 @@ export class StaticStructureBuilder {
       code, // Original code extracted via span
     });
 
-    logger.debug("Detected binary operation", { operation, operator, nodeId, codeExtracted: !!code });
+    logger.debug("Detected binary operation", {
+      operation,
+      operator,
+      nodeId,
+      codeExtracted: !!code,
+    });
   }
 
   /**
@@ -1098,15 +1132,13 @@ export class StaticStructureBuilder {
             result[keyName] = argValue;
           }
         }
-      }
-      // Handle spread operator: { ...obj } - skip with warning
+      } // Handle spread operator: { ...obj } - skip with warning
       else if (prop.type === "SpreadElement") {
         logger.debug("Spread operator in arguments - skipping", {
           expression: this.extractConditionText(prop.arguments as Record<string, unknown>),
         });
         // Don't add to result - we can't statically resolve spreads
-      }
-      // Handle shorthand property: { key } (same as { key: key })
+      } // Handle shorthand property: { key } (same as { key: key })
       else if (prop.type === "Identifier") {
         const keyName = prop.value as string;
         result[keyName] = { type: "reference", expression: keyName };

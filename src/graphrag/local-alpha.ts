@@ -218,8 +218,14 @@ function validateLocalAlphaConfig(config: LocalAlphaConfig): void {
   }
 
   // Hierarchy inheritance
-  checkRange01("hierarchyInheritance.metaToCapability", config.hierarchyInheritance.metaToCapability);
-  checkRange01("hierarchyInheritance.capabilityToTool", config.hierarchyInheritance.capabilityToTool);
+  checkRange01(
+    "hierarchyInheritance.metaToCapability",
+    config.hierarchyInheritance.metaToCapability,
+  );
+  checkRange01(
+    "hierarchyInheritance.capabilityToTool",
+    config.hierarchyInheritance.capabilityToTool,
+  );
 
   // Structural confidence - must sum to 1.0
   const sc = config.structuralConfidence;
@@ -255,7 +261,8 @@ function toLocalAlphaConfig(file: LocalAlphaFileConfig): LocalAlphaConfig {
     heatDiffusion: {
       intrinsicWeight: file.heat_diffusion?.intrinsic_weight ?? d.heatDiffusion.intrinsicWeight,
       neighborWeight: file.heat_diffusion?.neighbor_weight ?? d.heatDiffusion.neighborWeight,
-      commonNeighborFactor: file.heat_diffusion?.common_neighbor_factor ?? d.heatDiffusion.commonNeighborFactor,
+      commonNeighborFactor: file.heat_diffusion?.common_neighbor_factor ??
+        d.heatDiffusion.commonNeighborFactor,
     },
     hierarchy: {
       tool: file.hierarchy?.tool ?? d.hierarchy.tool,
@@ -263,8 +270,10 @@ function toLocalAlphaConfig(file: LocalAlphaFileConfig): LocalAlphaConfig {
       meta: file.hierarchy?.meta ?? d.hierarchy.meta,
     },
     hierarchyInheritance: {
-      metaToCapability: file.hierarchy_inheritance?.meta_to_capability ?? d.hierarchyInheritance.metaToCapability,
-      capabilityToTool: file.hierarchy_inheritance?.capability_to_tool ?? d.hierarchyInheritance.capabilityToTool,
+      metaToCapability: file.hierarchy_inheritance?.meta_to_capability ??
+        d.hierarchyInheritance.metaToCapability,
+      capabilityToTool: file.hierarchy_inheritance?.capability_to_tool ??
+        d.hierarchyInheritance.capabilityToTool,
     },
     structuralConfidence: {
       targetHeat: file.structural_confidence?.target_heat ?? d.structuralConfidence.targetHeat,
@@ -279,7 +288,7 @@ function toLocalAlphaConfig(file: LocalAlphaFileConfig): LocalAlphaConfig {
  * @throws LocalAlphaConfigError if validation fails
  */
 export async function loadLocalAlphaConfig(
-  configPath = "./config/local-alpha.yaml"
+  configPath = "./config/local-alpha.yaml",
 ): Promise<LocalAlphaConfig> {
   try {
     const content = await Deno.readTextFile(configPath);
@@ -389,7 +398,7 @@ export class LocalAlphaCalculator {
     mode: AlphaMode,
     nodeId: string,
     nodeType: NodeType,
-    contextNodes: string[] = []
+    contextNodes: string[] = [],
   ): number {
     const result = this.getLocalAlphaWithBreakdown(mode, nodeId, nodeType, contextNodes);
     return result.alpha;
@@ -402,7 +411,7 @@ export class LocalAlphaCalculator {
     mode: AlphaMode,
     nodeId: string,
     nodeType: NodeType,
-    contextNodes: string[] = []
+    contextNodes: string[] = [],
   ): LocalAlphaResult {
     // Check cold start first
     const observations = this.deps.getObservationCount(nodeId);
@@ -474,7 +483,9 @@ export class LocalAlphaCalculator {
     // Get neighbors of the target node
     const neighbors = graph.neighbors(nodeId);
     if (neighbors.length < 2) {
-      log.debug(`[LocalAlpha] Node ${nodeId} has <2 neighbors (${neighbors.length}), fallback to semantic-only`);
+      log.debug(
+        `[LocalAlpha] Node ${nodeId} has <2 neighbors (${neighbors.length}), fallback to semantic-only`,
+      );
       return {
         alpha: alphaMax,
         algorithm: "embeddings_hybrides",
@@ -524,7 +535,9 @@ export class LocalAlphaCalculator {
 
     // Need at least 2 data points for correlation
     if (semanticSims.length < 2) {
-      log.debug(`[LocalAlpha] Only ${semanticSims.length} neighbors with embeddings for ${nodeId}, fallback`);
+      log.debug(
+        `[LocalAlpha] Only ${semanticSims.length} neighbors with embeddings for ${nodeId}, fallback`,
+      );
       return {
         alpha: alphaMax,
         algorithm: "embeddings_hybrides",
@@ -548,8 +561,8 @@ export class LocalAlphaCalculator {
 
     log.debug(
       `[LocalAlpha] Embeddings Hybrides: ${nodeId} ` +
-      `neighbors=${semanticSims.length} correlation=${coherence.toFixed(3)} ` +
-      `normalized=${normalizedCoherence.toFixed(3)} → alpha=${alpha.toFixed(2)}`
+        `neighbors=${semanticSims.length} correlation=${coherence.toFixed(3)} ` +
+        `normalized=${normalizedCoherence.toFixed(3)} → alpha=${alpha.toFixed(2)}`,
     );
 
     return {
@@ -607,7 +620,7 @@ export class LocalAlphaCalculator {
    */
   private computeAlphaHeatDiffusion(
     targetNodeId: string,
-    contextNodes: string[]
+    contextNodes: string[],
   ): LocalAlphaResult {
     this.refreshCacheIfNeeded();
     const { alphaMin, alphaMax, alphaScalingFactor, structuralConfidence: sc } = this.config;
@@ -624,15 +637,16 @@ export class LocalAlphaCalculator {
     const pathHeat = this.computePathHeat(contextNodes, targetNodeId);
 
     // Structural confidence [0, 1] using config weights
-    const structConfidence =
-      sc.targetHeat * targetHeat +
+    const structConfidence = sc.targetHeat * targetHeat +
       sc.contextHeat * contextHeat +
       sc.pathHeat * pathHeat;
 
     const alpha = Math.max(alphaMin, alphaMax - structConfidence * alphaScalingFactor);
 
     log.debug(
-      `[LocalAlpha] Heat Diffusion: ${targetNodeId} target=${targetHeat.toFixed(2)} ctx=${contextHeat.toFixed(2)} path=${pathHeat.toFixed(2)} → alpha=${alpha.toFixed(2)}`
+      `[LocalAlpha] Heat Diffusion: ${targetNodeId} target=${targetHeat.toFixed(2)} ctx=${
+        contextHeat.toFixed(2)
+      } path=${pathHeat.toFixed(2)} → alpha=${alpha.toFixed(2)}`,
     );
 
     return {
@@ -667,7 +681,8 @@ export class LocalAlphaCalculator {
     // Neighbor heat (propagation) - use degree sum, not recursion to avoid cycles
     const neighbors = graph.neighbors(nodeId);
     const neighborHeat = neighbors.length > 0
-      ? neighbors.reduce((sum: number, n: string) => sum + graph.degree(n), 0) / (neighbors.length * maxDegree)
+      ? neighbors.reduce((sum: number, n: string) => sum + graph.degree(n), 0) /
+        (neighbors.length * maxDegree)
       : 0;
 
     const heat = intrinsicWeight * intrinsicHeat + neighborWeight * Math.min(1, neighborHeat);
@@ -722,7 +737,7 @@ export class LocalAlphaCalculator {
   private computeAlphaHeatDiffusionHierarchical(
     targetNodeId: string,
     targetType: NodeType,
-    contextNodes: string[]
+    contextNodes: string[],
   ): LocalAlphaResult {
     this.refreshCacheIfNeeded();
     const { alphaMin, alphaMax, alphaScalingFactor, structuralConfidence: sc } = this.config;
@@ -731,15 +746,16 @@ export class LocalAlphaCalculator {
     const contextHeat = this.computeContextHeat(contextNodes);
     const pathHeat = this.computePathHeat(contextNodes, targetNodeId);
 
-    const structConfidence =
-      sc.targetHeat * heat +
+    const structConfidence = sc.targetHeat * heat +
       sc.contextHeat * contextHeat +
       sc.pathHeat * pathHeat;
 
     const alpha = Math.max(alphaMin, alphaMax - structConfidence * alphaScalingFactor);
 
     log.debug(
-      `[LocalAlpha] Heat Hierarchical: ${targetNodeId} (${targetType}) heat=${heat.toFixed(2)} ctx=${contextHeat.toFixed(2)} → alpha=${alpha.toFixed(2)}`
+      `[LocalAlpha] Heat Hierarchical: ${targetNodeId} (${targetType}) heat=${
+        heat.toFixed(2)
+      } ctx=${contextHeat.toFixed(2)} → alpha=${alpha.toFixed(2)}`,
     );
 
     return {
@@ -767,8 +783,7 @@ export class LocalAlphaCalculator {
     const neighborHeat = this.computeNeighborHeat(nodeId);
     const hierarchyHeat = this.computeHierarchyPropagation(nodeId, nodeType, depth);
 
-    const heat =
-      weights.intrinsic * intrinsicHeat +
+    const heat = weights.intrinsic * intrinsicHeat +
       weights.neighbor * neighborHeat +
       weights.hierarchy * hierarchyHeat;
 
@@ -794,8 +809,10 @@ export class LocalAlphaCalculator {
         // Bottom-up: aggregate from capability children
         const children = this.deps.getChildren(nodeId, "capability");
         if (children.length === 0) return 0;
-        return children.reduce((sum, c) =>
-          sum + this.computeHierarchicalHeat(c, "capability", depth + 1), 0) / children.length;
+        return children.reduce(
+          (sum, c) => sum + this.computeHierarchicalHeat(c, "capability", depth + 1),
+          0,
+        ) / children.length;
       }
 
       case "capability": {
@@ -824,7 +841,8 @@ export class LocalAlphaCalculator {
     const neighbors = graph.neighbors(nodeId);
     if (neighbors.length === 0) return 0;
 
-    return neighbors.reduce((sum: number, n: string) => sum + this.computeLocalHeat(n), 0) / neighbors.length;
+    return neighbors.reduce((sum: number, n: string) => sum + this.computeLocalHeat(n), 0) /
+      neighbors.length;
   }
 
   /**
@@ -855,7 +873,9 @@ export class LocalAlphaCalculator {
     const alpha = priorAlpha * (1 - confidence) + targetAlpha * confidence;
 
     log.debug(
-      `[LocalAlpha] Bayesian: ${nodeId} obs=${observations}/${threshold} confidence=${confidence.toFixed(2)} → alpha=${alpha.toFixed(2)}`
+      `[LocalAlpha] Bayesian: ${nodeId} obs=${observations}/${threshold} confidence=${
+        confidence.toFixed(2)
+      } → alpha=${alpha.toFixed(2)}`,
     );
 
     return {

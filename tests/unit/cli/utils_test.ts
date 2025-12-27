@@ -7,10 +7,10 @@
 import { assert, assertEquals } from "@std/assert";
 import {
   detectMCPConfigPath,
+  getLegacyConfigPath,
   getPmlConfigDir,
   getPmlConfigPath,
   getPmlDatabasePath,
-  getLegacyConfigPath,
   getWorkflowTemplatesPath,
 } from "../../../src/cli/utils.ts";
 

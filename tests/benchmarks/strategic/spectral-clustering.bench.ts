@@ -9,11 +9,11 @@
  * @module tests/benchmarks/strategic/spectral-clustering
  */
 
-import { SpectralClusteringManager, type ClusterableCapability } from "../../../src/graphrag/spectral-clustering.ts";
 import {
-  generateStressGraph,
-  loadScenario,
-} from "../fixtures/scenario-loader.ts";
+  type ClusterableCapability,
+  SpectralClusteringManager,
+} from "../../../src/graphrag/spectral-clustering.ts";
+import { generateStressGraph, loadScenario } from "../fixtures/scenario-loader.ts";
 
 // ============================================================================
 // Setup

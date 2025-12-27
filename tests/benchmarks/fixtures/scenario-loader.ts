@@ -102,7 +102,7 @@ function addBidirectionalEdge(
   graph: Graph,
   source: string,
   target: string,
-  attrs: Record<string, unknown>
+  attrs: Record<string, unknown>,
 ): void {
   if (!graph.hasEdge(source, target)) {
     graph.addEdge(source, target, attrs);
@@ -209,8 +209,30 @@ export function generateStressGraph(config: StressGraphConfig): ScenarioData {
   const edges: GraphEdge[] = [];
 
   // Generate tools
-  const domains = ["fs", "db", "http", "json", "auth", "cache", "log", "crypto", "queue", "storage"];
-  const operations = ["read", "write", "get", "set", "query", "insert", "update", "delete", "list", "validate"];
+  const domains = [
+    "fs",
+    "db",
+    "http",
+    "json",
+    "auth",
+    "cache",
+    "log",
+    "crypto",
+    "queue",
+    "storage",
+  ];
+  const operations = [
+    "read",
+    "write",
+    "get",
+    "set",
+    "query",
+    "insert",
+    "update",
+    "delete",
+    "list",
+    "validate",
+  ];
 
   for (let i = 0; i < config.toolCount; i++) {
     const domain = domains[i % domains.length];
@@ -265,7 +287,11 @@ export function generateStressGraph(config: StressGraphConfig): ScenarioData {
   // Generate edges between tools
   const edgeCount = Math.floor(config.toolCount * config.toolCount * config.edgeDensity);
   const edgeTypes: ("dependency" | "sequence")[] = ["dependency", "sequence"];
-  const edgeSources: ("observed" | "inferred" | "template")[] = ["observed", "inferred", "template"];
+  const edgeSources: ("observed" | "inferred" | "template")[] = [
+    "observed",
+    "inferred",
+    "template",
+  ];
 
   for (let i = 0; i < edgeCount; i++) {
     const source = tools[Math.floor(Math.random() * tools.length)];
@@ -285,7 +311,8 @@ export function generateStressGraph(config: StressGraphConfig): ScenarioData {
 
   return {
     name: "generated-stress",
-    description: `Generated stress graph: ${config.toolCount} tools, ${config.capabilityCount} caps, ${config.metaCapabilityCount} metas`,
+    description:
+      `Generated stress graph: ${config.toolCount} tools, ${config.capabilityCount} caps, ${config.metaCapabilityCount} metas`,
     nodes: {
       tools,
       capabilities,

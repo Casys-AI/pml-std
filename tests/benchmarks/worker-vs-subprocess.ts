@@ -73,7 +73,9 @@ async function benchmarkWorker(code: string, iterations: number): Promise<number
   return times;
 }
 
-function stats(times: number[]): { avg: number; min: number; max: number; p50: number; p95: number } {
+function stats(
+  times: number[],
+): { avg: number; min: number; max: number; p50: number; p95: number } {
   const sorted = [...times].sort((a, b) => a - b);
   const avg = times.reduce((a, b) => a + b, 0) / times.length;
   const min = sorted[0];
@@ -84,7 +86,10 @@ function stats(times: number[]): { avg: number; min: number; max: number; p50: n
   return { avg, min, max, p50, p95 };
 }
 
-function formatStats(name: string, s: { avg: number; min: number; max: number; p50: number; p95: number }): void {
+function formatStats(
+  name: string,
+  s: { avg: number; min: number; max: number; p50: number; p95: number },
+): void {
   console.log(`  ${name}:`);
   console.log(`    avg: ${s.avg.toFixed(2)}ms`);
   console.log(`    min: ${s.min.toFixed(2)}ms`);
@@ -140,14 +145,24 @@ async function main() {
 
   // Summary
   console.log("=== Summary ===");
-  console.log(`Simple code - Subprocess: ${subSimpleStats.avg.toFixed(2)}ms, Worker: ${workerSimpleStats.avg.toFixed(2)}ms`);
-  console.log(`Compute code - Subprocess: ${subComputeStats.avg.toFixed(2)}ms, Worker: ${workerComputeStats.avg.toFixed(2)}ms`);
+  console.log(
+    `Simple code - Subprocess: ${subSimpleStats.avg.toFixed(2)}ms, Worker: ${
+      workerSimpleStats.avg.toFixed(2)
+    }ms`,
+  );
+  console.log(
+    `Compute code - Subprocess: ${subComputeStats.avg.toFixed(2)}ms, Worker: ${
+      workerComputeStats.avg.toFixed(2)
+    }ms`,
+  );
   console.log("");
-  console.log(`Recommendation: ${
-    workerSimpleStats.avg < subSimpleStats.avg
-      ? "Worker is faster - proceed with AC13 unification"
-      : "Subprocess is faster - investigate before AC13"
-  }`);
+  console.log(
+    `Recommendation: ${
+      workerSimpleStats.avg < subSimpleStats.avg
+        ? "Worker is faster - proceed with AC13 unification"
+        : "Subprocess is faster - investigate before AC13"
+    }`,
+  );
 }
 
 await main();

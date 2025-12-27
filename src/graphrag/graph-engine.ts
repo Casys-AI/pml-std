@@ -46,9 +46,9 @@ import { findShortestPath } from "./algorithms/pathfinding.ts";
 import { buildDAG as buildDAGFromGraph } from "./dag/builder.ts";
 import {
   createOrUpdateEdge,
-  updateFromCodeExecution as updateFromCodeExecutionImpl,
   learnSequenceEdgesFromTasks,
   type TaskResultWithLayer,
+  updateFromCodeExecution as updateFromCodeExecutionImpl,
 } from "./dag/execution-learning.ts";
 import {
   adamicAdarBetween,

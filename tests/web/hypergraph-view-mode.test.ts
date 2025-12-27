@@ -111,7 +111,9 @@ describe("Story 8.3: Hypergraph View Mode", () => {
       const ry = minRadius;
       const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
 
-      return `M${cx - rx},${cy}A${rx},${ry} ${angle} 1,0 ${cx + rx},${cy}A${rx},${ry} ${angle} 1,0 ${cx - rx},${cy}`;
+      return `M${cx - rx},${cy}A${rx},${ry} ${angle} 1,0 ${
+        cx + rx
+      },${cy}A${rx},${ry} ${angle} 1,0 ${cx - rx},${cy}`;
     }
 
     it("creates valid SVG path for horizontal points", () => {

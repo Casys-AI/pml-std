@@ -6,10 +6,10 @@
 
 import { assertEquals, assertExists } from "@std/assert";
 import {
-  staticStructureToDag,
-  isValidForDagConversion,
-  getToolsFromStaticStructure,
   estimateParallelLayers,
+  getToolsFromStaticStructure,
+  isValidForDagConversion,
+  staticStructureToDag,
 } from "../../src/dag/static-to-dag-converter.ts";
 import type { StaticStructure } from "../../src/capabilities/types.ts";
 

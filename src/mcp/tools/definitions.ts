@@ -58,7 +58,8 @@ export const searchToolsTool: MCPTool = {
       },
       include_related: {
         type: "boolean",
-        description: "Also show tools frequently used together with the matches (from usage patterns)",
+        description:
+          "Also show tools frequently used together with the matches (from usage patterns)",
       },
       context_tools: {
         type: "array",
@@ -214,7 +215,8 @@ export const replanTool: MCPTool = {
       },
       available_context: {
         type: "object",
-        description: "Data from previous tasks that informs the replan (e.g., {files: ['a.xml', 'b.xml']})",
+        description:
+          "Data from previous tasks that informs the replan (e.g., {files: ['a.xml', 'b.xml']})",
       },
     },
     required: ["workflow_id", "new_requirement"],
@@ -290,7 +292,8 @@ export const discoverTool: MCPTool = {
       },
       include_related: {
         type: "boolean",
-        description: "Include related tools for each tool result (from usage patterns). Default: false",
+        description:
+          "Include related tools for each tool result (from usage patterns). Default: false",
       },
     },
     required: ["intent"],
@@ -306,7 +309,8 @@ export const discoverTool: MCPTool = {
  */
 export const executeTool: MCPTool = {
   name: "pml:execute",
-  description: "Execute intent with optional code. With code: runs and learns capability. Without: finds matching capability or suggests tools.",
+  description:
+    "Execute intent with optional code. With code: runs and learns capability. Without: finds matching capability or suggests tools.",
   inputSchema: {
     type: "object",
     properties: {

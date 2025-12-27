@@ -24,7 +24,8 @@ const toDeg = (rad: number): number => rad * (180 / Math.PI);
 export const geoTools: MiniTool[] = [
   {
     name: "geo_distance",
-    description: "Calculate distance between two coordinates using Haversine formula. Get great-circle distance between latitude/longitude points. Supports km, miles, meters, nautical miles. Use for delivery routes, proximity search, or travel distance. Keywords: haversine, distance, coordinates, lat long, GPS distance, great circle.",
+    description:
+      "Calculate distance between two coordinates using Haversine formula. Get great-circle distance between latitude/longitude points. Supports km, miles, meters, nautical miles. Use for delivery routes, proximity search, or travel distance. Keywords: haversine, distance, coordinates, lat long, GPS distance, great circle.",
     category: "geo",
     inputSchema: {
       type: "object",
@@ -33,7 +34,11 @@ export const geoTools: MiniTool[] = [
         lon1: { type: "number", description: "Longitude of point 1" },
         lat2: { type: "number", description: "Latitude of point 2" },
         lon2: { type: "number", description: "Longitude of point 2" },
-        unit: { type: "string", enum: ["km", "mi", "m", "nm"], description: "Distance unit (default: km)" },
+        unit: {
+          type: "string",
+          enum: ["km", "mi", "m", "nm"],
+          description: "Distance unit (default: km)",
+        },
       },
       required: ["lat1", "lon1", "lat2", "lon2"],
     },
@@ -43,10 +48,9 @@ export const geoTools: MiniTool[] = [
       const dLat = toRad((lat2 as number) - (lat1 as number));
       const dLon = toRad((lon2 as number) - (lon1 as number));
 
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
         Math.cos(toRad(lat1 as number)) * Math.cos(toRad(lat2 as number)) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+          Math.sin(dLon / 2) * Math.sin(dLon / 2);
 
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       const distance = R * c;
@@ -61,7 +65,8 @@ export const geoTools: MiniTool[] = [
   },
   {
     name: "geo_bearing",
-    description: "Calculate initial bearing/heading between two coordinates. Get compass direction from point A to point B in degrees (0-360). Use for navigation, direction indicators, or route planning. Keywords: bearing, heading, compass, direction, azimuth, navigation.",
+    description:
+      "Calculate initial bearing/heading between two coordinates. Get compass direction from point A to point B in degrees (0-360). Use for navigation, direction indicators, or route planning. Keywords: bearing, heading, compass, direction, azimuth, navigation.",
     category: "geo",
     inputSchema: {
       type: "object",
@@ -98,7 +103,8 @@ export const geoTools: MiniTool[] = [
   },
   {
     name: "geo_midpoint",
-    description: "Calculate geographic midpoint between two coordinates. Find the halfway point along the great circle path. Use for meeting point calculation, route waypoints, or center finding. Keywords: midpoint, center point, halfway, middle, geographic center, waypoint.",
+    description:
+      "Calculate geographic midpoint between two coordinates. Find the halfway point along the great circle path. Use for meeting point calculation, route waypoints, or center finding. Keywords: midpoint, center point, halfway, middle, geographic center, waypoint.",
     category: "geo",
     inputSchema: {
       type: "object",
@@ -121,7 +127,7 @@ export const geoTools: MiniTool[] = [
 
       const φ3 = Math.atan2(
         Math.sin(φ1) + Math.sin(φ2),
-        Math.sqrt((Math.cos(φ1) + Bx) * (Math.cos(φ1) + Bx) + By * By)
+        Math.sqrt((Math.cos(φ1) + Bx) * (Math.cos(φ1) + Bx) + By * By),
       );
       const λ3 = λ1 + Math.atan2(By, Math.cos(φ1) + Bx);
 
@@ -135,7 +141,8 @@ export const geoTools: MiniTool[] = [
   },
   {
     name: "geo_destination",
-    description: "Calculate destination point given start, bearing, and distance. Find where you end up traveling a given direction and distance. Use for route planning, radar circles, or coverage areas. Keywords: destination point, travel to, bearing distance, endpoint, project point.",
+    description:
+      "Calculate destination point given start, bearing, and distance. Find where you end up traveling a given direction and distance. Use for route planning, radar circles, or coverage areas. Keywords: destination point, travel to, bearing distance, endpoint, project point.",
     category: "geo",
     inputSchema: {
       type: "object",
@@ -144,7 +151,11 @@ export const geoTools: MiniTool[] = [
         lon: { type: "number", description: "Starting longitude" },
         bearing: { type: "number", description: "Bearing in degrees (0-360)" },
         distance: { type: "number", description: "Distance to travel" },
-        unit: { type: "string", enum: ["km", "mi", "m", "nm"], description: "Distance unit (default: km)" },
+        unit: {
+          type: "string",
+          enum: ["km", "mi", "m", "nm"],
+          description: "Distance unit (default: km)",
+        },
       },
       required: ["lat", "lon", "bearing", "distance"],
     },
@@ -158,11 +169,11 @@ export const geoTools: MiniTool[] = [
 
       const φ2 = Math.asin(
         Math.sin(φ1) * Math.cos(d) +
-        Math.cos(φ1) * Math.sin(d) * Math.cos(θ)
+          Math.cos(φ1) * Math.sin(d) * Math.cos(θ),
       );
       const λ2 = λ1 + Math.atan2(
         Math.sin(θ) * Math.sin(d) * Math.cos(φ1),
-        Math.cos(d) - Math.sin(φ1) * Math.sin(φ2)
+        Math.cos(d) - Math.sin(φ1) * Math.sin(φ2),
       );
 
       return {
@@ -177,7 +188,8 @@ export const geoTools: MiniTool[] = [
   },
   {
     name: "geo_bounds",
-    description: "Calculate bounding box containing all given points. Get min/max lat/lon rectangle enclosing a set of coordinates. Use for map viewport, search bounds, or area calculation. Keywords: bounding box, bounds, extent, envelope, min max, viewport.",
+    description:
+      "Calculate bounding box containing all given points. Get min/max lat/lon rectangle enclosing a set of coordinates. Use for map viewport, search bounds, or area calculation. Keywords: bounding box, bounds, extent, envelope, min max, viewport.",
     category: "geo",
     inputSchema: {
       type: "object",
@@ -232,7 +244,8 @@ export const geoTools: MiniTool[] = [
   },
   {
     name: "geo_point_in_polygon",
-    description: "Check if a coordinate point is inside a polygon. Test if lat/lon is within a bounded area using ray casting algorithm. Use for geofencing, zone detection, or area membership. Keywords: point in polygon, contains point, geofence, inside area, ray casting, zone.",
+    description:
+      "Check if a coordinate point is inside a polygon. Test if lat/lon is within a bounded area using ray casting algorithm. Use for geofencing, zone detection, or area membership. Keywords: point in polygon, contains point, geofence, inside area, ray casting, zone.",
     category: "geo",
     inputSchema: {
       type: "object",
@@ -293,7 +306,8 @@ export const geoTools: MiniTool[] = [
   },
   {
     name: "geo_dms_to_decimal",
-    description: "Convert DMS (degrees, minutes, seconds) to decimal degrees. Transform traditional coordinate format to decimal for GPS and mapping. Use for data import, coordinate conversion, or legacy data. Keywords: DMS to decimal, degrees minutes seconds, coordinate convert, GPS format, traditional coords.",
+    description:
+      "Convert DMS (degrees, minutes, seconds) to decimal degrees. Transform traditional coordinate format to decimal for GPS and mapping. Use for data import, coordinate conversion, or legacy data. Keywords: DMS to decimal, degrees minutes seconds, coordinate convert, GPS format, traditional coords.",
     category: "geo",
     inputSchema: {
       type: "object",
@@ -301,12 +315,17 @@ export const geoTools: MiniTool[] = [
         degrees: { type: "number", description: "Degrees" },
         minutes: { type: "number", description: "Minutes" },
         seconds: { type: "number", description: "Seconds" },
-        direction: { type: "string", enum: ["N", "S", "E", "W"], description: "Cardinal direction" },
+        direction: {
+          type: "string",
+          enum: ["N", "S", "E", "W"],
+          description: "Cardinal direction",
+        },
       },
       required: ["degrees", "minutes", "seconds", "direction"],
     },
     handler: ({ degrees, minutes, seconds, direction }) => {
-      let decimal = Math.abs(degrees as number) + (minutes as number) / 60 + (seconds as number) / 3600;
+      let decimal = Math.abs(degrees as number) + (minutes as number) / 60 +
+        (seconds as number) / 3600;
 
       if (direction === "S" || direction === "W") {
         decimal = -decimal;
@@ -320,7 +339,8 @@ export const geoTools: MiniTool[] = [
   },
   {
     name: "geo_decimal_to_dms",
-    description: "Convert decimal degrees to DMS (degrees, minutes, seconds). Transform GPS coordinates to traditional format for display or printing. Use for coordinate formatting, map labels, or human-readable output. Keywords: decimal to DMS, degrees minutes seconds, format coordinate, GPS to DMS, readable coords.",
+    description:
+      "Convert decimal degrees to DMS (degrees, minutes, seconds). Transform GPS coordinates to traditional format for display or printing. Use for coordinate formatting, map labels, or human-readable output. Keywords: decimal to DMS, degrees minutes seconds, format coordinate, GPS to DMS, readable coords.",
     category: "geo",
     inputSchema: {
       type: "object",
@@ -358,7 +378,8 @@ export const geoTools: MiniTool[] = [
   },
   {
     name: "geo_validate",
-    description: "Validate latitude and longitude coordinates. Check if coordinates are within valid ranges (-90 to 90 for lat, -180 to 180 for lon). Use for input validation, data cleaning, or error checking. Keywords: validate coordinates, check lat lon, coordinate range, valid GPS, bounds check.",
+    description:
+      "Validate latitude and longitude coordinates. Check if coordinates are within valid ranges (-90 to 90 for lat, -180 to 180 for lon). Use for input validation, data cleaning, or error checking. Keywords: validate coordinates, check lat lon, coordinate range, valid GPS, bounds check.",
     category: "geo",
     inputSchema: {
       type: "object",
@@ -389,7 +410,8 @@ export const geoTools: MiniTool[] = [
   },
   {
     name: "geo_area",
-    description: "Calculate area of a polygon in square kilometers or miles. Compute surface area of closed geographic region using spherical excess formula. Use for land area, coverage zones, or territory sizing. Keywords: polygon area, surface area, land size, zone area, territory, square km.",
+    description:
+      "Calculate area of a polygon in square kilometers or miles. Compute surface area of closed geographic region using spherical excess formula. Use for land area, coverage zones, or territory sizing. Keywords: polygon area, surface area, land size, zone area, territory, square km.",
     category: "geo",
     inputSchema: {
       type: "object",
@@ -405,7 +427,11 @@ export const geoTools: MiniTool[] = [
           },
           description: "Polygon vertices as [{lat, lon}, ...]",
         },
-        unit: { type: "string", enum: ["km2", "mi2", "m2", "ha"], description: "Area unit (default: km2)" },
+        unit: {
+          type: "string",
+          enum: ["km2", "mi2", "m2", "ha"],
+          description: "Area unit (default: km2)",
+        },
       },
       required: ["polygon"],
     },
@@ -434,9 +460,15 @@ export const geoTools: MiniTool[] = [
       // Convert units
       let result = area;
       switch (unit) {
-        case "mi2": result = area * 0.386102; break;
-        case "m2": result = area * 1000000; break;
-        case "ha": result = area * 100; break;
+        case "mi2":
+          result = area * 0.386102;
+          break;
+        case "m2":
+          result = area * 1000000;
+          break;
+        case "ha":
+          result = area * 100;
+          break;
       }
 
       return {
@@ -448,7 +480,8 @@ export const geoTools: MiniTool[] = [
   },
   {
     name: "geo_nearest",
-    description: "Find the nearest point from a list to a reference point. Sort locations by distance and return closest. Use for store locator, nearest neighbor, or proximity search. Keywords: nearest point, closest location, proximity, store locator, find nearest, sort by distance.",
+    description:
+      "Find the nearest point from a list to a reference point. Sort locations by distance and return closest. Use for store locator, nearest neighbor, or proximity search. Keywords: nearest point, closest location, proximity, store locator, find nearest, sort by distance.",
     category: "geo",
     inputSchema: {
       type: "object",
@@ -486,10 +519,9 @@ export const geoTools: MiniTool[] = [
       const withDistance = pts.map((p, index) => {
         const dLat = toRad(p.lat - ref.lat);
         const dLon = toRad(p.lon - ref.lon);
-        const a =
-          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
           Math.cos(toRad(ref.lat)) * Math.cos(toRad(p.lat)) *
-          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         const distance = EARTH_RADIUS.km * c;
 
@@ -503,7 +535,7 @@ export const geoTools: MiniTool[] = [
       // Filter by max distance if specified
       let filtered = withDistance;
       if (maxDistance !== undefined) {
-        filtered = withDistance.filter(p => p.distance <= (maxDistance as number));
+        filtered = withDistance.filter((p) => p.distance <= (maxDistance as number));
       }
 
       // Sort by distance and limit
@@ -519,7 +551,8 @@ export const geoTools: MiniTool[] = [
   },
   {
     name: "geo_center",
-    description: "Calculate geographic center (centroid) of multiple points. Find the average location of a set of coordinates. Use for cluster center, meeting point, or average location. Keywords: centroid, center point, average location, geographic mean, cluster center.",
+    description:
+      "Calculate geographic center (centroid) of multiple points. Find the average location of a set of coordinates. Use for cluster center, meeting point, or average location. Keywords: centroid, center point, average location, geographic mean, cluster center.",
     category: "geo",
     inputSchema: {
       type: "object",
@@ -576,7 +609,8 @@ export const geoTools: MiniTool[] = [
   },
   {
     name: "geo_distance_matrix",
-    description: "Calculate distance matrix between multiple points. Get all pairwise distances for route optimization or clustering. Use for TSP, delivery optimization, or distance analysis. Keywords: distance matrix, all pairs, pairwise distance, route optimization, TSP, clustering.",
+    description:
+      "Calculate distance matrix between multiple points. Get all pairwise distances for route optimization or clustering. Use for TSP, delivery optimization, or distance analysis. Keywords: distance matrix, all pairs, pairwise distance, route optimization, TSP, clustering.",
     category: "geo",
     inputSchema: {
       type: "object",
@@ -593,7 +627,11 @@ export const geoTools: MiniTool[] = [
           },
           description: "Points for matrix [{lat, lon, id?}, ...]",
         },
-        unit: { type: "string", enum: ["km", "mi", "m"], description: "Distance unit (default: km)" },
+        unit: {
+          type: "string",
+          enum: ["km", "mi", "m"],
+          description: "Distance unit (default: km)",
+        },
       },
       required: ["points"],
     },
@@ -611,10 +649,9 @@ export const geoTools: MiniTool[] = [
           } else {
             const dLat = toRad(pts[j].lat - pts[i].lat);
             const dLon = toRad(pts[j].lon - pts[i].lon);
-            const a =
-              Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
               Math.cos(toRad(pts[i].lat)) * Math.cos(toRad(pts[j].lat)) *
-              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
             matrix[i][j] = Math.round(R * c * 1000) / 1000;
           }

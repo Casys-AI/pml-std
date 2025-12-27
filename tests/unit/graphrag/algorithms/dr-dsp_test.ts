@@ -13,8 +13,8 @@
 
 import { assertEquals, assertExists, assertGreater } from "@std/assert";
 import {
-  DRDSP,
   capabilityToHyperedge,
+  DRDSP,
   type Hyperedge,
 } from "../../../../src/graphrag/algorithms/dr-dsp.ts";
 
@@ -115,7 +115,18 @@ const META_CAPABILITIES = [
   {
     id: "meta__ecommerce",
     contains: ["meta__transactions", "meta__browsing"],
-    toolsAggregated: ["cart", "payment", "confirm", "order", "refund_api", "notify", "search", "view", "auth", "user_data"],
+    toolsAggregated: [
+      "cart",
+      "payment",
+      "confirm",
+      "order",
+      "refund_api",
+      "notify",
+      "search",
+      "view",
+      "auth",
+      "user_data",
+    ],
     successRate: 0.92,
     parent: null,
   },
@@ -138,7 +149,7 @@ function buildDRDSPWithMetaCapabilities(): DRDSP {
   // Add base capability hyperedges
   for (const cap of CAPABILITIES_WITH_HIERARCHY) {
     hyperedges.push(
-      capabilityToHyperedge(cap.id, cap.tools, cap.staticEdges, cap.successRate)
+      capabilityToHyperedge(cap.id, cap.tools, cap.staticEdges, cap.successRate),
     );
   }
 

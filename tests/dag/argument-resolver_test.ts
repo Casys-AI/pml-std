@@ -6,10 +6,10 @@
 
 import { assertEquals } from "@std/assert";
 import {
-  resolveArguments,
-  mergeArguments,
-  validateRequiredArguments,
   buildResolutionSummary,
+  mergeArguments,
+  resolveArguments,
+  validateRequiredArguments,
 } from "../../src/dag/argument-resolver.ts";
 import type { ArgumentsStructure } from "../../src/capabilities/types.ts";
 import type { TaskResult } from "../../src/dag/types.ts";

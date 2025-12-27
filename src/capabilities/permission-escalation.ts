@@ -357,7 +357,10 @@ function calculateConfidence(
  * @param to - Target permission scope
  * @returns true if escalation is allowed
  */
-export function isValidEscalation(from: PermissionScope | PermissionSet, to: PermissionScope | PermissionSet): boolean {
+export function isValidEscalation(
+  from: PermissionScope | PermissionSet,
+  to: PermissionScope | PermissionSet,
+): boolean {
   // 'trusted' cannot be escalated TO (it's manual-only / deprecated)
   if (to === "trusted") {
     return false;
@@ -374,9 +377,13 @@ export function isValidEscalation(from: PermissionScope | PermissionSet, to: Per
  * @param currentSet - Current permission scope
  * @returns Array of valid target permission scopes
  */
-export function getValidEscalationTargets(currentSet: PermissionScope | PermissionSet): PermissionScope[] {
+export function getValidEscalationTargets(
+  currentSet: PermissionScope | PermissionSet,
+): PermissionScope[] {
   // Handle legacy 'trusted' value
-  const scope: PermissionScope = currentSet === "trusted" ? "mcp-standard" : currentSet as PermissionScope;
+  const scope: PermissionScope = currentSet === "trusted"
+    ? "mcp-standard"
+    : currentSet as PermissionScope;
   return [...(ESCALATION_PATHS[scope] || [])];
 }
 

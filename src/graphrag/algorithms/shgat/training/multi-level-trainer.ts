@@ -12,7 +12,7 @@
  * @see 07-training.md
  */
 
-import type { SHGATConfig, LevelParams, MultiLevelForwardCache } from "../types.ts";
+import type { LevelParams, MultiLevelForwardCache, SHGATConfig } from "../types.ts";
 import { zerosLike3D } from "../initialization/parameters.ts";
 import * as math from "../utils/math.ts";
 
@@ -174,9 +174,7 @@ export function backpropAttention(
   for (let i = 0; i < numChildren; i++) {
     let grad = 0;
     for (let j = 0; j < numChildren; j++) {
-      const jacobian = i === j
-        ? attention[i] * (1 - attention[i])
-        : -attention[i] * attention[j];
+      const jacobian = i === j ? attention[i] * (1 - attention[i]) : -attention[i] * attention[j];
       grad += jacobian * dAlpha[j];
     }
     dScores.push(grad);
@@ -470,7 +468,8 @@ export function backwardMultiLevel(
   const dE = new Map<number, number[][]>();
   for (let l = 0; l <= maxLevel; l++) {
     const capsAtLevel = Array.from(hierarchyLevels.get(l) ?? []);
-    const embDim = cache.E_final.get(l)?.[0]?.length ?? config.numHeads * Math.floor(config.hiddenDim / config.numHeads);
+    const embDim = cache.E_final.get(l)?.[0]?.length ??
+      config.numHeads * Math.floor(config.hiddenDim / config.numHeads);
     dE.set(l, capsAtLevel.map(() => new Array(embDim).fill(0)));
   }
 
@@ -538,9 +537,7 @@ export function backwardMultiLevel(
     if (!intermediates) continue;
 
     const parentEmbs = cache.E_init.get(l) ?? [];
-    const childEmbs = l === 0
-      ? cache.H_init
-      : (cache.E_init.get(l - 1) ?? []);
+    const childEmbs = l === 0 ? cache.H_init : (cache.E_init.get(l - 1) ?? []);
 
     const dParent = dE.get(l) ?? [];
     const dChild = backwardUpwardPhase(
@@ -620,7 +617,8 @@ export function applyLevelGradients(
     for (let h = 0; h < config.numHeads; h++) {
       for (let i = 0; i < (params.W_child[h]?.length ?? 0); i++) {
         for (let j = 0; j < (params.W_child[h]?.[i]?.length ?? 0); j++) {
-          const grad = (levelGrads.dW_child[h]?.[i]?.[j] ?? 0) + l2 * (params.W_child[h][i][j] ?? 0);
+          const grad = (levelGrads.dW_child[h]?.[i]?.[j] ?? 0) +
+            l2 * (params.W_child[h][i][j] ?? 0);
           params.W_child[h][i][j] -= lr * grad;
         }
       }
@@ -628,7 +626,8 @@ export function applyLevelGradients(
       // Update W_parent
       for (let i = 0; i < (params.W_parent[h]?.length ?? 0); i++) {
         for (let j = 0; j < (params.W_parent[h]?.[i]?.length ?? 0); j++) {
-          const grad = (levelGrads.dW_parent[h]?.[i]?.[j] ?? 0) + l2 * (params.W_parent[h][i][j] ?? 0);
+          const grad = (levelGrads.dW_parent[h]?.[i]?.[j] ?? 0) +
+            l2 * (params.W_parent[h][i][j] ?? 0);
           params.W_parent[h][i][j] -= lr * grad;
         }
       }
@@ -757,9 +756,7 @@ export async function trainMultiLevelBatch(
     }
 
     // Backward pass
-    const dLoss = example.outcome === 1
-      ? -1 / (predScore + 1e-7)
-      : 1 / (1 - predScore + 1e-7);
+    const dLoss = example.outcome === 1 ? -1 / (predScore + 1e-7) : 1 / (1 - predScore + 1e-7);
 
     backwardMultiLevel(
       dLoss,

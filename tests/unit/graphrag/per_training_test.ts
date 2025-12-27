@@ -7,15 +7,15 @@
 import { assertEquals, assertGreater } from "@std/assert";
 import {
   extractPathLevelFeatures,
-  getPathKey,
   getFeaturesForTrace,
+  getPathKey,
 } from "../../../src/graphrag/learning/path-level-features.ts";
 import {
   flattenExecutedPath,
-  traceToTrainingExamples,
-  shouldRunBatchTraining,
-  resetExecutionCounter,
   getExecutionCount,
+  resetExecutionCounter,
+  shouldRunBatchTraining,
+  traceToTrainingExamples,
 } from "../../../src/graphrag/learning/per-training.ts";
 import type { ExecutionTrace } from "../../../src/capabilities/types.ts";
 
@@ -55,11 +55,47 @@ Deno.test("extractPathLevelFeatures - single trace computes correct features", (
 Deno.test("extractPathLevelFeatures - multiple paths with different success rates", () => {
   const traces: ExecutionTrace[] = [
     // Path A: 2 success, 1 fail = 66.67% success
-    { id: "t1", executedAt: new Date(), success: true, durationMs: 100, decisions: [], taskResults: [], priority: 0.5, executedPath: ["A", "B"] },
-    { id: "t2", executedAt: new Date(), success: true, durationMs: 100, decisions: [], taskResults: [], priority: 0.5, executedPath: ["A", "B"] },
-    { id: "t3", executedAt: new Date(), success: false, durationMs: 100, decisions: [], taskResults: [], priority: 0.5, executedPath: ["A", "B"] },
+    {
+      id: "t1",
+      executedAt: new Date(),
+      success: true,
+      durationMs: 100,
+      decisions: [],
+      taskResults: [],
+      priority: 0.5,
+      executedPath: ["A", "B"],
+    },
+    {
+      id: "t2",
+      executedAt: new Date(),
+      success: true,
+      durationMs: 100,
+      decisions: [],
+      taskResults: [],
+      priority: 0.5,
+      executedPath: ["A", "B"],
+    },
+    {
+      id: "t3",
+      executedAt: new Date(),
+      success: false,
+      durationMs: 100,
+      decisions: [],
+      taskResults: [],
+      priority: 0.5,
+      executedPath: ["A", "B"],
+    },
     // Path B: 1 success = 100% success
-    { id: "t4", executedAt: new Date(), success: true, durationMs: 100, decisions: [], taskResults: [], priority: 0.5, executedPath: ["X", "Y"] },
+    {
+      id: "t4",
+      executedAt: new Date(),
+      success: true,
+      durationMs: 100,
+      decisions: [],
+      taskResults: [],
+      priority: 0.5,
+      executedPath: ["X", "Y"],
+    },
   ];
 
   const features = extractPathLevelFeatures(traces);
@@ -163,7 +199,12 @@ Deno.test("getFeaturesForTrace - returns features for matching path", () => {
   };
 
   const features = new Map([
-    ["A->B", { pathSuccessRate: 0.9, pathFrequency: 0.5, decisionSuccessRate: 0.8, isDominantPath: true }],
+    ["A->B", {
+      pathSuccessRate: 0.9,
+      pathFrequency: 0.5,
+      decisionSuccessRate: 0.8,
+      isDominantPath: true,
+    }],
   ]);
 
   const f = getFeaturesForTrace(trace, features);
@@ -183,7 +224,15 @@ Deno.test("getFeaturesForTrace - returns defaults for unknown path", () => {
     executedPath: ["UNKNOWN"],
   };
 
-  const features = new Map<string, { pathSuccessRate: number; pathFrequency: number; decisionSuccessRate: number; isDominantPath: boolean }>();
+  const features = new Map<
+    string,
+    {
+      pathSuccessRate: number;
+      pathFrequency: number;
+      decisionSuccessRate: number;
+      isDominantPath: boolean;
+    }
+  >();
 
   const f = getFeaturesForTrace(trace, features);
   assertEquals(f.pathSuccessRate, 0.5); // default
@@ -375,12 +424,66 @@ Deno.test("flattenExecutedPath - flattens hierarchical paths", async () => {
 Deno.test("AC8: PER sampling biases toward high-priority traces", async () => {
   // Create traces with varying priorities
   const traces: ExecutionTrace[] = [
-    { id: "low-1", executedAt: new Date(), success: true, durationMs: 100, decisions: [], taskResults: [], priority: 0.1, executedPath: ["A"] },
-    { id: "low-2", executedAt: new Date(), success: true, durationMs: 100, decisions: [], taskResults: [], priority: 0.1, executedPath: ["A"] },
-    { id: "low-3", executedAt: new Date(), success: true, durationMs: 100, decisions: [], taskResults: [], priority: 0.1, executedPath: ["A"] },
-    { id: "low-4", executedAt: new Date(), success: true, durationMs: 100, decisions: [], taskResults: [], priority: 0.1, executedPath: ["A"] },
-    { id: "high-1", executedAt: new Date(), success: true, durationMs: 100, decisions: [], taskResults: [], priority: 0.9, executedPath: ["B"] },
-    { id: "high-2", executedAt: new Date(), success: true, durationMs: 100, decisions: [], taskResults: [], priority: 0.9, executedPath: ["B"] },
+    {
+      id: "low-1",
+      executedAt: new Date(),
+      success: true,
+      durationMs: 100,
+      decisions: [],
+      taskResults: [],
+      priority: 0.1,
+      executedPath: ["A"],
+    },
+    {
+      id: "low-2",
+      executedAt: new Date(),
+      success: true,
+      durationMs: 100,
+      decisions: [],
+      taskResults: [],
+      priority: 0.1,
+      executedPath: ["A"],
+    },
+    {
+      id: "low-3",
+      executedAt: new Date(),
+      success: true,
+      durationMs: 100,
+      decisions: [],
+      taskResults: [],
+      priority: 0.1,
+      executedPath: ["A"],
+    },
+    {
+      id: "low-4",
+      executedAt: new Date(),
+      success: true,
+      durationMs: 100,
+      decisions: [],
+      taskResults: [],
+      priority: 0.1,
+      executedPath: ["A"],
+    },
+    {
+      id: "high-1",
+      executedAt: new Date(),
+      success: true,
+      durationMs: 100,
+      decisions: [],
+      taskResults: [],
+      priority: 0.9,
+      executedPath: ["B"],
+    },
+    {
+      id: "high-2",
+      executedAt: new Date(),
+      success: true,
+      durationMs: 100,
+      decisions: [],
+      taskResults: [],
+      priority: 0.9,
+      executedPath: ["B"],
+    },
   ];
 
   // Simulate PER sampling multiple times to verify bias
@@ -411,7 +514,11 @@ Deno.test("AC8: PER sampling biases toward high-priority traces", async () => {
   // High priority traces (2 out of 6) should be sampled much more often than uniform (33%)
   // With PER, expect ~60-80% of samples to be high priority
   const highPriorityRatio = highPriorityCount / iterations;
-  assertGreater(highPriorityRatio, 0.4, `PER should bias toward high priority: got ${(highPriorityRatio * 100).toFixed(0)}%`);
+  assertGreater(
+    highPriorityRatio,
+    0.4,
+    `PER should bias toward high priority: got ${(highPriorityRatio * 100).toFixed(0)}%`,
+  );
 });
 
 // ============================================================================
@@ -445,7 +552,11 @@ Deno.test("AC9: path-level multi-example generates richer training signal than s
 
   // Path-level produces 4x more training signal
   assertEquals(pathExamples.length, 4, "Path-level should generate 4 examples for 4-node path");
-  assertGreater(pathExamples.length, toolLevelExampleCount, "Path-level should generate more examples than tool-level");
+  assertGreater(
+    pathExamples.length,
+    toolLevelExampleCount,
+    "Path-level should generate more examples than tool-level",
+  );
 
   // Each example has progressive context
   assertEquals(pathExamples[0].contextTools.length, 0, "First node has no context");
@@ -470,7 +581,10 @@ Deno.test("AC10: extractPathLevelFeatures + traceToTrainingExamples < 50ms for 1
       decisions: [{ nodeId: `d${i}`, outcome: "true" }],
       taskResults: [],
       priority: 0.1 + Math.random() * 0.8,
-      executedPath: ["step1", "step2", "step3", "step4"].slice(0, 2 + Math.floor(Math.random() * 3)),
+      executedPath: ["step1", "step2", "step3", "step4"].slice(
+        0,
+        2 + Math.floor(Math.random() * 3),
+      ),
     });
   }
 
@@ -489,7 +603,7 @@ Deno.test("AC10: extractPathLevelFeatures + traceToTrainingExamples < 50ms for 1
       trace,
       trace.executedPath ?? [],
       intentEmbedding,
-      pathFeatures
+      pathFeatures,
     );
     totalExamples += examples.length;
   }
@@ -497,7 +611,11 @@ Deno.test("AC10: extractPathLevelFeatures + traceToTrainingExamples < 50ms for 1
   const elapsed = performance.now() - start;
 
   // Assert < 50ms overhead
-  console.log(`  AC10 Benchmark: ${elapsed.toFixed(2)}ms for ${traces.length} traces, ${totalExamples} examples`);
+  console.log(
+    `  AC10 Benchmark: ${
+      elapsed.toFixed(2)
+    }ms for ${traces.length} traces, ${totalExamples} examples`,
+  );
   assertGreater(50, elapsed, `Overhead should be < 50ms, got ${elapsed.toFixed(2)}ms`);
   assertGreater(totalExamples, 200, "Should generate many examples from 100 traces");
 });

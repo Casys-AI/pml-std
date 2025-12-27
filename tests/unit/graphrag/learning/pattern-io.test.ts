@@ -11,10 +11,10 @@
 
 import { assertEquals, assertExists, assertRejects } from "jsr:@std/assert@1";
 import {
-  registerAgentHint,
   exportLearnedPatterns,
   importLearnedPatterns,
   type PatternImport,
+  registerAgentHint,
 } from "../../../../src/graphrag/learning/pattern-io.ts";
 import type { GraphRAGEngine } from "../../../../src/graphrag/graph-engine.ts";
 import type { DagScoringConfig } from "../../../../src/graphrag/dag-scoring-config.ts";
@@ -33,7 +33,7 @@ interface MockEdgeData {
  * Create mock GraphRAGEngine with configurable behavior
  */
 function createMockGraphEngine(
-  initialEdges: Array<{ from: string; to: string; attrs: MockEdgeData }> = []
+  initialEdges: Array<{ from: string; to: string; attrs: MockEdgeData }> = [],
 ): GraphRAGEngine & {
   edges: Map<string, MockEdgeData>;
   addEdgeCalls: Array<{ from: string; to: string; attrs: MockEdgeData }>;
@@ -61,7 +61,8 @@ function createMockGraphEngine(
     },
 
     getEdges(): Array<{ source: string; target: string; attributes: Record<string, unknown> }> {
-      const result: Array<{ source: string; target: string; attributes: Record<string, unknown> }> = [];
+      const result: Array<{ source: string; target: string; attributes: Record<string, unknown> }> =
+        [];
       for (const [key, attrs] of edges.entries()) {
         const [source, target] = key.split("->");
         result.push({ source, target, attributes: attrs as unknown as Record<string, unknown> });
@@ -148,7 +149,7 @@ Deno.test("pattern-io - Agent Hint Registration", async (t) => {
     await assertRejects(
       async () => await registerAgentHint("ToolB", "ToolA", graphEngine, config),
       Error,
-      "Graph engine error"
+      "Graph engine error",
     );
   });
 
@@ -376,32 +377,35 @@ Deno.test("pattern-io - Pattern Import with Merge Strategy", async (t) => {
     assertEquals(graphEngine.addEdgeCalls[0].attrs.source, "custom-source");
   });
 
-  await t.step("importLearnedPatterns() handles mixed new and existing patterns in merge mode", async () => {
-    const graphEngine = createMockGraphEngine([
-      { from: "A", to: "B", attrs: { weight: 0.50, count: 5, source: "old" } },
-    ]);
+  await t.step(
+    "importLearnedPatterns() handles mixed new and existing patterns in merge mode",
+    async () => {
+      const graphEngine = createMockGraphEngine([
+        { from: "A", to: "B", attrs: { weight: 0.50, count: 5, source: "old" } },
+      ]);
 
-    const patterns: PatternImport[] = [
-      { from: "A", to: "B", weight: 0.70, count: 3 }, // Existing - should merge
-      { from: "C", to: "D", weight: 0.80, count: 4 }, // New - should add
-    ];
+      const patterns: PatternImport[] = [
+        { from: "A", to: "B", weight: 0.70, count: 3 }, // Existing - should merge
+        { from: "C", to: "D", weight: 0.80, count: 4 }, // New - should add
+      ];
 
-    const imported = await importLearnedPatterns(patterns, graphEngine, "merge");
+      const imported = await importLearnedPatterns(patterns, graphEngine, "merge");
 
-    assertEquals(imported, 2);
+      assertEquals(imported, 2);
 
-    // Check merged pattern
-    const mergedCall = graphEngine.addEdgeCalls.find((c) => c.from === "A" && c.to === "B");
-    assertExists(mergedCall);
-    assertEquals(mergedCall.attrs.weight, 0.60); // (0.50 + 0.70) / 2
-    assertEquals(mergedCall.attrs.count, 8); // 5 + 3
+      // Check merged pattern
+      const mergedCall = graphEngine.addEdgeCalls.find((c) => c.from === "A" && c.to === "B");
+      assertExists(mergedCall);
+      assertEquals(mergedCall.attrs.weight, 0.60); // (0.50 + 0.70) / 2
+      assertEquals(mergedCall.attrs.count, 8); // 5 + 3
 
-    // Check new pattern
-    const newCall = graphEngine.addEdgeCalls.find((c) => c.from === "C" && c.to === "D");
-    assertExists(newCall);
-    assertEquals(newCall.attrs.weight, 0.80);
-    assertEquals(newCall.attrs.count, 4);
-  });
+      // Check new pattern
+      const newCall = graphEngine.addEdgeCalls.find((c) => c.from === "C" && c.to === "D");
+      assertExists(newCall);
+      assertEquals(newCall.attrs.weight, 0.80);
+      assertEquals(newCall.attrs.count, 4);
+    },
+  );
 });
 
 Deno.test("pattern-io - Edge Cases and Error Handling", async (t) => {

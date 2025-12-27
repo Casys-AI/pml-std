@@ -4,12 +4,13 @@
  * @module lib/std/tools/media
  */
 
-import { runCommand, type MiniTool } from "./common.ts";
+import { type MiniTool, runCommand } from "./common.ts";
 
 export const mediaTools: MiniTool[] = [
   {
     name: "ffmpeg_convert",
-    description: "Convert, transcode, and process video/audio files with FFmpeg. Change formats (MP4, WebM, MP3, AAC), resize, trim clips, adjust bitrate/quality. The universal media conversion tool. Keywords: ffmpeg convert, video transcode, audio convert, change format, compress video, trim clip, media processing.",
+    description:
+      "Convert, transcode, and process video/audio files with FFmpeg. Change formats (MP4, WebM, MP3, AAC), resize, trim clips, adjust bitrate/quality. The universal media conversion tool. Keywords: ffmpeg convert, video transcode, audio convert, change format, compress video, trim clip, media processing.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -26,7 +27,19 @@ export const mediaTools: MiniTool[] = [
       },
       required: ["input", "output"],
     },
-    handler: async ({ input, output, videoCodec, audioCodec, videoBitrate, audioBitrate, resolution, startTime, duration }) => {
+    handler: async (
+      {
+        input,
+        output,
+        videoCodec,
+        audioCodec,
+        videoBitrate,
+        audioBitrate,
+        resolution,
+        startTime,
+        duration,
+      },
+    ) => {
       const args = ["-i", input as string, "-y"];
       if (startTime) args.push("-ss", startTime as string);
       if (duration) args.push("-t", duration as string);
@@ -46,7 +59,8 @@ export const mediaTools: MiniTool[] = [
   },
   {
     name: "ffprobe_info",
-    description: "Analyze media files to get detailed metadata. Shows duration, resolution, codecs, bitrate, frame rate, audio channels, and stream information. Use for video analysis, format detection, or debugging media issues. Keywords: ffprobe, media info, video metadata, file analysis, codec info, duration resolution, stream details.",
+    description:
+      "Analyze media files to get detailed metadata. Shows duration, resolution, codecs, bitrate, frame rate, audio channels, and stream information. Use for video analysis, format detection, or debugging media issues. Keywords: ffprobe, media info, video metadata, file analysis, codec info, duration resolution, stream details.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -56,7 +70,15 @@ export const mediaTools: MiniTool[] = [
       required: ["file"],
     },
     handler: async ({ file }) => {
-      const args = ["-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", file as string];
+      const args = [
+        "-v",
+        "quiet",
+        "-print_format",
+        "json",
+        "-show_format",
+        "-show_streams",
+        file as string,
+      ];
 
       const result = await runCommand("ffprobe", args);
       if (result.code !== 0) {
@@ -72,7 +94,8 @@ export const mediaTools: MiniTool[] = [
   },
   {
     name: "imagemagick_convert",
-    description: "Process and transform images with ImageMagick. Resize, crop, rotate, change format (PNG, JPG, WebP, GIF), adjust quality, and apply effects. Powerful image manipulation for batch processing or single files. Keywords: imagemagick, image convert, resize image, crop rotate, change format, image processing, convert png jpg.",
+    description:
+      "Process and transform images with ImageMagick. Resize, crop, rotate, change format (PNG, JPG, WebP, GIF), adjust quality, and apply effects. Powerful image manipulation for batch processing or single files. Keywords: imagemagick, image convert, resize image, crop rotate, change format, image processing, convert png jpg.",
     category: "system",
     inputSchema: {
       type: "object",

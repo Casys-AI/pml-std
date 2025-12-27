@@ -430,9 +430,7 @@ export class MultiLevelOrchestrator {
 
           // THEN apply residual connection: H ← H_pre + H_concat
           // Both have same dimension [numTools][numHeads * headDim]
-          H = H_preDownward.map((row, i) =>
-            row.map((val, j) => val + (H_concat[i]?.[j] ?? 0))
-          );
+          H = H_preDownward.map((row, i) => row.map((val, j) => val + (H_concat[i]?.[j] ?? 0)));
         }
 
         attentionDownward.set(-1, levelAttention);
@@ -474,8 +472,9 @@ export class MultiLevelOrchestrator {
     const rows = matrix.length;
     const cols = matrix[0].length;
 
-    return Array.from({ length: cols }, (_, j) =>
-      Array.from({ length: rows }, (_, i) => matrix[i][j])
+    return Array.from(
+      { length: cols },
+      (_, j) => Array.from({ length: rows }, (_, i) => matrix[i][j]),
     );
   }
 }

@@ -16,12 +16,12 @@ import { assertEquals } from "@std/assert";
 // @ts-ignore: NPM module resolution
 import graphologyPkg from "graphology";
 import {
-  findShortestPath,
-  findAllPaths,
-  calculatePathWeight,
   calculateAveragePathWeight,
-  hasPathWithinHops,
+  calculatePathWeight,
+  findAllPaths,
+  findShortestPath,
   getPathLength,
+  hasPathWithinHops,
 } from "../../../../src/graphrag/algorithms/pathfinding.ts";
 
 const { DirectedGraph } = graphologyPkg as { DirectedGraph: new () => any };
@@ -152,8 +152,8 @@ Deno.test("Pathfinding - findAllPaths finds all paths within max length", () => 
 
   // Should find both: A -> B -> E and A -> C -> E
   assertEquals(paths.length, 2);
-  assertEquals(paths.some(p => p.join(",") === "A,B,E"), true);
-  assertEquals(paths.some(p => p.join(",") === "A,C,E"), true);
+  assertEquals(paths.some((p) => p.join(",") === "A,B,E"), true);
+  assertEquals(paths.some((p) => p.join(",") === "A,C,E"), true);
 });
 
 Deno.test("Pathfinding - findAllPaths respects max length constraint", () => {
@@ -178,7 +178,7 @@ Deno.test("Pathfinding - findAllPaths handles cycles without infinite loop", () 
 
   // Should find paths but not loop infinitely
   assertEquals(paths.length > 0, true);
-  assertEquals(paths.every(p => p.length <= 6), true); // maxLength + 1
+  assertEquals(paths.every((p) => p.length <= 6), true); // maxLength + 1
 });
 
 Deno.test("Pathfinding - findAllPaths returns empty for non-existent nodes", () => {

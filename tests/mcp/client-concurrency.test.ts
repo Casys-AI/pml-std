@@ -232,10 +232,14 @@ Deno.test("MCP Client Concurrency", async (t) => {
     // Multiplexer should be significantly faster
     assert(
       multiplexerTime < mutexTime,
-      `Multiplexer (${multiplexerTime.toFixed(1)}ms) should be faster than mutex (${mutexTime.toFixed(1)}ms)`,
+      `Multiplexer (${multiplexerTime.toFixed(1)}ms) should be faster than mutex (${
+        mutexTime.toFixed(1)
+      }ms)`,
     );
 
-    console.log(`  ✓ Multiplexer: ${multiplexerTime.toFixed(1)}ms, Mutex: ${mutexTime.toFixed(1)}ms`);
+    console.log(
+      `  ✓ Multiplexer: ${multiplexerTime.toFixed(1)}ms, Mutex: ${mutexTime.toFixed(1)}ms`,
+    );
     console.log(`  ✓ Speedup: ${(mutexTime / multiplexerTime).toFixed(1)}x`);
   });
 });

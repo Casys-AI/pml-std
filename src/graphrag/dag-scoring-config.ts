@@ -424,7 +424,9 @@ function validateDagScoringConfig(config: DagScoringConfig): void {
   checkRange01("hopConfidence.hop3", hop3);
   checkRange01("hopConfidence.hop4Plus", hop4Plus);
   if (!(hop1 >= hop2 && hop2 >= hop3 && hop3 >= hop4Plus)) {
-    errors.push(`hopConfidence should be decreasing: hop1=${hop1} >= hop2=${hop2} >= hop3=${hop3} >= hop4Plus=${hop4Plus}`);
+    errors.push(
+      `hopConfidence should be decreasing: hop1=${hop1} >= hop2=${hop2} >= hop3=${hop3} >= hop4Plus=${hop4Plus}`,
+    );
   }
 
   // Episodic
@@ -432,7 +434,9 @@ function validateDagScoringConfig(config: DagScoringConfig): void {
 
   // Capability ceiling > floor
   if (config.capability.confidenceFloor >= config.capability.confidenceCeiling) {
-    errors.push(`capability.confidenceFloor (${config.capability.confidenceFloor}) must be < confidenceCeiling (${config.capability.confidenceCeiling})`);
+    errors.push(
+      `capability.confidenceFloor (${config.capability.confidenceFloor}) must be < confidenceCeiling (${config.capability.confidenceCeiling})`,
+    );
   }
 
   // Reliability (ADR-038 §3.1)
@@ -446,7 +450,9 @@ function validateDagScoringConfig(config: DagScoringConfig): void {
     errors.push(`reliability.boostFactor=${config.reliability.boostFactor} must be in [1, 2]`);
   }
   if (config.reliability.penaltyThreshold >= config.reliability.boostThreshold) {
-    errors.push(`reliability.penaltyThreshold (${config.reliability.penaltyThreshold}) must be < boostThreshold (${config.reliability.boostThreshold})`);
+    errors.push(
+      `reliability.penaltyThreshold (${config.reliability.penaltyThreshold}) must be < boostThreshold (${config.reliability.boostThreshold})`,
+    );
   }
 
   // Defaults
@@ -467,7 +473,8 @@ function toDagScoringConfig(file: DagScoringFileConfig): DagScoringConfig {
 
   return {
     limits: {
-      hybridSearchCandidates: file.limits?.hybrid_search_candidates ?? d.limits.hybridSearchCandidates,
+      hybridSearchCandidates: file.limits?.hybrid_search_candidates ??
+        d.limits.hybridSearchCandidates,
       rankedCandidates: file.limits?.ranked_candidates ?? d.limits.rankedCandidates,
       communityMembers: file.limits?.community_members ?? d.limits.communityMembers,
       alternatives: file.limits?.alternatives ?? d.limits.alternatives,
@@ -480,7 +487,8 @@ function toDagScoringConfig(file: DagScoringFileConfig): DagScoringConfig {
     },
     weights: {
       candidateRanking: {
-        hybridScore: file.weights?.candidate_ranking?.hybrid_score ?? d.weights.candidateRanking.hybridScore,
+        hybridScore: file.weights?.candidate_ranking?.hybrid_score ??
+          d.weights.candidateRanking.hybridScore,
         pagerank: file.weights?.candidate_ranking?.pagerank ?? d.weights.candidateRanking.pagerank,
       },
       confidenceBase: {
@@ -489,21 +497,27 @@ function toDagScoringConfig(file: DagScoringFileConfig): DagScoringConfig {
         path: file.weights?.confidence_base?.path ?? d.weights.confidenceBase.path,
       },
       confidenceScaling: {
-        hybridDelta: file.weights?.confidence_scaling?.hybrid_delta ?? d.weights.confidenceScaling.hybridDelta,
-        pagerankDelta: file.weights?.confidence_scaling?.pagerank_delta ?? d.weights.confidenceScaling.pagerankDelta,
-        pathDelta: file.weights?.confidence_scaling?.path_delta ?? d.weights.confidenceScaling.pathDelta,
+        hybridDelta: file.weights?.confidence_scaling?.hybrid_delta ??
+          d.weights.confidenceScaling.hybridDelta,
+        pagerankDelta: file.weights?.confidence_scaling?.pagerank_delta ??
+          d.weights.confidenceScaling.pagerankDelta,
+        pathDelta: file.weights?.confidence_scaling?.path_delta ??
+          d.weights.confidenceScaling.pathDelta,
       },
-      pagerankRationaleThreshold: file.weights?.pagerank_rationale_threshold ?? d.weights.pagerankRationaleThreshold,
+      pagerankRationaleThreshold: file.weights?.pagerank_rationale_threshold ??
+        d.weights.pagerankRationaleThreshold,
     },
     thresholds: {
       suggestionReject: file.thresholds?.suggestion_reject ?? d.thresholds.suggestionReject,
       suggestionFloor: file.thresholds?.suggestion_floor ?? d.thresholds.suggestionFloor,
-      dependencyThreshold: file.thresholds?.dependency_threshold ?? d.thresholds.dependencyThreshold,
+      dependencyThreshold: file.thresholds?.dependency_threshold ??
+        d.thresholds.dependencyThreshold,
       replanThreshold: file.thresholds?.replan_threshold ?? d.thresholds.replanThreshold,
       toolSearch: file.thresholds?.tool_search ?? d.thresholds.toolSearch,
       contextSearch: file.thresholds?.context_search ?? d.thresholds.contextSearch,
       intentSearch: file.thresholds?.intent_search ?? d.thresholds.intentSearch,
-      alternativeSuccessRate: file.thresholds?.alternative_success_rate ?? d.thresholds.alternativeSuccessRate,
+      alternativeSuccessRate: file.thresholds?.alternative_success_rate ??
+        d.thresholds.alternativeSuccessRate,
     },
     caps: {
       maxConfidence: file.caps?.max_confidence ?? d.caps.maxConfidence,
@@ -522,9 +536,11 @@ function toDagScoringConfig(file: DagScoringFileConfig): DagScoringConfig {
       baseConfidence: file.community?.base_confidence ?? d.community.baseConfidence,
       pagerankMultiplier: file.community?.pagerank_multiplier ?? d.community.pagerankMultiplier,
       pagerankBoostCap: file.community?.pagerank_boost_cap ?? d.community.pagerankBoostCap,
-      edgeWeightMultiplier: file.community?.edge_weight_multiplier ?? d.community.edgeWeightMultiplier,
+      edgeWeightMultiplier: file.community?.edge_weight_multiplier ??
+        d.community.edgeWeightMultiplier,
       edgeWeightBoostCap: file.community?.edge_weight_boost_cap ?? d.community.edgeWeightBoostCap,
-      adamicAdarMultiplier: file.community?.adamic_adar_multiplier ?? d.community.adamicAdarMultiplier,
+      adamicAdarMultiplier: file.community?.adamic_adar_multiplier ??
+        d.community.adamicAdarMultiplier,
       adamicAdarBoostCap: file.community?.adamic_adar_boost_cap ?? d.community.adamicAdarBoostCap,
     },
     reliability: {
@@ -543,10 +559,13 @@ function toDagScoringConfig(file: DagScoringFileConfig): DagScoringConfig {
     episodic: {
       successBoostFactor: file.episodic?.success_boost_factor ?? d.episodic.successBoostFactor,
       successBoostCap: file.episodic?.success_boost_cap ?? d.episodic.successBoostCap,
-      failurePenaltyFactor: file.episodic?.failure_penalty_factor ?? d.episodic.failurePenaltyFactor,
+      failurePenaltyFactor: file.episodic?.failure_penalty_factor ??
+        d.episodic.failurePenaltyFactor,
       failurePenaltyCap: file.episodic?.failure_penalty_cap ?? d.episodic.failurePenaltyCap,
-      failureExclusionRate: file.episodic?.failure_exclusion_rate ?? d.episodic.failureExclusionRate,
-      adjustmentLogThreshold: file.episodic?.adjustment_log_threshold ?? d.episodic.adjustmentLogThreshold,
+      failureExclusionRate: file.episodic?.failure_exclusion_rate ??
+        d.episodic.failureExclusionRate,
+      adjustmentLogThreshold: file.episodic?.adjustment_log_threshold ??
+        d.episodic.adjustmentLogThreshold,
     },
     alternatives: {
       scoreMultiplier: file.alternatives?.score_multiplier ?? d.alternatives.scoreMultiplier,
@@ -574,7 +593,7 @@ function toDagScoringConfig(file: DagScoringFileConfig): DagScoringConfig {
  * @throws DagScoringConfigError if validation fails
  */
 export async function loadDagScoringConfig(
-  configPath = "./config/dag-scoring.yaml"
+  configPath = "./config/dag-scoring.yaml",
 ): Promise<DagScoringConfig> {
   try {
     const content = await Deno.readTextFile(configPath);

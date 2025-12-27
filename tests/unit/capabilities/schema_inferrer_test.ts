@@ -411,44 +411,44 @@ Deno.test({
   async fn() {
     const db = await setupTestDb();
 
-  // Mock EmbeddingModel
-  class MockEmbeddingModel {
-    async load(): Promise<void> {}
-    async encode(_text: string): Promise<number[]> {
-      return new Array(1024).fill(0.5);
+    // Mock EmbeddingModel
+    class MockEmbeddingModel {
+      async load(): Promise<void> {}
+      async encode(_text: string): Promise<number[]> {
+        return new Array(1024).fill(0.5);
+      }
+      isLoaded(): boolean {
+        return true;
+      }
     }
-    isLoaded(): boolean {
-      return true;
-    }
-  }
 
-  const { CapabilityStore } = await import("../../../src/capabilities/capability-store.ts");
+    const { CapabilityStore } = await import("../../../src/capabilities/capability-store.ts");
 
-  const inferrer = new SchemaInferrer(db);
-  const model = new MockEmbeddingModel();
-  const store = new CapabilityStore(db, model as any, inferrer);
+    const inferrer = new SchemaInferrer(db);
+    const model = new MockEmbeddingModel();
+    const store = new CapabilityStore(db, model as any, inferrer);
 
-  const code = `
+    const code = `
     const content = await mcp.filesystem.read({ path: args.filePath });
     if (args.debug === true) console.log(content);
   `;
 
-  const { capability } = await store.saveCapability({
-    code,
-    intent: "Read file with debug option",
-    durationMs: 100,
-    success: true,
-  });
+    const { capability } = await store.saveCapability({
+      code,
+      intent: "Read file with debug option",
+      durationMs: 100,
+      success: true,
+    });
 
-  // Verify schema was inferred and stored
-  assertExists(capability.parametersSchema);
-  assertExists(capability.parametersSchema.properties);
+    // Verify schema was inferred and stored
+    assertExists(capability.parametersSchema);
+    assertExists(capability.parametersSchema.properties);
 
-  const props = capability.parametersSchema.properties;
-  assertEquals(props.filePath !== undefined, true);
-  assertEquals(props.debug !== undefined, true);
-  assertEquals(props.debug.type, "boolean");
+    const props = capability.parametersSchema.properties;
+    assertEquals(props.filePath !== undefined, true);
+    assertEquals(props.debug !== undefined, true);
+    assertEquals(props.debug.type, "boolean");
 
-  await db.close();
+    await db.close();
   },
 });

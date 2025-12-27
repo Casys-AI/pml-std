@@ -62,34 +62,34 @@ export type {
 
 // Story 10.5: Static Structure to DAG Conversion
 export {
-  staticStructureToDag,
-  isValidForDagConversion,
-  getToolsFromStaticStructure,
   estimateParallelLayers,
+  getToolsFromStaticStructure,
+  isValidForDagConversion,
+  staticStructureToDag,
 } from "./static-to-dag-converter.ts";
 export type {
-  ConditionalTask,
   ConditionalDAGStructure,
+  ConditionalTask,
   ConversionOptions,
   TaskCondition,
 } from "./static-to-dag-converter.ts";
 
 // Story 10.5: Argument Resolution at Runtime
 export {
-  resolveArguments,
-  mergeArguments,
-  validateRequiredArguments,
   buildResolutionSummary,
+  mergeArguments,
+  resolveArguments,
+  validateRequiredArguments,
 } from "./argument-resolver.ts";
 export type { ExecutionContext } from "./argument-resolver.ts";
 
 // Story 10.5 AC10/AC11: WorkerBridge-based Tool Executor
 export {
-  createToolExecutorViaWorker,
-  createSimpleToolExecutorViaWorker,
   cleanupWorkerBridgeExecutor,
+  createSimpleToolExecutorViaWorker,
+  createToolExecutorViaWorker,
 } from "./execution/workerbridge-executor.ts";
 export type {
-  WorkerBridgeExecutorConfig,
   ExecutorContext,
+  WorkerBridgeExecutorConfig,
 } from "./execution/workerbridge-executor.ts";

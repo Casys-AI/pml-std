@@ -74,7 +74,7 @@ Deno.test("Resume from Checkpoint", async (t) => {
     let layerCount = 0;
 
     for await (const event of executor.executeStream(dag, "resume-test-1")) {
-      if (event.type === "checkpoint" && event.layerIndex ===2) {
+      if (event.type === "checkpoint" && event.layerIndex === 2) {
         checkpoint_id = event.checkpointId;
       }
       if (event.type === "layer_start") {
@@ -128,7 +128,7 @@ Deno.test("Resume from Checkpoint", async (t) => {
     // Execute and checkpoint at layer 0
     let checkpoint_id: string | null = null;
     for await (const event of executor.executeStream(dag, "resume-test-2")) {
-      if (event.type === "checkpoint" && event.layerIndex ===0) {
+      if (event.type === "checkpoint" && event.layerIndex === 0) {
         checkpoint_id = event.checkpointId;
       }
     }
@@ -173,7 +173,7 @@ Deno.test("Resume from Checkpoint", async (t) => {
     // Execute and get checkpoint from layer 1
     let checkpoint_id: string | null = null;
     for await (const event of executor.executeStream(dag, "resume-test-3")) {
-      if (event.type === "checkpoint" && event.layerIndex ===1) {
+      if (event.type === "checkpoint" && event.layerIndex === 1) {
         checkpoint_id = event.checkpointId;
       }
     }
@@ -223,7 +223,7 @@ Deno.test("Resume from Checkpoint", async (t) => {
     // Execute and get checkpoint from layer 1
     let checkpoint_id: string | null = null;
     for await (const event of executor.executeStream(dag, "resume-test-4")) {
-      if (event.type === "checkpoint" && event.layerIndex ===1) {
+      if (event.type === "checkpoint" && event.layerIndex === 1) {
         checkpoint_id = event.checkpointId;
       }
     }

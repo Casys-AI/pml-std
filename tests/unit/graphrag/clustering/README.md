@@ -9,6 +9,7 @@ Comprehensive unit tests for the `src/graphrag/clustering/` module.
 Tests for the cluster boost calculator module (`src/graphrag/clustering/boost-calculator.ts`).
 
 **Coverage:**
+
 - 23 test cases
 - 100% function coverage
 - All edge cases covered
@@ -51,10 +52,12 @@ Tests for the cluster boost calculator module (`src/graphrag/clustering/boost-ca
    - Returns empty map when no PageRanks computed
 
 **Mock Objects:**
+
 - `MockSpectralClusteringManager`: Mocks spectral clustering operations
 - `MockLocalAlphaCalculator`: Mocks local alpha calculator
 
 **Key Test Patterns:**
+
 - Uses Deno test framework with describe/it style
 - Comprehensive mock setup with configurable behavior
 - Tests both success and failure scenarios
@@ -86,6 +89,7 @@ deno coverage coverage
 ## Module Dependencies
 
 Tests mock the following dependencies:
+
 - `SpectralClusteringManager` from `src/graphrag/spectral-clustering.ts`
 - `LocalAlphaCalculator` from `src/graphrag/local-alpha.ts`
 - `DagScoringConfig` from `src/graphrag/dag-scoring-config.ts`
@@ -94,6 +98,7 @@ Tests mock the following dependencies:
 ## Future Test Additions
 
 Potential areas for additional testing:
+
 - Performance benchmarks for large capability sets (>1000 capabilities)
 - Integration tests with real SpectralClusteringManager
 - Thread safety and concurrency testing

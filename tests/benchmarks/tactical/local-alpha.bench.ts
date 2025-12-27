@@ -176,8 +176,12 @@ Deno.bench({
 // ============================================================================
 
 // Use nodes with low degree (cold start candidates)
-const isolatedSmall = Array.from(smallGraph.nodes()).filter((n) => smallGraph.degree(n) <= 1) as string[];
-const isolatedMedium = Array.from(mediumGraph.nodes()).filter((n) => mediumGraph.degree(n) <= 1) as string[];
+const isolatedSmall = Array.from(smallGraph.nodes()).filter((n) =>
+  smallGraph.degree(n) <= 1
+) as string[];
+const isolatedMedium = Array.from(mediumGraph.nodes()).filter((n) =>
+  mediumGraph.degree(n) <= 1
+) as string[];
 
 Deno.bench({
   name: "LocalAlpha: cold start (small graph)",
@@ -218,7 +222,12 @@ Deno.bench({
   group: "alpha-breakdown",
   fn: () => {
     if (mediumNodes.length >= 1) {
-      mediumCalc.getLocalAlphaWithBreakdown("active", mediumNodes[0], "tool", mediumNodes.slice(1, 5));
+      mediumCalc.getLocalAlphaWithBreakdown(
+        "active",
+        mediumNodes[0],
+        "tool",
+        mediumNodes.slice(1, 5),
+      );
     }
   },
 });
@@ -228,7 +237,12 @@ Deno.bench({
   group: "alpha-breakdown",
   fn: () => {
     if (stressNodes.length >= 1) {
-      stressCalc.getLocalAlphaWithBreakdown("active", stressNodes[0], "tool", stressNodes.slice(1, 10));
+      stressCalc.getLocalAlphaWithBreakdown(
+        "active",
+        stressNodes[0],
+        "tool",
+        stressNodes.slice(1, 10),
+      );
     }
   },
 });

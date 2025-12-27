@@ -7,15 +7,15 @@
  * @module tests/unit/graphrag/prediction/capabilities.test
  */
 
-import { assertEquals, assertExists, assertAlmostEquals } from "jsr:@std/assert@1";
+import { assertAlmostEquals, assertEquals, assertExists } from "jsr:@std/assert@1";
 import {
-  applyLocalAlpha,
   adjustConfidenceFromEpisodes,
-  predictCapabilities,
-  getCapabilityToolsUsed,
-  createCapabilityTask,
-  injectMatchingCapabilities,
+  applyLocalAlpha,
   type CapabilityPredictionDeps,
+  createCapabilityTask,
+  getCapabilityToolsUsed,
+  injectMatchingCapabilities,
+  predictCapabilities,
 } from "../../../../src/graphrag/prediction/capabilities.ts";
 import type { EpisodeStatsMap } from "../../../../src/graphrag/prediction/types.ts";
 import type { Capability } from "../../../../src/capabilities/types.ts";
@@ -96,7 +96,9 @@ function createMockCapability(id: string, overrides: Partial<Capability> = {}): 
 /**
  * Create mock CapabilityPredictionDeps
  */
-function createMockDeps(overrides: Partial<CapabilityPredictionDeps> = {}): CapabilityPredictionDeps {
+function createMockDeps(
+  overrides: Partial<CapabilityPredictionDeps> = {},
+): CapabilityPredictionDeps {
   return {
     capabilityStore: createMockCapabilityStore(),
     graphEngine: createMockGraphEngine() as any,

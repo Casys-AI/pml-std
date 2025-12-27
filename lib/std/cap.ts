@@ -456,9 +456,7 @@ export class CapModule {
       namespace: row.namespace,
       action: row.action,
       usageCount: row.usage_count,
-      successRate: row.usage_count > 0
-        ? row.success_count / row.usage_count
-        : 0,
+      successRate: row.usage_count > 0 ? row.success_count / row.usage_count : 0,
     }));
 
     const response: CapListResponse = {
@@ -558,9 +556,7 @@ export class CapModule {
       displayName: record.displayName,
       description,
       usageCount: record.usageCount,
-      successRate: record.usageCount > 0
-        ? record.successCount / record.usageCount
-        : 0,
+      successRate: record.usageCount > 0 ? record.successCount / record.usageCount : 0,
     };
 
     // AC9: Add warning if resolved via alias

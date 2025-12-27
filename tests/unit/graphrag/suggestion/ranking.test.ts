@@ -7,19 +7,13 @@
  * @module tests/unit/graphrag/suggestion/ranking.test
  */
 
+import { assertAlmostEquals, assertEquals, assertExists } from "jsr:@std/assert@1";
 import {
-  assertEquals,
-  assertAlmostEquals,
-  assertExists,
-} from "jsr:@std/assert@1";
-import {
-  rankCandidates,
-  extractDependencyPaths,
   calculateAverageAlpha,
+  extractDependencyPaths,
+  rankCandidates,
 } from "../../../../src/graphrag/suggestion/ranking.ts";
-import type {
-  CandidateAlpha,
-} from "../../../../src/graphrag/suggestion/ranking.ts";
+import type { CandidateAlpha } from "../../../../src/graphrag/suggestion/ranking.ts";
 import type { HybridSearchResult } from "../../../../src/graphrag/types.ts";
 import type { GraphRAGEngine } from "../../../../src/graphrag/graph-engine.ts";
 import { DEFAULT_DAG_SCORING_CONFIG } from "../../../../src/graphrag/dag-scoring-config.ts";
@@ -30,7 +24,7 @@ const config = DEFAULT_DAG_SCORING_CONFIG;
 function createMockGraphEngine(
   pageRanks: Record<string, number> = {},
   adamicAdar: Record<string, number> = {},
-  paths: Record<string, string[] | null> = {}
+  paths: Record<string, string[] | null> = {},
 ): GraphRAGEngine {
   return {
     getPageRank: (toolId: string) => pageRanks[toolId] ?? 0,
@@ -78,7 +72,7 @@ Deno.test("rankCandidates - Happy Path", async (t) => {
     ];
 
     const graphEngine = createMockGraphEngine(
-      { tool1: 0.15, tool2: 0.12, tool3: 0.08 }
+      { tool1: 0.15, tool2: 0.12, tool3: 0.08 },
     );
 
     const ranked = rankCandidates(candidates, [], graphEngine, config);
@@ -197,7 +191,7 @@ Deno.test("rankCandidates - Combined Score Calculation", async (t) => {
     const ranked = rankCandidates(candidates, [], graphEngine, config);
 
     const expectedCombined = 0.85 * config.weights.candidateRanking.hybridScore +
-                            0.20 * config.weights.candidateRanking.pagerank;
+      0.20 * config.weights.candidateRanking.pagerank;
 
     assertAlmostEquals(ranked[0].combinedScore, expectedCombined, 0.001);
 
@@ -412,7 +406,7 @@ Deno.test("extractDependencyPaths - Happy Path", async (t) => {
 
     // Should only find 3 forward paths, not 6 total
     assertEquals(result.length, 3);
-    assert(result.every(p => {
+    assert(result.every((p) => {
       const fromIdx = toolIds.indexOf(p.from);
       const toIdx = toolIds.indexOf(p.to);
       return fromIdx < toIdx;
@@ -432,7 +426,7 @@ Deno.test("extractDependencyPaths - Happy Path", async (t) => {
 
     // Should only include paths within maxPathLength (4)
     assertEquals(result.length, 2);
-    assert(result.every(p => p.path.length <= config.limits.maxPathLength));
+    assert(result.every((p) => p.path.length <= config.limits.maxPathLength));
   });
 });
 
@@ -490,7 +484,11 @@ Deno.test("extractDependencyPaths - Edge Cases", async (t) => {
     const toolIds = ["tool1", "tool2"];
     const maxPathLength = config.limits.maxPathLength; // 4
     // Create path with exactly maxPathLength nodes
-    const path = ["tool1", ...Array.from({ length: maxPathLength - 2 }, (_, i) => `n${i}`), "tool2"];
+    const path = [
+      "tool1",
+      ...Array.from({ length: maxPathLength - 2 }, (_, i) => `n${i}`),
+      "tool2",
+    ];
 
     const paths = {
       "tool1-tool2": path,

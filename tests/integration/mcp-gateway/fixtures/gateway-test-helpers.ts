@@ -117,7 +117,9 @@ export async function seedTestDatabase(db: PGliteClient): Promise<void> {
 /**
  * Seed test API keys for authentication testing
  */
-export async function seedTestApiKeys(db: PGliteClient): Promise<{ validApiKey: string; userId: string }> {
+export async function seedTestApiKeys(
+  db: PGliteClient,
+): Promise<{ validApiKey: string; userId: string }> {
   const validApiKey = "ac_123456789012345678901234";
   const userId = "test_user_1";
 

@@ -16,8 +16,8 @@
 import { assertEquals, assertExists } from "@std/assert";
 import {
   analyzeCode,
-  WRAPPER_OFFSET,
   toOriginalPosition,
+  WRAPPER_OFFSET,
 } from "../../../src/capabilities/swc-analyzer.ts";
 
 // =============================================================================
@@ -449,7 +449,8 @@ Deno.test("swc-analyzer - handles template literal in arguments", async () => {
 });
 
 Deno.test("swc-analyzer - handles MCP tool with long server/tool names", async () => {
-  const code = `await mcp.very_long_server_name.extremely_long_tool_name_that_goes_on({ param: "value" });`;
+  const code =
+    `await mcp.very_long_server_name.extremely_long_tool_name_that_goes_on({ param: "value" });`;
 
   const result = await analyzeCode(code);
 

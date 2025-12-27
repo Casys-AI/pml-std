@@ -13,15 +13,15 @@
 
 import { findShortestPath } from "../../../src/graphrag/algorithms/pathfinding.ts";
 import {
-  DRDSP,
   buildDRDSPFromCapabilities,
+  DRDSP,
   type Hyperedge,
 } from "../../../src/graphrag/algorithms/dr-dsp.ts";
 import {
   buildGraphFromScenario,
+  type CapabilityNode,
   generateStressGraph,
   loadScenario,
-  type CapabilityNode,
 } from "../fixtures/scenario-loader.ts";
 
 // ============================================================================
@@ -282,7 +282,15 @@ globalThis.addEventListener("unload", () => {
   const stressStats = stressDRDSP.getStats();
 
   console.log("\nDR-DSP Benchmark Summary:");
-  console.log(`- Medium graph: ${mediumStats.hyperedgeCount} hyperedges, ${mediumStats.nodeCount} nodes`);
-  console.log(`- Stress graph: ${stressStats.hyperedgeCount} hyperedges, ${stressStats.nodeCount} nodes`);
-  console.log(`- Avg hyperedge size: ${mediumStats.avgHyperedgeSize.toFixed(1)} (medium), ${stressStats.avgHyperedgeSize.toFixed(1)} (stress)`);
+  console.log(
+    `- Medium graph: ${mediumStats.hyperedgeCount} hyperedges, ${mediumStats.nodeCount} nodes`,
+  );
+  console.log(
+    `- Stress graph: ${stressStats.hyperedgeCount} hyperedges, ${stressStats.nodeCount} nodes`,
+  );
+  console.log(
+    `- Avg hyperedge size: ${mediumStats.avgHyperedgeSize.toFixed(1)} (medium), ${
+      stressStats.avgHyperedgeSize.toFixed(1)
+    } (stress)`,
+  );
 });

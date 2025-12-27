@@ -9,12 +9,7 @@
  * @module tests/integration/algorithm_tracer_integration_test
  */
 
-import {
-  assertEquals,
-  assertExists,
-  assertGreater,
-  assertAlmostEquals,
-} from "@std/assert";
+import { assertAlmostEquals, assertEquals, assertExists, assertGreater } from "@std/assert";
 import { PGliteClient } from "../../src/db/client.ts";
 import { getAllMigrations, MigrationRunner } from "../../src/db/migrations.ts";
 import { AlgorithmTracer } from "../../src/telemetry/algorithm-tracer.ts";
@@ -142,11 +137,36 @@ Deno.test("Integration: AlgorithmTracer metrics aggregate correctly after multip
 
   // Log multiple traces with different decisions and modes
   const traces = [
-    { mode: "active_search" as const, targetType: "capability" as const, decision: "accepted" as const, score: 0.85 },
-    { mode: "active_search" as const, targetType: "tool" as const, decision: "accepted" as const, score: 0.78 },
-    { mode: "passive_suggestion" as const, targetType: "tool" as const, decision: "rejected_by_threshold" as const, score: 0.55 },
-    { mode: "passive_suggestion" as const, targetType: "capability" as const, decision: "filtered_by_reliability" as const, score: 0.30 },
-    { mode: "active_search" as const, targetType: "capability" as const, decision: "rejected_by_threshold" as const, score: 0.65 },
+    {
+      mode: "active_search" as const,
+      targetType: "capability" as const,
+      decision: "accepted" as const,
+      score: 0.85,
+    },
+    {
+      mode: "active_search" as const,
+      targetType: "tool" as const,
+      decision: "accepted" as const,
+      score: 0.78,
+    },
+    {
+      mode: "passive_suggestion" as const,
+      targetType: "tool" as const,
+      decision: "rejected_by_threshold" as const,
+      score: 0.55,
+    },
+    {
+      mode: "passive_suggestion" as const,
+      targetType: "capability" as const,
+      decision: "filtered_by_reliability" as const,
+      score: 0.30,
+    },
+    {
+      mode: "active_search" as const,
+      targetType: "capability" as const,
+      decision: "rejected_by_threshold" as const,
+      score: 0.65,
+    },
   ];
 
   for (const t of traces) {

@@ -4,14 +4,14 @@
  * Tests the fusion logic for sequential code operations.
  */
 
-import { assertEquals, assert } from "https://deno.land/std@0.208.0/assert/mod.ts";
+import { assert, assertEquals } from "https://deno.land/std@0.208.0/assert/mod.ts";
 import {
-  optimizeDAG,
   canFuseTasks,
   fuseTasks,
-  type OptimizedDAGStructure
+  optimizeDAG,
+  type OptimizedDAGStructure,
 } from "../../../src/dag/dag-optimizer.ts";
-import type { Task, DAGStructure } from "../../../src/graphrag/types.ts";
+import type { DAGStructure, Task } from "../../../src/graphrag/types.ts";
 
 // =============================================================================
 // Test: canFuseTasks
@@ -27,7 +27,7 @@ Deno.test("canFuseTasks - returns true for fusible tasks", () => {
       arguments: {},
       dependsOn: [],
       sandboxConfig: { permissionSet: "minimal" },
-      metadata: { pure: true }
+      metadata: { pure: true },
     },
     {
       id: "task_c2",
@@ -37,8 +37,8 @@ Deno.test("canFuseTasks - returns true for fusible tasks", () => {
       arguments: {},
       dependsOn: ["task_c1"],
       sandboxConfig: { permissionSet: "minimal" },
-      metadata: { pure: true }
-    }
+      metadata: { pure: true },
+    },
   ];
 
   assert(canFuseTasks(tasks), "Should be able to fuse pure code tasks");
@@ -51,7 +51,7 @@ Deno.test("canFuseTasks - returns false for MCP tasks", () => {
       type: "mcp_tool",
       tool: "db:query",
       arguments: {},
-      dependsOn: []
+      dependsOn: [],
     },
     {
       id: "task_c1",
@@ -59,8 +59,8 @@ Deno.test("canFuseTasks - returns false for MCP tasks", () => {
       tool: "code:filter",
       code: "data.filter(x => x.active)",
       arguments: {},
-      dependsOn: ["task_n1"]
-    }
+      dependsOn: ["task_n1"],
+    },
   ];
 
   assertEquals(canFuseTasks(tasks), false, "Should not fuse MCP tasks");
@@ -72,11 +72,11 @@ Deno.test("canFuseTasks - returns false for tasks with MCP calls in code", () =>
       id: "task_c1",
       type: "code_execution",
       tool: "code:filter",
-      code: "await mcp.db.query()",  // ← MCP call in code!
+      code: "await mcp.db.query()", // ← MCP call in code!
       arguments: {},
       dependsOn: [],
-      sandboxConfig: { permissionSet: "minimal" }
-    }
+      sandboxConfig: { permissionSet: "minimal" },
+    },
   ];
 
   assertEquals(canFuseTasks(tasks), false, "Should not fuse tasks with MCP calls");
@@ -91,7 +91,7 @@ Deno.test("canFuseTasks - returns false for different permission sets", () => {
       code: "data.filter(x => x.active)",
       arguments: {},
       dependsOn: [],
-      sandboxConfig: { permissionSet: "minimal" }
+      sandboxConfig: { permissionSet: "minimal" },
     },
     {
       id: "task_c2",
@@ -100,8 +100,8 @@ Deno.test("canFuseTasks - returns false for different permission sets", () => {
       code: "data.map(x => x.name)",
       arguments: {},
       dependsOn: ["task_c1"],
-      sandboxConfig: { permissionSet: "full" }  // ← Different!
-    }
+      sandboxConfig: { permissionSet: "full" }, // ← Different!
+    },
   ];
 
   assertEquals(canFuseTasks(tasks), false, "Should not fuse tasks with different permissions");
@@ -120,7 +120,7 @@ Deno.test("fuseTasks - creates fused task with combined code", () => {
       code: "const active = data.filter(x => x.active);",
       arguments: {},
       dependsOn: ["task_n1"],
-      sandboxConfig: { permissionSet: "minimal" }
+      sandboxConfig: { permissionSet: "minimal" },
     },
     {
       id: "task_c2",
@@ -129,8 +129,8 @@ Deno.test("fuseTasks - creates fused task with combined code", () => {
       code: "const names = active.map(x => x.name);",
       arguments: {},
       dependsOn: ["task_c1"],
-      sandboxConfig: { permissionSet: "minimal" }
-    }
+      sandboxConfig: { permissionSet: "minimal" },
+    },
   ];
 
   const fused = fuseTasks(tasks);
@@ -153,8 +153,8 @@ Deno.test("fuseTasks - preserves external dependencies", () => {
       tool: "code:filter",
       code: "data.filter(x => x.active)",
       arguments: {},
-      dependsOn: ["task_n1"],  // External dependency
-      sandboxConfig: { permissionSet: "minimal" }
+      dependsOn: ["task_n1"], // External dependency
+      sandboxConfig: { permissionSet: "minimal" },
     },
     {
       id: "task_c2",
@@ -162,8 +162,8 @@ Deno.test("fuseTasks - preserves external dependencies", () => {
       tool: "code:map",
       code: "data.map(x => x.name)",
       arguments: {},
-      dependsOn: ["task_c1"],  // Internal dependency
-      sandboxConfig: { permissionSet: "minimal" }
+      dependsOn: ["task_c1"], // Internal dependency
+      sandboxConfig: { permissionSet: "minimal" },
     },
     {
       id: "task_c3",
@@ -171,9 +171,9 @@ Deno.test("fuseTasks - preserves external dependencies", () => {
       tool: "code:sort",
       code: "data.sort()",
       arguments: {},
-      dependsOn: ["task_c2", "task_n2"],  // Mixed: internal + external
-      sandboxConfig: { permissionSet: "minimal" }
-    }
+      dependsOn: ["task_c2", "task_n2"], // Mixed: internal + external
+      sandboxConfig: { permissionSet: "minimal" },
+    },
   ];
 
   const fused = fuseTasks(tasks);
@@ -194,7 +194,7 @@ Deno.test("optimizeDAG - fuses sequential code tasks", () => {
         type: "mcp_tool",
         tool: "db:query",
         arguments: {},
-        dependsOn: []
+        dependsOn: [],
       },
       {
         id: "task_c1",
@@ -204,7 +204,7 @@ Deno.test("optimizeDAG - fuses sequential code tasks", () => {
         arguments: {},
         dependsOn: ["task_n1"],
         sandboxConfig: { permissionSet: "minimal" },
-        metadata: { pure: true }
+        metadata: { pure: true },
       },
       {
         id: "task_c2",
@@ -214,7 +214,7 @@ Deno.test("optimizeDAG - fuses sequential code tasks", () => {
         arguments: {},
         dependsOn: ["task_c1"],
         sandboxConfig: { permissionSet: "minimal" },
-        metadata: { pure: true }
+        metadata: { pure: true },
       },
       {
         id: "task_c3",
@@ -224,9 +224,9 @@ Deno.test("optimizeDAG - fuses sequential code tasks", () => {
         arguments: {},
         dependsOn: ["task_c2"],
         sandboxConfig: { permissionSet: "minimal" },
-        metadata: { pure: true }
-      }
-    ]
+        metadata: { pure: true },
+      },
+    ],
   };
 
   const optimized = optimizeDAG(logicalDAG);
@@ -259,7 +259,7 @@ Deno.test("optimizeDAG - keeps MCP tasks separate", () => {
         type: "mcp_tool",
         tool: "db:query",
         arguments: {},
-        dependsOn: []
+        dependsOn: [],
       },
       {
         id: "task_c1",
@@ -268,16 +268,16 @@ Deno.test("optimizeDAG - keeps MCP tasks separate", () => {
         code: "data.filter(x => x.active)",
         arguments: {},
         dependsOn: ["task_n1"],
-        sandboxConfig: { permissionSet: "minimal" }
+        sandboxConfig: { permissionSet: "minimal" },
       },
       {
         id: "task_n2",
         type: "mcp_tool",
         tool: "db:insert",
         arguments: {},
-        dependsOn: ["task_c1"]
-      }
-    ]
+        dependsOn: ["task_c1"],
+      },
+    ],
   };
 
   const optimized = optimizeDAG(logicalDAG);
@@ -299,7 +299,7 @@ Deno.test("optimizeDAG - handles fork points correctly", () => {
         code: "data.filter(x => x.active)",
         arguments: {},
         dependsOn: [],
-        sandboxConfig: { permissionSet: "minimal" }
+        sandboxConfig: { permissionSet: "minimal" },
       },
       {
         id: "task_c2",
@@ -307,8 +307,8 @@ Deno.test("optimizeDAG - handles fork points correctly", () => {
         tool: "code:map",
         code: "data.map(x => x.name)",
         arguments: {},
-        dependsOn: ["task_c1"],  // Depends on c1
-        sandboxConfig: { permissionSet: "minimal" }
+        dependsOn: ["task_c1"], // Depends on c1
+        sandboxConfig: { permissionSet: "minimal" },
       },
       {
         id: "task_c3",
@@ -316,10 +316,10 @@ Deno.test("optimizeDAG - handles fork points correctly", () => {
         tool: "code:reduce",
         code: "data.reduce((a,b) => a+b, 0)",
         arguments: {},
-        dependsOn: ["task_c1"],  // Also depends on c1 → FORK!
-        sandboxConfig: { permissionSet: "minimal" }
-      }
-    ]
+        dependsOn: ["task_c1"], // Also depends on c1 → FORK!
+        sandboxConfig: { permissionSet: "minimal" },
+      },
+    ],
   };
 
   const optimized = optimizeDAG(logicalDAG);
@@ -339,9 +339,9 @@ Deno.test("optimizeDAG - disabled optimization returns logical DAG", () => {
         code: "data.filter(x => x.active)",
         arguments: {},
         dependsOn: [],
-        sandboxConfig: { permissionSet: "minimal" }
-      }
-    ]
+        sandboxConfig: { permissionSet: "minimal" },
+      },
+    ],
   };
 
   const optimized = optimizeDAG(logicalDAG, { enabled: false });
@@ -361,8 +361,8 @@ Deno.test("optimizeDAG - respects maxFusionSize", () => {
       arguments: {},
       dependsOn: i === 0 ? [] : [`task_c${i}`],
       sandboxConfig: { permissionSet: "minimal" as const },
-      metadata: { pure: true }
-    }))
+      metadata: { pure: true },
+    })),
   };
 
   const optimized = optimizeDAG(logicalDAG, { maxFusionSize: 5 });

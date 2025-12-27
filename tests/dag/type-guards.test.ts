@@ -8,7 +8,7 @@
  */
 
 import { assertEquals } from "jsr:@std/assert@1";
-import { isDecisionCommand, type DecisionCommand } from "../../src/dag/loops/decision-waiter.ts";
+import { type DecisionCommand, isDecisionCommand } from "../../src/dag/loops/decision-waiter.ts";
 
 Deno.test("Type Guard: isDecisionCommand - H3 Fix Validation", async (t) => {
   await t.step("Valid DecisionCommand with all optional fields → true", () => {
@@ -178,7 +178,11 @@ Deno.test("Type Guard: isDecisionCommand - H3 Fix Validation", async (t) => {
     const result = isDecisionCommand(cmd);
     // Empty string is still a string, so type guard should accept it
     // Validation of specific command types happens elsewhere
-    assertEquals(result, true, "Should accept empty string type (validated later by command processor)");
+    assertEquals(
+      result,
+      true,
+      "Should accept empty string type (validated later by command processor)",
+    );
   });
 
   await t.step("Edge case: very long feedback string → true", () => {

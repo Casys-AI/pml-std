@@ -13,17 +13,17 @@
  * @since v1 refactor
  */
 
-import type { SHGATConfig, LevelParams } from "../types.ts";
+import type { LevelParams, SHGATConfig } from "../types.ts";
 import type { HeadParams } from "../initialization/parameters.ts";
 import { zerosLike2D } from "../initialization/parameters.ts";
 import * as math from "../utils/math.ts";
 import {
-  type MultiLevelGradientAccumulators,
-  type ExtendedMultiLevelForwardCache,
-  initMultiLevelGradients,
-  resetMultiLevelGradients,
   applyLevelGradients,
   computeGradientNorm,
+  type ExtendedMultiLevelForwardCache,
+  initMultiLevelGradients,
+  type MultiLevelGradientAccumulators,
+  resetMultiLevelGradients,
 } from "./multi-level-trainer.ts";
 
 // ============================================================================
@@ -93,9 +93,7 @@ export function initMultiLevelKHeadGradients(
   return {
     ...base,
     khead: { dW_q, dW_k },
-    dW_intent: Array.from({ length: hiddenDim }, () =>
-      Array(embeddingDim).fill(0)
-    ),
+    dW_intent: Array.from({ length: hiddenDim }, () => Array(embeddingDim).fill(0)),
   };
 }
 
@@ -117,8 +115,9 @@ export function resetMultiLevelKHeadGradients(
   }
 
   // Reset W_intent gradients
-  accum.dW_intent = Array.from({ length: config.hiddenDim }, () =>
-    Array(config.embeddingDim).fill(0)
+  accum.dW_intent = Array.from(
+    { length: config.hiddenDim },
+    () => Array(config.embeddingDim).fill(0),
   );
 }
 
@@ -446,7 +445,10 @@ export interface KHeadForwardContext {
   /** Projected intent */
   intentProjected: number[];
   /** Per-head scoring caches */
-  headCaches: Map<string, { scores: number[]; caches: Array<{ Q: number[]; K: number[]; dotQK: number }> }>;
+  headCaches: Map<
+    string,
+    { scores: number[]; caches: Array<{ Q: number[]; K: number[]; dotQK: number }> }
+  >;
 }
 
 /**
@@ -513,9 +515,7 @@ export async function trainMultiLevelKHeadBatch(
 
     // Backward pass through K-head scoring
     // dLoss/dScore = -(y/p) + (1-y)/(1-p)
-    const dLoss = example.outcome === 1
-      ? -1 / (predScore + 1e-7)
-      : 1 / (1 - predScore + 1e-7);
+    const dLoss = example.outcome === 1 ? -1 / (predScore + 1e-7) : 1 / (1 - predScore + 1e-7);
 
     const { dIntentProjected, dCapEmbedding: _dCapEmbedding } = backpropMultiHeadKHead(
       dLoss,

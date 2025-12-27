@@ -16,8 +16,8 @@ import type { DAGSuggester } from "../graphrag/dag-suggester.ts";
 import type {
   CapabilityFilters,
   CapabilityListResponseInternal,
-  CapabilityResponseInternal,
   CapabilityNode,
+  CapabilityResponseInternal,
   HypergraphOptions,
   HypergraphResponseInternal,
 } from "./types.ts";
@@ -380,7 +380,10 @@ export class CapabilityDataService {
                 source: edge.source,
                 target: edge.target,
                 edgeType: (edge.edge_type || "sequence") as "contains" | "sequence" | "dependency",
-                edgeSource: (edge.edge_source || "inferred") as "template" | "inferred" | "observed",
+                edgeSource: (edge.edge_source || "inferred") as
+                  | "template"
+                  | "inferred"
+                  | "observed",
                 observedCount: edge.observed_count || 1,
               },
             });
@@ -388,7 +391,9 @@ export class CapabilityDataService {
         }
         logger.debug("Added tool-to-tool edges from snapshot", {
           snapshotEdges: graphSnapshot.edges.length,
-          addedEdges: hypergraphResult.edges.filter((e) => e.data.id.startsWith("tool-edge-")).length,
+          addedEdges: hypergraphResult.edges.filter((e) =>
+            e.data.id.startsWith("tool-edge-")
+          ).length,
         });
       }
 
@@ -396,7 +401,7 @@ export class CapabilityDataService {
       if (includeTraces) {
         const traceStore = new ExecutionTraceStore(this.db);
         const capabilityNodes = hypergraphResult.nodes.filter(
-          (n): n is CapabilityNode => n.data.type === "capability"
+          (n): n is CapabilityNode => n.data.type === "capability",
         );
 
         // Fetch traces in parallel (limit 10 per capability for performance)

@@ -8,7 +8,7 @@
 
 import * as log from "@std/log";
 import type { RouteContext } from "../types.ts";
-import { jsonResponse, errorResponse } from "../types.ts";
+import { errorResponse, jsonResponse } from "../types.ts";
 
 // Rate limiting for metrics endpoint
 let lastMetricsCall = 0;
@@ -44,7 +44,9 @@ export async function handleMetrics(
     // Log if called too frequently (helps diagnose rapid polling issues)
     if (metricsCallCount > METRICS_MAX_CALLS_PER_WINDOW) {
       const origin = req.headers.get("Origin") || "unknown";
-      log.warn(`[/api/metrics] Rate limit warning: ${metricsCallCount} calls in 1s (origin: ${origin}, range: ${range})`);
+      log.warn(
+        `[/api/metrics] Rate limit warning: ${metricsCallCount} calls in 1s (origin: ${origin}, range: ${range})`,
+      );
     }
 
     // Validate range parameter

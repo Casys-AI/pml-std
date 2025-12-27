@@ -12,7 +12,8 @@ import type { MiniTool } from "./types.ts";
 export const transformTools: MiniTool[] = [
   {
     name: "transform_csv_parse",
-    description: "Parse CSV string into array of objects with automatic type conversion. Supports custom delimiters, header detection, and empty line handling. Use for importing spreadsheet data, processing exports, or data ingestion. Keywords: parse CSV, CSV to JSON, read CSV, import spreadsheet, CSV parser, comma separated.",
+    description:
+      "Parse CSV string into array of objects with automatic type conversion. Supports custom delimiters, header detection, and empty line handling. Use for importing spreadsheet data, processing exports, or data ingestion. Keywords: parse CSV, CSV to JSON, read CSV, import spreadsheet, CSV parser, comma separated.",
     category: "transform",
     inputSchema: {
       type: "object",
@@ -25,7 +26,9 @@ export const transformTools: MiniTool[] = [
       },
       required: ["csv"],
     },
-    handler: ({ csv, header = true, delimiter = ",", skipEmptyLines = true, dynamicTyping = true }) => {
+    handler: (
+      { csv, header = true, delimiter = ",", skipEmptyLines = true, dynamicTyping = true },
+    ) => {
       const result = Papa.parse(csv as string, {
         header: header as boolean,
         delimiter: delimiter as string,
@@ -42,7 +45,8 @@ export const transformTools: MiniTool[] = [
   },
   {
     name: "transform_csv_stringify",
-    description: "Convert array of objects to CSV string with configurable options. Control headers, delimiters, column selection, and quoting. Use for data export, report generation, or spreadsheet creation. Keywords: to CSV, export CSV, array to CSV, generate CSV, create spreadsheet, CSV writer.",
+    description:
+      "Convert array of objects to CSV string with configurable options. Control headers, delimiters, column selection, and quoting. Use for data export, report generation, or spreadsheet creation. Keywords: to CSV, export CSV, array to CSV, generate CSV, create spreadsheet, CSV writer.",
     category: "transform",
     inputSchema: {
       type: "object",
@@ -71,7 +75,8 @@ export const transformTools: MiniTool[] = [
   },
   {
     name: "transform_json_to_csv",
-    description: "Convert JSON array to CSV with optional nested object flattening. Transforms complex JSON data into flat CSV format. Use for exporting API data, generating reports, or data interchange. Keywords: JSON to CSV, export JSON, flatten to CSV, convert JSON, data export, JSON CSV.",
+    description:
+      "Convert JSON array to CSV with optional nested object flattening. Transforms complex JSON data into flat CSV format. Use for exporting API data, generating reports, or data interchange. Keywords: JSON to CSV, export JSON, flatten to CSV, convert JSON, data export, JSON CSV.",
     category: "transform",
     inputSchema: {
       type: "object",
@@ -86,7 +91,10 @@ export const transformTools: MiniTool[] = [
       let data = typeof json === "string" ? JSON.parse(json as string) : json;
 
       if (flatten) {
-        const flattenObject = (obj: Record<string, unknown>, prefix = ""): Record<string, unknown> => {
+        const flattenObject = (
+          obj: Record<string, unknown>,
+          prefix = "",
+        ): Record<string, unknown> => {
           const result: Record<string, unknown> = {};
           for (const [key, value] of Object.entries(obj)) {
             const newKey = prefix ? `${prefix}.${key}` : key;
@@ -100,7 +108,9 @@ export const transformTools: MiniTool[] = [
         };
 
         data = (data as unknown[]).map((item) =>
-          typeof item === "object" && item !== null ? flattenObject(item as Record<string, unknown>) : item
+          typeof item === "object" && item !== null
+            ? flattenObject(item as Record<string, unknown>)
+            : item
         );
       }
 
@@ -109,7 +119,8 @@ export const transformTools: MiniTool[] = [
   },
   {
     name: "transform_csv_to_json",
-    description: "Convert CSV to JSON array with automatic type detection (numbers, booleans). Parse spreadsheet data into structured objects. Use for data import, processing CSV files, or ETL pipelines. Keywords: CSV to JSON, parse CSV, import CSV, CSV parser, spreadsheet to JSON, data import.",
+    description:
+      "Convert CSV to JSON array with automatic type detection (numbers, booleans). Parse spreadsheet data into structured objects. Use for data import, processing CSV files, or ETL pipelines. Keywords: CSV to JSON, parse CSV, import CSV, CSV parser, spreadsheet to JSON, data import.",
     category: "transform",
     inputSchema: {
       type: "object",
@@ -130,7 +141,8 @@ export const transformTools: MiniTool[] = [
   },
   {
     name: "transform_xml_to_json",
-    description: "Convert XML to JSON object structure. Parse XML elements, attributes, and text content into nested objects. Handles basic XML structures for data extraction. Use for API integration, config parsing, or legacy data. Keywords: XML to JSON, parse XML, XML parser, convert XML, read XML, XML object.",
+    description:
+      "Convert XML to JSON object structure. Parse XML elements, attributes, and text content into nested objects. Handles basic XML structures for data extraction. Use for API integration, config parsing, or legacy data. Keywords: XML to JSON, parse XML, XML parser, convert XML, read XML, XML object.",
     category: "transform",
     inputSchema: {
       type: "object",
@@ -197,7 +209,8 @@ export const transformTools: MiniTool[] = [
   },
   {
     name: "transform_json_to_xml",
-    description: "Convert JSON object to XML string with proper formatting. Handles nested objects, arrays, and attributes (@-prefixed keys). Configurable root element and indentation. Use for API output, config generation, or data export. Keywords: JSON to XML, generate XML, create XML, convert to XML, XML output, build XML.",
+    description:
+      "Convert JSON object to XML string with proper formatting. Handles nested objects, arrays, and attributes (@-prefixed keys). Configurable root element and indentation. Use for API output, config generation, or data export. Keywords: JSON to XML, generate XML, create XML, convert to XML, XML output, build XML.",
     category: "transform",
     inputSchema: {
       type: "object",
@@ -259,7 +272,8 @@ export const transformTools: MiniTool[] = [
   },
   {
     name: "transform_base64",
-    description: "Encode or decode base64 strings. Convert binary data or text to base64 for transmission, or decode base64 back to original. Use for data URI creation, API payloads, or embedded content. Keywords: base64 encode, base64 decode, btoa atob, binary to text, encode string, data URI.",
+    description:
+      "Encode or decode base64 strings. Convert binary data or text to base64 for transmission, or decode base64 back to original. Use for data URI creation, API payloads, or embedded content. Keywords: base64 encode, base64 decode, btoa atob, binary to text, encode string, data URI.",
     category: "transform",
     inputSchema: {
       type: "object",
@@ -278,7 +292,8 @@ export const transformTools: MiniTool[] = [
   },
   {
     name: "transform_template",
-    description: "Simple template string replacement using {{placeholder}} syntax. Replace placeholders with values from a data object. Use for email templates, dynamic content, or string interpolation. Keywords: template replace, string interpolation, placeholder, mustache, variable substitution, template engine.",
+    description:
+      "Simple template string replacement using {{placeholder}} syntax. Replace placeholders with values from a data object. Use for email templates, dynamic content, or string interpolation. Keywords: template replace, string interpolation, placeholder, mustache, variable substitution, template engine.",
     category: "transform",
     inputSchema: {
       type: "object",

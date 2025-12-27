@@ -12,7 +12,15 @@
 
 import { ParallelExecutor } from "./executor.ts";
 import type { DAGStructure, Task } from "../graphrag/types.ts";
-import { PermissionEscalationNeeded, type DAGExecutionResult, type ExecutionEvent, type ExecutorConfig, type TaskError, type TaskResult, type ToolExecutor } from "./types.ts";
+import {
+  type DAGExecutionResult,
+  type ExecutionEvent,
+  type ExecutorConfig,
+  PermissionEscalationNeeded,
+  type TaskError,
+  type TaskResult,
+  type ToolExecutor,
+} from "./types.ts";
 import { EventStream, type EventStreamStats } from "./event-stream.ts";
 import { CommandQueue, type CommandQueueStats } from "./command-queue.ts";
 import {
@@ -27,10 +35,22 @@ import type { DbClient } from "../db/types.ts";
 import { getLogger } from "../telemetry/logger.ts";
 import type { DAGSuggester } from "../graphrag/dag-suggester.ts";
 import type { EpisodicMemoryStore } from "../learning/episodic-memory-store.ts";
-import type { CompletedTask, SpeculationCache, SpeculationConfig, SpeculationMetrics } from "../graphrag/types.ts";
-import type { JsonValue, PermissionEscalationRequest, PermissionSet } from "../capabilities/types.ts";
+import type {
+  CompletedTask,
+  SpeculationCache,
+  SpeculationConfig,
+  SpeculationMetrics,
+} from "../graphrag/types.ts";
+import type {
+  JsonValue,
+  PermissionEscalationRequest,
+  PermissionSet,
+} from "../capabilities/types.ts";
 import type { PermissionAuditStore } from "../capabilities/permission-audit-store.ts";
-import { PermissionEscalationHandler, formatEscalationRequest } from "../capabilities/permission-escalation-handler.ts";
+import {
+  formatEscalationRequest,
+  PermissionEscalationHandler,
+} from "../capabilities/permission-escalation-handler.ts";
 import { suggestEscalation } from "../capabilities/permission-escalation.ts";
 import type { CapabilityStore } from "../capabilities/capability-store.ts";
 import type { GraphRAGEngine } from "../graphrag/graph-engine.ts";
@@ -38,30 +58,41 @@ import type { Command } from "./types.ts";
 
 // Import extracted modules
 import {
-  type CaptureContext,
-  captureTaskComplete,
   captureAILDecision,
+  type CaptureContext,
   captureHILDecision,
   captureSpeculationStart,
+  captureTaskComplete,
 } from "./episodic/capture.ts";
 import { waitForDecisionCommand } from "./loops/decision-waiter.ts";
-import { shouldRequireApproval, generateHILSummary } from "./loops/hil-handler.ts";
-import { shouldTriggerAIL, MAX_REPLANS } from "./loops/ail-handler.ts";
+import { generateHILSummary, shouldRequireApproval } from "./loops/hil-handler.ts";
+import { MAX_REPLANS, shouldTriggerAIL } from "./loops/ail-handler.ts";
 import {
-  type SpeculationState,
-  createSpeculationState,
-  enableSpeculation as enableSpeculationState,
-  disableSpeculation as disableSpeculationState,
-  startSpeculativeExecution,
   checkSpeculativeCache,
   consumeSpeculation as consumeSpeculationFromState,
+  createSpeculationState,
+  disableSpeculation as disableSpeculationState,
+  enableSpeculation as enableSpeculationState,
   getSpeculationMetrics as getSpeculationMetricsFromState,
+  type SpeculationState,
+  startSpeculativeExecution,
   updateLastCompletedTool,
 } from "./speculation/integration.ts";
-import { saveCheckpointAfterLayer, loadCheckpoint, calculateResumeProgress } from "./checkpoints/integration.ts";
-import { isSafeToFail, getTaskType } from "./execution/task-router.ts";
-import { executeCodeTask, executeWithRetry, type CodeExecutorDeps } from "./execution/code-executor.ts";
-import { executeCapabilityTask, getCapabilityPermissionSet } from "./execution/capability-executor.ts";
+import {
+  calculateResumeProgress,
+  loadCheckpoint,
+  saveCheckpointAfterLayer,
+} from "./checkpoints/integration.ts";
+import { getTaskType, isSafeToFail } from "./execution/task-router.ts";
+import {
+  type CodeExecutorDeps,
+  executeCodeTask,
+  executeWithRetry,
+} from "./execution/code-executor.ts";
+import {
+  executeCapabilityTask,
+  getCapabilityPermissionSet,
+} from "./execution/capability-executor.ts";
 import { isPermissionError } from "./permissions/escalation-integration.ts";
 import { resolveDependencies } from "./execution/dependency-resolver.ts";
 
@@ -126,7 +157,10 @@ export class ControlledExecutor extends ParallelExecutor {
   ): void {
     this.capabilityStore = capabilityStore;
     this.graphRAG = graphRAG;
-    log.debug("Learning dependencies set", { hasCapabilityStore: !!capabilityStore, hasGraphRAG: !!graphRAG });
+    log.debug("Learning dependencies set", {
+      hasCapabilityStore: !!capabilityStore,
+      hasGraphRAG: !!graphRAG,
+    });
   }
 
   /**
@@ -166,7 +200,11 @@ export class ControlledExecutor extends ParallelExecutor {
   // ═══════════════════════════════════════════════════════════════════════════
 
   enableSpeculation(config?: Partial<SpeculationConfig>): void {
-    this.speculationState = enableSpeculationState(this.speculationState, this.dagSuggester, config);
+    this.speculationState = enableSpeculationState(
+      this.speculationState,
+      this.dagSuggester,
+      config,
+    );
   }
 
   disableSpeculation(): void {
@@ -434,7 +472,9 @@ export class ControlledExecutor extends ParallelExecutor {
           await this.eventStream.close();
           return this.state!;
         }
-        log.debug(`[perLayerValidation] Continue command received, proceeding to layer ${layerIdx + 1}`);
+        log.debug(
+          `[perLayerValidation] Continue command received, proceeding to layer ${layerIdx + 1}`,
+        );
       }
 
       // AIL Decision Point (Deferred Pattern: yield event BEFORE waiting for response)
@@ -543,8 +583,8 @@ export class ControlledExecutor extends ParallelExecutor {
           parallelizationLayers: 0,
           errors,
           totalTasks: results.length,
-          successfulTasks: results.filter(r => r.status === "success").length,
-          failedTasks: results.filter(r => r.status === "error").length + 1, // +1 for approval error
+          successfulTasks: results.filter((r) => r.status === "success").length,
+          failedTasks: results.filter((r) => r.status === "error").length + 1, // +1 for approval error
         };
       }
     }
@@ -658,7 +698,10 @@ export class ControlledExecutor extends ParallelExecutor {
       successfulTasks += layerSuccess;
       failedTasks += layerFailed;
 
-      const stateUpdate: StateUpdate = { currentLayer: actualLayerIdx, tasks: layerTaskResults.tasks };
+      const stateUpdate: StateUpdate = {
+        currentLayer: actualLayerIdx,
+        tasks: layerTaskResults.tasks,
+      };
       this.state = updateState(this.state!, stateUpdate);
 
       const stateEvent: ExecutionEvent = {
@@ -720,7 +763,10 @@ export class ControlledExecutor extends ParallelExecutor {
     previousResults: Map<string, TaskResult>,
   ): Promise<{ output: unknown; executionTimeMs: number }> {
     const taskType = getTaskType(task);
-    const deps: CodeExecutorDeps = { capabilityStore: this.capabilityStore, graphRAG: this.graphRAG };
+    const deps: CodeExecutorDeps = {
+      capabilityStore: this.capabilityStore,
+      graphRAG: this.graphRAG,
+    };
 
     if (taskType === "code_execution") {
       // Phase 1: Use WorkerBridge for pseudo-tool tracing if available
@@ -843,7 +889,10 @@ export class ControlledExecutor extends ParallelExecutor {
         this.capabilityStore &&
         task.capabilityId
       ) {
-        const currentSet = await getCapabilityPermissionSet(this.capabilityStore, task.capabilityId);
+        const currentSet = await getCapabilityPermissionSet(
+          this.capabilityStore,
+          task.capabilityId,
+        );
         const executionId = `${this.state?.workflowId ?? "unknown"}-${task.id}`;
         const result = await this.permissionEscalationHandler.handlePermissionError(
           task.capabilityId,
@@ -879,14 +928,18 @@ export class ControlledExecutor extends ParallelExecutor {
   ): null {
     const currentPermissionSet: PermissionSet =
       (task.sandboxConfig?.permissionSet as PermissionSet) ?? "minimal";
-    log.info(`[HIL-DEBUG] Checking escalation for task ${task.id}, currentSet=${currentPermissionSet}`);
+    log.info(
+      `[HIL-DEBUG] Checking escalation for task ${task.id}, currentSet=${currentPermissionSet}`,
+    );
     const suggestion = suggestEscalation(errorMessage, task.id, currentPermissionSet);
 
     if (!suggestion) {
       log.info(`[HIL-DEBUG] No escalation suggestion for task ${task.id}`);
       return null;
     }
-    log.info(`[HIL-DEBUG] Escalation suggested: ${currentPermissionSet} -> ${suggestion.requestedSet}`);
+    log.info(
+      `[HIL-DEBUG] Escalation suggested: ${currentPermissionSet} -> ${suggestion.requestedSet}`,
+    );
 
     // Throw instead of blocking - will be caught at layer boundary
     throw new PermissionEscalationNeeded(
@@ -915,7 +968,11 @@ export class ControlledExecutor extends ParallelExecutor {
     escalations: { index: number; error: PermissionEscalationNeeded; event: ExecutionEvent }[];
     events: ExecutionEvent[];
   } {
-    const escalations: { index: number; error: PermissionEscalationNeeded; event: ExecutionEvent }[] = [];
+    const escalations: {
+      index: number;
+      error: PermissionEscalationNeeded;
+      event: ExecutionEvent;
+    }[] = [];
     const events: ExecutionEvent[] = [];
 
     for (let i = 0; i < layerResults.length; i++) {
@@ -933,7 +990,8 @@ export class ControlledExecutor extends ParallelExecutor {
           timestamp: Date.now(),
           workflowId,
           decisionType: "HIL",
-          description: `[Task: ${task.id}] Permission denied: ${error.detectedOperation} access requires ${error.requestedSet}. ${suggestion}`,
+          description:
+            `[Task: ${task.id}] Permission denied: ${error.detectedOperation} access requires ${error.requestedSet}. ${suggestion}`,
           checkpointId: `perm-esc-${task.id}`,
           context: {
             taskId: task.id,
@@ -996,7 +1054,11 @@ export class ControlledExecutor extends ParallelExecutor {
 
       log.info(`Waiting for HIL approval for task ${task.id} permission escalation`);
 
-      const command = await waitForDecisionCommand(this.commandQueue, "HIL", this.getTimeout("hil"));
+      const command = await waitForDecisionCommand(
+        this.commandQueue,
+        "HIL",
+        this.getTimeout("hil"),
+      );
 
       if (!command) {
         log.warn(`Permission escalation timeout for task ${task.id}`);
@@ -1008,10 +1070,13 @@ export class ControlledExecutor extends ParallelExecutor {
       }
 
       if (
-        (command.type === "permission_escalation_response" || command.type === "approval_response") &&
+        (command.type === "permission_escalation_response" ||
+          command.type === "approval_response") &&
         command.approved
       ) {
-        log.info(`Permission escalation approved for task ${task.id}, re-executing with ${error.requestedSet}`);
+        log.info(
+          `Permission escalation approved for task ${task.id}, re-executing with ${error.requestedSet}`,
+        );
 
         try {
           const deps: CodeExecutorDeps = {
@@ -1027,7 +1092,12 @@ export class ControlledExecutor extends ParallelExecutor {
             },
           };
 
-          const result = await executeCodeTask(updatedTask, previousResults, deps, error.requestedSet as PermissionSet);
+          const result = await executeCodeTask(
+            updatedTask,
+            previousResults,
+            deps,
+            error.requestedSet as PermissionSet,
+          );
           updatedResults[index] = { status: "fulfilled", value: result };
           log.info(`Task ${task.id} re-execution successful after escalation`);
         } catch (retryError) {
@@ -1041,7 +1111,11 @@ export class ControlledExecutor extends ParallelExecutor {
         log.info(`Permission escalation rejected for task ${task.id}`);
         updatedResults[index] = {
           status: "rejected",
-          reason: new Error(`Permission escalation rejected for task ${task.id}: ${command.feedback ?? "User rejected"}`),
+          reason: new Error(
+            `Permission escalation rejected for task ${task.id}: ${
+              command.feedback ?? "User rejected"
+            }`,
+          ),
         };
       }
     }
@@ -1123,7 +1197,14 @@ export class ControlledExecutor extends ParallelExecutor {
         await this.eventStream.emit(completeEvent);
         events.push(completeEvent);
 
-        captureTaskComplete(ctx, workflowId, task.id, "success", result.value.output, result.value.executionTimeMs);
+        captureTaskComplete(
+          ctx,
+          workflowId,
+          task.id,
+          "success",
+          result.value.output,
+          result.value.executionTimeMs,
+        );
         this.speculationState = updateLastCompletedTool(this.speculationState, task.tool);
       } else {
         const errorMsg = result.reason?.message || String(result.reason);
@@ -1131,7 +1212,13 @@ export class ControlledExecutor extends ParallelExecutor {
 
         if (isSafe) {
           log.warn(`Safe-to-fail task ${task.id} failed (continuing): ${errorMsg}`);
-          const taskResult: TaskResult = { taskId: task.id, status: "failed_safe" as const, output: null, error: errorMsg, layerIndex: layerIdx };
+          const taskResult: TaskResult = {
+            taskId: task.id,
+            status: "failed_safe" as const,
+            output: null,
+            error: errorMsg,
+            layerIndex: layerIdx,
+          };
           results.set(task.id, taskResult);
           tasks.push(taskResult);
 
@@ -1149,7 +1236,12 @@ export class ControlledExecutor extends ParallelExecutor {
           captureTaskComplete(ctx, workflowId, task.id, "failed_safe", null, undefined, errorMsg);
         } else {
           layerFailed++;
-          const taskResult: TaskResult = { taskId: task.id, status: "error", error: errorMsg, layerIndex: layerIdx };
+          const taskResult: TaskResult = {
+            taskId: task.id,
+            status: "error",
+            error: errorMsg,
+            layerIndex: layerIdx,
+          };
           results.set(task.id, taskResult);
           tasks.push(taskResult);
 
@@ -1171,7 +1263,10 @@ export class ControlledExecutor extends ParallelExecutor {
     return { layerTaskResults: { tasks, events }, layerSuccess, layerFailed };
   }
 
-  private async saveCheckpoint(workflowId: string, layerIdx: number): Promise<ExecutionEvent | null> {
+  private async saveCheckpoint(
+    workflowId: string,
+    layerIdx: number,
+  ): Promise<ExecutionEvent | null> {
     if (!this.checkpointManager || !this.state) return null;
     const checkpointId = await saveCheckpointAfterLayer(
       this.checkpointManager,
@@ -1236,18 +1331,24 @@ export class ControlledExecutor extends ParallelExecutor {
     const command = await waitForDecisionCommand(this.commandQueue, "AIL", this.getTimeout("ail"));
 
     if (!command || command.type === "continue") {
-      captureAILDecision(ctx, workflowId, "continue", "Agent decision: continue", { reason: command?.reason || "default" });
+      captureAILDecision(ctx, workflowId, "continue", "Agent decision: continue", {
+        reason: command?.reason || "default",
+      });
       return {};
     }
 
     if (command.type === "abort") {
-      captureAILDecision(ctx, workflowId, "abort", "Agent decision: abort", { reason: command.reason });
+      captureAILDecision(ctx, workflowId, "abort", "Agent decision: abort", {
+        reason: command.reason,
+      });
       throw new Error(`Workflow aborted by agent: ${command.reason}`);
     }
 
     if (command.type === "replan_dag" && this.dagSuggester) {
       if (this.replanCount >= MAX_REPLANS) {
-        captureAILDecision(ctx, workflowId, "replan_rejected", "Rate limit reached", { max_replans: MAX_REPLANS });
+        captureAILDecision(ctx, workflowId, "replan_rejected", "Rate limit reached", {
+          max_replans: MAX_REPLANS,
+        });
         return {};
       }
 
@@ -1261,11 +1362,15 @@ export class ControlledExecutor extends ParallelExecutor {
         if (augmentedDAG.tasks.length !== dag.tasks.length) {
           const newLayers = this.topologicalSort(augmentedDAG);
           this.replanCount++;
-          captureAILDecision(ctx, workflowId, "replan_success", "DAG replanned", { replan_count: this.replanCount });
+          captureAILDecision(ctx, workflowId, "replan_success", "DAG replanned", {
+            replan_count: this.replanCount,
+          });
           return { newLayers, newDag: augmentedDAG };
         }
       } catch (error) {
-        captureAILDecision(ctx, workflowId, "replan_failed", "Replan failed", { error: String(error) });
+        captureAILDecision(ctx, workflowId, "replan_failed", "Replan failed", {
+          error: String(error),
+        });
       }
     }
 
@@ -1325,7 +1430,12 @@ export class ControlledExecutor extends ParallelExecutor {
     }
   }
 
-  private updateGraphRAG(workflowId: string, dag: DAGStructure, totalTime: number, failedTasks: number): void {
+  private updateGraphRAG(
+    workflowId: string,
+    dag: DAGStructure,
+    totalTime: number,
+    failedTasks: number,
+  ): void {
     if (!this.dagSuggester) return;
 
     try {

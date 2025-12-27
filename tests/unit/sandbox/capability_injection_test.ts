@@ -10,12 +10,7 @@
  * NOTE: Requires --unstable-broadcast-channel and --unstable-worker-options flags
  */
 
-import {
-  assertEquals,
-  assertExists,
-  assertLess,
-  assertStringIncludes,
-} from "@std/assert";
+import { assertEquals, assertExists, assertLess, assertStringIncludes } from "@std/assert";
 import { WorkerBridge } from "../../../src/sandbox/worker-bridge.ts";
 import { CapabilityCodeGenerator } from "../../../src/capabilities/code-generator.ts";
 import type { MCPClient } from "../../../src/mcp/client.ts";

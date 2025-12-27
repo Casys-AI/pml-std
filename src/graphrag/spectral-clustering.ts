@@ -18,9 +18,9 @@ import { EigenvalueDecomposition, Matrix } from "ml-matrix";
 import { getLogger } from "../telemetry/logger.ts";
 import type { CapabilityDependency } from "../capabilities/types.ts";
 import {
-  type SpectralClusteringConfig,
   DEFAULT_SPECTRAL_CLUSTERING_CONFIG,
   loadSpectralClusteringConfig,
+  type SpectralClusteringConfig,
 } from "./spectral-clustering-config.ts";
 
 const logger = getLogger("default");
@@ -78,7 +78,8 @@ export class SpectralClusteringManager {
 
   // Issue #7: Cache for cluster assignments
   private static cache: ClusterCache | null = null;
-  private static cacheTtlMs: number = DEFAULT_SPECTRAL_CLUSTERING_CONFIG.cache.ttlMinutes * 60 * 1000;
+  private static cacheTtlMs: number = DEFAULT_SPECTRAL_CLUSTERING_CONFIG.cache.ttlMinutes * 60 *
+    1000;
 
   /**
    * Initialize configuration from YAML file

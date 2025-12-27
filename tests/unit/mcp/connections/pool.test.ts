@@ -4,7 +4,7 @@
  * @module tests/unit/mcp/connections/pool.test
  */
 
-import { assertEquals, assertRejects, assertExists } from "jsr:@std/assert@1";
+import { assertEquals, assertExists, assertRejects } from "jsr:@std/assert@1";
 import { ConnectionPool } from "../../../../src/mcp/connections/pool.ts";
 import type { MCPClientBase } from "../../../../src/mcp/types.ts";
 

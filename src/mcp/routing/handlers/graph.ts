@@ -8,14 +8,14 @@
 
 import * as log from "@std/log";
 import type { RouteContext } from "../types.ts";
-import { jsonResponse, errorResponse } from "../types.ts";
+import { errorResponse, jsonResponse } from "../types.ts";
 import type {
-  GraphNode,
-  GraphEdge,
   CapabilityNode,
-  ToolInvocationNode,
-  SequenceEdge,
+  GraphEdge,
+  GraphNode,
   HypergraphOptions,
+  SequenceEdge,
+  ToolInvocationNode,
 } from "../../../capabilities/types.ts";
 
 /**
@@ -175,7 +175,9 @@ function mapNodeData(node: GraphNode): Record<string, unknown> {
         traces: capNode.data.traces?.map((trace) => ({
           id: trace.id,
           capability_id: trace.capabilityId,
-          executed_at: trace.executedAt instanceof Date ? trace.executedAt.toISOString() : trace.executedAt,
+          executed_at: trace.executedAt instanceof Date
+            ? trace.executedAt.toISOString()
+            : trace.executedAt,
           success: trace.success,
           duration_ms: trace.durationMs,
           error_message: trace.errorMessage,
@@ -383,7 +385,7 @@ async function generateETag(body: string): Promise<string> {
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   // Use first 16 bytes for shorter ETag
-  return hashArray.slice(0, 16).map(b => b.toString(16).padStart(2, "0")).join("");
+  return hashArray.slice(0, 16).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 /**

@@ -1,6 +1,8 @@
 # MCP Gateway Integration Tests
 
-Comprehensive integration test suite for the MCP Gateway HTTP server, following the test plan documented in `/home/ubuntu/CascadeProjects/AgentCards/docs/sprint-artifacts/integration-test-plan-mcp-gateway.md`.
+Comprehensive integration test suite for the MCP Gateway HTTP server, following the test plan
+documented in
+`/home/ubuntu/CascadeProjects/AgentCards/docs/sprint-artifacts/integration-test-plan-mcp-gateway.md`.
 
 ## Test Structure
 
@@ -23,11 +25,13 @@ tests/integration/mcp-gateway/
 ## Running Tests
 
 ### Run All Tests
+
 ```bash
 deno test tests/integration/mcp-gateway/ --allow-all
 ```
 
 ### Run Specific Test Category
+
 ```bash
 # Lifecycle tests
 deno test tests/integration/mcp-gateway/01-lifecycle.test.ts --allow-all
@@ -61,11 +65,13 @@ deno test tests/integration/mcp-gateway/10-edge-cases.test.ts --allow-all
 ```
 
 ### Run Specific Test
+
 ```bash
 deno test tests/integration/mcp-gateway/ --allow-all --filter "LIFECYCLE-001"
 ```
 
 ### Run with Coverage
+
 ```bash
 deno test tests/integration/mcp-gateway/ --allow-all --coverage=coverage
 deno coverage coverage
@@ -74,6 +80,7 @@ deno coverage coverage
 ## Test Categories
 
 ### 1. Lifecycle Tests (5 tests)
+
 - LIFECYCLE-001: HTTP server startup
 - LIFECYCLE-002: HTTP server shutdown
 - LIFECYCLE-003: Multiple start/stop cycles
@@ -81,6 +88,7 @@ deno coverage coverage
 - LIFECYCLE-005: Concurrent startup requests
 
 ### 2. Authentication Tests (7 tests)
+
 - AUTH-001: Local mode - auth bypass
 - AUTH-002: Cloud mode - API key required
 - AUTH-003: Cloud mode - valid API key
@@ -90,6 +98,7 @@ deno coverage coverage
 - AUTH-007: Multiple auth headers
 
 ### 3. Rate Limiting Tests (7 tests)
+
 - RATE-001: MCP endpoint rate limit
 - RATE-002: API endpoint rate limit
 - RATE-003: Rate limit key isolation
@@ -99,6 +108,7 @@ deno coverage coverage
 - RATE-007: Different endpoints have different limits
 
 ### 4. CORS Tests (6 tests)
+
 - CORS-001: Preflight request
 - CORS-002: CORS headers on actual requests
 - CORS-003: CORS origin configuration
@@ -107,6 +117,7 @@ deno coverage coverage
 - CORS-006: Wildcard vs specific origin
 
 ### 5. API Endpoint Tests (15 tests)
+
 - API-001: Health check endpoint
 - API-002: Graph snapshot endpoint
 - API-003: Graph path finding endpoint
@@ -124,6 +135,7 @@ deno coverage coverage
 - API-015: Not found
 
 ### 6. JSON-RPC Protocol Tests (12 tests)
+
 - JSONRPC-001: Initialize handshake
 - JSONRPC-002: Initialized notification
 - JSONRPC-003: Tools list via JSON-RPC
@@ -138,6 +150,7 @@ deno coverage coverage
 - JSONRPC-012: Tool execution failure
 
 ### 7. SSE Event Tests (12 tests)
+
 - SSE-001: Connection establishment
 - SSE-002: Event broadcasting (slow test)
 - SSE-003: Event filtering
@@ -152,6 +165,7 @@ deno coverage coverage
 - SSE-012: Rapid connect/disconnect
 
 ### 8. Error Handling Tests (10 tests)
+
 - ERROR-001: EventsStreamManager initialization failure
 - ERROR-002: GraphEngine failure
 - ERROR-003: CapabilityDataService unavailable
@@ -164,6 +178,7 @@ deno coverage coverage
 - ERROR-010: Server recovers from transient errors
 
 ### 9. Concurrency Tests (7 tests)
+
 - CONCURRENCY-001: Concurrent API requests
 - CONCURRENCY-002: Concurrent JSON-RPC calls
 - CONCURRENCY-003: Mixed traffic pattern
@@ -173,6 +188,7 @@ deno coverage coverage
 - CONCURRENCY-007: Concurrent requests to different endpoints
 
 ### 10. Edge Case Tests (12 tests)
+
 - EDGE-001: Empty database
 - EDGE-002: Very large graph (slow test)
 - EDGE-003: Query parameter edge cases
@@ -205,17 +221,21 @@ The `fixtures/gateway-test-helpers.ts` file provides:
 ## Test Configuration
 
 ### Environment Variables
+
 - `GITHUB_CLIENT_ID`: Set to enable cloud mode (API key required)
 - `DOMAIN`: Custom domain for CORS configuration
 - `FRESH_PORT`: Dashboard port (default: 8081)
 
 ### Slow Tests
+
 Some tests are marked with `ignore: true` because they:
+
 - Require significant time (e.g., waiting for rate limit reset)
 - Are resource-intensive (e.g., 100+ SSE connections)
 - Require external dependencies or specific setup
 
 To run slow tests:
+
 ```bash
 deno test tests/integration/mcp-gateway/ --allow-all --ignore=false
 ```
@@ -242,13 +262,17 @@ deno test tests/integration/mcp-gateway/ --allow-all --ignore=false
 2. **Cleanup**: All tests properly clean up resources (close connections, stop servers)
 3. **Realistic Testing**: Tests use actual HTTP server, not mocked transports
 4. **Authentication**: Tests cover both local mode (auth bypass) and cloud mode (API key required)
-5. **Rate Limiting**: Rate limit tests use smaller sample sizes to keep tests fast while verifying behavior
-6. **SSE Tests**: Some SSE tests are marked as slow due to heartbeat intervals and event triggering requirements
+5. **Rate Limiting**: Rate limit tests use smaller sample sizes to keep tests fast while verifying
+   behavior
+6. **SSE Tests**: Some SSE tests are marked as slow due to heartbeat intervals and event triggering
+   requirements
 
 ## Troubleshooting
 
 ### Port Already in Use
+
 If you see "Address already in use" errors:
+
 ```bash
 # Kill any processes using test ports
 pkill -f "deno test"
@@ -259,13 +283,17 @@ deno test tests/integration/mcp-gateway/ --allow-all
 ```
 
 ### Database Connection Issues
+
 Tests create temporary in-memory databases. If you see database errors:
+
 - Ensure PGlite dependencies are installed
 - Check that migrations are up to date
 - Verify sufficient memory is available
 
 ### Test Timeouts
+
 Some tests (especially concurrency tests) may timeout on slow systems:
+
 ```bash
 # Increase timeout
 deno test tests/integration/mcp-gateway/ --allow-all --timeout=60000
@@ -274,6 +302,7 @@ deno test tests/integration/mcp-gateway/ --allow-all --timeout=60000
 ## Contributing
 
 When adding new tests:
+
 1. Follow the existing test ID convention (e.g., `CATEGORY-NNN`)
 2. Add test description in the file header
 3. Update this README with the new test

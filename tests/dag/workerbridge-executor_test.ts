@@ -12,9 +12,9 @@
 
 import { assertEquals, assertExists, assertRejects } from "@std/assert";
 import {
-  createToolExecutorViaWorker,
-  createSimpleToolExecutorViaWorker,
   cleanupWorkerBridgeExecutor,
+  createSimpleToolExecutorViaWorker,
+  createToolExecutorViaWorker,
 } from "../../src/dag/execution/workerbridge-executor.ts";
 import type { MCPClientBase } from "../../src/mcp/types.ts";
 
@@ -31,11 +31,12 @@ function createMockMCPClient(
     serverName: serverId,
     connect: async () => {},
     disconnect: async () => {},
-    listTools: async () => tools.map((t) => ({
-      name: t.name,
-      description: t.description,
-      inputSchema: { type: "object" },
-    })),
+    listTools: async () =>
+      tools.map((t) => ({
+        name: t.name,
+        description: t.description,
+        inputSchema: { type: "object" },
+      })),
     callTool: async (name: string, args: Record<string, unknown>) => {
       if (callHandler) {
         return await callHandler(name, args);
@@ -112,10 +113,13 @@ Deno.test("cleanupWorkerBridgeExecutor - cleans up resources", () => {
 
 Deno.test("createToolExecutorViaWorker - with tool definitions", () => {
   const mcpClients = new Map<string, MCPClientBase>();
-  mcpClients.set("filesystem", createMockMCPClient("filesystem", [
-    { name: "read_file", description: "Read file contents" },
-    { name: "write_file", description: "Write file contents" },
-  ]));
+  mcpClients.set(
+    "filesystem",
+    createMockMCPClient("filesystem", [
+      { name: "read_file", description: "Read file contents" },
+      { name: "write_file", description: "Write file contents" },
+    ]),
+  );
 
   const toolDefs = [
     {
@@ -142,13 +146,16 @@ Deno.test("createToolExecutorViaWorker - parses server:tool format correctly", a
   // This test validates that the executor correctly parses "server:toolName" format
   const mcpClients = new Map<string, MCPClientBase>();
 
-  mcpClients.set("myserver", createMockMCPClient(
+  mcpClients.set(
     "myserver",
-    [{ name: "my_tool", description: "Test tool" }],
-    async (_toolName: string, _args: Record<string, unknown>) => {
-      return { success: true };
-    },
-  ));
+    createMockMCPClient(
+      "myserver",
+      [{ name: "my_tool", description: "Test tool" }],
+      async (_toolName: string, _args: Record<string, unknown>) => {
+        return { success: true };
+      },
+    ),
+  );
 
   const [executor, context] = createToolExecutorViaWorker({
     mcpClients,

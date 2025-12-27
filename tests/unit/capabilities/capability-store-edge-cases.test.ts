@@ -265,9 +265,21 @@ Deno.test("CapabilityStore - getDependenciesCount() returns correct count", asyn
   const capC = await createTestCapability(store, "const c = 3;", "C");
 
   // Create dependencies: A -> B, A -> C, B -> A
-  await store.addDependency({ fromCapabilityId: capA, toCapabilityId: capB, edgeType: "dependency" });
-  await store.addDependency({ fromCapabilityId: capA, toCapabilityId: capC, edgeType: "dependency" });
-  await store.addDependency({ fromCapabilityId: capB, toCapabilityId: capA, edgeType: "dependency" });
+  await store.addDependency({
+    fromCapabilityId: capA,
+    toCapabilityId: capB,
+    edgeType: "dependency",
+  });
+  await store.addDependency({
+    fromCapabilityId: capA,
+    toCapabilityId: capC,
+    edgeType: "dependency",
+  });
+  await store.addDependency({
+    fromCapabilityId: capB,
+    toCapabilityId: capA,
+    edgeType: "dependency",
+  });
 
   const countA = await store.getDependenciesCount(capA);
   const countB = await store.getDependenciesCount(capB);
@@ -395,9 +407,17 @@ Deno.test("CapabilityStore - isValidEscalation() validates allowed transitions",
   assertEquals(store.isValidEscalation("filesystem", "mcp-standard"), true);
 
   // Invalid escalations
-  assertEquals(store.isValidEscalation("minimal", "trusted"), false, "trusted unreachable via escalation");
+  assertEquals(
+    store.isValidEscalation("minimal", "trusted"),
+    false,
+    "trusted unreachable via escalation",
+  );
   assertEquals(store.isValidEscalation("mcp-standard", "minimal"), false, "cannot de-escalate");
-  assertEquals(store.isValidEscalation("trusted", "mcp-standard"), false, "trusted has no valid targets");
+  assertEquals(
+    store.isValidEscalation("trusted", "mcp-standard"),
+    false,
+    "trusted has no valid targets",
+  );
 
   await db.close();
 });
@@ -549,7 +569,18 @@ Deno.test("CapabilityStore - listWithSchemas() joins with capability_records", a
       id, org, project, namespace, action, hash, display_name, workflow_pattern_id, visibility, created_by
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
   `,
-    ["test.proj.test.myAction.abcd", "test", "proj", "test", "myAction", "abcd", "My Test Action", capId, "public", "test-user"],
+    [
+      "test.proj.test.myAction.abcd",
+      "test",
+      "proj",
+      "test",
+      "myAction",
+      "abcd",
+      "My Test Action",
+      capId,
+      "public",
+      "test-user",
+    ],
   );
 
   const results = await store.listWithSchemas();
@@ -575,12 +606,34 @@ Deno.test("CapabilityStore - listWithSchemas() respects visibility filter", asyn
   await db.query(
     `INSERT INTO capability_records (id, org, project, namespace, action, hash, display_name, workflow_pattern_id, visibility, created_by)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-    ["org.proj.public.action.ab12", "org", "proj", "public", "action", "ab12", "Public Action", cap1, "public", "user"],
+    [
+      "org.proj.public.action.ab12",
+      "org",
+      "proj",
+      "public",
+      "action",
+      "ab12",
+      "Public Action",
+      cap1,
+      "public",
+      "user",
+    ],
   );
   await db.query(
     `INSERT INTO capability_records (id, org, project, namespace, action, hash, display_name, workflow_pattern_id, visibility, created_by)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-    ["org.proj.private.action.cd34", "org", "proj", "private", "action", "cd34", "Private Action", cap2, "private", "user"],
+    [
+      "org.proj.private.action.cd34",
+      "org",
+      "proj",
+      "private",
+      "action",
+      "cd34",
+      "Private Action",
+      cap2,
+      "private",
+      "user",
+    ],
   );
 
   // Query only public
@@ -612,7 +665,18 @@ Deno.test("CapabilityStore - listWithSchemas() respects limit", async () => {
     await db.query(
       `INSERT INTO capability_records (id, org, project, namespace, action, hash, display_name, workflow_pattern_id, visibility, created_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-      [`org.proj.ns.action${i}.${hash}`, "org", "proj", "ns", `action${i}`, hash, `Action ${i}`, capId, "public", "user"],
+      [
+        `org.proj.ns.action${i}.${hash}`,
+        "org",
+        "proj",
+        "ns",
+        `action${i}`,
+        hash,
+        `Action ${i}`,
+        capId,
+        "public",
+        "user",
+      ],
     );
   }
 
@@ -651,12 +715,34 @@ Deno.test("CapabilityStore - listWithSchemas() orders by usageCount", async () =
   await db.query(
     `INSERT INTO capability_records (id, org, project, namespace, action, hash, display_name, workflow_pattern_id, visibility, created_by)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-    ["org.proj.ns.low.1111", "org", "proj", "ns", "low", "1111", "Low Usage", cap1.id, "public", "user"],
+    [
+      "org.proj.ns.low.1111",
+      "org",
+      "proj",
+      "ns",
+      "low",
+      "1111",
+      "Low Usage",
+      cap1.id,
+      "public",
+      "user",
+    ],
   );
   await db.query(
     `INSERT INTO capability_records (id, org, project, namespace, action, hash, display_name, workflow_pattern_id, visibility, created_by)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-    ["org.proj.ns.high.2222", "org", "proj", "ns", "high", "2222", "High Usage", cap2.id, "public", "user"],
+    [
+      "org.proj.ns.high.2222",
+      "org",
+      "proj",
+      "ns",
+      "high",
+      "2222",
+      "High Usage",
+      cap2.id,
+      "public",
+      "user",
+    ],
   );
 
   const results = await store.listWithSchemas({ orderBy: "usageCount" });

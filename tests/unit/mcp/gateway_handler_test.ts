@@ -155,7 +155,11 @@ Deno.test({
       text: "read file",
     });
 
-    assertEquals(result.mode, "explicit_required", "Should return explicit_required for low confidence");
+    assertEquals(
+      result.mode,
+      "explicit_required",
+      "Should return explicit_required for low confidence",
+    );
     assertExists(result.explanation);
     assert(result.confidence >= 0);
 
@@ -276,9 +280,16 @@ Deno.test({
       text: "delete file",
     });
 
-    assertEquals(result.mode, "explicit_required", "Should require explicit confirmation for delete");
+    assertEquals(
+      result.mode,
+      "explicit_required",
+      "Should require explicit confirmation for delete",
+    );
     assertExists(result.warning);
-    assert(result.warning?.includes("Destructive operation"), "Should warn about destructive operation");
+    assert(
+      result.warning?.includes("Destructive operation"),
+      "Should warn about destructive operation",
+    );
 
     await db.close();
   },
@@ -311,7 +322,11 @@ Deno.test({
       text: "execute shell command",
     });
 
-    assertEquals(result.mode, "explicit_required", "Should require explicit confirmation for shell exec");
+    assertEquals(
+      result.mode,
+      "explicit_required",
+      "Should require explicit confirmation for shell exec",
+    );
     assertExists(result.warning);
 
     await db.close();
@@ -382,7 +397,10 @@ Deno.test({
     });
 
     // Verify the gateway does not execute speculatively when disabled
-    assert(result.mode !== "speculative_execution", "Should not execute speculatively when disabled");
+    assert(
+      result.mode !== "speculative_execution",
+      "Should not execute speculatively when disabled",
+    );
     assertExists(result.explanation);
 
     await db.close();

@@ -6,18 +6,18 @@
  * @module tests/unit/capabilities/fqdn_test
  */
 
-import { assertEquals, assertThrows, assertNotEquals, assert } from "@std/assert";
+import { assert, assertEquals, assertNotEquals, assertThrows } from "@std/assert";
 import {
-  generateFQDN,
-  parseFQDN,
-  isValidFQDN,
-  generateHash,
-  isValidMCPName,
   extractDefaultDisplayName,
-  generateFQDNFromCode,
   fqdnBelongsToScope,
-  getShortName,
   type FQDNComponents,
+  generateFQDN,
+  generateFQDNFromCode,
+  generateHash,
+  getShortName,
+  isValidFQDN,
+  isValidMCPName,
+  parseFQDN,
 } from "../../../src/capabilities/fqdn.ts";
 
 // ============================================
@@ -75,7 +75,7 @@ Deno.test("generateFQDN - rejects invalid org (starts with number)", () => {
   assertThrows(
     () => generateFQDN(components),
     Error,
-    "Invalid org component"
+    "Invalid org component",
   );
 });
 
@@ -91,7 +91,7 @@ Deno.test("generateFQDN - rejects invalid project (has dot)", () => {
   assertThrows(
     () => generateFQDN(components),
     Error,
-    "Invalid project component"
+    "Invalid project component",
   );
 });
 
@@ -107,7 +107,7 @@ Deno.test("generateFQDN - rejects invalid hash (wrong length)", () => {
   assertThrows(
     () => generateFQDN(components),
     Error,
-    "Invalid hash"
+    "Invalid hash",
   );
 });
 
@@ -123,7 +123,7 @@ Deno.test("generateFQDN - rejects invalid hash (uppercase)", () => {
   assertThrows(
     () => generateFQDN(components),
     Error,
-    "Invalid hash"
+    "Invalid hash",
   );
 });
 
@@ -139,7 +139,7 @@ Deno.test("generateFQDN - rejects invalid hash (mixed case)", () => {
   assertThrows(
     () => generateFQDN(components),
     Error,
-    "Invalid hash"
+    "Invalid hash",
   );
 });
 
@@ -176,7 +176,7 @@ Deno.test("parseFQDN - rejects too few parts", () => {
   assertThrows(
     () => parseFQDN("org.project.namespace"),
     Error,
-    "Expected 5 parts"
+    "Expected 5 parts",
   );
 });
 
@@ -184,7 +184,7 @@ Deno.test("parseFQDN - rejects too many parts", () => {
   assertThrows(
     () => parseFQDN("org.project.namespace.action.hash.extra"),
     Error,
-    "Expected 5 parts"
+    "Expected 5 parts",
   );
 });
 
@@ -192,7 +192,7 @@ Deno.test("parseFQDN - rejects empty string", () => {
   assertThrows(
     () => parseFQDN(""),
     Error,
-    "Expected 5 parts"
+    "Expected 5 parts",
   );
 });
 
@@ -200,7 +200,7 @@ Deno.test("parseFQDN - rejects invalid component in middle", () => {
   assertThrows(
     () => parseFQDN("local.default.123invalid.action.a7f3"),
     Error,
-    "Invalid namespace"
+    "Invalid namespace",
   );
 });
 
@@ -265,10 +265,22 @@ Deno.test("generateHash - collision resistance (basic check)", async () => {
   // Generate hashes for many different strings and check for uniqueness
   const hashes = new Set<string>();
   const testStrings = [
-    "a", "b", "c", "aa", "ab", "ba", "abc", "def",
-    "function a() {}", "function b() {}", "function c() {}",
-    "const x = 1;", "const x = 2;", "const y = 1;",
-    "export default {};", "export const x = 1;",
+    "a",
+    "b",
+    "c",
+    "aa",
+    "ab",
+    "ba",
+    "abc",
+    "def",
+    "function a() {}",
+    "function b() {}",
+    "function c() {}",
+    "const x = 1;",
+    "const x = 2;",
+    "const y = 1;",
+    "export default {};",
+    "export const x = 1;",
   ];
 
   for (const str of testStrings) {
@@ -343,14 +355,14 @@ Deno.test("isValidMCPName - rejects empty string", () => {
 Deno.test("extractDefaultDisplayName - extracts action from FQDN", () => {
   assertEquals(
     extractDefaultDisplayName("acme.webapp.fs.read_json.a7f3"),
-    "read_json"
+    "read_json",
   );
 });
 
 Deno.test("extractDefaultDisplayName - works with complex action names", () => {
   assertEquals(
     extractDefaultDisplayName("local.default.api.fetch_user_by_id.b8e2"),
-    "fetch_user_by_id"
+    "fetch_user_by_id",
   );
 });
 
@@ -359,7 +371,8 @@ Deno.test("extractDefaultDisplayName - works with complex action names", () => {
 // ============================================
 
 Deno.test("generateFQDNFromCode - generates FQDN with automatic hash", async () => {
-  const code = "export function readJson(path: string) { return JSON.parse(Deno.readTextFileSync(path)); }";
+  const code =
+    "export function readJson(path: string) { return JSON.parse(Deno.readTextFileSync(path)); }";
   const fqdn = await generateFQDNFromCode("local", "default", "fs", "read_json", code);
 
   // Should match pattern: local.default.fs.read_json.<4-char-hash>
@@ -395,21 +408,21 @@ Deno.test("fqdnBelongsToScope - returns true for matching scope", () => {
 Deno.test("fqdnBelongsToScope - returns false for different org", () => {
   assertEquals(
     fqdnBelongsToScope("acme.webapp.fs.read.a7f3", "other", "webapp"),
-    false
+    false,
   );
 });
 
 Deno.test("fqdnBelongsToScope - returns false for different project", () => {
   assertEquals(
     fqdnBelongsToScope("acme.webapp.fs.read.a7f3", "acme", "other"),
-    false
+    false,
   );
 });
 
 Deno.test("fqdnBelongsToScope - returns false for invalid FQDN", () => {
   assertEquals(
     fqdnBelongsToScope("invalid.fqdn", "acme", "webapp"),
-    false
+    false,
   );
 });
 
@@ -420,13 +433,13 @@ Deno.test("fqdnBelongsToScope - returns false for invalid FQDN", () => {
 Deno.test("getShortName - extracts namespace.action", () => {
   assertEquals(
     getShortName("acme.webapp.fs.read_json.a7f3"),
-    "fs.read_json"
+    "fs.read_json",
   );
 });
 
 Deno.test("getShortName - works with complex names", () => {
   assertEquals(
     getShortName("marketplace.public.data_api.fetch_all_items.c9d1"),
-    "data_api.fetch_all_items"
+    "data_api.fetch_all_items",
   );
 });

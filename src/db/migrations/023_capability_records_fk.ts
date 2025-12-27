@@ -25,7 +25,9 @@ export function createCapabilityRecordsFkMigration(): Migration {
     version: 23,
     name: "capability_records_fk",
     up: async (db: DbClient) => {
-      log.info("Migration 023: Adding FK and removing duplicated columns from capability_records...");
+      log.info(
+        "Migration 023: Adding FK and removing duplicated columns from capability_records...",
+      );
 
       // ============================================
       // 1. Add workflow_pattern_id FK column
@@ -63,7 +65,7 @@ export function createCapabilityRecordsFkMigration(): Migration {
       // ============================================
       // 4. Drop duplicated columns
       // ============================================
-      const columnsToDrop = ['code_snippet', 'description', 'parameters_schema', 'tools_used'];
+      const columnsToDrop = ["code_snippet", "description", "parameters_schema", "tools_used"];
 
       for (const col of columnsToDrop) {
         try {

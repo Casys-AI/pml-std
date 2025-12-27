@@ -173,7 +173,7 @@ export class ThompsonSampler {
     toolId: string,
     riskCategory: RiskCategory,
     mode: ThresholdMode,
-    localAlpha: number = 0.75
+    localAlpha: number = 0.75,
   ): ThresholdResult {
     const state = this.getOrCreateState(toolId);
     const baseThreshold = this.config.riskThresholds[riskCategory];
@@ -200,7 +200,8 @@ export class ThompsonSampler {
     let threshold: number;
     if (mode === "active_search") {
       // UCB bonus LOWERS threshold (more exploration)
-      threshold = baseThreshold + modeAdjustment + thompsonAdjustment + alphaAdjustment - ucbBonus * 0.05;
+      threshold = baseThreshold + modeAdjustment + thompsonAdjustment + alphaAdjustment -
+        ucbBonus * 0.05;
     } else if (mode === "speculation") {
       // Use mean instead of sample for stability
       const mean = state.alpha / (state.alpha + state.beta);
@@ -214,7 +215,7 @@ export class ThompsonSampler {
     // Clamp to bounds
     const finalThreshold = Math.max(
       this.config.bounds.min,
-      Math.min(this.config.bounds.max, threshold)
+      Math.min(this.config.bounds.max, threshold),
     );
 
     return {
@@ -293,7 +294,7 @@ export class ThompsonSampler {
     // UCB formula: sqrt(2 * ln(total) / n_i)
     const c = this.config.ucbCoefficient;
     const bonus = Math.sqrt(
-      (c * Math.log(this.totalExecutions + 1)) / state.totalObservations
+      (c * Math.log(this.totalExecutions + 1)) / state.totalObservations,
     );
     return Math.min(bonus, 1.0);
   }
@@ -453,11 +454,11 @@ export class ThompsonSampler {
     // Keep minimum prior contribution
     state.alpha = Math.max(
       this.config.priorAlpha,
-      state.alpha * this.config.decayFactor
+      state.alpha * this.config.decayFactor,
     );
     state.beta = Math.max(
       this.config.priorBeta,
-      state.beta * this.config.decayFactor
+      state.beta * this.config.decayFactor,
     );
   }
 
@@ -547,7 +548,7 @@ const READ_PATTERNS = [
  */
 export function classifyToolRisk(
   toolName: string,
-  serverReadOnly: boolean = false
+  serverReadOnly: boolean = false,
 ): RiskCategory {
   const lowerName = toolName.toLowerCase();
 
@@ -588,7 +589,7 @@ export function classifyToolRisk(
  */
 export function createThompsonFromHistory(
   history: Map<string, { successes: number; failures: number }>,
-  config: Partial<ThompsonConfig> = {}
+  config: Partial<ThompsonConfig> = {},
 ): ThompsonSampler {
   const sampler = new ThompsonSampler(config);
 
@@ -667,7 +668,7 @@ export function makeDecision(
   score: number,
   riskCategory: RiskCategory,
   mode: ThresholdMode,
-  localAlpha: number = 0.75
+  localAlpha: number = 0.75,
 ): boolean {
   const result = sampler.getThreshold(toolId, riskCategory, mode, localAlpha);
   return score >= result.threshold;
@@ -686,7 +687,7 @@ export function makeBatchDecision(
     riskCategory: RiskCategory;
   }>,
   mode: ThresholdMode,
-  localAlpha: number = 0.75
+  localAlpha: number = 0.75,
 ): Map<string, boolean> {
   const decisions = new Map<string, boolean>();
 
@@ -699,8 +700,8 @@ export function makeBatchDecision(
         tool.score,
         tool.riskCategory,
         mode,
-        localAlpha
-      )
+        localAlpha,
+      ),
     );
   }
 

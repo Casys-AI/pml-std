@@ -9,11 +9,7 @@
 
 import * as log from "@std/log";
 import type { DbClient } from "../../db/types.ts";
-import type {
-  GraphMetricsResponse,
-  MetricsTimeRange,
-  TimeSeriesPoint,
-} from "../types.ts";
+import type { GraphMetricsResponse, MetricsTimeRange, TimeSeriesPoint } from "../types.ts";
 
 /**
  * Collect comprehensive metrics for dashboard
@@ -35,7 +31,7 @@ export async function collectMetrics(
     communitiesCount: number;
     pagerankTop10: Array<{ toolId: string; score: number }>;
   },
-  range: MetricsTimeRange
+  range: MetricsTimeRange,
 ): Promise<GraphMetricsResponse> {
   const startTime = performance.now();
 
@@ -46,9 +42,12 @@ export async function collectMetrics(
 
   // Extended counts
   const [capCount, embCount, depCount] = await Promise.all([
-    db.query("SELECT COUNT(*) as cnt FROM workflow_pattern").then((r) => Number(r[0]?.cnt) || 0).catch(() => 0),
-    db.query("SELECT COUNT(*) as cnt FROM tool_embedding").then((r) => Number(r[0]?.cnt) || 0).catch(() => 0),
-    db.query("SELECT COUNT(*) as cnt FROM tool_dependency").then((r) => Number(r[0]?.cnt) || 0).catch(() => 0),
+    db.query("SELECT COUNT(*) as cnt FROM workflow_pattern").then((r) => Number(r[0]?.cnt) || 0)
+      .catch(() => 0),
+    db.query("SELECT COUNT(*) as cnt FROM tool_embedding").then((r) => Number(r[0]?.cnt) || 0)
+      .catch(() => 0),
+    db.query("SELECT COUNT(*) as cnt FROM tool_dependency").then((r) => Number(r[0]?.cnt) || 0)
+      .catch(() => 0),
   ]);
 
   // ADR-048: Fetch local alpha stats from recent traces
@@ -87,7 +86,7 @@ export async function collectMetrics(
  */
 async function getLocalAlphaStats(
   db: DbClient,
-  startDate: Date
+  startDate: Date,
 ): Promise<GraphMetricsResponse["current"]["localAlpha"]> {
   const isoDate = startDate.toISOString();
 
@@ -109,7 +108,7 @@ async function getLocalAlphaStats(
       WHERE timestamp >= $1
       AND params->>'alpha' IS NOT NULL
       `,
-      [isoDate]
+      [isoDate],
     );
 
     const row = result[0];
@@ -146,7 +145,7 @@ async function getLocalAlphaStats(
 async function getMetricsTimeSeries(
   db: DbClient,
   range: MetricsTimeRange,
-  startDate: Date
+  startDate: Date,
 ): Promise<{
   edgeCount: TimeSeriesPoint[];
   avgConfidence: TimeSeriesPoint[];
@@ -167,7 +166,7 @@ async function getMetricsTimeSeries(
       GROUP BY bucket
       ORDER BY bucket
       `,
-      [bucketMinutes, startDate.toISOString()]
+      [bucketMinutes, startDate.toISOString()],
     );
 
     const avgConfidenceResult = await db.query(
@@ -182,7 +181,7 @@ async function getMetricsTimeSeries(
       GROUP BY bucket
       ORDER BY bucket
       `,
-      [bucketMinutes, startDate.toISOString()]
+      [bucketMinutes, startDate.toISOString()],
     );
 
     // Story 11.2: Query execution_trace instead of workflow_execution
@@ -196,7 +195,7 @@ async function getMetricsTimeSeries(
       GROUP BY bucket
       ORDER BY bucket
       `,
-      [startDate.toISOString()]
+      [startDate.toISOString()],
     );
 
     return {
@@ -229,7 +228,7 @@ async function getMetricsTimeSeries(
 async function getPeriodStats(
   db: DbClient,
   range: MetricsTimeRange,
-  startDate: Date
+  startDate: Date,
 ): Promise<{
   range: MetricsTimeRange;
   workflowsExecuted: number;
@@ -247,7 +246,7 @@ async function getPeriodStats(
       FROM execution_trace
       WHERE executed_at >= $1
       `,
-      [startDate.toISOString()]
+      [startDate.toISOString()],
     );
 
     const total = Number(workflowStats[0]?.total) || 0;
@@ -260,7 +259,7 @@ async function getPeriodStats(
       FROM tool_dependency
       WHERE last_observed >= $1
       `,
-      [startDate.toISOString()]
+      [startDate.toISOString()],
     );
 
     const newNodes = await db.query(
@@ -270,7 +269,7 @@ async function getPeriodStats(
       WHERE metric_name = 'tool_embedded'
         AND timestamp >= $1
       `,
-      [startDate.toISOString()]
+      [startDate.toISOString()],
     );
 
     return {
@@ -297,7 +296,7 @@ async function getPeriodStats(
  */
 async function getAlgorithmStats(
   db: DbClient,
-  startDate: Date
+  startDate: Date,
 ): Promise<GraphMetricsResponse["algorithm"]> {
   const isoDate = startDate.toISOString();
 
@@ -318,7 +317,7 @@ async function getAlgorithmStats(
       FROM algorithm_traces
       WHERE timestamp >= $1
       `,
-      [isoDate]
+      [isoDate],
     );
 
     const stats = statsResult[0] || {};
@@ -343,10 +342,15 @@ async function getAlgorithmStats(
       WHERE timestamp >= $1
       GROUP BY graph_type
       `,
-      [isoDate]
+      [isoDate],
     );
 
-    const graphStats = { count: 0, avgScore: 0, acceptanceRate: 0, topSignals: { pagerank: 0, adamicAdar: 0, cooccurrence: 0 } };
+    const graphStats = {
+      count: 0,
+      avgScore: 0,
+      acceptanceRate: 0,
+      topSignals: { pagerank: 0, adamicAdar: 0, cooccurrence: 0 },
+    };
     const hypergraphStats = { count: 0, avgScore: 0, acceptanceRate: 0 };
 
     for (const row of graphTypeResult) {
@@ -379,7 +383,7 @@ async function getAlgorithmStats(
         AND (target_type = 'capability' OR signals->>'spectralClusterMatch' IS NOT NULL)
       GROUP BY cluster_match
       `,
-      [isoDate]
+      [isoDate],
     );
 
     const spectralRelevance = {
@@ -388,7 +392,9 @@ async function getAlgorithmStats(
     };
 
     for (const row of spectralResult) {
-      const target = row.cluster_match ? spectralRelevance.withClusterMatch : spectralRelevance.withoutClusterMatch;
+      const target = row.cluster_match
+        ? spectralRelevance.withClusterMatch
+        : spectralRelevance.withoutClusterMatch;
       target.count = Number(row.count) || 0;
       target.avgScore = Number(row.avg_score) || 0;
       target.selectedRate = Number(row.selected_rate) || 0;
@@ -410,10 +416,13 @@ async function getAlgorithmStats(
       GROUP BY graph_type, FLOOR(final_score * 10)
       ORDER BY graph_type, FLOOR(final_score * 10)
       `,
-      [isoDate]
+      [isoDate],
     );
 
-    const scoreDistribution: { graph: Array<{ bucket: string; count: number }>; hypergraph: Array<{ bucket: string; count: number }> } = {
+    const scoreDistribution: {
+      graph: Array<{ bucket: string; count: number }>;
+      hypergraph: Array<{ bucket: string; count: number }>;
+    } = {
       graph: [],
       hypergraph: [],
     };
@@ -439,7 +448,7 @@ async function getAlgorithmStats(
       WHERE timestamp >= $1
       GROUP BY algorithm_mode
       `,
-      [isoDate]
+      [isoDate],
     );
 
     const byMode = {
@@ -473,7 +482,7 @@ async function getAlgorithmStats(
       FROM algorithm_traces
       WHERE timestamp >= $1
       `,
-      [isoDate]
+      [isoDate],
     );
 
     const thresholdStats = thresholdResult[0] || {};
@@ -521,7 +530,12 @@ async function getAlgorithmStats(
       byDecision: { accepted: 0, filtered: 0, rejected: 0 },
       byTargetType: { tool: 0, capability: 0 },
       byGraphType: {
-        graph: { count: 0, avgScore: 0, acceptanceRate: 0, topSignals: { pagerank: 0, adamicAdar: 0, cooccurrence: 0 } },
+        graph: {
+          count: 0,
+          avgScore: 0,
+          acceptanceRate: 0,
+          topSignals: { pagerank: 0, adamicAdar: 0, cooccurrence: 0 },
+        },
         hypergraph: {
           count: 0,
           avgScore: 0,

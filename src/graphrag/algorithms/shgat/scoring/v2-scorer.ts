@@ -24,10 +24,7 @@ import type {
   TraceFeatures,
   TraceStats,
 } from "../types.ts";
-import {
-  DEFAULT_HYPERGRAPH_FEATURES,
-  DEFAULT_TOOL_GRAPH_FEATURES,
-} from "../types.ts";
+import { DEFAULT_HYPERGRAPH_FEATURES, DEFAULT_TOOL_GRAPH_FEATURES } from "../types.ts";
 import type { ForwardResult } from "./v1-scorer.ts";
 
 /**

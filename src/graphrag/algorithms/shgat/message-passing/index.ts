@@ -12,15 +12,11 @@ export { VertexToEdgePhase } from "./vertex-to-edge-phase.ts";
 export { EdgeToVertexPhase } from "./edge-to-vertex-phase.ts";
 export { EdgeToEdgePhase } from "./edge-to-edge-phase.ts";
 export {
-  MultiLevelOrchestrator,
-  type LayerParameters,
   type ForwardCache,
+  type LayerParameters,
+  MultiLevelOrchestrator,
   type OrchestratorConfig,
 } from "./multi-level-orchestrator.ts";
 
 // Re-export multi-level types from main types for convenience
-export type {
-  MultiLevelEmbeddings,
-  LevelParams,
-  MultiLevelForwardCache,
-} from "../types.ts";
+export type { LevelParams, MultiLevelEmbeddings, MultiLevelForwardCache } from "../types.ts";

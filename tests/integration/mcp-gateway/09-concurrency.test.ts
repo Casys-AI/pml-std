@@ -10,13 +10,13 @@
  * @module tests/integration/mcp-gateway/concurrency
  */
 
-import { assertEquals, assert } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import {
+  connectSSE,
   createTestGatewayServer,
+  getRandomPort,
   makeGatewayRequest,
   makeJsonRpcRequest,
-  connectSSE,
-  getRandomPort,
 } from "./fixtures/gateway-test-helpers.ts";
 
 Deno.test({
@@ -182,7 +182,9 @@ Deno.test({
     assertEquals(typeCounts.SSE, 5, "Should have 5 SSE responses");
 
     console.log(`  ✓ Mixed traffic (25 requests) completed in ${duration.toFixed(0)}ms`);
-    console.log(`    API: ${typeCounts.API}, JSON-RPC: ${typeCounts["JSON-RPC"]}, SSE: ${typeCounts.SSE}`);
+    console.log(
+      `    API: ${typeCounts.API}, JSON-RPC: ${typeCounts["JSON-RPC"]}, SSE: ${typeCounts.SSE}`,
+    );
   } finally {
     await gateway.stop();
     await cleanup();
@@ -357,7 +359,9 @@ Deno.test({
     }
 
     console.log(
-      `  ✓ ${results.length} concurrent requests to ${endpoints.length} endpoints in ${duration.toFixed(0)}ms`,
+      `  ✓ ${results.length} concurrent requests to ${endpoints.length} endpoints in ${
+        duration.toFixed(0)
+      }ms`,
     );
 
     for (const endpoint of endpoints) {

@@ -42,7 +42,8 @@ async function setupTestCapability(
   const patternHash = `test-hash-${uniqueId}`;
   const codeHash = `code-hash-${uniqueId}`;
 
-  const patternResult = await db.query(`
+  const patternResult = await db.query(
+    `
     INSERT INTO workflow_pattern (
       pattern_hash,
       dag_structure,
@@ -81,14 +82,17 @@ async function setupTestCapability(
       'emergent'
     )
     RETURNING pattern_id
-  `, [embeddingStr, patternHash, codeHash]);
+  `,
+    [embeddingStr, patternHash, codeHash],
+  );
 
   const patternId = patternResult[0].pattern_id as string;
 
   // Insert capability_records with FK to workflow_pattern
   const capabilityId = `local.default.code.analyze.${uniqueId}`;
 
-  await db.query(`
+  await db.query(
+    `
     INSERT INTO capability_records (
       id,
       display_name,
@@ -118,7 +122,9 @@ async function setupTestCapability(
       'local',
       ARRAY[]::text[]
     )
-  `, [patternId, capabilityId, uniqueId]);
+  `,
+    [patternId, capabilityId, uniqueId],
+  );
 
   return patternId;
 }
@@ -211,7 +217,6 @@ Deno.test({
 
       // 9. Verify latency was tracked
       assertEquals(callResult.latencyMs >= 0, true);
-
     } finally {
       // Cleanup
       await db.close();
@@ -260,7 +265,6 @@ Deno.test({
       assertEquals(callResult.success, false);
       assertExists(callResult.error);
       assertStringIncludes(callResult.error.toLowerCase(), "not found");
-
     } finally {
       await db.close();
     }
@@ -316,7 +320,6 @@ Deno.test({
       const newCapability = toolsAfter.find((t) => t.name.includes("code__analyze"));
       assertExists(newCapability, "New capability should be findable");
       assertEquals(newCapability.name, "mcp__code__analyze");
-
     } finally {
       await db.close();
     }

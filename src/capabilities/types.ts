@@ -611,26 +611,26 @@ export type ArgumentsStructure = Record<string, ArgumentValue>;
  */
 export type StaticStructureNode =
   | {
-      id: string;
-      type: "task";
-      tool: string;
-      /**
-       * Extracted arguments for this tool call (Story 10.2)
-       *
-       * Contains resolution strategies for each argument:
-       * - Literals are stored with their actual values
-       * - References point to previous task results
-       * - Parameters reference capability input
-       */
-      arguments?: ArgumentsStructure;
-      /**
-       * Original source code extracted via SWC span (Phase 1)
-       *
-       * For code operations (tool: "code:*"), this contains the actual
-       * JavaScript code to execute, preserving callbacks and variable references.
-       */
-      code?: string;
-    }
+    id: string;
+    type: "task";
+    tool: string;
+    /**
+     * Extracted arguments for this tool call (Story 10.2)
+     *
+     * Contains resolution strategies for each argument:
+     * - Literals are stored with their actual values
+     * - References point to previous task results
+     * - Parameters reference capability input
+     */
+    arguments?: ArgumentsStructure;
+    /**
+     * Original source code extracted via SWC span (Phase 1)
+     *
+     * For code operations (tool: "code:*"), this contains the actual
+     * JavaScript code to execute, preserving callbacks and variable references.
+     */
+    code?: string;
+  }
   | { id: string; type: "decision"; condition: string }
   | { id: string; type: "capability"; capabilityId: string }
   | { id: string; type: "fork" }
@@ -912,7 +912,11 @@ export type CytoscapeNode = CapabilityNode | ToolNode | ToolInvocationNode;
  * Union type for all graph edges
  * @deprecated Use GraphEdge instead. Kept for backward compatibility.
  */
-export type CytoscapeEdge = CapabilityEdge | HierarchicalEdge | CapabilityDependencyEdge | SequenceEdge;
+export type CytoscapeEdge =
+  | CapabilityEdge
+  | HierarchicalEdge
+  | CapabilityDependencyEdge
+  | SequenceEdge;
 
 /**
  * Union type for all graph nodes (D3.js visualization)

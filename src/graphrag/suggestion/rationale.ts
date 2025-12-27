@@ -117,7 +117,9 @@ export function generatePredictionReasoning(
       }%) + α=${(details.alpha ?? 0.75).toFixed(2)}`;
 
     case "capability":
-      return `Capability matches context (${((details.overlapScore ?? 0) * 100).toFixed(0)}% overlap${
+      return `Capability matches context (${
+        ((details.overlapScore ?? 0) * 100).toFixed(0)
+      }% overlap${
         (details.clusterBoost ?? 0) > 0
           ? `, +${((details.clusterBoost ?? 0) * 100).toFixed(0)}% cluster boost`
           : ""

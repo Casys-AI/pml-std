@@ -17,7 +17,7 @@ import * as log from "@std/log";
 import type { DbClient, Row, Transaction } from "./types.ts";
 
 // Re-export types for backward compatibility
-export type { Row, Transaction, DbClient } from "./types.ts";
+export type { DbClient, Row, Transaction } from "./types.ts";
 
 /**
  * PostgreSQL client wrapper with same interface as PGliteClient

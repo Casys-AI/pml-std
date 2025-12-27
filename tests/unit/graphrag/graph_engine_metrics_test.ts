@@ -353,7 +353,11 @@ Deno.test("GraphRAGEngine.getMetrics - localAlpha is undefined without traces", 
   const metrics = await engine.getMetrics("24h");
 
   // Without algorithm traces, localAlpha should be undefined
-  assertEquals(metrics.current.localAlpha, undefined, "localAlpha should be undefined without traces");
+  assertEquals(
+    metrics.current.localAlpha,
+    undefined,
+    "localAlpha should be undefined without traces",
+  );
 
   await db.close();
 });
@@ -389,13 +393,27 @@ Deno.test("GraphRAGEngine.getMetrics - localAlpha structure is correct with trac
   assertEquals(typeof la.coldStartPercentage, "number");
 
   // Verify values
-  assert(la.avgAlpha >= 0.5 && la.avgAlpha <= 1.0, `avgAlpha should be in [0.5, 1.0], got ${la.avgAlpha}`);
+  assert(
+    la.avgAlpha >= 0.5 && la.avgAlpha <= 1.0,
+    `avgAlpha should be in [0.5, 1.0], got ${la.avgAlpha}`,
+  );
   assert(la.byMode.activeSearch > 0, "activeSearch alpha should be > 0");
   assert(la.byMode.passiveSuggestion > 0, "passiveSuggestion alpha should be > 0");
-  assertEquals(la.algorithmDistribution.embeddingsHybrides, 2, "Should have 2 embeddings_hybrides traces");
+  assertEquals(
+    la.algorithmDistribution.embeddingsHybrides,
+    2,
+    "Should have 2 embeddings_hybrides traces",
+  );
   assertEquals(la.algorithmDistribution.heatDiffusion, 1, "Should have 1 heat_diffusion trace");
-  assertEquals(la.algorithmDistribution.heatHierarchical, 1, "Should have 1 heat_hierarchical trace");
-  assert(la.coldStartPercentage >= 0 && la.coldStartPercentage <= 100, "coldStartPercentage should be 0-100");
+  assertEquals(
+    la.algorithmDistribution.heatHierarchical,
+    1,
+    "Should have 1 heat_hierarchical trace",
+  );
+  assert(
+    la.coldStartPercentage >= 0 && la.coldStartPercentage <= 100,
+    "coldStartPercentage should be 0-100",
+  );
 
   await db.close();
 });

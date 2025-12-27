@@ -8,22 +8,18 @@
 
 export {
   getTaskType,
+  isMCPTool,
   isSafeToFail,
   requiresSandbox,
-  isMCPTool,
   type TaskType,
 } from "./task-router.ts";
 
-export {
-  executeCodeTask,
-  executeWithRetry,
-  type CodeExecutorDeps,
-} from "./code-executor.ts";
+export { type CodeExecutorDeps, executeCodeTask, executeWithRetry } from "./code-executor.ts";
 
 export {
+  type CapabilityExecutorDeps,
   executeCapabilityTask,
   getCapabilityPermissionSet,
-  type CapabilityExecutorDeps,
 } from "./capability-executor.ts";
 
 export { resolveDependencies } from "./dependency-resolver.ts";

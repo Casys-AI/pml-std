@@ -11,21 +11,34 @@ import type { MiniTool } from "./types.ts";
 export const resilienceTools: MiniTool[] = [
   {
     name: "resilience_exponential_backoff",
-    description: "Calculate exponential backoff delay for retries. Get wait time before retry attempt with optional jitter. Prevents thundering herd and cascading failures. Use for API retries, connection attempts, or queue processing. Keywords: exponential backoff, retry delay, backoff jitter, retry strategy, wait time, throttle.",
+    description:
+      "Calculate exponential backoff delay for retries. Get wait time before retry attempt with optional jitter. Prevents thundering herd and cascading failures. Use for API retries, connection attempts, or queue processing. Keywords: exponential backoff, retry delay, backoff jitter, retry strategy, wait time, throttle.",
     category: "resilience",
     inputSchema: {
       type: "object",
       properties: {
         attempt: { type: "number", description: "Current attempt number (0-based)" },
         baseDelayMs: { type: "number", description: "Base delay in milliseconds (default: 1000)" },
-        maxDelayMs: { type: "number", description: "Maximum delay cap in milliseconds (default: 30000)" },
+        maxDelayMs: {
+          type: "number",
+          description: "Maximum delay cap in milliseconds (default: 30000)",
+        },
         multiplier: { type: "number", description: "Exponential multiplier (default: 2)" },
         jitter: { type: "boolean", description: "Add random jitter (default: true)" },
         jitterFactor: { type: "number", description: "Jitter factor 0-1 (default: 0.5)" },
       },
       required: ["attempt"],
     },
-    handler: ({ attempt, baseDelayMs = 1000, maxDelayMs = 30000, multiplier = 2, jitter = true, jitterFactor = 0.5 }) => {
+    handler: (
+      {
+        attempt,
+        baseDelayMs = 1000,
+        maxDelayMs = 30000,
+        multiplier = 2,
+        jitter = true,
+        jitterFactor = 0.5,
+      },
+    ) => {
       const base = baseDelayMs as number;
       const max = maxDelayMs as number;
       const mult = multiplier as number;
@@ -57,7 +70,8 @@ export const resilienceTools: MiniTool[] = [
   },
   {
     name: "resilience_retry_schedule",
-    description: "Generate complete retry schedule with delays. Plan all retry attempts upfront with total time estimation. Visualize backoff pattern before implementation. Use for retry planning, SLA estimation, or debugging. Keywords: retry schedule, backoff plan, retry timing, delay sequence, attempt schedule.",
+    description:
+      "Generate complete retry schedule with delays. Plan all retry attempts upfront with total time estimation. Visualize backoff pattern before implementation. Use for retry planning, SLA estimation, or debugging. Keywords: retry schedule, backoff plan, retry timing, delay sequence, attempt schedule.",
     category: "resilience",
     inputSchema: {
       type: "object",
@@ -65,10 +79,16 @@ export const resilienceTools: MiniTool[] = [
         maxAttempts: { type: "number", description: "Maximum number of attempts (default: 5)" },
         baseDelayMs: { type: "number", description: "Base delay in milliseconds (default: 1000)" },
         maxDelayMs: { type: "number", description: "Maximum delay cap (default: 30000)" },
-        strategy: { type: "string", enum: ["exponential", "linear", "constant", "fibonacci"], description: "Backoff strategy (default: exponential)" },
+        strategy: {
+          type: "string",
+          enum: ["exponential", "linear", "constant", "fibonacci"],
+          description: "Backoff strategy (default: exponential)",
+        },
       },
     },
-    handler: ({ maxAttempts = 5, baseDelayMs = 1000, maxDelayMs = 30000, strategy = "exponential" }) => {
+    handler: (
+      { maxAttempts = 5, baseDelayMs = 1000, maxDelayMs = 30000, strategy = "exponential" },
+    ) => {
       const max = maxAttempts as number;
       const base = baseDelayMs as number;
       const cap = maxDelayMs as number;
@@ -123,7 +143,8 @@ export const resilienceTools: MiniTool[] = [
   },
   {
     name: "resilience_rate_limit_check",
-    description: "Check if request is within rate limit using token bucket. Track requests against limits with burst capacity. Returns whether request is allowed and tokens remaining. Use for API rate limiting, request throttling, or quota management. Keywords: rate limit, token bucket, throttle, request quota, API limit, burst capacity.",
+    description:
+      "Check if request is within rate limit using token bucket. Track requests against limits with burst capacity. Returns whether request is allowed and tokens remaining. Use for API rate limiting, request throttling, or quota management. Keywords: rate limit, token bucket, throttle, request quota, API limit, burst capacity.",
     category: "resilience",
     inputSchema: {
       type: "object",
@@ -133,11 +154,23 @@ export const resilienceTools: MiniTool[] = [
         refillRate: { type: "number", description: "Tokens added per interval" },
         refillIntervalMs: { type: "number", description: "Refill interval in milliseconds" },
         lastRefillTime: { type: "number", description: "Last refill timestamp (ms since epoch)" },
-        tokensRequired: { type: "number", description: "Tokens needed for this request (default: 1)" },
+        tokensRequired: {
+          type: "number",
+          description: "Tokens needed for this request (default: 1)",
+        },
       },
       required: ["currentTokens", "maxTokens", "refillRate", "refillIntervalMs", "lastRefillTime"],
     },
-    handler: ({ currentTokens, maxTokens, refillRate, refillIntervalMs, lastRefillTime, tokensRequired = 1 }) => {
+    handler: (
+      {
+        currentTokens,
+        maxTokens,
+        refillRate,
+        refillIntervalMs,
+        lastRefillTime,
+        tokensRequired = 1,
+      },
+    ) => {
       const now = Date.now();
       const elapsed = now - (lastRefillTime as number);
       const intervalsElapsed = Math.floor(elapsed / (refillIntervalMs as number));
@@ -152,14 +185,16 @@ export const resilienceTools: MiniTool[] = [
 
       // Calculate new state
       const tokensAfter = allowed ? newTokens - required : newTokens;
-      const newRefillTime = (lastRefillTime as number) + intervalsElapsed * (refillIntervalMs as number);
+      const newRefillTime = (lastRefillTime as number) +
+        intervalsElapsed * (refillIntervalMs as number);
 
       // Calculate wait time if not allowed
       let waitTimeMs = 0;
       if (!allowed) {
         const tokensNeeded = required - newTokens;
         const intervalsNeeded = Math.ceil(tokensNeeded / (refillRate as number));
-        waitTimeMs = intervalsNeeded * (refillIntervalMs as number) - (elapsed % (refillIntervalMs as number));
+        waitTimeMs = intervalsNeeded * (refillIntervalMs as number) -
+          (elapsed % (refillIntervalMs as number));
       }
 
       return {
@@ -176,22 +211,46 @@ export const resilienceTools: MiniTool[] = [
   },
   {
     name: "resilience_circuit_breaker_state",
-    description: "Calculate circuit breaker state from failure metrics. Determine if circuit should be open, closed, or half-open based on failure rate. Prevents cascading failures by stopping requests to failing services. Use for service resilience, fault tolerance, or microservices. Keywords: circuit breaker, failure rate, service health, fault tolerance, trip threshold, half-open.",
+    description:
+      "Calculate circuit breaker state from failure metrics. Determine if circuit should be open, closed, or half-open based on failure rate. Prevents cascading failures by stopping requests to failing services. Use for service resilience, fault tolerance, or microservices. Keywords: circuit breaker, failure rate, service health, fault tolerance, trip threshold, half-open.",
     category: "resilience",
     inputSchema: {
       type: "object",
       properties: {
         totalRequests: { type: "number", description: "Total requests in window" },
         failedRequests: { type: "number", description: "Failed requests in window" },
-        failureThreshold: { type: "number", description: "Failure rate threshold (0-1, default: 0.5)" },
-        minimumRequests: { type: "number", description: "Minimum requests before evaluation (default: 10)" },
+        failureThreshold: {
+          type: "number",
+          description: "Failure rate threshold (0-1, default: 0.5)",
+        },
+        minimumRequests: {
+          type: "number",
+          description: "Minimum requests before evaluation (default: 10)",
+        },
         lastStateChange: { type: "number", description: "Timestamp of last state change" },
-        currentState: { type: "string", enum: ["closed", "open", "half-open"], description: "Current circuit state" },
-        openDurationMs: { type: "number", description: "How long circuit stays open (default: 30000)" },
+        currentState: {
+          type: "string",
+          enum: ["closed", "open", "half-open"],
+          description: "Current circuit state",
+        },
+        openDurationMs: {
+          type: "number",
+          description: "How long circuit stays open (default: 30000)",
+        },
       },
       required: ["totalRequests", "failedRequests"],
     },
-    handler: ({ totalRequests, failedRequests, failureThreshold = 0.5, minimumRequests = 10, lastStateChange, currentState = "closed", openDurationMs = 30000 }) => {
+    handler: (
+      {
+        totalRequests,
+        failedRequests,
+        failureThreshold = 0.5,
+        minimumRequests = 10,
+        lastStateChange,
+        currentState = "closed",
+        openDurationMs = 30000,
+      },
+    ) => {
       const total = totalRequests as number;
       const failed = failedRequests as number;
       const threshold = failureThreshold as number;
@@ -210,7 +269,9 @@ export const resilienceTools: MiniTool[] = [
         if (total >= minimum && failureRate >= threshold) {
           newState = "open";
           shouldAllowRequest = false;
-          reason = `Failure rate ${(failureRate * 100).toFixed(1)}% exceeded threshold ${(threshold * 100).toFixed(1)}%`;
+          reason = `Failure rate ${(failureRate * 100).toFixed(1)}% exceeded threshold ${
+            (threshold * 100).toFixed(1)
+          }%`;
         } else {
           reason = total < minimum
             ? `Not enough requests (${total}/${minimum}) to evaluate`
@@ -254,7 +315,8 @@ export const resilienceTools: MiniTool[] = [
   },
   {
     name: "resilience_sliding_window",
-    description: "Calculate metrics over a sliding time window. Track request counts, error rates, and latencies within rolling window. Use for rate limiting, health monitoring, or SLA tracking. Keywords: sliding window, rolling window, time window, request metrics, window counter, rate calculation.",
+    description:
+      "Calculate metrics over a sliding time window. Track request counts, error rates, and latencies within rolling window. Use for rate limiting, health monitoring, or SLA tracking. Keywords: sliding window, rolling window, time window, request metrics, window counter, rate calculation.",
     category: "resilience",
     inputSchema: {
       type: "object",
@@ -271,7 +333,10 @@ export const resilienceTools: MiniTool[] = [
           },
           description: "Array of events with timestamp, success, and optional latency",
         },
-        windowSizeMs: { type: "number", description: "Window size in milliseconds (default: 60000)" },
+        windowSizeMs: {
+          type: "number",
+          description: "Window size in milliseconds (default: 60000)",
+        },
         currentTime: { type: "number", description: "Current timestamp (default: now)" },
       },
       required: ["events"],
@@ -283,12 +348,12 @@ export const resilienceTools: MiniTool[] = [
       const evts = events as Array<{ timestamp: number; success: boolean; latencyMs?: number }>;
 
       // Filter events within window
-      const inWindow = evts.filter(e => e.timestamp >= windowStart && e.timestamp <= now);
-      const successful = inWindow.filter(e => e.success);
-      const failed = inWindow.filter(e => !e.success);
+      const inWindow = evts.filter((e) => e.timestamp >= windowStart && e.timestamp <= now);
+      const successful = inWindow.filter((e) => e.success);
+      const failed = inWindow.filter((e) => !e.success);
 
       // Calculate latency stats
-      const latencies = inWindow.filter(e => e.latencyMs !== undefined).map(e => e.latencyMs!);
+      const latencies = inWindow.filter((e) => e.latencyMs !== undefined).map((e) => e.latencyMs!);
       let avgLatency = 0;
       let p50 = 0;
       let p95 = 0;
@@ -317,27 +382,33 @@ export const resilienceTools: MiniTool[] = [
         successRate: Math.round(successRate * 1000) / 10,
         errorRate: Math.round((1 - successRate) * 1000) / 10,
         requestsPerSecond: Math.round(requestsPerSecond * 100) / 100,
-        latency: latencies.length > 0 ? {
-          avg: Math.round(avgLatency),
-          p50: Math.round(p50),
-          p95: Math.round(p95),
-          p99: Math.round(p99),
-          min: Math.round(Math.min(...latencies)),
-          max: Math.round(Math.max(...latencies)),
-        } : null,
+        latency: latencies.length > 0
+          ? {
+            avg: Math.round(avgLatency),
+            p50: Math.round(p50),
+            p95: Math.round(p95),
+            p99: Math.round(p99),
+            min: Math.round(Math.min(...latencies)),
+            max: Math.round(Math.max(...latencies)),
+          }
+          : null,
       };
     },
   },
   {
     name: "resilience_deadline",
-    description: "Calculate remaining time until deadline. Check if deadline has passed and compute time remaining or overdue. Use for timeout management, SLA tracking, or task scheduling. Keywords: deadline, timeout, time remaining, SLA, due time, expiration.",
+    description:
+      "Calculate remaining time until deadline. Check if deadline has passed and compute time remaining or overdue. Use for timeout management, SLA tracking, or task scheduling. Keywords: deadline, timeout, time remaining, SLA, due time, expiration.",
     category: "resilience",
     inputSchema: {
       type: "object",
       properties: {
         deadline: { type: "number", description: "Deadline timestamp (ms since epoch)" },
         currentTime: { type: "number", description: "Current time (default: now)" },
-        warnThresholdMs: { type: "number", description: "Warning threshold before deadline (default: 5000)" },
+        warnThresholdMs: {
+          type: "number",
+          description: "Warning threshold before deadline (default: 5000)",
+        },
       },
       required: ["deadline"],
     },
@@ -365,7 +436,8 @@ export const resilienceTools: MiniTool[] = [
   },
   {
     name: "resilience_bulkhead",
-    description: "Check bulkhead pattern capacity for request isolation. Limit concurrent requests to protect resources and prevent cascading failures. Use for resource protection, connection pooling, or thread limiting. Keywords: bulkhead, concurrency limit, isolation, resource pool, connection limit, capacity.",
+    description:
+      "Check bulkhead pattern capacity for request isolation. Limit concurrent requests to protect resources and prevent cascading failures. Use for resource protection, connection pooling, or thread limiting. Keywords: bulkhead, concurrency limit, isolation, resource pool, connection limit, capacity.",
     category: "resilience",
     inputSchema: {
       type: "object",
@@ -406,18 +478,21 @@ export const resilienceTools: MiniTool[] = [
           available,
           utilizationPercent: Math.round((current / max) * 100),
         },
-        queue: maxQueue > 0 ? {
-          current: queue,
-          max: maxQueue,
-          available: maxQueue - queue,
-          utilizationPercent: Math.round((queue / maxQueue) * 100),
-        } : null,
+        queue: maxQueue > 0
+          ? {
+            current: queue,
+            max: maxQueue,
+            available: maxQueue - queue,
+            utilizationPercent: Math.round((queue / maxQueue) * 100),
+          }
+          : null,
       };
     },
   },
   {
     name: "resilience_health_score",
-    description: "Calculate composite health score from multiple metrics. Combine error rate, latency, and availability into single 0-100 score. Use for dashboards, alerting, or service discovery. Keywords: health score, service health, composite metric, availability, SLI, health check.",
+    description:
+      "Calculate composite health score from multiple metrics. Combine error rate, latency, and availability into single 0-100 score. Use for dashboards, alerting, or service discovery. Keywords: health score, service health, composite metric, availability, SLI, health check.",
     category: "resilience",
     inputSchema: {
       type: "object",
@@ -457,7 +532,8 @@ export const resilienceTools: MiniTool[] = [
 
       // Weighted average
       const score = Math.round(
-        (errorScore * errWeight + latencyScore * latWeight + availScore * availWeight) / totalWeight
+        (errorScore * errWeight + latencyScore * latWeight + availScore * availWeight) /
+          totalWeight,
       );
 
       // Determine status
@@ -471,9 +547,22 @@ export const resilienceTools: MiniTool[] = [
         score,
         status,
         components: {
-          errors: { score: Math.round(errorScore), weight: errWeight, value: `${(err * 100).toFixed(1)}%` },
-          latency: { score: Math.round(latencyScore), weight: latWeight, value: `${lat}ms`, target: `${target}ms` },
-          availability: { score: Math.round(availScore), weight: availWeight, value: `${(avail * 100).toFixed(1)}%` },
+          errors: {
+            score: Math.round(errorScore),
+            weight: errWeight,
+            value: `${(err * 100).toFixed(1)}%`,
+          },
+          latency: {
+            score: Math.round(latencyScore),
+            weight: latWeight,
+            value: `${lat}ms`,
+            target: `${target}ms`,
+          },
+          availability: {
+            score: Math.round(availScore),
+            weight: availWeight,
+            value: `${(avail * 100).toFixed(1)}%`,
+          },
         },
         thresholds: {
           healthy: "≥90",

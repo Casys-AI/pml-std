@@ -59,6 +59,12 @@
       "additionalProperties": false
     }
   },
-  "required": ["enabled", "confidence_threshold", "max_concurrent_speculations", "speculation_timeout", "adaptive"],
+  "required": [
+    "enabled",
+    "confidence_threshold",
+    "max_concurrent_speculations",
+    "speculation_timeout",
+    "adaptive"
+  ],
   "additionalProperties": false
 }

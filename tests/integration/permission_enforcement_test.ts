@@ -14,10 +14,7 @@
  */
 
 import { assertEquals, assertExists } from "@std/assert";
-import {
-  DenoSandboxExecutor,
-  determinePermissionSet,
-} from "../../src/sandbox/executor.ts";
+import { DenoSandboxExecutor, determinePermissionSet } from "../../src/sandbox/executor.ts";
 import type { PermissionSet } from "../../src/capabilities/types.ts";
 
 // ==========================================================================
@@ -68,7 +65,11 @@ Deno.test("E2E - network-api permission allows fetch", async () => {
     "network-api",
   );
 
-  assertEquals(result.success, true, `Expected success but got error: ${JSON.stringify(result.error)}`);
+  assertEquals(
+    result.success,
+    true,
+    `Expected success but got error: ${JSON.stringify(result.error)}`,
+  );
   // Check that we were able to connect (permission was granted)
   const res = result.result as { connected: boolean; status?: number; error?: string };
   assertEquals(res.connected, true, `Network should be allowed: ${res.error}`);
@@ -103,7 +104,11 @@ Deno.test("E2E - filesystem permission allows /tmp write", async () => {
     "filesystem",
   );
 
-  assertEquals(result.success, true, `Expected success but got error: ${JSON.stringify(result.error)}`);
+  assertEquals(
+    result.success,
+    true,
+    `Expected success but got error: ${JSON.stringify(result.error)}`,
+  );
   assertEquals(result.result, "test data from sandbox");
 
   // Cleanup
@@ -145,7 +150,11 @@ Deno.test("E2E - mcp-standard permission allows read, write, network, limited en
     "mcp-standard",
   );
 
-  assertEquals(networkResult.success, true, `Network should work: ${JSON.stringify(networkResult.error)}`);
+  assertEquals(
+    networkResult.success,
+    true,
+    `Network should work: ${JSON.stringify(networkResult.error)}`,
+  );
   const netRes = networkResult.result as { connected: boolean; status?: number; error?: string };
   assertEquals(netRes.connected, true, `Network should be allowed: ${netRes.error}`);
 
@@ -160,7 +169,11 @@ Deno.test("E2E - mcp-standard permission allows read, write, network, limited en
     "mcp-standard",
   );
 
-  assertEquals(writeResult.success, true, `Write should work: ${JSON.stringify(writeResult.error)}`);
+  assertEquals(
+    writeResult.success,
+    true,
+    `Write should work: ${JSON.stringify(writeResult.error)}`,
+  );
   assertEquals(writeResult.result, "mcp data");
 
   // Test limited env access (HOME and PATH allowed)
@@ -170,7 +183,11 @@ Deno.test("E2E - mcp-standard permission allows read, write, network, limited en
     "mcp-standard",
   );
 
-  assertEquals(envResult.success, true, `Env HOME should be accessible: ${JSON.stringify(envResult.error)}`);
+  assertEquals(
+    envResult.success,
+    true,
+    `Env HOME should be accessible: ${JSON.stringify(envResult.error)}`,
+  );
   assertEquals(envResult.result, true);
 
   // Cleanup
@@ -198,7 +215,11 @@ Deno.test("E2E - trusted permission allows all operations", async () => {
     "trusted",
   );
 
-  assertEquals(networkResult.success, true, `Network should work: ${JSON.stringify(networkResult.error)}`);
+  assertEquals(
+    networkResult.success,
+    true,
+    `Network should work: ${JSON.stringify(networkResult.error)}`,
+  );
   const netRes = networkResult.result as { connected: boolean; status?: number; error?: string };
   assertEquals(netRes.connected, true, `Network should be allowed: ${netRes.error}`);
 });
@@ -261,7 +282,11 @@ Deno.test("E2E - determinePermissionSet respects high confidence capability", as
     effectivePermission,
   );
 
-  assertEquals(result.success, true, `High confidence should allow network: ${JSON.stringify(result.error)}`);
+  assertEquals(
+    result.success,
+    true,
+    `High confidence should allow network: ${JSON.stringify(result.error)}`,
+  );
   const res = result.result as { connected: boolean; status?: number; error?: string };
   assertEquals(res.connected, true, `Network should be allowed: ${res.error}`);
 });
@@ -295,7 +320,11 @@ Deno.test("E2E - determinePermissionSet manual source ignores confidence", async
     effectivePermission,
   );
 
-  assertEquals(result.success, true, `Manual source should use stored permission: ${JSON.stringify(result.error)}`);
+  assertEquals(
+    result.success,
+    true,
+    `Manual source should use stored permission: ${JSON.stringify(result.error)}`,
+  );
   const res = result.result as { connected: boolean; status?: number; error?: string };
   assertEquals(res.connected, true, `Network should be allowed: ${res.error}`);
 });

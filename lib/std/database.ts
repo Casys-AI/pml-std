@@ -4,19 +4,24 @@
  * @module lib/std/tools/database
  */
 
-import { runCommand, type MiniTool } from "./common.ts";
+import { type MiniTool, runCommand } from "./common.ts";
 
 export const databaseTools: MiniTool[] = [
   {
     name: "sqlite_query",
-    description: "Execute SQL queries on SQLite database files. Run SELECT, INSERT, UPDATE, DELETE operations on local .db files. Output as JSON, CSV, or table format. Use for local data storage, testing, embedded databases, or data analysis. Keywords: sqlite query, SQL database, local db, select insert update, sqlite3 command, database query.",
+    description:
+      "Execute SQL queries on SQLite database files. Run SELECT, INSERT, UPDATE, DELETE operations on local .db files. Output as JSON, CSV, or table format. Use for local data storage, testing, embedded databases, or data analysis. Keywords: sqlite query, SQL database, local db, select insert update, sqlite3 command, database query.",
     category: "system",
     inputSchema: {
       type: "object",
       properties: {
         database: { type: "string", description: "Database file path" },
         query: { type: "string", description: "SQL query" },
-        mode: { type: "string", enum: ["json", "csv", "table", "line"], description: "Output mode" },
+        mode: {
+          type: "string",
+          enum: ["json", "csv", "table", "line"],
+          description: "Output mode",
+        },
       },
       required: ["database", "query"],
     },
@@ -40,7 +45,8 @@ export const databaseTools: MiniTool[] = [
   },
   {
     name: "psql_query",
-    description: "Execute SQL queries on PostgreSQL databases. Connect to remote or local Postgres servers, run queries, manage data. Use for production database operations, data analysis, schema management, or database administration. Keywords: postgresql query, psql, postgres SQL, database query, pg connection, SQL execute.",
+    description:
+      "Execute SQL queries on PostgreSQL databases. Connect to remote or local Postgres servers, run queries, manage data. Use for production database operations, data analysis, schema management, or database administration. Keywords: postgresql query, psql, postgres SQL, database query, pg connection, SQL execute.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -67,7 +73,8 @@ export const databaseTools: MiniTool[] = [
   },
   {
     name: "redis_cli",
-    description: "Execute Redis commands for key-value operations, caching, and pub/sub. Run GET, SET, HGET, LPUSH, and other Redis operations. Use for cache management, session storage, message queues, or real-time data. Keywords: redis cli, redis command, key value store, cache operations, redis get set, NoSQL database.",
+    description:
+      "Execute Redis commands for key-value operations, caching, and pub/sub. Run GET, SET, HGET, LPUSH, and other Redis operations. Use for cache management, session storage, message queues, or real-time data. Keywords: redis cli, redis command, key value store, cache operations, redis get set, NoSQL database.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -93,7 +100,8 @@ export const databaseTools: MiniTool[] = [
   },
   {
     name: "mysql_query",
-    description: "Execute SQL queries on MySQL/MariaDB databases. Connect to local or remote MySQL servers, run queries, and manage data. Use for production databases, data analysis, or administration. Keywords: mysql query, mariadb, SQL execute, mysql database, mysql connect.",
+    description:
+      "Execute SQL queries on MySQL/MariaDB databases. Connect to local or remote MySQL servers, run queries, and manage data. Use for production databases, data analysis, or administration. Keywords: mysql query, mariadb, SQL execute, mysql database, mysql connect.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -121,7 +129,8 @@ export const databaseTools: MiniTool[] = [
   },
   {
     name: "sqlite_tables",
-    description: "List all tables in a SQLite database. Get table names for schema exploration. Use for database discovery, documentation, or migration planning. Keywords: sqlite tables, list tables, database schema, table names, sqlite structure.",
+    description:
+      "List all tables in a SQLite database. Get table names for schema exploration. Use for database discovery, documentation, or migration planning. Keywords: sqlite tables, list tables, database schema, table names, sqlite structure.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -133,7 +142,8 @@ export const databaseTools: MiniTool[] = [
     handler: async ({ database }) => {
       const result = await runCommand("sqlite3", [
         database as string,
-        "-cmd", ".mode json",
+        "-cmd",
+        ".mode json",
         "SELECT name, type FROM sqlite_master WHERE type IN ('table', 'view') ORDER BY name",
       ]);
       if (result.code !== 0) {
@@ -148,7 +158,8 @@ export const databaseTools: MiniTool[] = [
   },
   {
     name: "sqlite_schema",
-    description: "Get the schema (CREATE statement) for a SQLite table. View column definitions, types, constraints, and indexes. Use for documentation, migration, or understanding table structure. Keywords: sqlite schema, table schema, column types, create statement, table structure.",
+    description:
+      "Get the schema (CREATE statement) for a SQLite table. View column definitions, types, constraints, and indexes. Use for documentation, migration, or understanding table structure. Keywords: sqlite schema, table schema, column types, create statement, table structure.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -171,7 +182,8 @@ export const databaseTools: MiniTool[] = [
   },
   {
     name: "sqlite_info",
-    description: "Get detailed column information for a SQLite table using PRAGMA. Shows column names, types, nullability, defaults, and primary keys. Use for data validation or ORM mapping. Keywords: sqlite pragma, table info, column info, column types, table columns.",
+    description:
+      "Get detailed column information for a SQLite table using PRAGMA. Shows column names, types, nullability, defaults, and primary keys. Use for data validation or ORM mapping. Keywords: sqlite pragma, table info, column info, column types, table columns.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -184,7 +196,8 @@ export const databaseTools: MiniTool[] = [
     handler: async ({ database, table }) => {
       const result = await runCommand("sqlite3", [
         database as string,
-        "-cmd", ".mode json",
+        "-cmd",
+        ".mode json",
         `PRAGMA table_info(${table})`,
       ]);
       if (result.code !== 0) {
@@ -199,7 +212,8 @@ export const databaseTools: MiniTool[] = [
   },
   {
     name: "psql_tables",
-    description: "List all tables in a PostgreSQL database. Get table names, schemas, and types. Use for database exploration, documentation, or migration planning. Keywords: postgres tables, list tables, pg_tables, postgresql schema, table list.",
+    description:
+      "List all tables in a PostgreSQL database. Get table names, schemas, and types. Use for database exploration, documentation, or migration planning. Keywords: postgres tables, list tables, pg_tables, postgresql schema, table list.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -213,7 +227,8 @@ export const databaseTools: MiniTool[] = [
       required: ["database"],
     },
     handler: async ({ host = "localhost", port = 5432, database, user, schema = "public" }) => {
-      const query = `SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '${schema}' ORDER BY table_name`;
+      const query =
+        `SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '${schema}' ORDER BY table_name`;
       const args = ["-h", host as string, "-p", String(port), "-d", database as string];
       if (user) args.push("-U", user as string);
       args.push("-t", "-A", "-F", ",", "-c", query);
@@ -233,7 +248,8 @@ export const databaseTools: MiniTool[] = [
   },
   {
     name: "psql_schema",
-    description: "Get detailed schema information for a PostgreSQL table. View columns, types, constraints, and defaults. Use for documentation, migration, or data modeling. Keywords: postgres schema, table columns, pg describe, column types, table definition.",
+    description:
+      "Get detailed schema information for a PostgreSQL table. View columns, types, constraints, and defaults. Use for documentation, migration, or data modeling. Keywords: postgres schema, table columns, pg describe, column types, table definition.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -264,14 +280,21 @@ export const databaseTools: MiniTool[] = [
       const lines = result.stdout.trim().split("\n").filter(Boolean);
       const columns = lines.map((line) => {
         const [name, type, maxLength, nullable, defaultVal] = line.split("|");
-        return { name, type, maxLength: maxLength || null, nullable: nullable === "YES", default: defaultVal || null };
+        return {
+          name,
+          type,
+          maxLength: maxLength || null,
+          nullable: nullable === "YES",
+          default: defaultVal || null,
+        };
       });
       return { columns, table };
     },
   },
   {
     name: "redis_keys",
-    description: "List Redis keys matching a pattern. Search for keys using glob patterns (* ? []). Use for cache inspection, debugging, or key discovery. Keywords: redis keys, key pattern, list keys, redis scan, key search.",
+    description:
+      "List Redis keys matching a pattern. Search for keys using glob patterns (* ? []). Use for cache inspection, debugging, or key discovery. Keywords: redis keys, key pattern, list keys, redis scan, key search.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -298,14 +321,19 @@ export const databaseTools: MiniTool[] = [
   },
   {
     name: "redis_info",
-    description: "Get Redis server information and statistics. View memory usage, connected clients, persistence status, replication info, and more. Use for monitoring, debugging, or capacity planning. Keywords: redis info, server stats, redis memory, redis status, server info.",
+    description:
+      "Get Redis server information and statistics. View memory usage, connected clients, persistence status, replication info, and more. Use for monitoring, debugging, or capacity planning. Keywords: redis info, server stats, redis memory, redis status, server info.",
     category: "system",
     inputSchema: {
       type: "object",
       properties: {
         host: { type: "string", description: "Redis host (default: localhost)" },
         port: { type: "number", description: "Redis port (default: 6379)" },
-        section: { type: "string", description: "Info section (server, clients, memory, stats, replication, cpu, keyspace, all)" },
+        section: {
+          type: "string",
+          description:
+            "Info section (server, clients, memory, stats, replication, cpu, keyspace, all)",
+        },
       },
     },
     handler: async ({ host = "localhost", port = 6379, section }) => {
@@ -338,7 +366,8 @@ export const databaseTools: MiniTool[] = [
   },
   {
     name: "redis_get",
-    description: "Get the value of a Redis key with type detection. Automatically handles strings, hashes, lists, sets, and sorted sets. Use for inspecting cached data, debugging, or data retrieval. Keywords: redis get, key value, redis hgetall, redis lrange, fetch key.",
+    description:
+      "Get the value of a Redis key with type detection. Automatically handles strings, hashes, lists, sets, and sorted sets. Use for inspecting cached data, debugging, or data retrieval. Keywords: redis get, key value, redis hgetall, redis lrange, fetch key.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -417,7 +446,8 @@ export const databaseTools: MiniTool[] = [
   },
   {
     name: "redis_set",
-    description: "Set a Redis key with optional expiration. Store string values with TTL for caching. Use for caching data, session storage, or temporary data. Keywords: redis set, store key, redis setex, cache value, key expiry.",
+    description:
+      "Set a Redis key with optional expiration. Store string values with TTL for caching. Use for caching data, session storage, or temporary data. Keywords: redis set, store key, redis setex, cache value, key expiry.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -450,7 +480,8 @@ export const databaseTools: MiniTool[] = [
   },
   {
     name: "redis_del",
-    description: "Delete one or more Redis keys. Remove keys from the database. Use for cache invalidation, cleanup, or data removal. Keywords: redis del, delete key, remove key, cache invalidate, key delete.",
+    description:
+      "Delete one or more Redis keys. Remove keys from the database. Use for cache invalidation, cleanup, or data removal. Keywords: redis del, delete key, remove key, cache invalidate, key delete.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -476,7 +507,8 @@ export const databaseTools: MiniTool[] = [
   },
   {
     name: "mongo_query",
-    description: "Execute MongoDB queries using mongosh. Run find, aggregate, insert, update, or delete operations. Use for document database operations, data analysis, or administration. Keywords: mongodb query, mongosh, mongo find, document query, nosql query.",
+    description:
+      "Execute MongoDB queries using mongosh. Run find, aggregate, insert, update, or delete operations. Use for document database operations, data analysis, or administration. Keywords: mongodb query, mongosh, mongo find, document query, nosql query.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -485,13 +517,27 @@ export const databaseTools: MiniTool[] = [
         port: { type: "number", description: "Port (default: 27017)" },
         database: { type: "string", description: "Database name" },
         collection: { type: "string", description: "Collection name" },
-        operation: { type: "string", enum: ["find", "findOne", "count", "aggregate", "insertOne", "updateOne", "deleteOne"], description: "Operation type" },
+        operation: {
+          type: "string",
+          enum: ["find", "findOne", "count", "aggregate", "insertOne", "updateOne", "deleteOne"],
+          description: "Operation type",
+        },
         query: { description: "Query document or pipeline" },
         options: { description: "Operation options (projection, sort, limit, etc.)" },
       },
       required: ["database", "collection", "operation"],
     },
-    handler: async ({ host = "localhost", port = 27017, database, collection, operation, query = {}, options = {} }) => {
+    handler: async (
+      {
+        host = "localhost",
+        port = 27017,
+        database,
+        collection,
+        operation,
+        query = {},
+        options = {},
+      },
+    ) => {
       const uri = `mongodb://${host}:${port}/${database}`;
 
       let jsCode: string;
@@ -528,7 +574,8 @@ export const databaseTools: MiniTool[] = [
         uri,
         "--quiet",
         "--json=relaxed",
-        "--eval", `JSON.stringify(${jsCode})`,
+        "--eval",
+        `JSON.stringify(${jsCode})`,
       ]);
 
       if (result.code !== 0) {
@@ -544,7 +591,8 @@ export const databaseTools: MiniTool[] = [
   },
   {
     name: "mongo_collections",
-    description: "List collections in a MongoDB database. Get collection names and types. Use for database exploration or schema discovery. Keywords: mongo collections, list collections, mongodb schema, collection names.",
+    description:
+      "List collections in a MongoDB database. Get collection names and types. Use for database exploration or schema discovery. Keywords: mongo collections, list collections, mongodb schema, collection names.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -562,7 +610,8 @@ export const databaseTools: MiniTool[] = [
         uri,
         "--quiet",
         "--json=relaxed",
-        "--eval", "JSON.stringify(db.getCollectionNames())",
+        "--eval",
+        "JSON.stringify(db.getCollectionNames())",
       ]);
 
       if (result.code !== 0) {

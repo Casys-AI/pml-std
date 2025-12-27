@@ -12,10 +12,10 @@
 
 import * as log from "@std/log";
 import { createDefaultClient as createDefaultPGlite } from "./client.ts";
-import { isCloudDatabase, createPostgresClient } from "./postgres-client.ts";
+import { createPostgresClient, isCloudDatabase } from "./postgres-client.ts";
 
 // Re-export types from types.ts (canonical source)
-export type { Row, Transaction, DbClient } from "./types.ts";
+export type { DbClient, Row, Transaction } from "./types.ts";
 import type { DbClient } from "./types.ts";
 
 /**

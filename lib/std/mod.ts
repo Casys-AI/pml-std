@@ -49,8 +49,8 @@
  * @module lib/std/mod
  */
 
-export { runCommand, type MiniTool } from "./common.ts";
-export type { ToolCategory, MiniToolHandler, MiniToolResult } from "./types.ts";
+export { type MiniTool, runCommand } from "./common.ts";
+export type { MiniToolHandler, MiniToolResult, ToolCategory } from "./types.ts";
 
 // System tools
 export { dockerTools } from "./docker.ts";
@@ -61,7 +61,7 @@ export { archiveTools } from "./archive.ts";
 export { sshTools } from "./ssh.ts";
 export { kubernetesTools } from "./kubernetes.ts";
 export { databaseTools } from "./database.ts";
-export { pgliteTools, closePgliteConnection } from "./pglite.ts";
+export { closePgliteConnection, pgliteTools } from "./pglite.ts";
 export { mediaTools } from "./media.ts";
 export { cloudTools } from "./cloud.ts";
 export { sysinfoTools } from "./sysinfo.ts";
@@ -96,19 +96,26 @@ export { diffTools } from "./diff.ts";
 export { agentTools, setSamplingClient } from "./agent.ts";
 
 // Capability management (MCP Server + MiniTools)
-export { CapModule, getCapModule, globToSqlLike, PmlStdServer, pmlTools, setCapModule } from "./cap.ts";
+export {
+  CapModule,
+  getCapModule,
+  globToSqlLike,
+  PmlStdServer,
+  pmlTools,
+  setCapModule,
+} from "./cap.ts";
 export type {
-  CapListOptions,
   CapListItem,
+  CapListOptions,
   CapListResponse,
-  CapRenameOptions,
-  CapRenameResponse,
   CapLookupOptions,
   CapLookupResponse,
-  CapWhoisOptions,
-  CapWhoisResponse,
+  CapRenameOptions,
+  CapRenameResponse,
   CapTool,
   CapToolResult,
+  CapWhoisOptions,
+  CapWhoisResponse,
 } from "./cap.ts";
 
 // Python execution tools
@@ -334,7 +341,9 @@ export class MiniToolsClient {
   /**
    * Convert tools to MCP format
    */
-  toMCPFormat(): Array<{ name: string; description: string; inputSchema: Record<string, unknown> }> {
+  toMCPFormat(): Array<
+    { name: string; description: string; inputSchema: Record<string, unknown> }
+  > {
     return this.tools.map((t) => ({
       name: t.name,
       description: t.description,

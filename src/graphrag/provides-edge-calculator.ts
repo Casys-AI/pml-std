@@ -14,12 +14,7 @@
  */
 
 import type { DbClient } from "../db/types.ts";
-import type {
-  FieldMapping,
-  JSONSchema,
-  ProvidesEdge,
-  ProvidesCoverage,
-} from "./types.ts";
+import type { FieldMapping, JSONSchema, ProvidesCoverage, ProvidesEdge } from "./types.ts";
 import { EDGE_TYPE_WEIGHTS } from "./algorithms/edge-weights.ts";
 import { getLogger } from "../telemetry/logger.ts";
 

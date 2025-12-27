@@ -14,7 +14,7 @@
  * @module dag/dag-optimizer
  */
 
-import type { Task, DAGStructure } from "../graphrag/types.ts";
+import type { DAGStructure, Task } from "../graphrag/types.ts";
 import { getLogger } from "../telemetry/logger.ts";
 
 const log = getLogger("dag-optimizer");
@@ -62,27 +62,27 @@ export interface OptimizationConfig {
  */
 export function optimizeDAG(
   logicalDAG: DAGStructure,
-  config: OptimizationConfig = {}
+  config: OptimizationConfig = {},
 ): OptimizedDAGStructure {
   const {
     enabled = true,
     maxFusionSize = 10,
-    strategy = "sequential"
+    strategy = "sequential",
   } = config;
 
   if (!enabled) {
     log.debug("Optimization disabled, returning logical DAG as-is");
     return {
       tasks: logicalDAG.tasks,
-      logicalToPhysical: new Map(logicalDAG.tasks.map(t => [t.id, t.id])),
-      physicalToLogical: new Map(logicalDAG.tasks.map(t => [t.id, [t.id]])),
-      logicalDAG
+      logicalToPhysical: new Map(logicalDAG.tasks.map((t) => [t.id, t.id])),
+      physicalToLogical: new Map(logicalDAG.tasks.map((t) => [t.id, [t.id]])),
+      logicalDAG,
     };
   }
 
   log.debug("Optimizing DAG", {
     logicalTaskCount: logicalDAG.tasks.length,
-    strategy
+    strategy,
   });
 
   // Phase 2a: Sequential fusion only
@@ -104,7 +104,7 @@ export function optimizeDAG(
  */
 function optimizeSequential(
   logicalDAG: DAGStructure,
-  maxFusionSize: number
+  maxFusionSize: number,
 ): OptimizedDAGStructure {
   const physicalTasks: Task[] = [];
   const logicalToPhysical = new Map<string, string>();
@@ -137,12 +137,12 @@ function optimizeSequential(
           logicalToPhysical.set(chainTask.id, fusedTask.id);
           processed.add(chainTask.id);
         }
-        physicalToLogical.set(fusedTask.id, chain.map(t => t.id));
+        physicalToLogical.set(fusedTask.id, chain.map((t) => t.id));
 
         log.debug("Fused task chain", {
           fusedTaskId: fusedTask.id,
-          logicalTasks: chain.map(t => t.id),
-          operations: chain.map(t => t.tool)
+          logicalTasks: chain.map((t) => t.id),
+          operations: chain.map((t) => t.tool),
         });
       } else {
         // Keep as-is (single task or can't fuse)
@@ -163,14 +163,14 @@ function optimizeSequential(
   log.info("DAG optimization complete", {
     logicalTasks: logicalDAG.tasks.length,
     physicalTasks: physicalTasks.length,
-    fusionRate: Math.round((1 - physicalTasks.length / logicalDAG.tasks.length) * 100)
+    fusionRate: Math.round((1 - physicalTasks.length / logicalDAG.tasks.length) * 100),
   });
 
   return {
     tasks: physicalTasks,
     logicalToPhysical,
     physicalToLogical,
-    logicalDAG
+    logicalDAG,
   };
 }
 
@@ -183,14 +183,14 @@ function findSequentialChain(
   startTask: Task,
   dag: DAGStructure,
   processed: Set<string>,
-  maxSize: number
+  maxSize: number,
 ): Task[] {
   const chain: Task[] = [startTask];
   let currentTask = startTask;
 
   while (chain.length < maxSize) {
     // Find tasks that depend ONLY on the current task
-    const nextCandidates = dag.tasks.filter(t =>
+    const nextCandidates = dag.tasks.filter((t) =>
       !processed.has(t.id) &&
       t.id !== currentTask.id &&
       t.type === "code_execution" &&
@@ -207,7 +207,7 @@ function findSequentialChain(
     const nextTask = nextCandidates[0];
 
     // Check if any other task depends on the current task
-    const otherDependents = dag.tasks.filter(t =>
+    const otherDependents = dag.tasks.filter((t) =>
       t.id !== nextTask.id &&
       t.dependsOn.includes(currentTask.id)
     );
@@ -237,7 +237,7 @@ export function canFuseTasks(tasks: Task[]): boolean {
   if (tasks.length === 0) return false;
 
   // Rule 1: All must be code_execution
-  if (!tasks.every(t => t.type === "code_execution")) {
+  if (!tasks.every((t) => t.type === "code_execution")) {
     return false;
   }
 
@@ -253,12 +253,12 @@ export function canFuseTasks(tasks: Task[]): boolean {
 
   // Rule 3: All must be pure operations (Phase 2a: checked via metadata)
   // For multi-task fusion, we require explicit pure marking
-  if (!tasks.every(t => t.metadata?.pure === true)) {
+  if (!tasks.every((t) => t.metadata?.pure === true)) {
     return false;
   }
 
   // Rule 4: Same permission set
-  const permSets = tasks.map(t => t.sandboxConfig?.permissionSet ?? "minimal");
+  const permSets = tasks.map((t) => t.sandboxConfig?.permissionSet ?? "minimal");
   if (new Set(permSets).size > 1) {
     return false;
   }
@@ -282,12 +282,12 @@ export function fuseTasks(tasks: Task[]): Task {
   }
 
   log.debug("Fusing tasks", {
-    taskIds: tasks.map(t => t.id),
-    operations: tasks.map(t => t.tool)
+    taskIds: tasks.map((t) => t.id),
+    operations: tasks.map((t) => t.tool),
   });
 
   // Collect external dependencies (dependencies outside the fused group)
-  const taskIds = new Set(tasks.map(t => t.id));
+  const taskIds = new Set(tasks.map((t) => t.id));
   const externalDeps = new Set<string>();
 
   for (const task of tasks) {
@@ -311,12 +311,12 @@ export function fuseTasks(tasks: Task[]): Task {
     dependsOn: Array.from(externalDeps),
     sandboxConfig: tasks[0].sandboxConfig,
     metadata: {
-      fusedFrom: tasks.map(t => t.id),
-      logicalTools: tasks.map(t => t.tool!),
-      pure: true
+      fusedFrom: tasks.map((t) => t.id),
+      logicalTools: tasks.map((t) => t.tool!),
+      pure: true,
     },
     // Preserve variable bindings from first task (for MCP dependencies)
-    variableBindings: tasks[0].variableBindings
+    variableBindings: tasks[0].variableBindings,
   };
 
   return fusedTask;
@@ -343,7 +343,7 @@ function generateFusedCode(tasks: Task[]): string {
   }
 
   // Join with newlines and return last result
-  const fusedCode = codeBlocks.join('\n');
+  const fusedCode = codeBlocks.join("\n");
 
   // Wrap in function that returns the last expression result
   return `

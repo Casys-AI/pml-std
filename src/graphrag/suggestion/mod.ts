@@ -8,13 +8,13 @@
  */
 
 export {
-  calculateCommunityConfidence,
-  calculateCooccurrenceConfidence,
-  calculateConfidenceHybrid,
-  calculatePathConfidence,
-  getAdaptiveWeightsFromAlpha,
   type AdaptiveWeights,
+  calculateCommunityConfidence,
+  calculateConfidenceHybrid,
+  calculateCooccurrenceConfidence,
+  calculatePathConfidence,
   type ConfidenceBreakdown,
+  getAdaptiveWeightsFromAlpha,
   type ScoredCandidate,
 } from "./confidence.ts";
 
@@ -27,8 +27,8 @@ export {
 
 export {
   calculateAverageAlpha,
+  type CandidateAlpha,
   extractDependencyPaths,
   rankCandidates,
-  type CandidateAlpha,
   type RankedCandidate,
 } from "./ranking.ts";

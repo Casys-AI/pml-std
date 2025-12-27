@@ -9,7 +9,7 @@
  * @module events/event-bus
  */
 
-import type { PmlEvent, EventHandler, EventType, WildcardEventHandler } from "./types.ts";
+import type { EventHandler, EventType, PmlEvent, WildcardEventHandler } from "./types.ts";
 import { getLogger } from "../telemetry/logger.ts";
 
 const logger = getLogger("default");

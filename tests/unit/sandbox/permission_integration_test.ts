@@ -299,7 +299,11 @@ Deno.test("execute - network-api permission set allows fetch (subprocess only)",
   );
 
   // Should succeed with network-api permissions
-  assertEquals(result.success, true, `Expected success but got error: ${JSON.stringify(result.error)}`);
+  assertEquals(
+    result.success,
+    true,
+    `Expected success but got error: ${JSON.stringify(result.error)}`,
+  );
   const res = result.result as { connected: boolean; status?: number; error?: string };
   assertEquals(res.connected, true, `Network should be allowed: ${res.error}`);
 });

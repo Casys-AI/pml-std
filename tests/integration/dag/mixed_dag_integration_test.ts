@@ -10,8 +10,8 @@
  * Run with: deno test --allow-all tests/integration/dag/mixed_dag_integration_test.ts
  */
 
-import { assertEquals, assertExists, assert } from "@std/assert";
-import type { Task, DAGStructure, PredictedNode } from "../../../src/graphrag/types.ts";
+import { assert, assertEquals, assertExists } from "@std/assert";
+import type { DAGStructure, PredictedNode, Task } from "../../../src/graphrag/types.ts";
 import type { ExecutionEvent } from "../../../src/dag/types.ts";
 import { createTestExecutor } from "../../e2e/test-helpers.ts";
 

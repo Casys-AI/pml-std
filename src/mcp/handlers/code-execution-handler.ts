@@ -15,8 +15,8 @@ import type { GraphRAGEngine } from "../../graphrag/graph-engine.ts";
 import type { VectorSearch } from "../../vector/search.ts";
 import type { CapabilityStore } from "../../capabilities/capability-store.ts";
 import type { AdaptiveThresholdManager } from "../adaptive-threshold.ts";
-import type { MCPClientBase, CodeExecutionRequest, CodeExecutionResponse } from "../types.ts";
-import type { MCPToolResponse, MCPErrorResponse, ResolvedGatewayConfig } from "../server/types.ts";
+import type { CodeExecutionRequest, CodeExecutionResponse, MCPClientBase } from "../types.ts";
+import type { MCPErrorResponse, MCPToolResponse, ResolvedGatewayConfig } from "../server/types.ts";
 import { ServerDefaults } from "../server/constants.ts";
 import { formatMCPToolError } from "../server/responses.ts";
 import { DenoSandboxExecutor, type WorkerExecutionConfig } from "../../sandbox/executor.ts";
@@ -27,12 +27,12 @@ import { hashCode } from "../../capabilities/hash.ts";
 // Story 10.5: DAG Execution imports
 import { StaticStructureBuilder } from "../../capabilities/static-structure-builder.ts";
 import {
-  staticStructureToDag,
-  isValidForDagConversion,
-  resolveArguments,
+  cleanupWorkerBridgeExecutor,
   type ConditionalDAGStructure,
   createToolExecutorViaWorker,
-  cleanupWorkerBridgeExecutor,
+  isValidForDagConversion,
+  resolveArguments,
+  staticStructureToDag,
 } from "../../dag/mod.ts";
 // Phase 2a: DAG Optimizer
 import { optimizeDAG } from "../../dag/dag-optimizer.ts";
@@ -41,7 +41,10 @@ import { ControlledExecutor } from "../../dag/controlled-executor.ts";
 import type { Task } from "../../graphrag/types.ts";
 import type { TaskResult } from "../../dag/types.ts";
 import type { DbClient } from "../../db/types.ts";
-import { type DagScoringConfig, DEFAULT_DAG_SCORING_CONFIG } from "../../graphrag/dag-scoring-config.ts";
+import {
+  type DagScoringConfig,
+  DEFAULT_DAG_SCORING_CONFIG,
+} from "../../graphrag/dag-scoring-config.ts";
 import { buildToolDefinitionsFromDAG } from "./shared/tool-definitions.ts";
 
 /**
@@ -106,7 +109,9 @@ export async function handleExecuteCode(
   deps: CodeExecutionDependencies,
 ): Promise<MCPToolResponse | MCPErrorResponse> {
   // Story 10.7: Deprecation warning
-  log.warn("[DEPRECATED] pml:execute_code is deprecated. Use pml:execute with code parameter for unified execution + automatic capability learning.");
+  log.warn(
+    "[DEPRECATED] pml:execute_code is deprecated. Use pml:execute with code parameter for unified execution + automatic capability learning.",
+  );
 
   try {
     const request = args as CodeExecutionRequest;
@@ -239,7 +244,10 @@ async function tryDagExecution(
       const executionContext = {
         parameters: request.context || {},
       };
-      const dagWithResolvedArgs = resolveDAGArguments({ tasks: optimizedDAG.tasks }, executionContext);
+      const dagWithResolvedArgs = resolveDAGArguments(
+        { tasks: optimizedDAG.tasks },
+        executionContext,
+      );
 
       // Execute the optimized (physical) DAG
       const physicalResults = await executor.execute(dagWithResolvedArgs);
@@ -252,7 +260,7 @@ async function tryDagExecution(
           output: r.output,
           success: r.status === "success",
           durationMs: r.executionTimeMs ?? 0,
-        }])
+        }]),
       );
 
       const logicalTrace = generateLogicalTrace(optimizedDAG, physicalResultsMap);
@@ -276,7 +284,9 @@ async function tryDagExecution(
 
       // Build response
       const response: CodeExecutionResponse & { dag?: DAGExecutionMetadata } = {
-        result: resultData.length === 1 ? (resultData[0] as import("../../capabilities/types.ts").JsonValue) : (resultData as import("../../capabilities/types.ts").JsonValue),
+        result: resultData.length === 1
+          ? (resultData[0] as import("../../capabilities/types.ts").JsonValue)
+          : (resultData as import("../../capabilities/types.ts").JsonValue),
         logs: [],
         metrics: {
           executionTimeMs,
@@ -381,250 +391,254 @@ async function executeSandboxMode(
   deps: CodeExecutionDependencies,
   codeSizeBytes: number,
 ): Promise<MCPToolResponse | MCPErrorResponse> {
-    // Build execution context (for non-tool variables)
-    // Story 8.3: Include intent in context for capability learning
-    const executionContext = {
-      ...request.context,
-      intent: request.intent,
-    };
+  // Build execution context (for non-tool variables)
+  // Story 8.3: Include intent in context for capability learning
+  const executionContext = {
+    ...request.context,
+    intent: request.intent,
+  };
 
-    // Configure sandbox
-    const sandboxConfig = request.sandbox_config || {};
-    const executor = new DenoSandboxExecutor({
-      timeout: sandboxConfig.timeout ?? 30000,
-      memoryLimit: sandboxConfig.memoryLimit ?? 512,
-      allowedReadPaths: sandboxConfig.allowedReadPaths ?? [],
-      piiProtection: deps.config.piiProtection,
-      cacheConfig: deps.config.cacheConfig,
-      // Story 8.3: Enable capability learning from code execution
-      capabilityStore: deps.capabilityStore,
-      graphRAG: deps.graphEngine,
-    });
+  // Configure sandbox
+  const sandboxConfig = request.sandbox_config || {};
+  const executor = new DenoSandboxExecutor({
+    timeout: sandboxConfig.timeout ?? 30000,
+    memoryLimit: sandboxConfig.memoryLimit ?? 512,
+    allowedReadPaths: sandboxConfig.allowedReadPaths ?? [],
+    piiProtection: deps.config.piiProtection,
+    cacheConfig: deps.config.cacheConfig,
+    // Story 8.3: Enable capability learning from code execution
+    capabilityStore: deps.capabilityStore,
+    graphRAG: deps.graphEngine,
+  });
 
-    // Set tool versions for cache key generation (Story 3.7)
-    const toolVersions = buildToolVersionsMap(deps.toolSchemaCache);
-    executor.setToolVersions(toolVersions);
+  // Set tool versions for cache key generation (Story 3.7)
+  const toolVersions = buildToolVersionsMap(deps.toolSchemaCache);
+  executor.setToolVersions(toolVersions);
 
-    // Story 7.1b: Use Worker RPC Bridge for tool execution with native tracing
-    let toolDefinitions: import("../../sandbox/types.ts").ToolDefinition[] = [];
-    let toolsCalled: string[] = [];
-    let matchedCapabilities: Array<{
-      capability: import("../../capabilities/types.ts").Capability;
-      semanticScore: number;
-    }> = [];
+  // Story 7.1b: Use Worker RPC Bridge for tool execution with native tracing
+  let toolDefinitions: import("../../sandbox/types.ts").ToolDefinition[] = [];
+  let toolsCalled: string[] = [];
+  let matchedCapabilities: Array<{
+    capability: import("../../capabilities/types.ts").Capability;
+    semanticScore: number;
+  }> = [];
 
-    // Capability context for injection (Story 8.3)
-    let capabilityContext: string | undefined;
+  // Capability context for injection (Story 8.3)
+  let capabilityContext: string | undefined;
 
-    // Intent-based mode: discover tools AND existing capabilities
-    if (request.intent) {
-      log.debug("Intent-based mode: discovering relevant tools and capabilities");
+  // Intent-based mode: discover tools AND existing capabilities
+  if (request.intent) {
+    log.debug("Intent-based mode: discovering relevant tools and capabilities");
 
-      // 1. Search for existing capabilities (Story 8.3: capability reuse)
-      if (deps.capabilityStore) {
-        try {
-          const intentSearchThreshold = deps.scoringConfig?.thresholds.intentSearch
-            ?? DEFAULT_DAG_SCORING_CONFIG.thresholds.intentSearch;
-          matchedCapabilities = await deps.capabilityStore.searchByIntent(request.intent, 3, intentSearchThreshold);
-          if (matchedCapabilities.length > 0) {
-            log.info(`Found ${matchedCapabilities.length} matching capabilities for intent`, {
-              topMatch: matchedCapabilities[0].capability.name,
-              topScore: matchedCapabilities[0].semanticScore.toFixed(2),
-            });
+    // 1. Search for existing capabilities (Story 8.3: capability reuse)
+    if (deps.capabilityStore) {
+      try {
+        const intentSearchThreshold = deps.scoringConfig?.thresholds.intentSearch ??
+          DEFAULT_DAG_SCORING_CONFIG.thresholds.intentSearch;
+        matchedCapabilities = await deps.capabilityStore.searchByIntent(
+          request.intent,
+          3,
+          intentSearchThreshold,
+        );
+        if (matchedCapabilities.length > 0) {
+          log.info(`Found ${matchedCapabilities.length} matching capabilities for intent`, {
+            topMatch: matchedCapabilities[0].capability.name,
+            topScore: matchedCapabilities[0].semanticScore.toFixed(2),
+          });
 
-            // Generate capability context for sandbox injection
-            const codeGenerator = new CapabilityCodeGenerator();
-            const capabilities = matchedCapabilities.map((mc) => mc.capability);
-            capabilityContext = codeGenerator.buildCapabilitiesObject(capabilities);
+          // Generate capability context for sandbox injection
+          const codeGenerator = new CapabilityCodeGenerator();
+          const capabilities = matchedCapabilities.map((mc) => mc.capability);
+          capabilityContext = codeGenerator.buildCapabilitiesObject(capabilities);
 
-            log.info("[execute_code] Capability context generated", {
-              capabilitiesInjected: matchedCapabilities.length,
-              capabilityNames: matchedCapabilities.map((c) => c.capability.name),
-              contextCodeLength: capabilityContext.length,
-            });
-          }
-        } catch (capError) {
-          log.warn(`Capability search failed: ${capError}`);
-        }
-      }
-
-      // 2. Use hybrid search for tools (ADR-022)
-      const hybridResults = await deps.graphEngine.searchToolsHybrid(
-        deps.vectorSearch,
-        request.intent,
-        10,
-        [],
-        false,
-      );
-
-      if (hybridResults.length > 0) {
-        log.debug(`Found ${hybridResults.length} relevant tools via hybrid search`);
-
-        // Convert HybridSearchResult to SearchResult format for buildToolDefinitions
-        const toolResults = hybridResults.map((hr) => ({
-          toolId: hr.toolId,
-          serverId: hr.serverId,
-          toolName: hr.toolName,
-          score: hr.finalScore,
-          schema: {
-            name: hr.toolName,
-            description: hr.description,
-            inputSchema: (hr.schema?.inputSchema || {}) as Record<string, unknown>,
-          },
-        }));
-
-        // Build tool definitions for Worker RPC bridge
-        toolDefinitions = deps.contextBuilder.buildToolDefinitions(toolResults);
-      } else {
-        log.warn("No relevant tools found for intent via hybrid search");
-      }
-    }
-
-    // Execute code using Worker RPC bridge (Story 7.1b)
-    const startTime = performance.now();
-    const workerConfig: WorkerExecutionConfig = {
-      toolDefinitions,
-      mcpClients: deps.mcpClients,
-    };
-
-    const result = await executor.executeWithTools(
-      request.code,
-      workerConfig,
-      executionContext,
-      capabilityContext,
-    );
-    const executionTimeMs = performance.now() - startTime;
-
-    // Handle capability feedback (Story 7.3a / AC6)
-    if (deps.capabilityStore && deps.adaptiveThresholdManager && result.success) {
-      await recordCapabilityFeedback(
-        request,
-        executionTimeMs,
-        deps.capabilityStore,
-        deps.adaptiveThresholdManager,
-      );
-    }
-
-    // Handle execution failure
-    if (!result.success) {
-      const error = result.error!;
-      return formatMCPToolError(
-        `Code execution failed: ${error.type} - ${error.message}`,
-        {
-          error_type: error.type,
-          error_message: error.message,
-          stack: error.stack,
-          executionTimeMs: executionTimeMs,
-        },
-      );
-    }
-
-    // Story 7.1b: Process native traces
-    let trackedToolsCount = 0;
-    if (result.toolsCalled && result.toolsCalled.length > 0) {
-      toolsCalled = result.toolsCalled;
-      log.info(`[Story 7.1b] Tracked ${toolsCalled.length} tool calls via native tracing`, {
-        tools: toolsCalled,
-      });
-
-      // Build WorkflowExecution from traced tool calls
-      const tracedDAG = {
-        tasks: toolsCalled.map((tool, index) => ({
-          id: `traced_${index}`,
-          tool,
-          arguments: {},
-          dependsOn: index > 0 ? [`traced_${index - 1}`] : [],
-        })),
-      };
-
-      // Update GraphRAG with execution data
-      await deps.graphEngine.updateFromExecution({
-        executionId: crypto.randomUUID(),
-        executedAt: new Date(),
-        intentText: request.intent ?? "code_execution",
-        dagStructure: tracedDAG,
-        success: true,
-        executionTimeMs: executionTimeMs,
-      });
-
-      trackedToolsCount = toolsCalled.length;
-    }
-
-    // Log native trace stats
-    if (result.traces && result.traces.length > 0) {
-      log.debug(`[Story 7.1b] Captured ${result.traces.length} native trace events`);
-    }
-
-    // ADR-043: Extract failed tools from traces
-    const toolFailures: Array<{ tool: string; error: string }> = [];
-    if (result.traces) {
-      for (const trace of result.traces) {
-        if (trace.type === "tool_end" && !trace.success && "tool" in trace) {
-          const toolTrace = trace as { tool: string; error?: string };
-          toolFailures.push({
-            tool: toolTrace.tool,
-            error: toolTrace.error ?? "Unknown error",
+          log.info("[execute_code] Capability context generated", {
+            capabilitiesInjected: matchedCapabilities.length,
+            capabilityNames: matchedCapabilities.map((c) => c.capability.name),
+            contextCodeLength: capabilityContext.length,
           });
         }
+      } catch (capError) {
+        log.warn(`Capability search failed: ${capError}`);
       }
-      if (toolFailures.length > 0) {
-        log.warn(`[ADR-043] ${toolFailures.length} tool(s) failed during execution`, {
-          failedTools: toolFailures.map((f) => f.tool),
+    }
+
+    // 2. Use hybrid search for tools (ADR-022)
+    const hybridResults = await deps.graphEngine.searchToolsHybrid(
+      deps.vectorSearch,
+      request.intent,
+      10,
+      [],
+      false,
+    );
+
+    if (hybridResults.length > 0) {
+      log.debug(`Found ${hybridResults.length} relevant tools via hybrid search`);
+
+      // Convert HybridSearchResult to SearchResult format for buildToolDefinitions
+      const toolResults = hybridResults.map((hr) => ({
+        toolId: hr.toolId,
+        serverId: hr.serverId,
+        toolName: hr.toolName,
+        score: hr.finalScore,
+        schema: {
+          name: hr.toolName,
+          description: hr.description,
+          inputSchema: (hr.schema?.inputSchema || {}) as Record<string, unknown>,
+        },
+      }));
+
+      // Build tool definitions for Worker RPC bridge
+      toolDefinitions = deps.contextBuilder.buildToolDefinitions(toolResults);
+    } else {
+      log.warn("No relevant tools found for intent via hybrid search");
+    }
+  }
+
+  // Execute code using Worker RPC bridge (Story 7.1b)
+  const startTime = performance.now();
+  const workerConfig: WorkerExecutionConfig = {
+    toolDefinitions,
+    mcpClients: deps.mcpClients,
+  };
+
+  const result = await executor.executeWithTools(
+    request.code,
+    workerConfig,
+    executionContext,
+    capabilityContext,
+  );
+  const executionTimeMs = performance.now() - startTime;
+
+  // Handle capability feedback (Story 7.3a / AC6)
+  if (deps.capabilityStore && deps.adaptiveThresholdManager && result.success) {
+    await recordCapabilityFeedback(
+      request,
+      executionTimeMs,
+      deps.capabilityStore,
+      deps.adaptiveThresholdManager,
+    );
+  }
+
+  // Handle execution failure
+  if (!result.success) {
+    const error = result.error!;
+    return formatMCPToolError(
+      `Code execution failed: ${error.type} - ${error.message}`,
+      {
+        error_type: error.type,
+        error_message: error.message,
+        stack: error.stack,
+        executionTimeMs: executionTimeMs,
+      },
+    );
+  }
+
+  // Story 7.1b: Process native traces
+  let trackedToolsCount = 0;
+  if (result.toolsCalled && result.toolsCalled.length > 0) {
+    toolsCalled = result.toolsCalled;
+    log.info(`[Story 7.1b] Tracked ${toolsCalled.length} tool calls via native tracing`, {
+      tools: toolsCalled,
+    });
+
+    // Build WorkflowExecution from traced tool calls
+    const tracedDAG = {
+      tasks: toolsCalled.map((tool, index) => ({
+        id: `traced_${index}`,
+        tool,
+        arguments: {},
+        dependsOn: index > 0 ? [`traced_${index - 1}`] : [],
+      })),
+    };
+
+    // Update GraphRAG with execution data
+    await deps.graphEngine.updateFromExecution({
+      executionId: crypto.randomUUID(),
+      executedAt: new Date(),
+      intentText: request.intent ?? "code_execution",
+      dagStructure: tracedDAG,
+      success: true,
+      executionTimeMs: executionTimeMs,
+    });
+
+    trackedToolsCount = toolsCalled.length;
+  }
+
+  // Log native trace stats
+  if (result.traces && result.traces.length > 0) {
+    log.debug(`[Story 7.1b] Captured ${result.traces.length} native trace events`);
+  }
+
+  // ADR-043: Extract failed tools from traces
+  const toolFailures: Array<{ tool: string; error: string }> = [];
+  if (result.traces) {
+    for (const trace of result.traces) {
+      if (trace.type === "tool_end" && !trace.success && "tool" in trace) {
+        const toolTrace = trace as { tool: string; error?: string };
+        toolFailures.push({
+          tool: toolTrace.tool,
+          error: toolTrace.error ?? "Unknown error",
         });
       }
     }
+    if (toolFailures.length > 0) {
+      log.warn(`[ADR-043] ${toolFailures.length} tool(s) failed during execution`, {
+        failedTools: toolFailures.map((f) => f.tool),
+      });
+    }
+  }
 
-    // Calculate output size
-    const outputSizeBytes = new TextEncoder().encode(
-      JSON.stringify(result.result),
-    ).length;
+  // Calculate output size
+  const outputSizeBytes = new TextEncoder().encode(
+    JSON.stringify(result.result),
+  ).length;
 
-    // Build response
-    const response: CodeExecutionResponse = {
-      result: result.result ?? null,
-      logs: [],
-      metrics: {
-        executionTimeMs: result.executionTimeMs,
-        inputSizeBytes: codeSizeBytes,
-        outputSizeBytes,
+  // Build response
+  const response: CodeExecutionResponse = {
+    result: result.result ?? null,
+    logs: [],
+    metrics: {
+      executionTimeMs: result.executionTimeMs,
+      inputSizeBytes: codeSizeBytes,
+      outputSizeBytes,
+    },
+    state: executionContext,
+    matched_capabilities: matchedCapabilities.length > 0
+      ? matchedCapabilities.map((mc) => ({
+        id: mc.capability.id,
+        name: mc.capability.name ?? null,
+        code_snippet: mc.capability.codeSnippet,
+        semantic_score: mc.semanticScore,
+        success_rate: mc.capability.successRate,
+        usage_count: mc.capability.usageCount,
+      }))
+      : undefined,
+    tool_failures: toolFailures.length > 0 ? toolFailures : undefined,
+  };
+
+  log.info("Code execution succeeded", {
+    executionTimeMs: response.metrics.executionTimeMs.toFixed(2),
+    outputSize: outputSizeBytes,
+    trackedTools: trackedToolsCount,
+    matchedCapabilities: matchedCapabilities.length,
+  });
+
+  // Story 10.5: Add DAG metadata for sandbox fallback mode
+  const responseWithDag: CodeExecutionResponse & { dag?: DAGExecutionMetadata } = {
+    ...response,
+    dag: {
+      mode: "sandbox" as ExecutionMode,
+    },
+  };
+
+  return {
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify(responseWithDag, null, 2),
       },
-      state: executionContext,
-      matched_capabilities: matchedCapabilities.length > 0
-        ? matchedCapabilities.map((mc) => ({
-          id: mc.capability.id,
-          name: mc.capability.name ?? null,
-          code_snippet: mc.capability.codeSnippet,
-          semantic_score: mc.semanticScore,
-          success_rate: mc.capability.successRate,
-          usage_count: mc.capability.usageCount,
-        }))
-        : undefined,
-      tool_failures: toolFailures.length > 0 ? toolFailures : undefined,
-    };
-
-    log.info("Code execution succeeded", {
-      executionTimeMs: response.metrics.executionTimeMs.toFixed(2),
-      outputSize: outputSizeBytes,
-      trackedTools: trackedToolsCount,
-      matchedCapabilities: matchedCapabilities.length,
-    });
-
-    // Story 10.5: Add DAG metadata for sandbox fallback mode
-    const responseWithDag: CodeExecutionResponse & { dag?: DAGExecutionMetadata } = {
-      ...response,
-      dag: {
-        mode: "sandbox" as ExecutionMode,
-      },
-    };
-
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(responseWithDag, null, 2),
-        },
-      ],
-    };
+    ],
+  };
 }
 
 /**

@@ -193,7 +193,9 @@ Deno.test("CapabilityDataService - buildHypergraphData creates capability and to
   assertEquals(result.toolsCount >= 1, true);
 
   // Find capability node
-  const capNode = result.nodes.find((n) => n.data.type === "capability" && n.data.id === `cap-${capId}`);
+  const capNode = result.nodes.find((n) =>
+    n.data.type === "capability" && n.data.id === `cap-${capId}`
+  );
   assertExists(capNode);
   // Label falls back to intentPreview (description) when no capability_records entry exists
   assertEquals(capNode.data.label, "Test Capability Description");
@@ -415,8 +417,24 @@ Deno.test("CapabilityDataService - buildHypergraphData with includeTraces=true f
       traceId,
       capId,
       JSON.stringify([
-        { taskId: "t1", tool: "filesystem:read", args: {}, result: {}, success: true, durationMs: 50, layerIndex: 0 },
-        { taskId: "t2", tool: "github:create_issue", args: {}, result: {}, success: true, durationMs: 100, layerIndex: 1 },
+        {
+          taskId: "t1",
+          tool: "filesystem:read",
+          args: {},
+          result: {},
+          success: true,
+          durationMs: 50,
+          layerIndex: 0,
+        },
+        {
+          taskId: "t2",
+          tool: "github:create_issue",
+          args: {},
+          result: {},
+          success: true,
+          durationMs: 100,
+          layerIndex: 1,
+        },
       ]),
     ],
   );

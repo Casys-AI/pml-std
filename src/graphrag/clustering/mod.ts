@@ -7,7 +7,7 @@
  */
 
 export {
+  type ClusterBoostDeps,
   computeClusterBoosts,
   getCapabilityPageranks,
-  type ClusterBoostDeps,
 } from "./boost-calculator.ts";

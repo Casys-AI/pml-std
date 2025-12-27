@@ -8,12 +8,12 @@
 
 import { assertEquals, assertExists, assertThrows } from "@std/assert";
 import {
-  initializeLevelParameters,
   countLevelParameters,
-  getLevelParams,
   exportLevelParams,
-  importLevelParams,
   getAdaptiveHeadsByGraphSize,
+  getLevelParams,
+  importLevelParams,
+  initializeLevelParameters,
 } from "../../../../src/graphrag/algorithms/shgat/initialization/index.ts";
 import type { SHGATConfig } from "../../../../src/graphrag/algorithms/shgat/types.ts";
 import { DEFAULT_SHGAT_CONFIG } from "../../../../src/graphrag/algorithms/shgat/types.ts";
@@ -51,12 +51,20 @@ Deno.test("initializeLevelParameters - dimensions are correct", () => {
   // Level 0: input is embeddingDim
   const level0 = levelParams.get(0)!;
   assertEquals(level0.W_child[0].length, headDim, "W_child[0] rows should be headDim");
-  assertEquals(level0.W_child[0][0].length, config.embeddingDim, "W_child[0] cols should be embDim");
+  assertEquals(
+    level0.W_child[0][0].length,
+    config.embeddingDim,
+    "W_child[0] cols should be embDim",
+  );
   assertEquals(level0.a_upward[0].length, 2 * headDim, "a_upward should be 2*headDim");
 
   // Level 1: input is numHeads * headDim
   const level1 = levelParams.get(1)!;
-  assertEquals(level1.W_child[0][0].length, config.numHeads * headDim, "Level 1 W_child cols should be numHeads*headDim");
+  assertEquals(
+    level1.W_child[0][0].length,
+    config.numHeads * headDim,
+    "Level 1 W_child cols should be numHeads*headDim",
+  );
 });
 
 Deno.test("countLevelParameters - matches formula", () => {
@@ -167,12 +175,20 @@ Deno.test("getAdaptiveHeadsByGraphSize - numHeads is always even", () => {
   for (let tools = 10; tools < 1500; tools += 100) {
     for (let levels = 0; levels <= 3; levels++) {
       const result = getAdaptiveHeadsByGraphSize(tools, 10, levels);
-      assertEquals(result.numHeads % 2, 0, `numHeads should be even for ${tools} tools, level ${levels}`);
+      assertEquals(
+        result.numHeads % 2,
+        0,
+        `numHeads should be even for ${tools} tools, level ${levels}`,
+      );
     }
   }
 });
 
 Deno.test("getAdaptiveHeadsByGraphSize - hiddenDim = numHeads * headDim", () => {
   const result = getAdaptiveHeadsByGraphSize(200, 100, 1);
-  assertEquals(result.hiddenDim, result.numHeads * result.headDim, "hiddenDim should equal numHeads * headDim");
+  assertEquals(
+    result.hiddenDim,
+    result.numHeads * result.headDim,
+    "hiddenDim should equal numHeads * headDim",
+  );
 });

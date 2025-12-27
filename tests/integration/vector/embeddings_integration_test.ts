@@ -12,10 +12,7 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import {
-  schemaToText,
-  type ToolSchema,
-} from "../../../src/vector/embeddings.ts";
+import { schemaToText, type ToolSchema } from "../../../src/vector/embeddings.ts";
 import { MockEmbeddingModel } from "../../fixtures/mock-embedding-model.ts";
 import { PGliteClient } from "../../../src/db/client.ts";
 import { createInitialMigration } from "../../../src/db/migrations.ts";

@@ -14,8 +14,8 @@ export interface AutocompleteGraph {
   forEachNode(
     callback: (
       nodeId: string,
-      attrs: { name?: string; serverId?: string; metadata?: { description?: string } }
-    ) => void
+      attrs: { name?: string; serverId?: string; metadata?: { description?: string } },
+    ) => void,
   ): void;
 }
 
@@ -47,7 +47,7 @@ export function searchToolsForAutocomplete(
   graph: AutocompleteGraph,
   pageRanks: Record<string, number>,
   query: string,
-  limit: number = 10
+  limit: number = 10,
 ): AutocompleteResult[] {
   if (query.length < 2) return [];
 
@@ -83,20 +83,16 @@ export function searchToolsForAutocomplete(
     // Exact name match = highest score
     if (lowerName === lowerQuery) {
       score = 1.0;
-    }
-    // Name starts with query = high score
+    } // Name starts with query = high score
     else if (lowerName.startsWith(lowerQuery)) {
       score = 0.9;
-    }
-    // Name contains query = medium score
+    } // Name contains query = medium score
     else if (lowerName.includes(lowerQuery)) {
       score = 0.7;
-    }
-    // Server matches = lower score
+    } // Server matches = lower score
     else if (lowerServer.includes(lowerQuery)) {
       score = 0.5;
-    }
-    // Description contains query = lowest score
+    } // Description contains query = lowest score
     else if (lowerDescription.includes(lowerQuery)) {
       score = 0.3;
     }

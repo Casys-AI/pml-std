@@ -17,11 +17,7 @@
  */
 
 import type { PGliteClient, Row } from "../../db/client.ts";
-import {
-  DEFAULT_TRACE_STATS,
-  type TraceFeatures,
-  type TraceStats,
-} from "./shgat.ts";
+import { DEFAULT_TRACE_STATS, type TraceFeatures, type TraceStats } from "./shgat.ts";
 import { ERROR_TYPES } from "../../db/migrations/024_error_type_column.ts";
 import { getLogger } from "../../telemetry/logger.ts";
 
@@ -141,7 +137,9 @@ export class TraceFeatureExtractor {
 
     // Compute context aggregated embedding (mean pooling)
     const contextAggregated = this.meanPool(
-      contextEmbeddings.length > 0 ? contextEmbeddings : [new Array(intentEmbedding.length).fill(0)],
+      contextEmbeddings.length > 0
+        ? contextEmbeddings
+        : [new Array(intentEmbedding.length).fill(0)],
     );
 
     return {
@@ -288,9 +286,11 @@ export class TraceFeatureExtractor {
       // Merge results with defaults for missing values
       return {
         historicalSuccessRate: basicStats.successRate ?? DEFAULT_TRACE_STATS.historicalSuccessRate,
-        contextualSuccessRate: contextualStats.successRate ?? DEFAULT_TRACE_STATS.contextualSuccessRate,
+        contextualSuccessRate: contextualStats.successRate ??
+          DEFAULT_TRACE_STATS.contextualSuccessRate,
         intentSimilarSuccessRate: DEFAULT_TRACE_STATS.intentSimilarSuccessRate, // Computed separately when intentEmbedding provided
-        cooccurrenceWithContext: contextualStats.cooccurrence ?? DEFAULT_TRACE_STATS.cooccurrenceWithContext,
+        cooccurrenceWithContext: contextualStats.cooccurrence ??
+          DEFAULT_TRACE_STATS.cooccurrenceWithContext,
         sequencePosition: sequenceStats.avgPosition ?? DEFAULT_TRACE_STATS.sequencePosition,
         recencyScore: temporalStats.recency ?? DEFAULT_TRACE_STATS.recencyScore,
         usageFrequency: temporalStats.frequency ?? DEFAULT_TRACE_STATS.usageFrequency,
@@ -309,14 +309,19 @@ export class TraceFeatureExtractor {
   /**
    * Query basic success rate statistics
    */
-  private async queryBasicStats(toolId: string): Promise<{ successRate: number | null; count: number }> {
-    const result = await this.db.queryOne(`
+  private async queryBasicStats(
+    toolId: string,
+  ): Promise<{ successRate: number | null; count: number }> {
+    const result = await this.db.queryOne(
+      `
       SELECT
         AVG(CASE WHEN success THEN 1.0 ELSE 0.0 END) as success_rate,
         COUNT(*) as trace_count
       FROM execution_trace
       WHERE $1 = ANY(executed_path)
-    `, [toolId]) as Row | null;
+    `,
+      [toolId],
+    ) as Row | null;
 
     const count = Number(result?.trace_count ?? 0);
     if (count < this.config.minTracesForStats) {
@@ -347,7 +352,8 @@ export class TraceFeatureExtractor {
     const limitedContext = contextToolIds.slice(-this.config.maxContextTools);
 
     // Contextual success rate: success rate when this tool appears after context tools
-    const contextualResult = await this.db.queryOne(`
+    const contextualResult = await this.db.queryOne(
+      `
       WITH context_sessions AS (
         SELECT DISTINCT id, executed_path, success
         FROM execution_trace
@@ -358,13 +364,16 @@ export class TraceFeatureExtractor {
         COUNT(*) FILTER (WHERE $2 = ANY(executed_path)) as cooccur_count,
         COUNT(*) as total_count
       FROM context_sessions
-    `, [limitedContext, toolId]) as Row | null;
+    `,
+      [limitedContext, toolId],
+    ) as Row | null;
 
     const totalCount = Number(contextualResult?.total_count ?? 0);
     const cooccurCount = Number(contextualResult?.cooccur_count ?? 0);
 
     // Error recovery rate: success after context tools failed
-    const errorRecoveryResult = await this.db.queryOne(`
+    const errorRecoveryResult = await this.db.queryOne(
+      `
       WITH error_sessions AS (
         SELECT id, executed_path
         FROM execution_trace
@@ -379,7 +388,9 @@ export class TraceFeatureExtractor {
       )
       SELECT AVG(CASE WHEN success THEN 1.0 ELSE 0.0 END) as recovery_rate
       FROM recovery_attempts
-    `, [limitedContext, toolId]) as Row | null;
+    `,
+      [limitedContext, toolId],
+    ) as Row | null;
 
     return {
       successRate: totalCount >= this.config.minTracesForStats
@@ -396,7 +407,8 @@ export class TraceFeatureExtractor {
    * Query sequence position statistics
    */
   private async querySequenceStats(toolId: string): Promise<{ avgPosition: number | null }> {
-    const result = await this.db.queryOne(`
+    const result = await this.db.queryOne(
+      `
       WITH tool_positions AS (
         SELECT
           array_position(executed_path, $1) as pos,
@@ -408,7 +420,9 @@ export class TraceFeatureExtractor {
       SELECT AVG((pos - 1.0) / NULLIF(total_len - 1, 0)) as avg_position
       FROM tool_positions
       WHERE total_len > 1
-    `, [toolId]) as Row | null;
+    `,
+      [toolId],
+    ) as Row | null;
 
     return {
       avgPosition: result?.avg_position != null ? Number(result.avg_position) : null,
@@ -424,14 +438,17 @@ export class TraceFeatureExtractor {
     avgDuration: number | null;
   }> {
     // Recency: exponential decay based on last use
-    const recencyResult = await this.db.queryOne(`
+    const recencyResult = await this.db.queryOne(
+      `
       SELECT
         MAX(executed_at) as last_used,
         COUNT(*) as usage_count,
         AVG(duration_ms) as avg_duration
       FROM execution_trace
       WHERE $1 = ANY(executed_path)
-    `, [toolId]) as Row | null;
+    `,
+      [toolId],
+    ) as Row | null;
 
     let recency: number | null = null;
     if (recencyResult?.last_used) {
@@ -465,7 +482,8 @@ export class TraceFeatureExtractor {
     avgLength: number | null;
     variance: number | null;
   }> {
-    const result = await this.db.queryOne(`
+    const result = await this.db.queryOne(
+      `
       WITH successful_traces AS (
         SELECT
           array_length(executed_path, 1) - array_position(executed_path, $1) + 1 as steps_to_end
@@ -478,7 +496,9 @@ export class TraceFeatureExtractor {
         AVG(steps_to_end) as avg_length,
         COALESCE(VARIANCE(steps_to_end), 0) as variance
       FROM successful_traces
-    `, [toolId]) as Row | null;
+    `,
+      [toolId],
+    ) as Row | null;
 
     return {
       avgLength: result?.avg_length != null ? Number(result.avg_length) : null,
@@ -512,7 +532,8 @@ export class TraceFeatureExtractor {
 
       // Use vector cosine similarity search to find similar intents
       // Filter by: has intent_embedding, tool in executed_path, similarity >= threshold
-      const result = await this.db.queryOne(`
+      const result = await this.db.queryOne(
+        `
         WITH similar_traces AS (
           SELECT
             id,
@@ -530,7 +551,9 @@ export class TraceFeatureExtractor {
           COUNT(*) as count,
           AVG(similarity) as avg_similarity
         FROM similar_traces
-      `, [embeddingStr, toolId, similarityThreshold, topK]) as Row | null;
+      `,
+        [embeddingStr, toolId, similarityThreshold, topK],
+      ) as Row | null;
 
       const count = Number(result?.count ?? 0);
       if (count < this.config.minTracesForStats) {
@@ -598,7 +621,8 @@ export class TraceFeatureExtractor {
    */
   private async queryErrorTypeAffinity(toolId: string): Promise<number[]> {
     // Query success rate per error type
-    const result = await this.db.query(`
+    const result = await this.db.query(
+      `
       WITH error_contexts AS (
         -- Find traces where an error occurred, then this tool was used
         SELECT
@@ -616,7 +640,9 @@ export class TraceFeatureExtractor {
         COUNT(*) as count
       FROM error_contexts
       GROUP BY error_type
-    `, [toolId]) as Row[];
+    `,
+      [toolId],
+    ) as Row[];
 
     // Build affinity array in ERROR_TYPES order
     const affinityMap = new Map<string, number>();
@@ -640,7 +666,8 @@ export class TraceFeatureExtractor {
     await this.ensureGlobalStats();
 
     // Batch query basic stats
-    const basicStatsRows = await this.db.query(`
+    const basicStatsRows = await this.db.query(
+      `
       SELECT
         tool_id,
         AVG(CASE WHEN success THEN 1.0 ELSE 0.0 END) as success_rate,
@@ -650,7 +677,9 @@ export class TraceFeatureExtractor {
       FROM execution_trace, UNNEST(executed_path) as tool_id
       WHERE tool_id = ANY($1::text[])
       GROUP BY tool_id
-    `, [toolIds]) as Row[];
+    `,
+      [toolIds],
+    ) as Row[];
 
     const statsMap = new Map<string, Row>();
     for (const row of basicStatsRows) {
@@ -658,7 +687,8 @@ export class TraceFeatureExtractor {
     }
 
     // Batch query sequence positions (normalized 0-1, where 0=first, 1=last)
-    const sequenceRows = await this.db.query(`
+    const sequenceRows = await this.db.query(
+      `
       WITH tool_positions AS (
         SELECT
           tool_id,
@@ -675,7 +705,9 @@ export class TraceFeatureExtractor {
       FROM tool_positions
       WHERE total_len > 1
       GROUP BY tool_id
-    `, [toolIds]) as Row[];
+    `,
+      [toolIds],
+    ) as Row[];
 
     const sequenceMap = new Map<string, number>();
     for (const row of sequenceRows) {
@@ -685,7 +717,8 @@ export class TraceFeatureExtractor {
     }
 
     // Batch query path stats (avgPathLengthToSuccess, pathVariance)
-    const pathStatsRows = await this.db.query(`
+    const pathStatsRows = await this.db.query(
+      `
       WITH successful_paths AS (
         SELECT
           tool_id,
@@ -702,7 +735,9 @@ export class TraceFeatureExtractor {
         COUNT(*) as count
       FROM successful_paths
       GROUP BY tool_id
-    `, [toolIds]) as Row[];
+    `,
+      [toolIds],
+    ) as Row[];
 
     const pathStatsMap = new Map<string, { avgLength: number; variance: number }>();
     for (const row of pathStatsRows) {
@@ -744,7 +779,9 @@ export class TraceFeatureExtractor {
         : DEFAULT_TRACE_STATS.avgExecutionTime;
 
       result.set(toolId, {
-        historicalSuccessRate: Number(row.success_rate ?? DEFAULT_TRACE_STATS.historicalSuccessRate),
+        historicalSuccessRate: Number(
+          row.success_rate ?? DEFAULT_TRACE_STATS.historicalSuccessRate,
+        ),
         contextualSuccessRate: DEFAULT_TRACE_STATS.contextualSuccessRate, // Requires context
         intentSimilarSuccessRate: DEFAULT_TRACE_STATS.intentSimilarSuccessRate,
         cooccurrenceWithContext: DEFAULT_TRACE_STATS.cooccurrenceWithContext,
@@ -753,7 +790,8 @@ export class TraceFeatureExtractor {
         usageFrequency: frequency,
         avgExecutionTime: avgDuration,
         errorRecoveryRate: DEFAULT_TRACE_STATS.errorRecoveryRate,
-        avgPathLengthToSuccess: pathStatsMap.get(toolId)?.avgLength ?? DEFAULT_TRACE_STATS.avgPathLengthToSuccess,
+        avgPathLengthToSuccess: pathStatsMap.get(toolId)?.avgLength ??
+          DEFAULT_TRACE_STATS.avgPathLengthToSuccess,
         pathVariance: pathStatsMap.get(toolId)?.variance ?? DEFAULT_TRACE_STATS.pathVariance,
         errorTypeAffinity: [...DEFAULT_TRACE_STATS.errorTypeAffinity], // TODO: Add batch error type query
       });

@@ -13,16 +13,16 @@
 # Higher values = more exploration but slower; Lower = faster but may miss good options.
 
 limits:
-  hybrid_search_candidates: 10    # Initial candidates from hybrid search
-  ranked_candidates: 5            # Top-k after ranking (final selection)
-  community_members: 5            # Max community members to consider
-  alternatives: 3                 # Alternative tools from same community
-  replan_candidates: 5            # Candidates for replanning
-  replan_top: 3                   # Top-k for replanning insertion
-  episode_retrieval: 10           # Historical episodes to retrieve
-  capability_matches: 3           # Capability matches for strategic discovery
-  context_search: 5               # Context-based capability search limit
-  max_path_length: 4              # Max hops for dependency path extraction
+  hybrid_search_candidates: 10 # Initial candidates from hybrid search
+  ranked_candidates: 5 # Top-k after ranking (final selection)
+  community_members: 5 # Max community members to consider
+  alternatives: 3 # Alternative tools from same community
+  replan_candidates: 5 # Candidates for replanning
+  replan_top: 3 # Top-k for replanning insertion
+  episode_retrieval: 10 # Historical episodes to retrieve
+  capability_matches: 3 # Capability matches for strategic discovery
+  context_search: 5 # Context-based capability search limit
+  max_path_length: 4 # Max hops for dependency path extraction
 
 # =============================================================================
 # COMBINED SCORE WEIGHTS
@@ -33,26 +33,26 @@ limits:
 weights:
   # Hybrid candidate ranking: finalScore * hybrid + pageRank * pagerank
   candidate_ranking:
-    hybrid_score: 0.8             # Weight of hybrid (semantic + graph) score
-    pagerank: 0.2                 # Weight of PageRank importance
+    hybrid_score: 0.8 # Weight of hybrid (semantic + graph) score
+    pagerank: 0.2 # Weight of PageRank importance
 
   # Confidence calculation (from alpha): varies based on local alpha
   # These are the BASE weights at alpha=0.5 (max graph trust)
   # Formula interpolates toward semantic-only as alpha increases
   confidence_base:
-    hybrid: 0.55                  # Base weight for hybrid score
-    pagerank: 0.30                # Base weight for PageRank
-    path: 0.15                    # Base weight for path strength
+    hybrid: 0.55 # Base weight for hybrid score
+    pagerank: 0.30 # Base weight for PageRank
+    path: 0.15 # Base weight for path strength
 
   # Confidence scaling factors for alpha interpolation
   # At alpha=1.0: hybrid=0.85, pagerank=0.05, path=0.10
   confidence_scaling:
-    hybrid_delta: 0.30            # hybrid += delta * (alpha - 0.5) * 2
-    pagerank_delta: 0.25          # pagerank -= delta * (alpha - 0.5) * 2
-    path_delta: 0.05              # path -= delta * (alpha - 0.5) * 2
+    hybrid_delta: 0.30 # hybrid += delta * (alpha - 0.5) * 2
+    pagerank_delta: 0.25 # pagerank -= delta * (alpha - 0.5) * 2
+    path_delta: 0.05 # path -= delta * (alpha - 0.5) * 2
 
   # PageRank contribution to rationale display
-  pagerank_rationale_threshold: 0.01  # Min PR to show in rationale
+  pagerank_rationale_threshold: 0.01 # Min PR to show in rationale
 
 # =============================================================================
 # CONFIDENCE THRESHOLDS
@@ -61,16 +61,16 @@ weights:
 
 thresholds:
   # Suggestion acceptance
-  suggestion_reject: 0.60         # Below this: reject completely (no matching tools)
-  suggestion_floor: 0.65          # Below this but above reject: return with warning
-  dependency_threshold: 0.50      # For dependency inference (ADR-026)
-  replan_threshold: 0.50          # Min confidence for replanning candidates
+  suggestion_reject: 0.60 # Below this: reject completely (no matching tools)
+  suggestion_floor: 0.65 # Below this but above reject: return with warning
+  dependency_threshold: 0.50 # For dependency inference (ADR-026)
+  replan_threshold: 0.50 # Min confidence for replanning candidates
 
   # Context search
-  context_search: 0.30            # Min overlap for capability context search
+  context_search: 0.30 # Min overlap for capability context search
 
   # Alternative capabilities (ADR-042)
-  alternative_success_rate: 0.70  # Min success rate for alternative suggestion
+  alternative_success_rate: 0.70 # Min success rate for alternative suggestion
 
 # =============================================================================
 # CONFIDENCE CAPS
@@ -78,11 +78,11 @@ thresholds:
 # Upper and lower bounds to prevent extreme confidence values.
 
 caps:
-  max_confidence: 0.95            # Never exceed this confidence
-  edge_confidence_floor: 0.30     # Min confidence for edge-based prediction
-  edge_weight_max: 0.60           # Max edge weight contribution (ADR-038)
-  default_node_confidence: 0.60   # Default when no specific data
-  final_score_minimum: 0.40       # Min score for capability injection
+  max_confidence: 0.95 # Never exceed this confidence
+  edge_confidence_floor: 0.30 # Min confidence for edge-based prediction
+  edge_weight_max: 0.60 # Max edge weight contribution (ADR-038)
+  default_node_confidence: 0.60 # Default when no specific data
+  final_score_minimum: 0.40 # Min score for capability injection
 
 # =============================================================================
 # HOP-BASED PATH CONFIDENCE
@@ -91,10 +91,10 @@ caps:
 # Direct connections (1 hop) are most reliable.
 
 hop_confidence:
-  hop_1: 0.95                     # Direct dependency
-  hop_2: 0.80                     # One intermediate tool
-  hop_3: 0.65                     # Two intermediate tools
-  hop_4_plus: 0.50                # Three or more intermediates
+  hop_1: 0.95 # Direct dependency
+  hop_2: 0.80 # One intermediate tool
+  hop_3: 0.65 # Two intermediate tools
+  hop_4_plus: 0.50 # Three or more intermediates
 
 # =============================================================================
 # COMMUNITY CONFIDENCE CALCULATION
@@ -102,10 +102,10 @@ hop_confidence:
 # How community-based predictions are scored.
 
 community:
-  base_confidence: 0.40           # Starting confidence for community membership
-  pagerank_boost_cap: 0.20        # Max boost from PageRank (pagerank * 2, capped)
-  edge_weight_boost_cap: 0.25     # Max boost from direct edge weight
-  adamic_adar_boost_cap: 0.10     # Max boost from Adamic-Adar similarity
+  base_confidence: 0.40 # Starting confidence for community membership
+  pagerank_boost_cap: 0.20 # Max boost from PageRank (pagerank * 2, capped)
+  edge_weight_boost_cap: 0.25 # Max boost from direct edge weight
+  adamic_adar_boost_cap: 0.10 # Max boost from Adamic-Adar similarity
 
 # =============================================================================
 # CO-OCCURRENCE CONFIDENCE CALCULATION
@@ -115,12 +115,12 @@ community:
 cooccurrence:
   # Count-based boost (diminishing returns via log2)
   # Formula: min(count_boost_cap, log2(count + 1) * count_boost_factor)
-  count_boost_factor: 0.05        # Multiplier for log2(count)
-  count_boost_cap: 0.20           # Max boost from observation count
+  count_boost_factor: 0.05 # Multiplier for log2(count)
+  count_boost_cap: 0.20 # Max boost from observation count
 
   # Recency boost for recently used tools
-  recency_boost: 0.10             # Boost if tool was used in current workflow
-  recency_boost_cap: 0.10         # Max recency contribution
+  recency_boost: 0.10 # Boost if tool was used in current workflow
+  recency_boost_cap: 0.10 # Max recency contribution
 
 # =============================================================================
 # EPISODIC LEARNING ADJUSTMENTS
@@ -129,18 +129,18 @@ cooccurrence:
 
 episodic:
   # Success boost: min(boost_cap, successRate * boost_factor)
-  success_boost_factor: 0.20      # Multiplier for success rate
-  success_boost_cap: 0.15         # Max boost from successful history
+  success_boost_factor: 0.20 # Multiplier for success rate
+  success_boost_cap: 0.15 # Max boost from successful history
 
   # Failure penalty: min(penalty_cap, failureRate * penalty_factor)
-  failure_penalty_factor: 0.25    # Multiplier for failure rate
-  failure_penalty_cap: 0.15       # Max penalty from failure history
+  failure_penalty_factor: 0.25 # Multiplier for failure rate
+  failure_penalty_cap: 0.15 # Max penalty from failure history
 
   # Exclusion threshold
-  failure_exclusion_rate: 0.50    # Exclude tools with failure rate above this
+  failure_exclusion_rate: 0.50 # Exclude tools with failure rate above this
 
   # Logging threshold
-  adjustment_log_threshold: 0.01  # Log adjustments larger than this
+  adjustment_log_threshold: 0.01 # Log adjustments larger than this
 
 # =============================================================================
 # ALTERNATIVE SCORING
@@ -148,8 +148,8 @@ episodic:
 # How alternative capabilities are scored relative to primary match.
 
 alternatives:
-  score_multiplier: 0.90          # Alternative score = primary * multiplier
-  penalty_factor: 0.90            # Used in algorithm tracer logging
+  score_multiplier: 0.90 # Alternative score = primary * multiplier
+  penalty_factor: 0.90 # Used in algorithm tracer logging
 
 # =============================================================================
 # CAPABILITY CONFIDENCE MAPPING
@@ -158,9 +158,9 @@ alternatives:
 # discoveryScore is in [0, ~1.5], maps to [floor, ceiling]
 
 capability:
-  confidence_floor: 0.40          # Min confidence for capabilities
-  confidence_ceiling: 0.85        # Max confidence for capabilities
-  score_scaling: 0.30             # confidence = floor + discoveryScore * scaling
+  confidence_floor: 0.40 # Min confidence for capabilities
+  confidence_ceiling: 0.85 # Max confidence for capabilities
+  score_scaling: 0.30 # confidence = floor + discoveryScore * scaling
 
 # =============================================================================
 # RELIABILITY SCORING (ADR-038 §3.1)
@@ -170,11 +170,11 @@ capability:
 # Used by CapabilityMatcher.findMatch() for Active Search mode.
 
 reliability:
-  penalty_threshold: 0.50       # Success rate below this → apply penalty
-  penalty_factor: 0.10          # Multiply score by this when penalized
-  boost_threshold: 0.90         # Success rate above this → apply boost
-  boost_factor: 1.20            # Multiply score by this when boosted
-  filter_threshold: 0.20        # Reliability below this → mark as filtered
+  penalty_threshold: 0.50 # Success rate below this → apply penalty
+  penalty_factor: 0.10 # Multiply score by this when penalized
+  boost_threshold: 0.90 # Success rate above this → apply boost
+  boost_factor: 1.20 # Multiply score by this when boosted
+  filter_threshold: 0.20 # Reliability below this → mark as filtered
 
 # =============================================================================
 # FALLBACK / DEFAULT VALUES
@@ -182,6 +182,6 @@ reliability:
 # Used when specific data is unavailable.
 
 defaults:
-  alpha: 0.75                     # Default alpha when no calculator configured
-  path_confidence: 0.50           # Default path confidence
-  pagerank_weight: 0.30           # PageRank weight in cluster boost (Story 7.4)
+  alpha: 0.75 # Default alpha when no calculator configured
+  path_confidence: 0.50 # Default path confidence
+  pagerank_weight: 0.30 # PageRank weight in cluster boost (Story 7.4)

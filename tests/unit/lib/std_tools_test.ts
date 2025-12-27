@@ -278,7 +278,11 @@ describe("std library tools", () => {
     it("should have loaded all expected tools", () => {
       assertExists(ALL_TOOLS);
       // Updated: now we have 300+ tools
-      assertEquals(ALL_TOOLS.length >= 300, true, `Expected at least 300 tools, got ${ALL_TOOLS.length}`);
+      assertEquals(
+        ALL_TOOLS.length >= 300,
+        true,
+        `Expected at least 300 tools, got ${ALL_TOOLS.length}`,
+      );
     });
 
     it("each tool should have required properties", () => {
@@ -288,7 +292,11 @@ describe("std library tools", () => {
         assertExists(tool.category, `Tool ${tool.name} missing category`);
         assertExists(tool.inputSchema, `Tool ${tool.name} missing inputSchema`);
         assertExists(tool.handler, `Tool ${tool.name} missing handler`);
-        assertEquals(typeof tool.handler, "function", `Tool ${tool.name} handler is not a function`);
+        assertEquals(
+          typeof tool.handler,
+          "function",
+          `Tool ${tool.name} handler is not a function`,
+        );
       }
     });
 
@@ -301,7 +309,18 @@ describe("std library tools", () => {
     it("tool names should follow naming convention", () => {
       // CLI tools (sed, awk, jq, etc.) use simple names
       // Other tools use category_name pattern
-      const CLI_TOOLS = ["sed", "awk", "jq", "wc", "head", "tail", "sort_lines", "uniq", "cut", "diff"];
+      const CLI_TOOLS = [
+        "sed",
+        "awk",
+        "jq",
+        "wc",
+        "head",
+        "tail",
+        "sort_lines",
+        "uniq",
+        "cut",
+        "diff",
+      ];
 
       for (const tool of ALL_TOOLS) {
         const isCliTool = CLI_TOOLS.includes(tool.name);
@@ -329,7 +348,10 @@ describe("std library tools", () => {
         it(`${tool.name} should execute with sample input`, async () => {
           try {
             const result = await tool.handler(sampleInput);
-            assertExists(result !== undefined || result === null, `Tool ${tool.name} returned undefined`);
+            assertExists(
+              result !== undefined || result === null,
+              `Tool ${tool.name} returned undefined`,
+            );
 
             // Check expected output if defined
             const expected = EXPECTED_OUTPUTS[tool.name];
@@ -398,7 +420,9 @@ describe("std library tools", () => {
         const tool = stringTools.find((t) => t.name === "string_levenshtein")!;
         assertExists(tool, "string_levenshtein should exist");
         // Uses str1/str2 params, returns { distance, similarity }
-        const result = await tool.handler({ str1: "kitten", str2: "sitting" }) as { distance: number };
+        const result = await tool.handler({ str1: "kitten", str2: "sitting" }) as {
+          distance: number;
+        };
         assertEquals(result.distance, 3);
       });
     });
@@ -425,7 +449,10 @@ describe("std library tools", () => {
       it("uuid should generate valid UUIDs", async () => {
         const tool = cryptoTools.find((t) => t.name === "crypto_uuid")!;
         const uuid = await tool.handler({}) as string;
-        assertEquals(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(uuid), true);
+        assertEquals(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(uuid),
+          true,
+        );
       });
     });
 
@@ -501,11 +528,17 @@ describe("std library tools", () => {
         assertExists(tool, "geo_distance should exist");
         // Paris to London - returns { distance, unit }
         const result = await tool.handler({
-          lat1: 48.8566, lon1: 2.3522,
-          lat2: 51.5074, lon2: -0.1278
+          lat1: 48.8566,
+          lon1: 2.3522,
+          lat2: 51.5074,
+          lon2: -0.1278,
         }) as { distance: number; unit: string };
         // Should be around 340-345 km
-        assertEquals(result.distance > 300 && result.distance < 400, true, `Distance should be ~340km, got ${result.distance}`);
+        assertEquals(
+          result.distance > 300 && result.distance < 400,
+          true,
+          `Distance should be ~340km, got ${result.distance}`,
+        );
         assertEquals(result.unit, "km");
       });
 
@@ -549,7 +582,9 @@ describe("std library tools", () => {
 
       it("should validate UUIDs correctly", async () => {
         const tool = validationTools.find((t) => t.name === "validate_uuid")!;
-        const valid = await tool.handler({ uuid: "550e8400-e29b-41d4-a716-446655440000" }) as { valid: boolean };
+        const valid = await tool.handler({ uuid: "550e8400-e29b-41d4-a716-446655440000" }) as {
+          valid: boolean;
+        };
         const invalid = await tool.handler({ uuid: "not-a-uuid" }) as { valid: boolean };
         assertEquals(valid.valid, true);
         assertEquals(invalid.valid, false);
@@ -559,10 +594,18 @@ describe("std library tools", () => {
     describe("algo tools", () => {
       it("should have all expected data structure tools", () => {
         const expectedTools = [
-          "algo_heap_create", "algo_heap_push", "algo_heap_pop",
-          "algo_trie_create", "algo_trie_add", "algo_trie_find",
-          "algo_lru_create", "algo_lru_set", "algo_lru_get",
-          "algo_bloom_create", "algo_bloom_add", "algo_bloom_test",
+          "algo_heap_create",
+          "algo_heap_push",
+          "algo_heap_pop",
+          "algo_trie_create",
+          "algo_trie_add",
+          "algo_trie_find",
+          "algo_lru_create",
+          "algo_lru_set",
+          "algo_lru_get",
+          "algo_bloom_create",
+          "algo_bloom_add",
+          "algo_bloom_test",
         ];
 
         for (const name of expectedTools) {
@@ -587,7 +630,9 @@ describe("std library tools", () => {
 
       it("normalize_email should normalize gmail addresses", async () => {
         const tool = utilTools.find((t) => t.name === "util_normalize_email")!;
-        const result = await tool.handler({ email: "Test.User+spam@gmail.com" }) as { normalized: string };
+        const result = await tool.handler({ email: "Test.User+spam@gmail.com" }) as {
+          normalized: string;
+        };
         assertEquals(result.normalized, "testuser@gmail.com");
       });
 
@@ -603,7 +648,11 @@ describe("std library tools", () => {
         const tool = fakerTools.find((t) => t.name === "faker_person")!;
         assertExists(tool, "faker_person should exist");
         // When count=1, returns single object; when count>1, returns array
-        const result = await tool.handler({ count: 1 }) as { firstName: string; lastName: string; fullName: string };
+        const result = await tool.handler({ count: 1 }) as {
+          firstName: string;
+          lastName: string;
+          fullName: string;
+        };
         assertExists(result);
         // Check person has expected fields
         assertExists(result.firstName);
@@ -619,7 +668,7 @@ describe("std library tools", () => {
         // Uses oldText/newText params
         const result = await tool.handler({
           oldText: "hello\nworld",
-          newText: "hello\nearth"
+          newText: "hello\nearth",
         });
         assertExists(result);
       });

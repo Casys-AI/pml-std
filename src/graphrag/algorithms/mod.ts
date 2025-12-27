@@ -10,123 +10,122 @@
 // PageRank centrality
 export {
   computePageRank,
+  getAveragePageRank,
   getPageRankScore,
   getTopPageRankNodes,
-  getAveragePageRank,
   type PageRankOptions,
   type PageRankResult,
 } from "./pagerank.ts";
 
 // Louvain community detection
 export {
+  areInSameCommunity,
   detectCommunities,
-  getNodeCommunity,
   findCommunityMembers,
   getCommunityCount,
   getCommunityDistribution,
-  areInSameCommunity,
+  getNodeCommunity,
   type LouvainOptions,
   type LouvainResult,
 } from "./louvain.ts";
 
 // Path finding (Dijkstra)
 export {
-  findShortestPath,
-  findAllPaths,
-  calculatePathWeight,
   calculateAveragePathWeight,
-  hasPathWithinHops,
+  calculatePathWeight,
+  findAllPaths,
+  findShortestPath,
   getPathLength,
+  hasPathWithinHops,
 } from "./pathfinding.ts";
 
 // Adamic-Adar similarity
 export {
-  computeAdamicAdar,
   adamicAdarBetween,
-  computeGraphRelatedness,
-  getNeighbors,
-  findSimilarNodes,
   type AdamicAdarResult,
+  computeAdamicAdar,
+  computeGraphRelatedness,
+  findSimilarNodes,
+  getNeighbors,
 } from "./adamic-adar.ts";
 
 // Edge weights (ADR-041)
 export {
-  getEdgeWeight,
-  determineEdgeSource,
   calculateInitialWeight,
-  EDGE_TYPE_WEIGHTS,
+  determineEdgeSource,
   EDGE_SOURCE_MODIFIERS,
-  OBSERVED_THRESHOLD,
-  type EdgeType,
+  EDGE_TYPE_WEIGHTS,
   type EdgeSource,
+  type EdgeType,
+  getEdgeWeight,
+  OBSERVED_THRESHOLD,
 } from "./edge-weights.ts";
 
 // DR-DSP (Hypergraph shortest path)
 export {
-  DRDSP,
-  capabilityToHyperedge,
   buildDRDSPFromCapabilities,
+  capabilityToHyperedge,
+  DRDSP,
+  type DynamicUpdate,
   type Hyperedge,
   type HyperpathResult,
-  type DynamicUpdate,
 } from "./dr-dsp.ts";
 
 // SHGAT (SuperHyperGraph Attention Networks)
 // Based on research paper with two-phase message passing
 export {
-  SHGAT,
-  createSHGATFromCapabilities,
-  trainSHGATOnEpisodes,
-  DEFAULT_SHGAT_CONFIG,
-  DEFAULT_HYPERGRAPH_FEATURES,
-  type SHGATConfig,
-  type TrainingExample,
-  type ToolNode,
-  type CapabilityNode,
   type AttentionResult,
+  type CapabilityNode,
+  createSHGATFromCapabilities,
+  DEFAULT_HYPERGRAPH_FEATURES,
+  DEFAULT_SHGAT_CONFIG,
   type HypergraphFeatures,
+  SHGAT,
+  type SHGATConfig,
+  type ToolNode,
+  type TrainingExample,
+  trainSHGATOnEpisodes,
 } from "./shgat.ts";
 
 // Thompson Sampling (ADR-049 Intelligent Adaptive Thresholds)
 export {
-  ThompsonSampler,
   classifyToolRisk,
-  createThompsonFromHistory,
   createThompsonForMode,
-  makeDecision,
-  makeBatchDecision,
+  createThompsonFromHistory,
   DEFAULT_THOMPSON_CONFIG,
-  type ThompsonConfig,
-  type ToolThompsonState,
+  makeBatchDecision,
+  makeDecision,
   type RiskCategory,
+  type ThompsonConfig,
+  ThompsonSampler,
+  type ThresholdBreakdown,
   type ThresholdMode,
   type ThresholdResult,
-  type ThresholdBreakdown,
+  type ToolThompsonState,
 } from "./thompson.ts";
 
 // Unified Search (POC - unifies tool and capability search)
 export {
-  unifiedSearch,
   calculateAdaptiveAlpha,
   calculateReliabilityFactor,
   computeUnifiedScore,
-  createMockVectorSearch,
   createMockGraph,
+  createMockVectorSearch,
   DEFAULT_RELIABILITY_CONFIG,
-  type SearchableNode,
-  type UnifiedNodeType,
-  type UnifiedSearchGraph,
-  type UnifiedVectorSearch,
-  type UnifiedSearchOptions,
-  type UnifiedSearchResult,
   type ReliabilityConfig,
   type ScoreBreakdown,
+  type SearchableNode,
+  type UnifiedNodeType,
+  unifiedSearch,
+  type UnifiedSearchGraph,
+  type UnifiedSearchOptions,
+  type UnifiedSearchResult,
+  type UnifiedVectorSearch,
 } from "./unified-search.ts";
 
 // Trace Feature Extractor (Story 11.8 - SHGAT v2 Multi-Head Traces)
 export {
-  TraceFeatureExtractor,
   DEFAULT_EXTRACTOR_CONFIG,
+  TraceFeatureExtractor,
   type TraceFeatureExtractorConfig,
 } from "./trace-feature-extractor.ts";
-

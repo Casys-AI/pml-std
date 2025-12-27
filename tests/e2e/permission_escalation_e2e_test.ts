@@ -17,12 +17,12 @@ import { initializeTestDatabase } from "../fixtures/test-helpers.ts";
 import { CapabilityStore } from "../../src/capabilities/capability-store.ts";
 import { PermissionAuditStore } from "../../src/capabilities/permission-audit-store.ts";
 import {
-  PermissionEscalationHandler,
   formatEscalationRequest,
+  PermissionEscalationHandler,
 } from "../../src/capabilities/permission-escalation-handler.ts";
 import {
-  suggestEscalation,
   isSecurityCritical,
+  suggestEscalation,
 } from "../../src/capabilities/permission-escalation.ts";
 import { MockEmbeddingModel } from "../fixtures/mock-embedding-model.ts";
 import type { EmbeddingModel } from "../../src/vector/embeddings.ts";
@@ -72,7 +72,8 @@ Deno.test({
       assertEquals(initialCap?.permissionSet, "minimal");
 
       // Step 2: Simulate execution failure with PermissionDenied
-      const error = "PermissionDenied: Requires net access to api.example.com:443, run again with --allow-net";
+      const error =
+        "PermissionDenied: Requires net access to api.example.com:443, run again with --allow-net";
 
       // Step 3: Handle the permission error
       const result = await handler.handlePermissionError(
@@ -205,7 +206,10 @@ Deno.test({
       // Verify blocked at escalation suggestion level (never reaches HIL)
       assertEquals(result.handled, false);
       assertEquals(result.approved, false);
-      assertEquals(result.error?.includes("security-critical") || result.error?.includes("unsupported"), true);
+      assertEquals(
+        result.error?.includes("security-critical") || result.error?.includes("unsupported"),
+        true,
+      );
 
       // HIL callback should NOT have been called
       assertEquals(hilCalled, false);
@@ -238,7 +242,8 @@ Deno.test({
     try {
       // Create capability
       const cap = await capStore.saveCapability({
-        code: `const data = await Deno.readTextFile("/config.json"); await Deno.writeTextFile("/config.json", data);`,
+        code:
+          `const data = await Deno.readTextFile("/config.json"); await Deno.writeTextFile("/config.json", data);`,
         intent: "Read and update configuration",
         durationMs: 100,
         success: true,

@@ -4,19 +4,28 @@
  * @module lib/std/tools/archive
  */
 
-import { runCommand, type MiniTool } from "./common.ts";
+import { type MiniTool, runCommand } from "./common.ts";
 
 export const archiveTools: MiniTool[] = [
   {
     name: "tar_create",
-    description: "Create compressed tar archives (tar.gz, tar.bz2, tar.xz) from files and directories. Package multiple files for backup, distribution, or transfer. Supports gzip, bzip2, and xz compression. Keywords: tar create, archive files, compress folder, tar.gz, tarball, backup archive, package files.",
+    description:
+      "Create compressed tar archives (tar.gz, tar.bz2, tar.xz) from files and directories. Package multiple files for backup, distribution, or transfer. Supports gzip, bzip2, and xz compression. Keywords: tar create, archive files, compress folder, tar.gz, tarball, backup archive, package files.",
     category: "system",
     inputSchema: {
       type: "object",
       properties: {
         output: { type: "string", description: "Output archive path" },
-        files: { type: "array", items: { type: "string" }, description: "Files/directories to archive" },
-        compress: { type: "string", enum: ["none", "gzip", "bzip2", "xz"], description: "Compression type" },
+        files: {
+          type: "array",
+          items: { type: "string" },
+          description: "Files/directories to archive",
+        },
+        compress: {
+          type: "string",
+          enum: ["none", "gzip", "bzip2", "xz"],
+          description: "Compression type",
+        },
         cwd: { type: "string", description: "Working directory" },
       },
       required: ["output", "files"],
@@ -24,9 +33,15 @@ export const archiveTools: MiniTool[] = [
     handler: async ({ output, files, compress = "gzip", cwd }) => {
       const args = ["-c"];
       switch (compress) {
-        case "gzip": args.push("-z"); break;
-        case "bzip2": args.push("-j"); break;
-        case "xz": args.push("-J"); break;
+        case "gzip":
+          args.push("-z");
+          break;
+        case "bzip2":
+          args.push("-j");
+          break;
+        case "xz":
+          args.push("-J");
+          break;
       }
       args.push("-f", output as string, ...(files as string[]));
 
@@ -39,7 +54,8 @@ export const archiveTools: MiniTool[] = [
   },
   {
     name: "tar_extract",
-    description: "Extract tar archives including compressed formats (tar.gz, tar.bz2, tar.xz). Unpack to specific directory or list contents without extracting. Auto-detects compression type. Keywords: tar extract, untar, decompress, extract tar.gz, unpack archive, list archive contents.",
+    description:
+      "Extract tar archives including compressed formats (tar.gz, tar.bz2, tar.xz). Unpack to specific directory or list contents without extracting. Auto-detects compression type. Keywords: tar extract, untar, decompress, extract tar.gz, unpack archive, list archive contents.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -69,7 +85,8 @@ export const archiveTools: MiniTool[] = [
   },
   {
     name: "zip_create",
-    description: "Create ZIP archives from files and directories. Widely compatible format for Windows, Mac, and Linux. Recursive directory compression supported. Use for file sharing, backups, or packaging for distribution. Keywords: zip create, compress to zip, zip folder, create archive, package zip, zip files.",
+    description:
+      "Create ZIP archives from files and directories. Widely compatible format for Windows, Mac, and Linux. Recursive directory compression supported. Use for file sharing, backups, or packaging for distribution. Keywords: zip create, compress to zip, zip folder, create archive, package zip, zip files.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -93,7 +110,8 @@ export const archiveTools: MiniTool[] = [
   },
   {
     name: "unzip",
-    description: "Extract ZIP archives to specified directory or list contents without extracting. Handles standard ZIP format compatible with Windows, Mac, and Linux. Use for unpacking downloaded archives or viewing ZIP contents. Keywords: unzip, extract zip, decompress zip, list zip contents, unpack archive.",
+    description:
+      "Extract ZIP archives to specified directory or list contents without extracting. Handles standard ZIP format compatible with Windows, Mac, and Linux. Use for unpacking downloaded archives or viewing ZIP contents. Keywords: unzip, extract zip, decompress zip, list zip contents, unpack archive.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -115,7 +133,9 @@ export const archiveTools: MiniTool[] = [
         throw new Error(`unzip failed: ${result.stderr}`);
       }
 
-      return list ? { contents: result.stdout } : { success: true, destination: destination || "." };
+      return list
+        ? { contents: result.stdout }
+        : { success: true, destination: destination || "." };
     },
   },
 ];

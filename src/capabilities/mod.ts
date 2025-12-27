@@ -12,8 +12,12 @@ export type { SaveTraceInput } from "./execution-trace-store.ts";
 export { CapabilityMatcher } from "./matcher.ts";
 export { SchemaInferrer } from "./schema-inferrer.ts";
 export { StaticStructureBuilder } from "./static-structure-builder.ts";
-export { PermissionInferrer, getToolPermissionConfig } from "./permission-inferrer.ts";
-export type { InferredPermissions, DetectedPattern, PatternCategory } from "./permission-inferrer.ts";
+export { getToolPermissionConfig, PermissionInferrer } from "./permission-inferrer.ts";
+export type {
+  DetectedPattern,
+  InferredPermissions,
+  PatternCategory,
+} from "./permission-inferrer.ts";
 export { CapabilityCodeGenerator } from "./code-generator.ts";
 export { CapabilityExecutor } from "./executor.ts";
 export { CapabilityDataService } from "./data-service.ts";
@@ -21,16 +25,16 @@ export { HypergraphBuilder } from "./hypergraph-builder.ts";
 export type { HypergraphResult } from "./hypergraph-builder.ts";
 // Story 7.7c: Permission escalation
 export {
-  suggestEscalation,
-  isValidEscalation,
   getValidEscalationTargets,
   isSecurityCritical,
+  isValidEscalation,
+  suggestEscalation,
 } from "./permission-escalation.ts";
 export { PermissionAuditStore } from "./permission-audit-store.ts";
-export type { LogEscalationInput, AuditLogFilters } from "./permission-audit-store.ts";
+export type { AuditLogFilters, LogEscalationInput } from "./permission-audit-store.ts";
 export {
-  PermissionEscalationHandler,
   formatEscalationRequest,
+  PermissionEscalationHandler,
 } from "./permission-escalation-handler.ts";
 export type { EscalationResult, HILApprovalCallback } from "./permission-escalation-handler.ts";
 // Note: hashCodeSync is intentionally not exported - it uses djb2 (32-bit)
@@ -41,6 +45,7 @@ export { DEFAULT_TRACE_PRIORITY } from "./types.ts";
 export type {
   ArgumentsStructure, // Story 10.2 - Argument extraction for speculative execution
   ArgumentValue, // Story 10.2 - Single argument resolution strategy
+  BranchDecision,
   CacheConfig,
   Capability,
   CapabilityFilters,
@@ -51,6 +56,8 @@ export type {
   CapabilityZone, // Story 8.2 - Hull zone metadata
   CytoscapeEdge, // @deprecated - use GraphEdge
   CytoscapeNode, // @deprecated - use GraphNode
+  // Story 11.2 - Execution traces
+  ExecutionTrace,
   GraphEdge,
   GraphNode,
   HypergraphOptions,
@@ -65,8 +72,5 @@ export type {
   StaticStructure, // Story 10.1 - Static code analysis
   StaticStructureEdge, // Story 10.1 - Static structure edges
   StaticStructureNode, // Story 10.1 - Static structure nodes
-  // Story 11.2 - Execution traces
-  ExecutionTrace,
-  BranchDecision,
   TraceTaskResult,
 } from "./types.ts";

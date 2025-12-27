@@ -29,15 +29,24 @@ const CODE128_STOP = 106;
 export const qrcodeTools: MiniTool[] = [
   {
     name: "qr_generate_url",
-    description: "Generate QR code as data URL or SVG string. Create scannable QR codes for URLs, text, or data. Returns base64 data URL for embedding in HTML/images. Use for sharing links, contact info, or app deep links. Keywords: QR code, generate QR, QR URL, scannable code, data URL, embed QR.",
+    description:
+      "Generate QR code as data URL or SVG string. Create scannable QR codes for URLs, text, or data. Returns base64 data URL for embedding in HTML/images. Use for sharing links, contact info, or app deep links. Keywords: QR code, generate QR, QR URL, scannable code, data URL, embed QR.",
     category: "qrcode",
     inputSchema: {
       type: "object",
       properties: {
         data: { type: "string", description: "Data to encode in QR code" },
-        format: { type: "string", enum: ["svg", "ascii"], description: "Output format (default: svg)" },
+        format: {
+          type: "string",
+          enum: ["svg", "ascii"],
+          description: "Output format (default: svg)",
+        },
         size: { type: "number", description: "Module size for ASCII (default: 1)" },
-        errorCorrection: { type: "string", enum: ["L", "M", "Q", "H"], description: "Error correction level (default: M)" },
+        errorCorrection: {
+          type: "string",
+          enum: ["L", "M", "Q", "H"],
+          description: "Error correction level (default: M)",
+        },
       },
       required: ["data"],
     },
@@ -58,7 +67,7 @@ export const qrcodeTools: MiniTool[] = [
 
         // Simple pattern generation (not actual QR encoding)
         const quietZone = "  ".repeat(s);
-        const emptyLine = (quietZone + "  ".repeat(moduleCount * s) + quietZone);
+        const emptyLine = quietZone + "  ".repeat(moduleCount * s) + quietZone;
 
         // Add quiet zone
         for (let i = 0; i < 4; i++) lines.push(emptyLine);
@@ -68,17 +77,21 @@ export const qrcodeTools: MiniTool[] = [
           let line = quietZone;
           for (let col = 0; col < moduleCount; col++) {
             // Finder patterns (corners)
-            const isFinderArea =
-              (row < 7 && col < 7) || // Top-left
+            const isFinderArea = (row < 7 && col < 7) || // Top-left
               (row < 7 && col >= moduleCount - 7) || // Top-right
               (row >= moduleCount - 7 && col < 7); // Bottom-left
 
             if (isFinderArea) {
               // Simplified finder pattern
-              const inPattern =
-                (row < 7 && col < 7 && (row === 0 || row === 6 || col === 0 || col === 6 || (row >= 2 && row <= 4 && col >= 2 && col <= 4))) ||
-                (row < 7 && col >= moduleCount - 7 && (row === 0 || row === 6 || col === moduleCount - 7 || col === moduleCount - 1 || (row >= 2 && row <= 4 && col >= moduleCount - 5 && col <= moduleCount - 3))) ||
-                (row >= moduleCount - 7 && col < 7 && (row === moduleCount - 7 || row === moduleCount - 1 || col === 0 || col === 6 || (row >= moduleCount - 5 && row <= moduleCount - 3 && col >= 2 && col <= 4)));
+              const inPattern = (row < 7 && col < 7 &&
+                (row === 0 || row === 6 || col === 0 || col === 6 ||
+                  (row >= 2 && row <= 4 && col >= 2 && col <= 4))) ||
+                (row < 7 && col >= moduleCount - 7 &&
+                  (row === 0 || row === 6 || col === moduleCount - 7 || col === moduleCount - 1 ||
+                    (row >= 2 && row <= 4 && col >= moduleCount - 5 && col <= moduleCount - 3))) ||
+                (row >= moduleCount - 7 && col < 7 &&
+                  (row === moduleCount - 7 || row === moduleCount - 1 || col === 0 || col === 6 ||
+                    (row >= moduleCount - 5 && row <= moduleCount - 3 && col >= 2 && col <= 4)));
               line += (inPattern ? "██" : "  ").repeat(s);
             } else {
               // Data area - pseudo-random based on data
@@ -114,8 +127,7 @@ export const qrcodeTools: MiniTool[] = [
       for (let row = 0; row < moduleCount; row++) {
         for (let col = 0; col < moduleCount; col++) {
           // Finder patterns
-          const isFinderArea =
-            (row < 7 && col < 7) ||
+          const isFinderArea = (row < 7 && col < 7) ||
             (row < 7 && col >= moduleCount - 7) ||
             (row >= moduleCount - 7 && col < 7);
 
@@ -124,10 +136,11 @@ export const qrcodeTools: MiniTool[] = [
           if (isFinderArea) {
             // Finder pattern logic
             const localRow = row < 7 ? row : row - (moduleCount - 7);
-            const localCol = col < 7 ? col : (col >= moduleCount - 7 ? col - (moduleCount - 7) : col);
+            const localCol = col < 7
+              ? col
+              : (col >= moduleCount - 7 ? col - (moduleCount - 7) : col);
 
-            isDark =
-              localRow === 0 || localRow === 6 ||
+            isDark = localRow === 0 || localRow === 6 ||
               localCol === 0 || localCol === 6 ||
               (localRow >= 2 && localRow <= 4 && localCol >= 2 && localCol <= 4);
           } else if (row === 6 || col === 6) {
@@ -147,7 +160,8 @@ export const qrcodeTools: MiniTool[] = [
         }
       }
 
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgSize} ${svgSize}" width="${svgSize}" height="${svgSize}">
+      const svg =
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgSize} ${svgSize}" width="${svgSize}" height="${svgSize}">
   <rect width="100%" height="100%" fill="white"/>
   <g fill="black">${paths}</g>
 </svg>`;
@@ -164,12 +178,16 @@ export const qrcodeTools: MiniTool[] = [
   },
   {
     name: "barcode_ean13",
-    description: "Generate EAN-13 barcode data with checksum. Calculate and validate 13-digit European Article Numbers. Returns barcode digits and checksum. Use for product codes, retail, or inventory. Keywords: EAN-13, barcode, product code, UPC, retail barcode, checksum.",
+    description:
+      "Generate EAN-13 barcode data with checksum. Calculate and validate 13-digit European Article Numbers. Returns barcode digits and checksum. Use for product codes, retail, or inventory. Keywords: EAN-13, barcode, product code, UPC, retail barcode, checksum.",
     category: "qrcode",
     inputSchema: {
       type: "object",
       properties: {
-        digits: { type: "string", description: "12-digit code (checksum will be calculated) or 13-digit code to validate" },
+        digits: {
+          type: "string",
+          description: "12-digit code (checksum will be calculated) or 13-digit code to validate",
+        },
       },
       required: ["digits"],
     },
@@ -183,7 +201,9 @@ export const qrcodeTools: MiniTool[] = [
           barcode: full,
           checksum,
           valid: true,
-          formatted: `${full.slice(0, 1)}-${full.slice(1, 7)}-${full.slice(7, 12)}-${full.slice(12)}`,
+          formatted: `${full.slice(0, 1)}-${full.slice(1, 7)}-${full.slice(7, 12)}-${
+            full.slice(12)
+          }`,
         };
       }
 
@@ -205,12 +225,16 @@ export const qrcodeTools: MiniTool[] = [
   },
   {
     name: "barcode_upc_a",
-    description: "Generate UPC-A barcode data with checksum. Calculate and validate 12-digit Universal Product Codes for US/Canada retail. Returns barcode digits and checksum. Use for product codes, retail, or inventory. Keywords: UPC-A, barcode, product code, retail barcode, universal product code.",
+    description:
+      "Generate UPC-A barcode data with checksum. Calculate and validate 12-digit Universal Product Codes for US/Canada retail. Returns barcode digits and checksum. Use for product codes, retail, or inventory. Keywords: UPC-A, barcode, product code, retail barcode, universal product code.",
     category: "qrcode",
     inputSchema: {
       type: "object",
       properties: {
-        digits: { type: "string", description: "11-digit code (checksum calculated) or 12-digit code to validate" },
+        digits: {
+          type: "string",
+          description: "11-digit code (checksum calculated) or 12-digit code to validate",
+        },
       },
       required: ["digits"],
     },
@@ -234,7 +258,9 @@ export const qrcodeTools: MiniTool[] = [
           barcode: full,
           checksum,
           valid: true,
-          formatted: `${full.slice(0, 1)}-${full.slice(1, 6)}-${full.slice(6, 11)}-${full.slice(11)}`,
+          formatted: `${full.slice(0, 1)}-${full.slice(1, 6)}-${full.slice(6, 11)}-${
+            full.slice(11)
+          }`,
         };
       }
 
@@ -256,13 +282,20 @@ export const qrcodeTools: MiniTool[] = [
   },
   {
     name: "barcode_code39",
-    description: "Encode text for Code 39 barcode. Convert alphanumeric text to Code 39 format with start/stop characters. Supports 0-9, A-Z, -, ., space, $, /, +, %. Use for industrial, logistics, or ID barcodes. Keywords: Code 39, alphanumeric barcode, industrial barcode, encode text, logistics.",
+    description:
+      "Encode text for Code 39 barcode. Convert alphanumeric text to Code 39 format with start/stop characters. Supports 0-9, A-Z, -, ., space, $, /, +, %. Use for industrial, logistics, or ID barcodes. Keywords: Code 39, alphanumeric barcode, industrial barcode, encode text, logistics.",
     category: "qrcode",
     inputSchema: {
       type: "object",
       properties: {
-        text: { type: "string", description: "Text to encode (uppercase alphanumeric + - . space $ / + %)" },
-        includeChecksum: { type: "boolean", description: "Include mod 43 checksum (default: false)" },
+        text: {
+          type: "string",
+          description: "Text to encode (uppercase alphanumeric + - . space $ / + %)",
+        },
+        includeChecksum: {
+          type: "boolean",
+          description: "Include mod 43 checksum (default: false)",
+        },
       },
       required: ["text"],
     },
@@ -270,7 +303,7 @@ export const qrcodeTools: MiniTool[] = [
       const t = (text as string).toUpperCase();
 
       // Validate characters
-      const invalidChars = t.split("").filter(c => !CODE39_CHARS.includes(c));
+      const invalidChars = t.split("").filter((c) => !CODE39_CHARS.includes(c));
       if (invalidChars.length > 0) {
         return {
           error: `Invalid characters for Code 39: ${invalidChars.join(", ")}`,
@@ -297,13 +330,14 @@ export const qrcodeTools: MiniTool[] = [
         encoded: `*${encoded}*`, // Start and stop characters
         length: encoded.length,
         checksum,
-        pattern: encoded.split("").map(c => CODE39_CHARS.indexOf(c)),
+        pattern: encoded.split("").map((c) => CODE39_CHARS.indexOf(c)),
       };
     },
   },
   {
     name: "barcode_code128",
-    description: "Encode text for Code 128 barcode. Convert any ASCII text to Code 128 format with checksum. High-density barcode for shipping, packaging. Use for logistics, shipping labels, or GS1-128. Keywords: Code 128, high density barcode, shipping barcode, GS1-128, ASCII barcode.",
+    description:
+      "Encode text for Code 128 barcode. Convert any ASCII text to Code 128 format with checksum. High-density barcode for shipping, packaging. Use for logistics, shipping labels, or GS1-128. Keywords: Code 128, high density barcode, shipping barcode, GS1-128, ASCII barcode.",
     category: "qrcode",
     inputSchema: {
       type: "object",
@@ -344,7 +378,8 @@ export const qrcodeTools: MiniTool[] = [
   },
   {
     name: "barcode_isbn",
-    description: "Validate and convert ISBN (International Standard Book Number). Check ISBN-10 or ISBN-13 format, calculate checksums, convert between formats. Use for book databases, library systems, or publishing. Keywords: ISBN, book number, ISBN-10, ISBN-13, book identifier, publishing.",
+    description:
+      "Validate and convert ISBN (International Standard Book Number). Check ISBN-10 or ISBN-13 format, calculate checksums, convert between formats. Use for book databases, library systems, or publishing. Keywords: ISBN, book number, ISBN-10, ISBN-13, book identifier, publishing.",
     category: "qrcode",
     inputSchema: {
       type: "object",
@@ -381,8 +416,12 @@ export const qrcodeTools: MiniTool[] = [
           valid: valid10,
           isbn10: clean,
           isbn13,
-          formatted10: `${clean.slice(0, 1)}-${clean.slice(1, 5)}-${clean.slice(5, 9)}-${clean.slice(9)}`,
-          formatted13: `978-${clean.slice(0, 1)}-${clean.slice(1, 5)}-${clean.slice(5, 9)}-${isbn13Checksum}`,
+          formatted10: `${clean.slice(0, 1)}-${clean.slice(1, 5)}-${clean.slice(5, 9)}-${
+            clean.slice(9)
+          }`,
+          formatted13: `978-${clean.slice(0, 1)}-${clean.slice(1, 5)}-${
+            clean.slice(5, 9)
+          }-${isbn13Checksum}`,
         };
       }
 
@@ -413,8 +452,12 @@ export const qrcodeTools: MiniTool[] = [
           valid: valid13,
           isbn13: clean,
           isbn10,
-          formatted13: `${clean.slice(0, 3)}-${clean.slice(3, 4)}-${clean.slice(4, 8)}-${clean.slice(8, 12)}-${clean.slice(12)}`,
-          formatted10: isbn10 ? `${isbn10.slice(0, 1)}-${isbn10.slice(1, 5)}-${isbn10.slice(5, 9)}-${isbn10.slice(9)}` : null,
+          formatted13: `${clean.slice(0, 3)}-${clean.slice(3, 4)}-${clean.slice(4, 8)}-${
+            clean.slice(8, 12)
+          }-${clean.slice(12)}`,
+          formatted10: isbn10
+            ? `${isbn10.slice(0, 1)}-${isbn10.slice(1, 5)}-${isbn10.slice(5, 9)}-${isbn10.slice(9)}`
+            : null,
         };
       }
 
@@ -423,14 +466,19 @@ export const qrcodeTools: MiniTool[] = [
   },
   {
     name: "qr_wifi",
-    description: "Generate WiFi QR code data string. Create QR code content for automatic WiFi connection. Supports WPA, WPA2, WEP, and open networks. Use for guest WiFi, hotel rooms, or network sharing. Keywords: WiFi QR, network QR, connect WiFi, wireless QR, SSID QR, password share.",
+    description:
+      "Generate WiFi QR code data string. Create QR code content for automatic WiFi connection. Supports WPA, WPA2, WEP, and open networks. Use for guest WiFi, hotel rooms, or network sharing. Keywords: WiFi QR, network QR, connect WiFi, wireless QR, SSID QR, password share.",
     category: "qrcode",
     inputSchema: {
       type: "object",
       properties: {
         ssid: { type: "string", description: "Network name (SSID)" },
         password: { type: "string", description: "Network password (empty for open)" },
-        encryption: { type: "string", enum: ["WPA", "WEP", "nopass"], description: "Encryption type (default: WPA)" },
+        encryption: {
+          type: "string",
+          enum: ["WPA", "WEP", "nopass"],
+          description: "Encryption type (default: WPA)",
+        },
         hidden: { type: "boolean", description: "Hidden network (default: false)" },
       },
       required: ["ssid"],
@@ -440,7 +488,9 @@ export const qrcodeTools: MiniTool[] = [
       const escape = (str: string) => str.replace(/([\\;,:"'])/g, "\\$1");
 
       const enc = password ? (encryption as string) : "nopass";
-      const qrData = `WIFI:T:${enc};S:${escape(ssid as string)};P:${escape(password as string)};H:${hidden ? "true" : "false"};;`;
+      const qrData = `WIFI:T:${enc};S:${escape(ssid as string)};P:${escape(password as string)};H:${
+        hidden ? "true" : "false"
+      };;`;
 
       return {
         qrData,
@@ -453,7 +503,8 @@ export const qrcodeTools: MiniTool[] = [
   },
   {
     name: "qr_vcard",
-    description: "Generate vCard QR code data for contact information. Create QR code content for business cards with name, phone, email, address. Use for networking, contact sharing, or digital business cards. Keywords: vCard QR, contact QR, business card, phone QR, email QR, digital card.",
+    description:
+      "Generate vCard QR code data for contact information. Create QR code content for business cards with name, phone, email, address. Use for networking, contact sharing, or digital business cards. Keywords: vCard QR, contact QR, business card, phone QR, email QR, digital card.",
     category: "qrcode",
     inputSchema: {
       type: "object",
@@ -500,7 +551,8 @@ export const qrcodeTools: MiniTool[] = [
   },
   {
     name: "qr_sms",
-    description: "Generate SMS QR code data for pre-filled text messages. Create QR code that opens SMS app with recipient and message. Use for customer feedback, support requests, or quick messaging. Keywords: SMS QR, text message QR, pre-filled SMS, message QR, phone text.",
+    description:
+      "Generate SMS QR code data for pre-filled text messages. Create QR code that opens SMS app with recipient and message. Use for customer feedback, support requests, or quick messaging. Keywords: SMS QR, text message QR, pre-filled SMS, message QR, phone text.",
     category: "qrcode",
     inputSchema: {
       type: "object",
@@ -511,9 +563,7 @@ export const qrcodeTools: MiniTool[] = [
       required: ["phone"],
     },
     handler: ({ phone, message = "" }) => {
-      const qrData = message
-        ? `SMSTO:${phone}:${message}`
-        : `SMSTO:${phone}`;
+      const qrData = message ? `SMSTO:${phone}:${message}` : `SMSTO:${phone}`;
 
       return {
         qrData,
@@ -525,7 +575,8 @@ export const qrcodeTools: MiniTool[] = [
   },
   {
     name: "qr_email",
-    description: "Generate email QR code data for pre-filled email composition. Create QR code that opens email client with recipient, subject, and body. Use for feedback forms, support requests, or contact. Keywords: email QR, mailto QR, pre-filled email, email link, contact email.",
+    description:
+      "Generate email QR code data for pre-filled email composition. Create QR code that opens email client with recipient, subject, and body. Use for feedback forms, support requests, or contact. Keywords: email QR, mailto QR, pre-filled email, email link, contact email.",
     category: "qrcode",
     inputSchema: {
       type: "object",

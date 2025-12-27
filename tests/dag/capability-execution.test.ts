@@ -12,7 +12,10 @@ import type { ToolExecutor } from "../../src/dag/types.ts";
 
 Deno.test("DAG capability execution integration", async (t) => {
   // Mock tool executor for MCP tools
-  const mockToolExecutor: ToolExecutor = async (toolName: string, args: Record<string, unknown>) => {
+  const mockToolExecutor: ToolExecutor = async (
+    toolName: string,
+    args: Record<string, unknown>,
+  ) => {
     // Simulate MCP tool execution
     return { result: `mcp_${toolName}_${JSON.stringify(args)}` };
   };
@@ -174,37 +177,40 @@ Deno.test("DAG capability execution integration", async (t) => {
     console.log("  ✓ capability task without capabilityId fails with clear error");
   });
 
-  await t.step("AC3: capability task without code and no CapabilityStore fails clearly", async () => {
-    const executor = new ControlledExecutor(mockToolExecutor, { taskTimeout: 30000 });
-    // Note: setLearningDependencies() NOT called - no CapabilityStore configured
+  await t.step(
+    "AC3: capability task without code and no CapabilityStore fails clearly",
+    async () => {
+      const executor = new ControlledExecutor(mockToolExecutor, { taskTimeout: 30000 });
+      // Note: setLearningDependencies() NOT called - no CapabilityStore configured
 
-    const dag: DAGStructure = {
-      tasks: [
-        {
-          id: "no_code_task",
-          type: "capability",
-          tool: "sandbox",
-          capabilityId: "cap-123-no-store",
-          // code intentionally missing - should try to fetch from store
-          arguments: {},
-          dependsOn: [],
-        },
-      ],
-    };
+      const dag: DAGStructure = {
+        tasks: [
+          {
+            id: "no_code_task",
+            type: "capability",
+            tool: "sandbox",
+            capabilityId: "cap-123-no-store",
+            // code intentionally missing - should try to fetch from store
+            arguments: {},
+            dependsOn: [],
+          },
+        ],
+      };
 
-    const result = await executor.execute(dag);
+      const result = await executor.execute(dag);
 
-    assertEquals(result.errors.length, 1, "Should have 1 error");
+      assertEquals(result.errors.length, 1, "Should have 1 error");
 
-    const errorResult = result.results[0];
-    assertEquals(errorResult.status, "error", "Task should fail");
-    assert(
-      errorResult.error?.includes("CapabilityStore is not configured"),
-      "Error should mention CapabilityStore not configured",
-    );
+      const errorResult = result.results[0];
+      assertEquals(errorResult.status, "error", "Task should fail");
+      assert(
+        errorResult.error?.includes("CapabilityStore is not configured"),
+        "Error should mention CapabilityStore not configured",
+      );
 
-    console.log("  ✓ capability task without code and no store fails with clear error");
-  });
+      console.log("  ✓ capability task without code and no store fails with clear error");
+    },
+  );
 
   await t.step("AC5: backward compatibility - MCP-only workflow unchanged", async () => {
     const executor = new ControlledExecutor(mockToolExecutor, { taskTimeout: 30000 });

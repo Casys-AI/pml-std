@@ -17,8 +17,8 @@
 import { EmbeddingModel } from "../../src/vector/embeddings.ts";
 import {
   createSHGATFromCapabilities,
-  trainSHGATOnEpisodes,
   type TrainingExample,
+  trainSHGATOnEpisodes,
 } from "../../src/graphrag/algorithms/shgat.ts";
 import {
   createSHGATTransformerFromCapabilities,
@@ -49,7 +49,7 @@ async function runBenchmark() {
 
   // Load fixture
   const fixtureData = JSON.parse(
-    await Deno.readTextFile("tests/benchmarks/fixtures/scenarios/episodic-training.json")
+    await Deno.readTextFile("tests/benchmarks/fixtures/scenarios/episodic-training.json"),
   );
 
   console.log("🔄 Loading BGE-M3 model...");
@@ -137,7 +137,8 @@ async function runBenchmark() {
         cap.toolsUsed.includes(t.id)
       );
       const avgPageRank = toolNodes.length > 0
-        ? toolNodes.reduce((sum: number, t: { pageRank: number }) => sum + t.pageRank, 0) / toolNodes.length
+        ? toolNodes.reduce((sum: number, t: { pageRank: number }) => sum + t.pageRank, 0) /
+          toolNodes.length
         : 0.01;
       shgatCosine.updateHypergraphFeatures(cap.id, {
         spectralCluster: toolNodes[0]?.community || 0,
@@ -148,10 +149,15 @@ async function runBenchmark() {
     }
 
     const startTrainCosine = performance.now();
-    await trainSHGATOnEpisodes(shgatCosine, trainingExamples, (id) => toolEmbeddings.get(id) || null, {
-      epochs: 20,
-      batchSize: 4,
-    });
+    await trainSHGATOnEpisodes(
+      shgatCosine,
+      trainingExamples,
+      (id) => toolEmbeddings.get(id) || null,
+      {
+        epochs: 20,
+        batchSize: 4,
+      },
+    );
     const trainTimeCosine = performance.now() - startTrainCosine;
 
     // Evaluate
@@ -164,7 +170,7 @@ async function runBenchmark() {
       const results = shgatCosine.scoreAllCapabilities(query.intentEmb, []);
       latencyCosine += performance.now() - start;
 
-      const rank = results.findIndex(r => r.capabilityId === query.expected) + 1;
+      const rank = results.findIndex((r) => r.capabilityId === query.expected) + 1;
       if (rank === 1) correctCosine++;
       mrrCosine += 1 / rank;
     }
@@ -179,7 +185,11 @@ async function runBenchmark() {
       paramCount: cosineStats.paramCount,
     });
 
-    console.log(`   Train: ${trainTimeCosine.toFixed(0)}ms | Acc: ${(correctCosine / testQueries.length * 100).toFixed(1)}% | MRR: ${(mrrCosine / testQueries.length).toFixed(4)}\n`);
+    console.log(
+      `   Train: ${trainTimeCosine.toFixed(0)}ms | Acc: ${
+        (correctCosine / testQueries.length * 100).toFixed(1)
+      }% | MRR: ${(mrrCosine / testQueries.length).toFixed(4)}\n`,
+    );
 
     // ========================================================================
     // 2. SHGAT with Transformer semantic heads
@@ -203,7 +213,8 @@ async function runBenchmark() {
         cap.toolsUsed.includes(t.id)
       );
       const avgPageRank = toolNodes.length > 0
-        ? toolNodes.reduce((sum: number, t: { pageRank: number }) => sum + t.pageRank, 0) / toolNodes.length
+        ? toolNodes.reduce((sum: number, t: { pageRank: number }) => sum + t.pageRank, 0) /
+          toolNodes.length
         : 0.01;
       shgatTransformer.updateHypergraphFeatures(cap.id, {
         spectralCluster: toolNodes[0]?.community || 0,
@@ -214,15 +225,22 @@ async function runBenchmark() {
     }
 
     const startTrainTransformer = performance.now();
-    await trainSHGATTransformerOnEpisodes(shgatTransformer, trainingExamples, (id) => toolEmbeddings.get(id) || null, {
-      epochs: 50, // More epochs for transformer
-      batchSize: 4,
-      onEpoch: (epoch, loss, acc) => {
-        if (epoch % 10 === 0) {
-          console.log(`   Epoch ${epoch}: loss=${loss.toFixed(4)}, acc=${(acc * 100).toFixed(0)}%`);
-        }
+    await trainSHGATTransformerOnEpisodes(
+      shgatTransformer,
+      trainingExamples,
+      (id) => toolEmbeddings.get(id) || null,
+      {
+        epochs: 50, // More epochs for transformer
+        batchSize: 4,
+        onEpoch: (epoch, loss, acc) => {
+          if (epoch % 10 === 0) {
+            console.log(
+              `   Epoch ${epoch}: loss=${loss.toFixed(4)}, acc=${(acc * 100).toFixed(0)}%`,
+            );
+          }
+        },
       },
-    });
+    );
     const trainTimeTransformer = performance.now() - startTrainTransformer;
 
     // Evaluate
@@ -235,7 +253,7 @@ async function runBenchmark() {
       const results = shgatTransformer.scoreAllCapabilities(query.intentEmb, []);
       latencyTransformer += performance.now() - start;
 
-      const rank = results.findIndex(r => r.capabilityId === query.expected) + 1;
+      const rank = results.findIndex((r) => r.capabilityId === query.expected) + 1;
       if (rank === 1) correctTransformer++;
       mrrTransformer += 1 / rank;
     }
@@ -251,30 +269,39 @@ async function runBenchmark() {
       paramCount: baseStats.paramCount + transformerStats.semanticParamCount,
     });
 
-    console.log(`   Train: ${trainTimeTransformer.toFixed(0)}ms | Acc: ${(correctTransformer / testQueries.length * 100).toFixed(1)}% | MRR: ${(mrrTransformer / testQueries.length).toFixed(4)}\n`);
+    console.log(
+      `   Train: ${trainTimeTransformer.toFixed(0)}ms | Acc: ${
+        (correctTransformer / testQueries.length * 100).toFixed(1)
+      }% | MRR: ${(mrrTransformer / testQueries.length).toFixed(4)}\n`,
+    );
 
     // ========================================================================
     // 3. SHGAT with Transformer (more training)
     // ========================================================================
     console.log("🔷 Testing SHGAT + Transformer (100 epochs)...");
 
-    const shgatTransformer100 = createSHGATTransformerFromCapabilities(capabilities, toolEmbeddings, {
-      numHeads: 4,
-      hiddenDim: 64,
-      numLayers: 2,
-      embeddingDim: 1024,
-      useTransformerSemantic: true,
-      semanticProjectionDim: 128,
-      learningRate: 0.0005, // Lower LR for more epochs
-      l2Lambda: 0.001, // More regularization
-    });
+    const shgatTransformer100 = createSHGATTransformerFromCapabilities(
+      capabilities,
+      toolEmbeddings,
+      {
+        numHeads: 4,
+        hiddenDim: 64,
+        numLayers: 2,
+        embeddingDim: 1024,
+        useTransformerSemantic: true,
+        semanticProjectionDim: 128,
+        learningRate: 0.0005, // Lower LR for more epochs
+        l2Lambda: 0.001, // More regularization
+      },
+    );
 
     for (const cap of fixtureData.nodes.capabilities) {
       const toolNodes = fixtureData.nodes.tools.filter((t: { id: string }) =>
         cap.toolsUsed.includes(t.id)
       );
       const avgPageRank = toolNodes.length > 0
-        ? toolNodes.reduce((sum: number, t: { pageRank: number }) => sum + t.pageRank, 0) / toolNodes.length
+        ? toolNodes.reduce((sum: number, t: { pageRank: number }) => sum + t.pageRank, 0) /
+          toolNodes.length
         : 0.01;
       shgatTransformer100.updateHypergraphFeatures(cap.id, {
         spectralCluster: toolNodes[0]?.community || 0,
@@ -285,15 +312,22 @@ async function runBenchmark() {
     }
 
     const startTrainTransformer100 = performance.now();
-    await trainSHGATTransformerOnEpisodes(shgatTransformer100, trainingExamples, (id) => toolEmbeddings.get(id) || null, {
-      epochs: 100,
-      batchSize: 4,
-      onEpoch: (epoch, loss, acc) => {
-        if (epoch % 25 === 0) {
-          console.log(`   Epoch ${epoch}: loss=${loss.toFixed(4)}, acc=${(acc * 100).toFixed(0)}%`);
-        }
+    await trainSHGATTransformerOnEpisodes(
+      shgatTransformer100,
+      trainingExamples,
+      (id) => toolEmbeddings.get(id) || null,
+      {
+        epochs: 100,
+        batchSize: 4,
+        onEpoch: (epoch, loss, acc) => {
+          if (epoch % 25 === 0) {
+            console.log(
+              `   Epoch ${epoch}: loss=${loss.toFixed(4)}, acc=${(acc * 100).toFixed(0)}%`,
+            );
+          }
+        },
       },
-    });
+    );
     const trainTimeTransformer100 = performance.now() - startTrainTransformer100;
 
     let correctTransformer100 = 0;
@@ -305,7 +339,7 @@ async function runBenchmark() {
       const results = shgatTransformer100.scoreAllCapabilities(query.intentEmb, []);
       latencyTransformer100 += performance.now() - start;
 
-      const rank = results.findIndex(r => r.capabilityId === query.expected) + 1;
+      const rank = results.findIndex((r) => r.capabilityId === query.expected) + 1;
       if (rank === 1) correctTransformer100++;
       mrrTransformer100 += 1 / rank;
     }
@@ -319,7 +353,11 @@ async function runBenchmark() {
       paramCount: baseStats.paramCount + transformerStats.semanticParamCount,
     });
 
-    console.log(`   Train: ${trainTimeTransformer100.toFixed(0)}ms | Acc: ${(correctTransformer100 / testQueries.length * 100).toFixed(1)}% | MRR: ${(mrrTransformer100 / testQueries.length).toFixed(4)}\n`);
+    console.log(
+      `   Train: ${trainTimeTransformer100.toFixed(0)}ms | Acc: ${
+        (correctTransformer100 / testQueries.length * 100).toFixed(1)
+      }% | MRR: ${(mrrTransformer100 / testQueries.length).toFixed(4)}\n`,
+    );
 
     // ========================================================================
     // Summary Table
@@ -329,22 +367,22 @@ async function runBenchmark() {
     console.log("═".repeat(80));
     console.log(
       "Method".padEnd(30) +
-      "Accuracy".padStart(10) +
-      "MRR".padStart(10) +
-      "Latency".padStart(12) +
-      "Train".padStart(12) +
-      "Params".padStart(10)
+        "Accuracy".padStart(10) +
+        "MRR".padStart(10) +
+        "Latency".padStart(12) +
+        "Train".padStart(12) +
+        "Params".padStart(10),
     );
     console.log("─".repeat(80));
 
     for (const r of results) {
       console.log(
         r.name.padEnd(30) +
-        `${(r.accuracy * 100).toFixed(1)}%`.padStart(10) +
-        r.mrr.toFixed(4).padStart(10) +
-        `${r.latencyMs.toFixed(2)}ms`.padStart(12) +
-        `${(r.trainTimeMs / 1000).toFixed(1)}s`.padStart(12) +
-        (r.paramCount ? `${(r.paramCount / 1000).toFixed(0)}K` : "N/A").padStart(10)
+          `${(r.accuracy * 100).toFixed(1)}%`.padStart(10) +
+          r.mrr.toFixed(4).padStart(10) +
+          `${r.latencyMs.toFixed(2)}ms`.padStart(12) +
+          `${(r.trainTimeMs / 1000).toFixed(1)}s`.padStart(12) +
+          (r.paramCount ? `${(r.paramCount / 1000).toFixed(0)}K` : "N/A").padStart(10),
       );
     }
     console.log("═".repeat(80));
@@ -354,12 +392,13 @@ async function runBenchmark() {
     // ========================================================================
     console.log("\n📊 Analysis:");
 
-    const cosineResult = results.find(r => r.name.includes("Cosine"))!;
+    const cosineResult = results.find((r) => r.name.includes("Cosine"))!;
     const bestTransformer = results
-      .filter(r => r.name.includes("Transformer"))
+      .filter((r) => r.name.includes("Transformer"))
       .sort((a, b) => b.accuracy - a.accuracy)[0];
 
-    const improvement = ((bestTransformer.accuracy - cosineResult.accuracy) / (cosineResult.accuracy || 0.01)) * 100;
+    const improvement =
+      ((bestTransformer.accuracy - cosineResult.accuracy) / (cosineResult.accuracy || 0.01)) * 100;
 
     if (cosineResult.accuracy === 1.0) {
       console.log("   ⚠️  Cosine already at 100% - dataset too easy to compare");
@@ -382,7 +421,6 @@ async function runBenchmark() {
     console.log("\n╔════════════════════════════════════════════════════════════╗");
     console.log("║                    BENCHMARK COMPLETE                      ║");
     console.log("╚════════════════════════════════════════════════════════════╝\n");
-
   } finally {
     await embedder.dispose();
   }

@@ -218,7 +218,12 @@ Deno.test({
 
     try {
       // Act
-      const result = await bridge.execute(code, createToolDefinitions(), undefined, capabilityContext);
+      const result = await bridge.execute(
+        code,
+        createToolDefinitions(),
+        undefined,
+        capabilityContext,
+      );
 
       // Assert: Execution succeeded with expected return value
       assertEquals(result.success, true);

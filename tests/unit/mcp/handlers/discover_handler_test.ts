@@ -11,14 +11,17 @@
  * - AC7: include_related support for tools
  */
 
-import { assertEquals, assertExists, assertAlmostEquals } from "@std/assert";
-import { handleDiscover, computeDiscoverScore } from "../../../../src/mcp/handlers/discover-handler.ts";
+import { assertAlmostEquals, assertEquals, assertExists } from "@std/assert";
+import {
+  computeDiscoverScore,
+  handleDiscover,
+} from "../../../../src/mcp/handlers/discover-handler.ts";
 import { GLOBAL_SCORE_CAP } from "../../../../src/graphrag/algorithms/unified-search.ts";
 import type { GraphRAGEngine } from "../../../../src/graphrag/graph-engine.ts";
 import type { VectorSearch } from "../../../../src/vector/search.ts";
 import type { DAGSuggester } from "../../../../src/graphrag/dag-suggester.ts";
 import type { HybridSearchResult } from "../../../../src/graphrag/types.ts";
-import type { CapabilityMatch, Capability } from "../../../../src/capabilities/types.ts";
+import type { Capability, CapabilityMatch } from "../../../../src/capabilities/types.ts";
 import type { MCPToolResponse } from "../../../../src/mcp/server/types.ts";
 
 // Mock GraphRAGEngine

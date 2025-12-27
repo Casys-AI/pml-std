@@ -249,7 +249,7 @@ Deno.test({
     // processData should be transformed
     assertEquals(result.code.includes('mcp["local.default.api.process.aaaa"]'), true);
     // read_file should NOT be transformed (it's an MCP tool)
-    assertEquals(result.code.includes('mcp.filesystem.read_file'), true);
+    assertEquals(result.code.includes("mcp.filesystem.read_file"), true);
   },
 });
 

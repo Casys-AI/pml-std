@@ -79,13 +79,29 @@ Deno.test("MetricsCollector", async (t) => {
     eventBus.emit({
       type: "capability.learned",
       source: "test",
-      payload: { capability_id: "cap1", name: "test", intent: "do something", tools_used: [], is_new: true, usage_count: 1, success_rate: 1.0 },
+      payload: {
+        capability_id: "cap1",
+        name: "test",
+        intent: "do something",
+        tools_used: [],
+        is_new: true,
+        usage_count: 1,
+        success_rate: 1.0,
+      },
     });
 
     eventBus.emit({
       type: "capability.matched",
       source: "test",
-      payload: { capability_id: "cap1", name: "test", intent: "do something", score: 0.9, semantic_score: 0.85, threshold_used: 0.7, selected: true },
+      payload: {
+        capability_id: "cap1",
+        name: "test",
+        intent: "do something",
+        score: 0.9,
+        semantic_score: 0.85,
+        threshold_used: 0.7,
+        selected: true,
+      },
     });
 
     await new Promise((r) => setTimeout(r, 10));
@@ -105,7 +121,12 @@ Deno.test("MetricsCollector", async (t) => {
     eventBus.emit({
       type: "dag.started",
       source: "test",
-      payload: { executionId: "dag-1", task_count: 3, layer_count: 2, task_ids: ["t1", "t2", "t3"] },
+      payload: {
+        executionId: "dag-1",
+        task_count: 3,
+        layer_count: 2,
+        task_ids: ["t1", "t2", "t3"],
+      },
     });
 
     await new Promise((r) => setTimeout(r, 10));
@@ -125,7 +146,13 @@ Deno.test("MetricsCollector", async (t) => {
     eventBus.emit({
       type: "dag.task.failed",
       source: "test",
-      payload: { executionId: "dag-1", taskId: "t2", tool: "test:tool2", error: "timeout", recoverable: true },
+      payload: {
+        executionId: "dag-1",
+        taskId: "t2",
+        tool: "test:tool2",
+        error: "timeout",
+        recoverable: true,
+      },
     });
 
     await new Promise((r) => setTimeout(r, 10));
@@ -138,7 +165,13 @@ Deno.test("MetricsCollector", async (t) => {
     eventBus.emit({
       type: "dag.completed",
       source: "test",
-      payload: { executionId: "dag-1", totalDurationMs: 500, successfulTasks: 2, failedTasks: 1, success: false },
+      payload: {
+        executionId: "dag-1",
+        totalDurationMs: 500,
+        successfulTasks: 2,
+        failedTasks: 1,
+        success: false,
+      },
     });
 
     await new Promise((r) => setTimeout(r, 10));
@@ -163,7 +196,13 @@ Deno.test("MetricsCollector", async (t) => {
     eventBus.emit({
       type: "graph.edge.updated",
       source: "test",
-      payload: { from_toolId: "a", to_toolId: "b", old_confidence: 0.8, new_confidence: 0.9, observed_count: 2 },
+      payload: {
+        from_toolId: "a",
+        to_toolId: "b",
+        old_confidence: 0.8,
+        new_confidence: 0.9,
+        observed_count: 2,
+      },
     });
 
     eventBus.emit({
@@ -223,7 +262,11 @@ Deno.test("MetricsCollector", async (t) => {
     const collector = new MetricsCollector();
 
     eventBus.emit({ type: "tool.start", source: "test", payload: { toolId: "t", traceId: "1" } });
-    eventBus.emit({ type: "tool.end", source: "test", payload: { toolId: "t", traceId: "1", success: true, durationMs: 50 } });
+    eventBus.emit({
+      type: "tool.end",
+      source: "test",
+      payload: { toolId: "t", traceId: "1", success: true, durationMs: 50 },
+    });
     await new Promise((r) => setTimeout(r, 10));
 
     const prometheus = collector.toPrometheusFormat();
@@ -263,16 +306,16 @@ Deno.test("MetricsCollector", async (t) => {
     // Verify bucket counts (each bucket counts values <= its le)
     // buckets: [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000]
     // values:  [5, 15, 30, 75, 150, 300, 600, 1200, 3000, 6000, 12000]
-    assertEquals(hist.buckets[0].count, 1);   // le=5:    [5]
-    assertEquals(hist.buckets[1].count, 1);   // le=10:   [5]
-    assertEquals(hist.buckets[2].count, 2);   // le=25:   [5, 15]
-    assertEquals(hist.buckets[3].count, 3);   // le=50:   [5, 15, 30]
-    assertEquals(hist.buckets[4].count, 4);   // le=100:  [5, 15, 30, 75]
-    assertEquals(hist.buckets[5].count, 5);   // le=250:  [5, 15, 30, 75, 150]
-    assertEquals(hist.buckets[6].count, 6);   // le=500:  [5, 15, 30, 75, 150, 300]
-    assertEquals(hist.buckets[7].count, 7);   // le=1000: [5, 15, 30, 75, 150, 300, 600]
-    assertEquals(hist.buckets[8].count, 8);   // le=2500: [5, 15, 30, 75, 150, 300, 600, 1200]
-    assertEquals(hist.buckets[9].count, 9);   // le=5000: [5, 15, 30, 75, 150, 300, 600, 1200, 3000]
+    assertEquals(hist.buckets[0].count, 1); // le=5:    [5]
+    assertEquals(hist.buckets[1].count, 1); // le=10:   [5]
+    assertEquals(hist.buckets[2].count, 2); // le=25:   [5, 15]
+    assertEquals(hist.buckets[3].count, 3); // le=50:   [5, 15, 30]
+    assertEquals(hist.buckets[4].count, 4); // le=100:  [5, 15, 30, 75]
+    assertEquals(hist.buckets[5].count, 5); // le=250:  [5, 15, 30, 75, 150]
+    assertEquals(hist.buckets[6].count, 6); // le=500:  [5, 15, 30, 75, 150, 300]
+    assertEquals(hist.buckets[7].count, 7); // le=1000: [5, 15, 30, 75, 150, 300, 600]
+    assertEquals(hist.buckets[8].count, 8); // le=2500: [5, 15, 30, 75, 150, 300, 600, 1200]
+    assertEquals(hist.buckets[9].count, 9); // le=5000: [5, 15, 30, 75, 150, 300, 600, 1200, 3000]
     assertEquals(hist.buckets[10].count, 10); // le=10000:[5, 15, 30, 75, 150, 300, 600, 1200, 3000, 6000]
 
     collector.close();

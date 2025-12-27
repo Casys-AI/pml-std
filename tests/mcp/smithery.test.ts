@@ -9,7 +9,7 @@
  * - AC4: HTTP Streamable transport connection
  */
 
-import { assertEquals, assertExists, assertRejects, assert } from "jsr:@std/assert@1";
+import { assert, assertEquals, assertExists, assertRejects } from "jsr:@std/assert@1";
 import { SmitheryLoader } from "../../src/mcp/smithery-loader.ts";
 import { SmitheryMCPClient } from "../../src/mcp/smithery-client.ts";
 import { MCPServerDiscovery } from "../../src/mcp/discovery.ts";
@@ -41,19 +41,19 @@ Deno.test({
               qualifiedName: "@smithery/slack",
               displayName: "Slack MCP",
               remote: true,
-              config: { token: "abc123" }
+              config: { token: "abc123" },
             },
             {
               qualifiedName: "@smithery/github",
               displayName: "GitHub MCP",
-              remote: true
-            }
-          ]
+              remote: true,
+            },
+          ],
         };
 
         return new Response(JSON.stringify(mockResponse), {
           status: 200,
-          headers: { "Content-Type": "application/json" }
+          headers: { "Content-Type": "application/json" },
         });
       }
 
@@ -95,19 +95,19 @@ Deno.test({
           {
             qualifiedName: "@local/server",
             displayName: "Local Server",
-            remote: false  // Not remote - should be filtered
+            remote: false, // Not remote - should be filtered
           },
           {
             qualifiedName: "@remote/server",
             displayName: "Remote Server",
-            remote: true  // Remote - should be included
-          }
-        ]
+            remote: true, // Remote - should be included
+          },
+        ],
       };
 
       return new Response(JSON.stringify(mockResponse), {
         status: 200,
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" },
       });
     };
 
@@ -139,7 +139,7 @@ Deno.test({
       await assertRejects(
         async () => await loader.loadServers("test-api-key"),
         Error,
-        "Smithery API error"
+        "Smithery API error",
       );
     } finally {
       globalThis.fetch = originalFetch;
@@ -162,7 +162,7 @@ Deno.test({
       await assertRejects(
         async () => await loader.loadServers("test-api-key"),
         Error,
-        "Network error"
+        "Network error",
       );
     } finally {
       globalThis.fetch = originalFetch;
@@ -179,7 +179,7 @@ Deno.test({
     globalThis.fetch = async () => {
       return new Response(JSON.stringify({ servers: [] }), {
         status: 200,
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" },
       });
     };
 
@@ -203,7 +203,7 @@ Deno.test({
     globalThis.fetch = async () => {
       return new Response(JSON.stringify({}), {
         status: 200,
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" },
       });
     };
 
@@ -227,7 +227,11 @@ Deno.test({
     let capturedUrl = "";
 
     globalThis.fetch = async (input: string | URL | Request) => {
-      capturedUrl = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      capturedUrl = typeof input === "string"
+        ? input
+        : input instanceof URL
+        ? input.href
+        : input.url;
       return new Response(JSON.stringify({ servers: [] }), { status: 200 });
     };
 
@@ -258,13 +262,13 @@ Deno.test({
       command: "https://server.smithery.ai/@test/server",
       args: [],
       env: {
-        __smithery_config: JSON.stringify({ token: "abc" })
-      }
+        __smithery_config: JSON.stringify({ token: "abc" }),
+      },
     };
 
     const client = new SmitheryMCPClient(server, {
       apiKey: "test-key",
-      timeoutMs: 5000
+      timeoutMs: 5000,
     });
 
     assertEquals(client.serverId, "test-server");
@@ -291,13 +295,13 @@ Deno.test({
     await assertRejects(
       async () => await client.listTools(),
       Error,
-      "Not connected"
+      "Not connected",
     );
 
     await assertRejects(
       async () => await client.callTool("test", {}),
       Error,
-      "Not connected"
+      "Not connected",
     );
   },
   sanitizeResources: false,
@@ -343,18 +347,18 @@ Deno.test({
     const localConfig = {
       servers: [
         {
-          id: "smithery:@shared/server",  // Same ID as Smithery will generate
+          id: "smithery:@shared/server", // Same ID as Smithery will generate
           name: "Local Override Server",
           command: "local-command",
-          protocol: "stdio"
+          protocol: "stdio",
         },
         {
           id: "local-only",
           name: "Local Only Server",
           command: "local-only-command",
-          protocol: "stdio"
-        }
-      ]
+          protocol: "stdio",
+        },
+      ],
     };
 
     await Deno.writeTextFile(configPath, JSON.stringify(localConfig));
@@ -365,21 +369,21 @@ Deno.test({
       const mockResponse: MockRegistryResponse = {
         servers: [
           {
-            qualifiedName: "@shared/server",  // Becomes "smithery:@shared/server"
+            qualifiedName: "@shared/server", // Becomes "smithery:@shared/server"
             displayName: "Smithery Server (should be overridden)",
-            remote: true
+            remote: true,
           },
           {
             qualifiedName: "@smithery/unique",
             displayName: "Smithery Only Server",
-            remote: true
-          }
-        ]
+            remote: true,
+          },
+        ],
       };
 
       return new Response(JSON.stringify(mockResponse), {
         status: 200,
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" },
       });
     };
 
@@ -394,18 +398,18 @@ Deno.test({
       assertEquals(servers.length, 3);
 
       // Local server should take priority for shared ID
-      const sharedServer = servers.find(s => s.id === "smithery:@shared/server");
+      const sharedServer = servers.find((s) => s.id === "smithery:@shared/server");
       assertExists(sharedServer);
       assertEquals(sharedServer.name, "Local Override Server");
-      assertEquals(sharedServer.protocol, "stdio");  // Local config, not HTTP
+      assertEquals(sharedServer.protocol, "stdio"); // Local config, not HTTP
 
       // Local-only server should be present
-      const localOnlyServer = servers.find(s => s.id === "local-only");
+      const localOnlyServer = servers.find((s) => s.id === "local-only");
       assertExists(localOnlyServer);
       assertEquals(localOnlyServer.name, "Local Only Server");
 
       // Smithery-only server should be present
-      const smitheryServer = servers.find(s => s.id === "smithery:@smithery/unique");
+      const smitheryServer = servers.find((s) => s.id === "smithery:@smithery/unique");
       assertExists(smitheryServer);
       assertEquals(smitheryServer.name, "Smithery Only Server");
       assertEquals(smitheryServer.protocol, "http");
@@ -431,9 +435,9 @@ Deno.test({
           id: "local-server",
           name: "Local Server",
           command: "local-command",
-          protocol: "stdio"
-        }
-      ]
+          protocol: "stdio",
+        },
+      ],
     };
 
     await Deno.writeTextFile(configPath, JSON.stringify(localConfig));
@@ -489,7 +493,7 @@ Deno.test({
 
     const client = new SmitheryMCPClient(server, {
       apiKey: "invalid-key",
-      timeoutMs: 1000
+      timeoutMs: 1000,
     });
 
     const result = await client.extractSchemas();
@@ -498,7 +502,7 @@ Deno.test({
     assertEquals(result.serverName, "Test Server");
     assert(
       result.status === "failed" || result.status === "timeout",
-      `Expected failed or timeout, got ${result.status}`
+      `Expected failed or timeout, got ${result.status}`,
     );
     assertEquals(result.toolsExtracted, 0);
     assertExists(result.error);
@@ -519,18 +523,18 @@ Deno.test({
       // Return servers with various malformed structures
       const mockResponse = {
         servers: [
-          { qualifiedName: "", displayName: "Empty name", remote: true },  // Empty qualifiedName
-          { qualifiedName: "@valid/name", remote: true },  // Missing displayName
-          { qualifiedName: "@valid/name", displayName: "Valid", remote: "yes" },  // Wrong type for remote
-          { qualifiedName: "@valid/server", displayName: "Valid Server", remote: true },  // Valid
-          "not-an-object",  // Not an object
-          null,  // Null value
-        ]
+          { qualifiedName: "", displayName: "Empty name", remote: true }, // Empty qualifiedName
+          { qualifiedName: "@valid/name", remote: true }, // Missing displayName
+          { qualifiedName: "@valid/name", displayName: "Valid", remote: "yes" }, // Wrong type for remote
+          { qualifiedName: "@valid/server", displayName: "Valid Server", remote: true }, // Valid
+          "not-an-object", // Not an object
+          null, // Null value
+        ],
       };
 
       return new Response(JSON.stringify(mockResponse), {
         status: 200,
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" },
       });
     };
 

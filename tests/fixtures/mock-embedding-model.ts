@@ -68,9 +68,30 @@ export class MockEmbeddingModel implements EmbeddingModelInterface {
 
     // Common stop words to filter out (improves semantic similarity)
     const stopWords = new Set([
-      "a", "an", "and", "are", "as", "at", "be", "by", "for",
-      "from", "has", "he", "in", "is", "it", "its", "of", "on",
-      "that", "the", "to", "was", "will", "with",
+      "a",
+      "an",
+      "and",
+      "are",
+      "as",
+      "at",
+      "be",
+      "by",
+      "for",
+      "from",
+      "has",
+      "he",
+      "in",
+      "is",
+      "it",
+      "its",
+      "of",
+      "on",
+      "that",
+      "the",
+      "to",
+      "was",
+      "will",
+      "with",
     ]);
 
     // Tokenize: lowercase, split on non-alphanumeric, filter empty and stop words

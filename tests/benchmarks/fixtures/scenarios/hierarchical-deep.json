@@ -113,31 +113,167 @@
     ]
   },
   "edges": [
-    { "source": "core__read", "target": "core__validate", "type": "provides", "source_type": "observed", "weight": 0.95, "count": 200 },
-    { "source": "core__validate", "target": "transform__parse", "type": "provides", "source_type": "observed", "weight": 0.90, "count": 180 },
-    { "source": "transform__parse", "target": "transform__format", "type": "provides", "source_type": "observed", "weight": 0.85, "count": 160 },
-    { "source": "transform__format", "target": "storage__cloud", "type": "provides", "source_type": "observed", "weight": 0.80, "count": 140 },
-    { "source": "storage__cloud", "target": "notify__webhook", "type": "sequence", "source_type": "observed", "weight": 0.75, "count": 100 },
-    { "source": "core__write", "target": "storage__local", "type": "provides", "source_type": "observed", "weight": 0.88, "count": 120 },
-    { "source": "storage__local", "target": "storage__archive", "type": "sequence", "source_type": "inferred", "weight": 0.60, "count": 50 },
+    {
+      "source": "core__read",
+      "target": "core__validate",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.95,
+      "count": 200
+    },
+    {
+      "source": "core__validate",
+      "target": "transform__parse",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.90,
+      "count": 180
+    },
+    {
+      "source": "transform__parse",
+      "target": "transform__format",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.85,
+      "count": 160
+    },
+    {
+      "source": "transform__format",
+      "target": "storage__cloud",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.80,
+      "count": 140
+    },
+    {
+      "source": "storage__cloud",
+      "target": "notify__webhook",
+      "type": "sequence",
+      "source_type": "observed",
+      "weight": 0.75,
+      "count": 100
+    },
+    {
+      "source": "core__write",
+      "target": "storage__local",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.88,
+      "count": 120
+    },
+    {
+      "source": "storage__local",
+      "target": "storage__archive",
+      "type": "sequence",
+      "source_type": "inferred",
+      "weight": 0.60,
+      "count": 50
+    },
 
-    { "source": "cap__validated_io", "target": "cap__io_basic", "type": "contains", "source_type": "static", "weight": 1.0, "count": null, "note": "Composite contains leaf" },
-    { "source": "cap__validated_io", "target": "cap__validation", "type": "contains", "source_type": "static", "weight": 1.0, "count": null },
-    { "source": "cap__data_processing", "target": "cap__transform", "type": "contains", "source_type": "static", "weight": 1.0, "count": null },
-    { "source": "cap__data_processing", "target": "cap__validated_io", "type": "contains", "source_type": "static", "weight": 1.0, "count": null },
-    { "source": "cap__persistent_data", "target": "cap__data_processing", "type": "contains", "source_type": "static", "weight": 1.0, "count": null },
-    { "source": "cap__persistent_data", "target": "cap__storage", "type": "contains", "source_type": "static", "weight": 1.0, "count": null },
-    { "source": "cap__observable_pipeline", "target": "cap__persistent_data", "type": "contains", "source_type": "static", "weight": 1.0, "count": null },
-    { "source": "cap__observable_pipeline", "target": "cap__notify", "type": "contains", "source_type": "static", "weight": 1.0, "count": null },
+    {
+      "source": "cap__validated_io",
+      "target": "cap__io_basic",
+      "type": "contains",
+      "source_type": "static",
+      "weight": 1.0,
+      "count": null,
+      "note": "Composite contains leaf"
+    },
+    {
+      "source": "cap__validated_io",
+      "target": "cap__validation",
+      "type": "contains",
+      "source_type": "static",
+      "weight": 1.0,
+      "count": null
+    },
+    {
+      "source": "cap__data_processing",
+      "target": "cap__transform",
+      "type": "contains",
+      "source_type": "static",
+      "weight": 1.0,
+      "count": null
+    },
+    {
+      "source": "cap__data_processing",
+      "target": "cap__validated_io",
+      "type": "contains",
+      "source_type": "static",
+      "weight": 1.0,
+      "count": null
+    },
+    {
+      "source": "cap__persistent_data",
+      "target": "cap__data_processing",
+      "type": "contains",
+      "source_type": "static",
+      "weight": 1.0,
+      "count": null
+    },
+    {
+      "source": "cap__persistent_data",
+      "target": "cap__storage",
+      "type": "contains",
+      "source_type": "static",
+      "weight": 1.0,
+      "count": null
+    },
+    {
+      "source": "cap__observable_pipeline",
+      "target": "cap__persistent_data",
+      "type": "contains",
+      "source_type": "static",
+      "weight": 1.0,
+      "count": null
+    },
+    {
+      "source": "cap__observable_pipeline",
+      "target": "cap__notify",
+      "type": "contains",
+      "source_type": "static",
+      "weight": 1.0,
+      "count": null
+    },
 
-    { "source": "transform__convert", "target": "transform__parse", "type": "depends_on", "source_type": "inferred", "weight": 0.70, "count": 30, "note": "Convert depends on parse output" },
-    { "source": "storage__archive", "target": "storage__cloud", "type": "depends_on", "source_type": "inferred", "weight": 0.65, "count": 25, "note": "Archive depends on cloud availability" }
+    {
+      "source": "transform__convert",
+      "target": "transform__parse",
+      "type": "depends_on",
+      "source_type": "inferred",
+      "weight": 0.70,
+      "count": 30,
+      "note": "Convert depends on parse output"
+    },
+    {
+      "source": "storage__archive",
+      "target": "storage__cloud",
+      "type": "depends_on",
+      "source_type": "inferred",
+      "weight": 0.65,
+      "count": 25,
+      "note": "Archive depends on cloud availability"
+    }
   ],
   "hierarchy": {
     "depth": 4,
     "levels": [
-      { "level": 0, "capabilities": ["cap__io_basic", "cap__validation", "cap__transform", "cap__storage", "cap__notify"], "type": "leaf" },
-      { "level": 1, "capabilities": ["cap__validated_io", "cap__data_processing"], "type": "composite" },
+      {
+        "level": 0,
+        "capabilities": [
+          "cap__io_basic",
+          "cap__validation",
+          "cap__transform",
+          "cap__storage",
+          "cap__notify"
+        ],
+        "type": "leaf"
+      },
+      {
+        "level": 1,
+        "capabilities": ["cap__validated_io", "cap__data_processing"],
+        "type": "composite"
+      },
       { "level": 2, "capabilities": ["cap__persistent_data"], "type": "composite" },
       { "level": 3, "capabilities": ["cap__observable_pipeline"], "type": "root" }
     ]
@@ -152,8 +288,13 @@
     "dash_validation": {
       "shouldBeDAG": true,
       "topologicalOrder": [
-        "cap__io_basic", "cap__validation", "cap__transform", "cap__storage", "cap__notify",
-        "cap__validated_io", "cap__data_processing",
+        "cap__io_basic",
+        "cap__validation",
+        "cap__transform",
+        "cap__storage",
+        "cap__notify",
+        "cap__validated_io",
+        "cap__data_processing",
         "cap__persistent_data",
         "cap__observable_pipeline"
       ]

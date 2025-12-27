@@ -12,9 +12,12 @@
  * Run with: deno test --allow-all tests/unit/graphrag/mixed_dag_test.ts
  */
 
-import { assertEquals, assertExists, assert } from "@std/assert";
+import { assert, assertEquals, assertExists } from "@std/assert";
 import type { Task } from "../../../src/graphrag/types.ts";
-import { SpectralClusteringManager, type ClusterableCapability } from "../../../src/graphrag/spectral-clustering.ts";
+import {
+  type ClusterableCapability,
+  SpectralClusteringManager,
+} from "../../../src/graphrag/spectral-clustering.ts";
 
 Deno.test("Task type supports 'capability' value", () => {
   const capabilityTask: Task = {

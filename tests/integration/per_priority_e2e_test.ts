@@ -11,12 +11,12 @@ import { assertEquals, assertExists, assertGreater, assertLess } from "@std/asse
 import { PGliteClient } from "../../src/db/client.ts";
 import { getAllMigrations, MigrationRunner } from "../../src/db/migrations.ts";
 import { ExecutionTraceStore } from "../../src/capabilities/execution-trace-store.ts";
-import { SHGAT, DEFAULT_SHGAT_CONFIG } from "../../src/graphrag/algorithms/shgat.ts";
+import { DEFAULT_SHGAT_CONFIG, SHGAT } from "../../src/graphrag/algorithms/shgat.ts";
 import {
   calculateTDError,
-  storeTraceWithPriority,
   COLD_START_PRIORITY,
   type EmbeddingProvider,
+  storeTraceWithPriority,
 } from "../../src/capabilities/per-priority.ts";
 
 // =============================================================================

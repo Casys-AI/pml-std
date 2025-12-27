@@ -9,7 +9,7 @@
 export { RateLimiter } from "./rate-limiter.ts";
 export { withTimeout } from "./timeout.ts";
 export {
-  sanitizeForStorage,
   containsSensitiveData,
   getSerializedSize,
+  sanitizeForStorage,
 } from "./sanitize-for-storage.ts";

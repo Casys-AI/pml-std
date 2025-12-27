@@ -33,10 +33,10 @@ export type EdgeSource = "observed" | "inferred" | "template";
  * ADR-050: alternative removed (not used), provides added (Story 10.3)
  */
 export const EDGE_TYPE_WEIGHTS: Record<EdgeType, number> = {
-  dependency: 1.0,   // Explicit DAG from templates
-  contains: 0.8,     // Parent-child hierarchy (capability → tool)
-  provides: 0.7,     // Data flow (A's output feeds B's input) (Story 10.3)
-  sequence: 0.5,     // Temporal order between siblings
+  dependency: 1.0, // Explicit DAG from templates
+  contains: 0.8, // Parent-child hierarchy (capability → tool)
+  provides: 0.7, // Data flow (A's output feeds B's input) (Story 10.3)
+  sequence: 0.5, // Temporal order between siblings
 };
 
 /**
@@ -45,9 +45,9 @@ export const EDGE_TYPE_WEIGHTS: Record<EdgeType, number> = {
  * Higher modifier = more reliable observation
  */
 export const EDGE_SOURCE_MODIFIERS: Record<EdgeSource, number> = {
-  observed: 1.0,   // Confirmed by 3+ executions
-  inferred: 0.7,   // 1-2 observations
-  template: 0.5,   // Bootstrap, not yet confirmed
+  observed: 1.0, // Confirmed by 3+ executions
+  inferred: 0.7, // 1-2 observations
+  template: 0.5, // Bootstrap, not yet confirmed
 };
 
 /**
@@ -73,7 +73,10 @@ export const OBSERVED_THRESHOLD = 3;
  * @param edgeSource - Edge source
  * @returns Combined weight for algorithms
  */
-export function getEdgeWeight(edgeType: EdgeType | string, edgeSource: EdgeSource | string): number {
+export function getEdgeWeight(
+  edgeType: EdgeType | string,
+  edgeSource: EdgeSource | string,
+): number {
   const typeWeight = EDGE_TYPE_WEIGHTS[edgeType as EdgeType] || 0.5;
   const sourceModifier = EDGE_SOURCE_MODIFIERS[edgeSource as EdgeSource] || 0.7;
   return typeWeight * sourceModifier;
@@ -88,7 +91,7 @@ export function getEdgeWeight(edgeType: EdgeType | string, edgeSource: EdgeSourc
  */
 export function determineEdgeSource(
   observedCount: number,
-  currentSource: EdgeSource | string
+  currentSource: EdgeSource | string,
 ): EdgeSource {
   if (observedCount >= OBSERVED_THRESHOLD && currentSource === "inferred") {
     return "observed";
@@ -107,7 +110,7 @@ export function determineEdgeSource(
  */
 export function calculateInitialWeight(
   edgeType: EdgeType,
-  edgeSource: EdgeSource = "inferred"
+  edgeSource: EdgeSource = "inferred",
 ): number {
   return getEdgeWeight(edgeType, edgeSource);
 }

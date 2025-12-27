@@ -7,9 +7,9 @@
  */
 
 export {
-  GraphBuilder,
   generateDefaultToolEmbedding,
   type GraphBuildData,
+  GraphBuilder,
 } from "./graph-builder.ts";
 
 // Hierarchy computation (n-SuperHyperGraph)
@@ -17,18 +17,18 @@ export {
   computeHierarchyLevels,
   getCapabilitiesAtLevel,
   getSortedLevels,
-  validateAcyclic,
   HierarchyCycleError,
   type HierarchyResult,
+  validateAcyclic,
 } from "./hierarchy.ts";
 
 // Multi-level incidence structure (n-SuperHyperGraph)
 export {
   buildMultiLevelIncidence,
   getCapsContainingTool,
-  getToolsInCap,
-  getParentCaps,
   getChildCaps,
   getIncidenceStats,
+  getParentCaps,
+  getToolsInCap,
   type MultiLevelIncidence,
 } from "./incidence.ts";

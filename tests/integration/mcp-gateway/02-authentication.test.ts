@@ -14,12 +14,12 @@
 import { assertEquals, assertExists } from "@std/assert";
 import {
   createTestGatewayServer,
+  getRandomPort,
   makeGatewayRequest,
   makeJsonRpcRequest,
   seedTestApiKeys,
   withCloudMode,
   withLocalMode,
-  getRandomPort,
 } from "./fixtures/gateway-test-helpers.ts";
 
 Deno.test({

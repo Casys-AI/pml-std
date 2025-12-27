@@ -101,9 +101,9 @@ export async function suggestAlternatives(
       alternatives.push({
         toolId: altCapToolId,
         confidence: adjusted.confidence,
-        reasoning: `Alternative to ${matchedCapability.name ?? matchedCapability.id.substring(0, 8)} (${
-          (altCap.successRate * 100).toFixed(0)
-        }% success rate)`,
+        reasoning: `Alternative to ${
+          matchedCapability.name ?? matchedCapability.id.substring(0, 8)
+        } (${(altCap.successRate * 100).toFixed(0)}% success rate)`,
         source: "capability",
         capabilityId: altCapId,
       });

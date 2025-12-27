@@ -6,15 +6,11 @@
  * @module mcp/registry
  */
 
-export {
-  ToolRegistry,
-  defaultRegistry,
-  getMetaTools,
-} from "./tool-registry.ts";
+export { defaultRegistry, getMetaTools, ToolRegistry } from "./tool-registry.ts";
 
 export {
-  MCPServerDiscovery,
   createDefaultDiscovery,
   type DiscoveredTool,
   type DiscoveryOptions,
+  MCPServerDiscovery,
 } from "./discovery.ts";

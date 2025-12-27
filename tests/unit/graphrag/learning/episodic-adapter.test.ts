@@ -11,22 +11,24 @@
 
 import { assertEquals, assertExists } from "jsr:@std/assert@1";
 import {
-  getContextHash,
-  retrieveRelevantEpisodes,
-  parseEpisodeStatistics,
-  loadEpisodeStatistics,
   type EpisodicEvent,
+  getContextHash,
+  loadEpisodeStatistics,
+  parseEpisodeStatistics,
+  retrieveRelevantEpisodes,
 } from "../../../../src/graphrag/learning/episodic-adapter.ts";
 import type { WorkflowPredictionState } from "../../../../src/graphrag/types.ts";
 import type { EpisodicMemoryStore } from "../../../../src/learning/episodic-memory-store.ts";
 import type { DagScoringConfig } from "../../../../src/graphrag/dag-scoring-config.ts";
 import { DEFAULT_DAG_SCORING_CONFIG } from "../../../../src/graphrag/dag-scoring-config.ts";
-import type { ThresholdContext, RetrieveOptions } from "../../../../src/learning/types.ts";
+import type { RetrieveOptions, ThresholdContext } from "../../../../src/learning/types.ts";
 
 /**
  * Create mock workflow prediction state
  */
-function createMockWorkflowState(overrides?: Partial<WorkflowPredictionState>): WorkflowPredictionState {
+function createMockWorkflowState(
+  overrides?: Partial<WorkflowPredictionState>,
+): WorkflowPredictionState {
   return {
     workflowId: "workflow-123",
     currentLayer: 2,
@@ -47,7 +49,7 @@ function createMockWorkflowState(overrides?: Partial<WorkflowPredictionState>): 
  * Create mock episodic memory store
  */
 function createMockEpisodicMemory(
-  episodes: EpisodicEvent[] = []
+  episodes: EpisodicEvent[] = [],
 ): EpisodicMemoryStore {
   return {
     retrieveRelevant: async (_context: ThresholdContext, _options?: RetrieveOptions) => episodes,
@@ -118,19 +120,22 @@ Deno.test("episodic-adapter - Context Hash Generation", async (t) => {
     assertEquals(hash, "workflowType:unknown|domain:general|complexity:2");
   });
 
-  await t.step("getContextHash() uses completedTasks length when context.complexity missing", () => {
-    const state = createMockWorkflowState({
-      context: { workflowType: "test", domain: "general" },
-      completedTasks: [
-        { taskId: "task-1", tool: "Tool1", status: "success" },
-        { taskId: "task-2", tool: "Tool2", status: "success" },
-        { taskId: "task-3", tool: "Tool3", status: "success" },
-      ],
-    });
-    const hash = getContextHash(state);
+  await t.step(
+    "getContextHash() uses completedTasks length when context.complexity missing",
+    () => {
+      const state = createMockWorkflowState({
+        context: { workflowType: "test", domain: "general" },
+        completedTasks: [
+          { taskId: "task-1", tool: "Tool1", status: "success" },
+          { taskId: "task-2", tool: "Tool2", status: "success" },
+          { taskId: "task-3", tool: "Tool3", status: "success" },
+        ],
+      });
+      const hash = getContextHash(state);
 
-    assertEquals(hash, "workflowType:test|domain:general|complexity:3");
-  });
+      assertEquals(hash, "workflowType:test|domain:general|complexity:3");
+    },
+  );
 
   await t.step("getContextHash() returns 'no-state' for null state", () => {
     const hash = getContextHash(null);
@@ -258,7 +263,12 @@ Deno.test("episodic-adapter - Episode Statistics Parsing", async (t) => {
         event_type: "speculation_start",
         timestamp: Date.now(),
         data: {
-          prediction: { toolId: "WriteFile", confidence: 0.85, wasCorrect: true, reasoning: "test" },
+          prediction: {
+            toolId: "WriteFile",
+            confidence: 0.85,
+            wasCorrect: true,
+            reasoning: "test",
+          },
         },
       },
       {
@@ -267,7 +277,12 @@ Deno.test("episodic-adapter - Episode Statistics Parsing", async (t) => {
         event_type: "speculation_start",
         timestamp: Date.now(),
         data: {
-          prediction: { toolId: "WriteFile", confidence: 0.78, wasCorrect: true, reasoning: "test" },
+          prediction: {
+            toolId: "WriteFile",
+            confidence: 0.78,
+            wasCorrect: true,
+            reasoning: "test",
+          },
         },
       },
       {
@@ -276,7 +291,12 @@ Deno.test("episodic-adapter - Episode Statistics Parsing", async (t) => {
         event_type: "speculation_start",
         timestamp: Date.now(),
         data: {
-          prediction: { toolId: "WriteFile", confidence: 0.72, wasCorrect: false, reasoning: "test" },
+          prediction: {
+            toolId: "WriteFile",
+            confidence: 0.72,
+            wasCorrect: false,
+            reasoning: "test",
+          },
         },
       },
     ];
@@ -309,7 +329,12 @@ Deno.test("episodic-adapter - Episode Statistics Parsing", async (t) => {
         event_type: "speculation_start",
         timestamp: Date.now(),
         data: {
-          prediction: { toolId: "WriteFile", confidence: 0.75, wasCorrect: false, reasoning: "test" },
+          prediction: {
+            toolId: "WriteFile",
+            confidence: 0.75,
+            wasCorrect: false,
+            reasoning: "test",
+          },
         },
       },
     ];

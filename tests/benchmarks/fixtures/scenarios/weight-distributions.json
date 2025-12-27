@@ -44,7 +44,12 @@
       },
       {
         "id": "cap__extreme",
-        "toolsUsed": ["extreme__certain", "extreme__likely", "extreme__unlikely", "extreme__impossible"],
+        "toolsUsed": [
+          "extreme__certain",
+          "extreme__likely",
+          "extreme__unlikely",
+          "extreme__impossible"
+        ],
         "successRate": 0.50,
         "note": "Edge cases: 0.0, 0.01, 0.99, 1.0 weights"
       }
@@ -52,33 +57,163 @@
     "metaCapabilities": []
   },
   "edges": [
-    { "source": "uniform__a", "target": "uniform__b", "type": "provides", "source_type": "observed", "weight": 0.75, "count": 100 },
-    { "source": "uniform__b", "target": "uniform__c", "type": "provides", "source_type": "observed", "weight": 0.75, "count": 100 },
-    { "source": "uniform__c", "target": "uniform__d", "type": "provides", "source_type": "observed", "weight": 0.75, "count": 100 },
-    { "source": "uniform__a", "target": "uniform__c", "type": "sequence", "source_type": "observed", "weight": 0.75, "count": 100 },
+    {
+      "source": "uniform__a",
+      "target": "uniform__b",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.75,
+      "count": 100
+    },
+    {
+      "source": "uniform__b",
+      "target": "uniform__c",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.75,
+      "count": 100
+    },
+    {
+      "source": "uniform__c",
+      "target": "uniform__d",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.75,
+      "count": 100
+    },
+    {
+      "source": "uniform__a",
+      "target": "uniform__c",
+      "type": "sequence",
+      "source_type": "observed",
+      "weight": 0.75,
+      "count": 100
+    },
 
-    { "source": "skewed__high1", "target": "skewed__high2", "type": "provides", "source_type": "observed", "weight": 0.95, "count": 500, "note": "Strong path" },
-    { "source": "skewed__high1", "target": "skewed__low1", "type": "sequence", "source_type": "observed", "weight": 0.15, "count": 20, "note": "Weak alternative" },
-    { "source": "skewed__high2", "target": "skewed__low2", "type": "provides", "source_type": "observed", "weight": 0.92, "count": 450 },
-    { "source": "skewed__low1", "target": "skewed__low2", "type": "sequence", "source_type": "inferred", "weight": 0.10, "count": 5, "note": "Weak path" },
+    {
+      "source": "skewed__high1",
+      "target": "skewed__high2",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.95,
+      "count": 500,
+      "note": "Strong path"
+    },
+    {
+      "source": "skewed__high1",
+      "target": "skewed__low1",
+      "type": "sequence",
+      "source_type": "observed",
+      "weight": 0.15,
+      "count": 20,
+      "note": "Weak alternative"
+    },
+    {
+      "source": "skewed__high2",
+      "target": "skewed__low2",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.92,
+      "count": 450
+    },
+    {
+      "source": "skewed__low1",
+      "target": "skewed__low2",
+      "type": "sequence",
+      "source_type": "inferred",
+      "weight": 0.10,
+      "count": 5,
+      "note": "Weak path"
+    },
 
-    { "source": "bimodal__strong1", "target": "bimodal__strong2", "type": "provides", "source_type": "observed", "weight": 0.90, "count": 300, "note": "Cluster 1: strong" },
-    { "source": "bimodal__weak1", "target": "bimodal__weak2", "type": "provides", "source_type": "observed", "weight": 0.30, "count": 50, "note": "Cluster 2: weak" },
-    { "source": "bimodal__strong1", "target": "bimodal__weak1", "type": "sequence", "source_type": "observed", "weight": 0.55, "count": 100, "note": "Cross-cluster" },
-    { "source": "bimodal__strong2", "target": "bimodal__weak2", "type": "depends_on", "source_type": "observed", "weight": 0.60, "count": 80 },
+    {
+      "source": "bimodal__strong1",
+      "target": "bimodal__strong2",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.90,
+      "count": 300,
+      "note": "Cluster 1: strong"
+    },
+    {
+      "source": "bimodal__weak1",
+      "target": "bimodal__weak2",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.30,
+      "count": 50,
+      "note": "Cluster 2: weak"
+    },
+    {
+      "source": "bimodal__strong1",
+      "target": "bimodal__weak1",
+      "type": "sequence",
+      "source_type": "observed",
+      "weight": 0.55,
+      "count": 100,
+      "note": "Cross-cluster"
+    },
+    {
+      "source": "bimodal__strong2",
+      "target": "bimodal__weak2",
+      "type": "depends_on",
+      "source_type": "observed",
+      "weight": 0.60,
+      "count": 80
+    },
 
-    { "source": "extreme__certain", "target": "extreme__likely", "type": "provides", "source_type": "static", "weight": 1.0, "count": null, "note": "Perfect confidence" },
-    { "source": "extreme__likely", "target": "extreme__unlikely", "type": "sequence", "source_type": "observed", "weight": 0.99, "count": 1000, "note": "Near certain" },
-    { "source": "extreme__unlikely", "target": "extreme__impossible", "type": "sequence", "source_type": "inferred", "weight": 0.01, "count": 1, "note": "Almost never" },
-    { "source": "extreme__certain", "target": "extreme__impossible", "type": "depends_on", "source_type": "inferred", "weight": 0.0, "count": 0, "note": "Zero weight - should be ignored" }
+    {
+      "source": "extreme__certain",
+      "target": "extreme__likely",
+      "type": "provides",
+      "source_type": "static",
+      "weight": 1.0,
+      "count": null,
+      "note": "Perfect confidence"
+    },
+    {
+      "source": "extreme__likely",
+      "target": "extreme__unlikely",
+      "type": "sequence",
+      "source_type": "observed",
+      "weight": 0.99,
+      "count": 1000,
+      "note": "Near certain"
+    },
+    {
+      "source": "extreme__unlikely",
+      "target": "extreme__impossible",
+      "type": "sequence",
+      "source_type": "inferred",
+      "weight": 0.01,
+      "count": 1,
+      "note": "Almost never"
+    },
+    {
+      "source": "extreme__certain",
+      "target": "extreme__impossible",
+      "type": "depends_on",
+      "source_type": "inferred",
+      "weight": 0.0,
+      "count": 0,
+      "note": "Zero weight - should be ignored"
+    }
   ],
   "testCases": {
     "uniform_pathfinding": {
       "from": "uniform__a",
       "to": "uniform__d",
       "paths": [
-        { "path": ["uniform__a", "uniform__b", "uniform__c", "uniform__d"], "hops": 3, "cumulativeWeight": 0.421875 },
-        { "path": ["uniform__a", "uniform__c", "uniform__d"], "hops": 2, "cumulativeWeight": 0.5625 }
+        {
+          "path": ["uniform__a", "uniform__b", "uniform__c", "uniform__d"],
+          "hops": 3,
+          "cumulativeWeight": 0.421875
+        },
+        {
+          "path": ["uniform__a", "uniform__c", "uniform__d"],
+          "hops": 2,
+          "cumulativeWeight": 0.5625
+        }
       ],
       "expected": "shorter path wins with uniform weights"
     },

@@ -79,7 +79,9 @@ export async function loadEmbeddingModel(): Promise<EmbeddingModel> {
  *
  * @returns Mock embedding model with encode() method
  */
-export async function loadMockEmbeddingModel(): Promise<{ encode: (text: string) => Promise<number[]> }> {
+export async function loadMockEmbeddingModel(): Promise<
+  { encode: (text: string) => Promise<number[]> }
+> {
   const { SemanticMockEmbedding } = await import("../mocks/semantic-embedding-mock.ts");
   return new SemanticMockEmbedding();
 }
@@ -325,20 +327,23 @@ export async function createTestWorkflowPattern(
   const fakeEmbedding = new Array(1024).fill(0);
   const embeddingStr = `[${fakeEmbedding.join(",")}]`;
 
-  const result = await db.query(`
+  const result = await db.query(
+    `
     INSERT INTO workflow_pattern (
       pattern_hash, dag_structure, intent_embedding, code_snippet, code_hash
     ) VALUES (
       $1, $2::jsonb, $3, $4, $5
     )
     RETURNING pattern_id
-  `, [
-    patternHash,
-    JSON.stringify({ nodes: [], edges: [] }),
-    embeddingStr,
-    code,
-    hash,
-  ]);
+  `,
+    [
+      patternHash,
+      JSON.stringify({ nodes: [], edges: [] }),
+      embeddingStr,
+      code,
+      hash,
+    ],
+  );
 
   const patternId = (result[0] as { pattern_id: string }).pattern_id;
   return { patternId, hash };

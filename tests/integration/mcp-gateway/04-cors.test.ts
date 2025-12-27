@@ -10,13 +10,13 @@
  * @module tests/integration/mcp-gateway/cors
  */
 
-import { assertEquals, assertExists, assert } from "@std/assert";
+import { assert, assertEquals, assertExists } from "@std/assert";
 import {
   createTestGatewayServer,
-  makeGatewayRequest,
-  withEnv,
-  withCloudMode,
   getRandomPort,
+  makeGatewayRequest,
+  withCloudMode,
+  withEnv,
 } from "./fixtures/gateway-test-helpers.ts";
 
 Deno.test({

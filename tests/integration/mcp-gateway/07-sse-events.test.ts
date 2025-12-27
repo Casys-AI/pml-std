@@ -14,14 +14,14 @@
  * @module tests/integration/mcp-gateway/sse-events
  */
 
-import { assertEquals, assertExists, assert } from "@std/assert";
+import { assert, assertEquals, assertExists } from "@std/assert";
 import {
-  createTestGatewayServer,
   connectSSE,
+  createTestGatewayServer,
+  getRandomPort,
   makeGatewayRequest,
   readSSEEvents,
   waitForSSEEvent as _waitForSSEEvent,
-  getRandomPort,
 } from "./fixtures/gateway-test-helpers.ts";
 
 Deno.test({

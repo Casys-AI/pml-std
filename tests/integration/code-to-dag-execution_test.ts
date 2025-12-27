@@ -13,14 +13,14 @@
  * @module tests/integration/code-to-dag-execution_test
  */
 
-import { assertEquals, assertExists, assert } from "@std/assert";
+import { assert, assertEquals, assertExists } from "@std/assert";
 import { createDefaultClient, type PGliteClient } from "../../src/db/client.ts";
 import { getAllMigrations, MigrationRunner } from "../../src/db/migrations.ts";
 import { StaticStructureBuilder } from "../../src/capabilities/static-structure-builder.ts";
 import {
-  staticStructureToDag,
   isValidForDagConversion,
   resolveArguments,
+  staticStructureToDag,
 } from "../../src/dag/mod.ts";
 import { ControlledExecutor } from "../../src/dag/controlled-executor.ts";
 import type { ToolExecutor } from "../../src/dag/types.ts";
@@ -102,10 +102,16 @@ Deno.test({
     // Verify StaticStructure
     assertExists(staticStructure, "StaticStructure should be built");
     assertExists(staticStructure.nodes, "StaticStructure should have nodes");
-    assert(staticStructure.nodes.length >= 2, `Expected at least 2 nodes, got ${staticStructure.nodes.length}`);
+    assert(
+      staticStructure.nodes.length >= 2,
+      `Expected at least 2 nodes, got ${staticStructure.nodes.length}`,
+    );
 
     // Step 3: Verify DAG conversion
-    assert(isValidForDagConversion(staticStructure), "StaticStructure should be valid for DAG conversion");
+    assert(
+      isValidForDagConversion(staticStructure),
+      "StaticStructure should be valid for DAG conversion",
+    );
 
     const dag = staticStructureToDag(staticStructure, {
       taskIdPrefix: "task_",
@@ -138,7 +144,10 @@ Deno.test({
     // Step 5: Verify execution result
     assertExists(result, "Execution result should exist");
     assertEquals(result.failedTasks, 0, `Expected 0 failed tasks, got ${result.failedTasks}`);
-    assert(result.successfulTasks >= 2, `Expected at least 2 successful tasks, got ${result.successfulTasks}`);
+    assert(
+      result.successfulTasks >= 2,
+      `Expected at least 2 successful tasks, got ${result.successfulTasks}`,
+    );
 
     // Verify tools were called in order
     assert(calls.length >= 2, `Expected at least 2 tool calls, got ${calls.length}`);
@@ -363,13 +372,19 @@ Deno.test({
 
     // Verify error handling - failedTasks includes both direct failures
     // and tasks that failed due to dependencies (if any)
-    assert(result.failedTasks >= 1, `Should have at least 1 failed task, got ${result.failedTasks}`);
+    assert(
+      result.failedTasks >= 1,
+      `Should have at least 1 failed task, got ${result.failedTasks}`,
+    );
     assertExists(result.errors, "Should have errors array");
     assert(result.errors.length >= 1, "Should have at least 1 error");
 
     // Find the error for our failing task
     const fileError = result.errors.find((e) => e.error.includes("File not found"));
-    assertExists(fileError, `Should have 'File not found' error, got: ${JSON.stringify(result.errors)}`);
+    assertExists(
+      fileError,
+      `Should have 'File not found' error, got: ${JSON.stringify(result.errors)}`,
+    );
   },
 });
 

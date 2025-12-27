@@ -146,7 +146,7 @@ class MCPServer {
 
   private async dispatch(
     method: string,
-    params: Record<string, unknown>
+    params: Record<string, unknown>,
   ): Promise<unknown> {
     switch (method) {
       case "initialize":
@@ -217,7 +217,11 @@ let stdinBuffer = "";
  * Read a message from stdin
  * Returns the message type: "request" for incoming requests, "response" for sampling responses
  */
-async function readMessage(reader: ReadableStreamDefaultReader<Uint8Array>): Promise<{ type: "request"; data: JsonRpcRequest } | { type: "response"; data: JsonRpcResponse } | null> {
+async function readMessage(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+): Promise<
+  { type: "request"; data: JsonRpcRequest } | { type: "response"; data: JsonRpcResponse } | null
+> {
   while (true) {
     // First check if we already have a complete message in the buffer
     const newlineIndex = stdinBuffer.indexOf("\n");
@@ -325,7 +329,11 @@ async function main() {
   initSamplingClient();
 
   // Log to stderr (stdout is for MCP protocol)
-  console.error(`[mcp-std] Server started (concurrent, max=${MAX_CONCURRENT})${categories ? ` with categories: ${categories.join(", ")}` : " with all categories"}`);
+  console.error(
+    `[mcp-std] Server started (concurrent, max=${MAX_CONCURRENT})${
+      categories ? ` with categories: ${categories.join(", ")}` : " with all categories"
+    }`,
+  );
 
   while (true) {
     const message = await readMessage(reader);

@@ -7,16 +7,16 @@
  */
 
 export {
-  searchToolsHybrid,
   calculateAdaptiveAlpha,
   calculateGraphDensity,
   type HybridSearchGraph,
   type HybridSearchOptions,
+  searchToolsHybrid,
 } from "./hybrid-search.ts";
 
 export {
-  searchToolsForAutocomplete,
-  parseToolId,
   type AutocompleteGraph,
   type AutocompleteResult,
+  parseToolId,
+  searchToolsForAutocomplete,
 } from "./autocomplete.ts";

@@ -332,7 +332,9 @@ function nodeToTask(
  */
 function generateOperationCode(operation: string): string {
   // Array operations with callbacks
-  if (["filter", "map", "reduce", "flatMap", "find", "findIndex", "some", "every"].includes(operation)) {
+  if (
+    ["filter", "map", "reduce", "flatMap", "find", "findIndex", "some", "every"].includes(operation)
+  ) {
     if (operation === "reduce") {
       return `// Auto-generated placeholder for ${operation}
 const input = Object.values(deps)[0]?.output;
@@ -346,14 +348,33 @@ return input.${operation}(item => item);`;
   }
 
   // Array operations without callbacks
-  if (["sort", "reverse", "slice", "concat", "join", "includes", "indexOf", "lastIndexOf"].includes(operation)) {
+  if (
+    ["sort", "reverse", "slice", "concat", "join", "includes", "indexOf", "lastIndexOf"].includes(
+      operation,
+    )
+  ) {
     return `// Auto-generated placeholder for ${operation}
 const input = Object.values(deps)[0]?.output;
 return input.${operation}();`;
   }
 
   // String operations
-  if (["split", "replace", "replaceAll", "trim", "trimStart", "trimEnd", "toLowerCase", "toUpperCase", "substring", "substr", "match", "matchAll"].includes(operation)) {
+  if (
+    [
+      "split",
+      "replace",
+      "replaceAll",
+      "trim",
+      "trimStart",
+      "trimEnd",
+      "toLowerCase",
+      "toUpperCase",
+      "substring",
+      "substr",
+      "match",
+      "matchAll",
+    ].includes(operation)
+  ) {
     return `// Auto-generated placeholder for ${operation}
 const input = Object.values(deps)[0]?.output;
 return input.${operation}();`;
@@ -390,21 +411,54 @@ return JSON.${method}(input);`;
 
   // Binary operators
   const binaryOps = [
-    "add", "subtract", "multiply", "divide", "modulo", "power",
-    "equal", "strictEqual", "notEqual", "strictNotEqual",
-    "lessThan", "lessThanOrEqual", "greaterThan", "greaterThanOrEqual",
-    "and", "or",
-    "bitwiseAnd", "bitwiseOr", "bitwiseXor", "leftShift", "rightShift", "unsignedRightShift",
+    "add",
+    "subtract",
+    "multiply",
+    "divide",
+    "modulo",
+    "power",
+    "equal",
+    "strictEqual",
+    "notEqual",
+    "strictNotEqual",
+    "lessThan",
+    "lessThanOrEqual",
+    "greaterThan",
+    "greaterThanOrEqual",
+    "and",
+    "or",
+    "bitwiseAnd",
+    "bitwiseOr",
+    "bitwiseXor",
+    "leftShift",
+    "rightShift",
+    "unsignedRightShift",
   ];
 
   if (binaryOps.includes(operation)) {
     const operatorMap: Record<string, string> = {
-      add: "+", subtract: "-", multiply: "*", divide: "/", modulo: "%", power: "**",
-      equal: "==", strictEqual: "===", notEqual: "!=", strictNotEqual: "!==",
-      lessThan: "<", lessThanOrEqual: "<=", greaterThan: ">", greaterThanOrEqual: ">=",
-      and: "&&", or: "||",
-      bitwiseAnd: "&", bitwiseOr: "|", bitwiseXor: "^",
-      leftShift: "<<", rightShift: ">>", unsignedRightShift: ">>>",
+      add: "+",
+      subtract: "-",
+      multiply: "*",
+      divide: "/",
+      modulo: "%",
+      power: "**",
+      equal: "==",
+      strictEqual: "===",
+      notEqual: "!=",
+      strictNotEqual: "!==",
+      lessThan: "<",
+      lessThanOrEqual: "<=",
+      greaterThan: ">",
+      greaterThanOrEqual: ">=",
+      and: "&&",
+      or: "||",
+      bitwiseAnd: "&",
+      bitwiseOr: "|",
+      bitwiseXor: "^",
+      leftShift: "<<",
+      rightShift: ">>",
+      unsignedRightShift: ">>>",
     };
 
     const operator = operatorMap[operation] || "+";

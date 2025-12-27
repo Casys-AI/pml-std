@@ -298,7 +298,10 @@ Deno.test("GET /api/metrics - localAlpha structure with traces", async () => {
 
   // Verify values are in valid ranges
   assert(la.avgAlpha >= 0.5 && la.avgAlpha <= 1.0, `avgAlpha should be in [0.5, 1.0]`);
-  assert(la.coldStartPercentage >= 0 && la.coldStartPercentage <= 100, "coldStartPercentage should be 0-100");
+  assert(
+    la.coldStartPercentage >= 0 && la.coldStartPercentage <= 100,
+    "coldStartPercentage should be 0-100",
+  );
 
   await db.close();
 });
@@ -323,10 +326,20 @@ Deno.test("GET /api/metrics - localAlpha byMode values", async () => {
   const la = metrics.current.localAlpha!;
 
   // activeSearch average: (0.60 + 0.70) / 2 = 0.65
-  assertAlmostEquals(la.byMode.activeSearch, 0.65, 0.001, "activeSearch alpha should be average of 0.60 and 0.70");
+  assertAlmostEquals(
+    la.byMode.activeSearch,
+    0.65,
+    0.001,
+    "activeSearch alpha should be average of 0.60 and 0.70",
+  );
 
   // passiveSuggestion average: (0.85 + 0.95) / 2 = 0.90
-  assertAlmostEquals(la.byMode.passiveSuggestion, 0.90, 0.001, "passiveSuggestion alpha should be average of 0.85 and 0.95");
+  assertAlmostEquals(
+    la.byMode.passiveSuggestion,
+    0.90,
+    0.001,
+    "passiveSuggestion alpha should be average of 0.85 and 0.95",
+  );
 
   await db.close();
 });

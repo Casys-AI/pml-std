@@ -8,8 +8,8 @@
 import { assert, assertEquals } from "@std/assert";
 import {
   AdaptiveThresholdManager,
-  getRiskFromScope,
   calculateCapabilityRisk,
+  getRiskFromScope,
 } from "../../../src/mcp/adaptive-threshold.ts";
 import type { PermissionConfig } from "../../../src/capabilities/permission-inferrer.ts";
 
@@ -353,7 +353,10 @@ Deno.test("Thompson - different modes produce different thresholds", () => {
   const speculation = manager.getThresholdForTool("filesystem:read_file", "speculation");
 
   // Active search should have lowest threshold (more exploration)
-  assert(active.threshold <= passive.threshold, "Active search should have lower or equal threshold");
+  assert(
+    active.threshold <= passive.threshold,
+    "Active search should have lower or equal threshold",
+  );
   assert(passive.threshold <= speculation.threshold, "Speculation should have highest threshold");
 });
 
@@ -392,18 +395,38 @@ Deno.test("Thompson - getToolRiskCategory returns correct risk", () => {
 
 Deno.test("getRiskFromScope - maps scopes correctly", () => {
   // Safe scopes
-  assertEquals(getRiskFromScope({ scope: "minimal", approvalMode: "auto" } as PermissionConfig), "safe");
-  assertEquals(getRiskFromScope({ scope: "readonly", approvalMode: "auto" } as PermissionConfig), "safe");
+  assertEquals(
+    getRiskFromScope({ scope: "minimal", approvalMode: "auto" } as PermissionConfig),
+    "safe",
+  );
+  assertEquals(
+    getRiskFromScope({ scope: "readonly", approvalMode: "auto" } as PermissionConfig),
+    "safe",
+  );
 
   // Moderate scopes
-  assertEquals(getRiskFromScope({ scope: "filesystem", approvalMode: "auto" } as PermissionConfig), "moderate");
-  assertEquals(getRiskFromScope({ scope: "network-api", approvalMode: "auto" } as PermissionConfig), "moderate");
+  assertEquals(
+    getRiskFromScope({ scope: "filesystem", approvalMode: "auto" } as PermissionConfig),
+    "moderate",
+  );
+  assertEquals(
+    getRiskFromScope({ scope: "network-api", approvalMode: "auto" } as PermissionConfig),
+    "moderate",
+  );
 
   // Dangerous scopes
-  assertEquals(getRiskFromScope({ scope: "mcp-standard", approvalMode: "auto" } as PermissionConfig), "dangerous");
+  assertEquals(
+    getRiskFromScope({ scope: "mcp-standard", approvalMode: "auto" } as PermissionConfig),
+    "dangerous",
+  );
 
   // Unknown scope defaults to moderate
-  assertEquals(getRiskFromScope({ scope: "unknown-scope", approvalMode: "auto" } as unknown as PermissionConfig), "moderate");
+  assertEquals(
+    getRiskFromScope(
+      { scope: "unknown-scope", approvalMode: "auto" } as unknown as PermissionConfig,
+    ),
+    "moderate",
+  );
 });
 
 Deno.test("calculateCapabilityRisk - returns safe for empty tools", () => {

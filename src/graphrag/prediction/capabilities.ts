@@ -10,12 +10,17 @@
 import * as log from "@std/log";
 import type { DagScoringConfig } from "../dag-scoring-config.ts";
 import type { DAGStructure, PredictedNode } from "../types.ts";
-import type { ArgumentsStructure, Capability, StaticStructure, StaticStructureNode } from "../../capabilities/types.ts";
+import type {
+  ArgumentsStructure,
+  Capability,
+  StaticStructure,
+  StaticStructureNode,
+} from "../../capabilities/types.ts";
 import type { CapabilityStore } from "../../capabilities/capability-store.ts";
 import type { AlgorithmTracer } from "../../telemetry/algorithm-tracer.ts";
 import type { GraphRAGEngine } from "../graph-engine.ts";
 import type { LocalAlphaCalculator, NodeType } from "../local-alpha.ts";
-import type { EpisodeStatsMap, CapabilityContextMatch, AlphaResult } from "./types.ts";
+import type { AlphaResult, CapabilityContextMatch, EpisodeStatsMap } from "./types.ts";
 
 /**
  * Dependencies for capability prediction
@@ -63,7 +68,9 @@ export function applyLocalAlpha(
   const adjustedConfidence = Math.min(config.caps.maxConfidence, baseConfidence * graphTrustFactor);
 
   log.debug(
-    `[capabilities] Local alpha applied: ${targetId} base=${baseConfidence.toFixed(2)} alpha=${result.alpha.toFixed(2)} → ${adjustedConfidence.toFixed(2)} (${result.algorithm})`,
+    `[capabilities] Local alpha applied: ${targetId} base=${baseConfidence.toFixed(2)} alpha=${
+      result.alpha.toFixed(2)
+    } → ${adjustedConfidence.toFixed(2)} (${result.algorithm})`,
   );
 
   return {
@@ -127,7 +134,9 @@ export function adjustConfidenceFromEpisodes(
     log.debug(
       `[capabilities] Confidence adjusted for ${toolId}: ${baseConfidence.toFixed(2)} → ${
         adjustedConfidence.toFixed(2)
-      } (boost: +${boost.toFixed(2)}, penalty: -${penalty.toFixed(2)}, stats: ${stats.successes}/${stats.total} success)`,
+      } (boost: +${boost.toFixed(2)}, penalty: -${
+        penalty.toFixed(2)
+      }, stats: ${stats.successes}/${stats.total} success)`,
     );
   }
 
@@ -172,13 +181,15 @@ export function extractArgumentsFromStaticStructure(
       if (argValue.type === "literal") {
         toolArgs[argName] = argValue.value;
         hasLiterals = true;
-      }
-      // Log references and parameters for debugging (future: runtime resolution)
+      } // Log references and parameters for debugging (future: runtime resolution)
       else if (argValue.type === "reference") {
-        log.debug(`[extractArguments] Reference argument ${argName} for ${taskNode.tool}: ${argValue.expression} (needs runtime resolution)`);
-      }
-      else if (argValue.type === "parameter") {
-        log.debug(`[extractArguments] Parameter argument ${argName} for ${taskNode.tool}: ${argValue.parameterName} (needs intent extraction)`);
+        log.debug(
+          `[extractArguments] Reference argument ${argName} for ${taskNode.tool}: ${argValue.expression} (needs runtime resolution)`,
+        );
+      } else if (argValue.type === "parameter") {
+        log.debug(
+          `[extractArguments] Parameter argument ${argName} for ${taskNode.tool}: ${argValue.parameterName} (needs intent extraction)`,
+        );
       }
     }
 
@@ -291,11 +302,17 @@ export async function predictCapabilities(
           }
           if (Object.keys(allArgs).length > 0) {
             predictedArguments = allArgs;
-            log.debug(`[predictCapabilities] Extracted ${Object.keys(allArgs).length} literal arguments for capability ${capability.id}`);
+            log.debug(
+              `[predictCapabilities] Extracted ${
+                Object.keys(allArgs).length
+              } literal arguments for capability ${capability.id}`,
+            );
           }
         }
       } catch (error) {
-        log.debug(`[predictCapabilities] Failed to extract arguments for ${capability.id}: ${error}`);
+        log.debug(
+          `[predictCapabilities] Failed to extract arguments for ${capability.id}: ${error}`,
+        );
       }
 
       predictions.push({
@@ -465,7 +482,9 @@ export async function injectMatchingCapabilities(
       dag.tasks.push(capabilityTask);
 
       log.info(
-        `[capabilities] Injected capability task ${capabilityTask.id} (overlap: ${match.overlapScore.toFixed(2)}, boost: ${clusterBoost.toFixed(2)})`,
+        `[capabilities] Injected capability task ${capabilityTask.id} (overlap: ${
+          match.overlapScore.toFixed(2)
+        }, boost: ${clusterBoost.toFixed(2)})`,
       );
     }
 

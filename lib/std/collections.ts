@@ -7,45 +7,49 @@
  */
 
 import {
-  map,
-  filter,
-  sortBy,
-  orderBy,
-  uniq,
-  uniqBy,
-  groupBy,
-  flatten,
-  flattenDeep,
   chunk,
   compact,
+  countBy,
   difference,
-  intersection,
-  union,
-  keyBy,
-  partition,
-  shuffle,
-  sample,
-  sampleSize,
-  take,
-  takeRight,
   drop,
   dropRight,
+  filter,
+  flatten,
+  flattenDeep,
+  groupBy,
+  intersection,
+  keyBy,
+  map,
+  orderBy,
+  partition,
+  sample,
+  sampleSize,
+  shuffle,
+  sortBy,
+  take,
+  takeRight,
+  union,
+  uniq,
+  uniqBy,
   zip,
   zipObject,
-  countBy,
 } from "lodash-es";
 import type { MiniTool } from "./types.ts";
 
 export const collectionsTools: MiniTool[] = [
   {
     name: "array_map",
-    description: "Transform array by extracting a property from each object. Pluck values using dot notation paths (e.g., 'user.name'). Use to extract specific fields from array of objects. Keywords: array map, pluck property, extract field, lodash map.",
+    description:
+      "Transform array by extracting a property from each object. Pluck values using dot notation paths (e.g., 'user.name'). Use to extract specific fields from array of objects. Keywords: array map, pluck property, extract field, lodash map.",
     category: "collections",
     inputSchema: {
       type: "object",
       properties: {
         items: { type: "array", description: "Array to transform" },
-        path: { type: "string", description: "Property path to extract (e.g., 'name', 'user.email')" },
+        path: {
+          type: "string",
+          description: "Property path to extract (e.g., 'name', 'user.email')",
+        },
       },
       required: ["items", "path"],
     },
@@ -53,7 +57,8 @@ export const collectionsTools: MiniTool[] = [
   },
   {
     name: "array_filter",
-    description: "Filter array elements that match specific property values. Select objects where properties equal given values (e.g., {active: true}). Use for querying and filtering datasets. Keywords: array filter, find matching, select where, filter by property.",
+    description:
+      "Filter array elements that match specific property values. Select objects where properties equal given values (e.g., {active: true}). Use for querying and filtering datasets. Keywords: array filter, find matching, select where, filter by property.",
     category: "collections",
     inputSchema: {
       type: "object",
@@ -70,7 +75,8 @@ export const collectionsTools: MiniTool[] = [
   },
   {
     name: "array_sort",
-    description: "Sort array by one or more property keys with ascending/descending order. Multi-key sorting for complex ordering needs. Use for ordering data by multiple criteria. Keywords: array sort, order by, sort by key, ascending descending, multi-key sort.",
+    description:
+      "Sort array by one or more property keys with ascending/descending order. Multi-key sorting for complex ordering needs. Use for ordering data by multiple criteria. Keywords: array sort, order by, sort by key, ascending descending, multi-key sort.",
     category: "collections",
     inputSchema: {
       type: "object",
@@ -100,7 +106,8 @@ export const collectionsTools: MiniTool[] = [
   },
   {
     name: "array_unique",
-    description: "Remove duplicate values from array. For objects, can dedupe by specific key. Use for data cleaning, eliminating redundant entries. Keywords: array unique, dedupe, remove duplicates, distinct values, uniq by.",
+    description:
+      "Remove duplicate values from array. For objects, can dedupe by specific key. Use for data cleaning, eliminating redundant entries. Keywords: array unique, dedupe, remove duplicates, distinct values, uniq by.",
     category: "collections",
     inputSchema: {
       type: "object",
@@ -117,7 +124,8 @@ export const collectionsTools: MiniTool[] = [
   },
   {
     name: "array_group",
-    description: "Group array elements into object by property value. Create buckets based on a key (e.g., group users by role). Use for categorization, aggregation prep, or data organization. Keywords: group by, categorize, bucket by key, aggregate grouping.",
+    description:
+      "Group array elements into object by property value. Create buckets based on a key (e.g., group users by role). Use for categorization, aggregation prep, or data organization. Keywords: group by, categorize, bucket by key, aggregate grouping.",
     category: "collections",
     inputSchema: {
       type: "object",
@@ -131,7 +139,8 @@ export const collectionsTools: MiniTool[] = [
   },
   {
     name: "array_flatten",
-    description: "Flatten nested arrays into single-level array. Option for shallow (one level) or deep (recursive) flattening. Use to simplify nested structures or merge array of arrays. Keywords: flatten array, unnest, deep flatten, merge nested arrays.",
+    description:
+      "Flatten nested arrays into single-level array. Option for shallow (one level) or deep (recursive) flattening. Use to simplify nested structures or merge array of arrays. Keywords: flatten array, unnest, deep flatten, merge nested arrays.",
     category: "collections",
     inputSchema: {
       type: "object",
@@ -146,7 +155,8 @@ export const collectionsTools: MiniTool[] = [
   },
   {
     name: "array_chunk",
-    description: "Split array into smaller arrays of specified size. Use for pagination, batch processing, or breaking large datasets into manageable pieces. Keywords: chunk array, split into batches, paginate, batch array, partition size.",
+    description:
+      "Split array into smaller arrays of specified size. Use for pagination, batch processing, or breaking large datasets into manageable pieces. Keywords: chunk array, split into batches, paginate, batch array, partition size.",
     category: "collections",
     inputSchema: {
       type: "object",
@@ -160,7 +170,8 @@ export const collectionsTools: MiniTool[] = [
   },
   {
     name: "array_compact",
-    description: "Remove all falsy values from array (null, undefined, 0, '', false, NaN). Clean up arrays with empty or invalid entries. Use for data sanitization. Keywords: compact array, remove falsy, clean nulls, filter empty, remove undefined.",
+    description:
+      "Remove all falsy values from array (null, undefined, 0, '', false, NaN). Clean up arrays with empty or invalid entries. Use for data sanitization. Keywords: compact array, remove falsy, clean nulls, filter empty, remove undefined.",
     category: "collections",
     inputSchema: {
       type: "object",
@@ -173,7 +184,8 @@ export const collectionsTools: MiniTool[] = [
   },
   {
     name: "array_difference",
-    description: "Get values present in first array but not in second. Find what's missing or removed between two sets. Use for change detection, finding deletions. Keywords: array difference, set subtract, find missing, exclude values, not in array.",
+    description:
+      "Get values present in first array but not in second. Find what's missing or removed between two sets. Use for change detection, finding deletions. Keywords: array difference, set subtract, find missing, exclude values, not in array.",
     category: "collections",
     inputSchema: {
       type: "object",
@@ -187,7 +199,8 @@ export const collectionsTools: MiniTool[] = [
   },
   {
     name: "array_intersection",
-    description: "Find values that exist in ALL given arrays. Get common elements across multiple sets. Use for finding shared items, overlap detection. Keywords: array intersection, common elements, shared values, find overlap, set intersection.",
+    description:
+      "Find values that exist in ALL given arrays. Get common elements across multiple sets. Use for finding shared items, overlap detection. Keywords: array intersection, common elements, shared values, find overlap, set intersection.",
     category: "collections",
     inputSchema: {
       type: "object",
@@ -203,7 +216,8 @@ export const collectionsTools: MiniTool[] = [
   },
   {
     name: "array_union",
-    description: "Merge multiple arrays into one with duplicates removed. Combine sets keeping unique values only. Use for merging datasets without redundancy. Keywords: array union, merge unique, combine arrays, set union, dedupe merge.",
+    description:
+      "Merge multiple arrays into one with duplicates removed. Combine sets keeping unique values only. Use for merging datasets without redundancy. Keywords: array union, merge unique, combine arrays, set union, dedupe merge.",
     category: "collections",
     inputSchema: {
       type: "object",
@@ -219,7 +233,8 @@ export const collectionsTools: MiniTool[] = [
   },
   {
     name: "array_keyby",
-    description: "Convert array of objects to object keyed by a property. Transform list to lookup dictionary (e.g., users by ID). Use for fast lookups, indexing data. Keywords: key by, index by, array to object, create dictionary, lookup table.",
+    description:
+      "Convert array of objects to object keyed by a property. Transform list to lookup dictionary (e.g., users by ID). Use for fast lookups, indexing data. Keywords: key by, index by, array to object, create dictionary, lookup table.",
     category: "collections",
     inputSchema: {
       type: "object",
@@ -233,7 +248,8 @@ export const collectionsTools: MiniTool[] = [
   },
   {
     name: "array_partition",
-    description: "Split array into two groups: elements matching predicate and those that don't. Separate data into truthy/falsy buckets. Use for binary categorization. Keywords: partition array, split by condition, separate groups, filter both, binary split.",
+    description:
+      "Split array into two groups: elements matching predicate and those that don't. Separate data into truthy/falsy buckets. Use for binary categorization. Keywords: partition array, split by condition, separate groups, filter both, binary split.",
     category: "collections",
     inputSchema: {
       type: "object",
@@ -250,7 +266,8 @@ export const collectionsTools: MiniTool[] = [
   },
   {
     name: "array_shuffle",
-    description: "Randomly reorder array elements using Fisher-Yates shuffle. Create random permutation of items. Use for randomizing lists, card games, random selection order. Keywords: shuffle array, randomize order, random permutation, mix up array.",
+    description:
+      "Randomly reorder array elements using Fisher-Yates shuffle. Create random permutation of items. Use for randomizing lists, card games, random selection order. Keywords: shuffle array, randomize order, random permutation, mix up array.",
     category: "collections",
     inputSchema: {
       type: "object",
@@ -263,7 +280,8 @@ export const collectionsTools: MiniTool[] = [
   },
   {
     name: "array_sample",
-    description: "Get one or more random elements from array without replacement. Sample random items for testing, previews, or randomization. Keywords: random sample, pick random, random element, sample from array, random selection.",
+    description:
+      "Get one or more random elements from array without replacement. Sample random items for testing, previews, or randomization. Keywords: random sample, pick random, random element, sample from array, random selection.",
     category: "collections",
     inputSchema: {
       type: "object",
@@ -280,7 +298,8 @@ export const collectionsTools: MiniTool[] = [
   },
   {
     name: "array_take",
-    description: "Get first N or last N elements from array. Slice beginning or end of array. Use for pagination, previews, or limiting results. Keywords: take first, take last, head tail, array slice, limit results, top N.",
+    description:
+      "Get first N or last N elements from array. Slice beginning or end of array. Use for pagination, previews, or limiting results. Keywords: take first, take last, head tail, array slice, limit results, top N.",
     category: "collections",
     inputSchema: {
       type: "object",
@@ -298,7 +317,8 @@ export const collectionsTools: MiniTool[] = [
   },
   {
     name: "array_drop",
-    description: "Remove first N or last N elements from array. Skip elements from beginning or end. Use for pagination offsets, removing headers/footers. Keywords: drop first, drop last, skip elements, remove from start, offset array.",
+    description:
+      "Remove first N or last N elements from array. Skip elements from beginning or end. Use for pagination offsets, removing headers/footers. Keywords: drop first, drop last, skip elements, remove from start, offset array.",
     category: "collections",
     inputSchema: {
       type: "object",
@@ -316,7 +336,8 @@ export const collectionsTools: MiniTool[] = [
   },
   {
     name: "array_zip",
-    description: "Combine multiple arrays element-wise into array of tuples. Pair up corresponding elements from parallel arrays. Use for combining related data streams. Keywords: zip arrays, pair elements, combine parallel, interleave arrays, tuple array.",
+    description:
+      "Combine multiple arrays element-wise into array of tuples. Pair up corresponding elements from parallel arrays. Use for combining related data streams. Keywords: zip arrays, pair elements, combine parallel, interleave arrays, tuple array.",
     category: "collections",
     inputSchema: {
       type: "object",
@@ -329,7 +350,8 @@ export const collectionsTools: MiniTool[] = [
   },
   {
     name: "array_zip_object",
-    description: "Create object from separate arrays of keys and values. Pair up keys array with values array into single object. Use for constructing objects from CSV headers/rows. Keywords: zip object, keys values to object, create from arrays, combine key value.",
+    description:
+      "Create object from separate arrays of keys and values. Pair up keys array with values array into single object. Use for constructing objects from CSV headers/rows. Keywords: zip object, keys values to object, create from arrays, combine key value.",
     category: "collections",
     inputSchema: {
       type: "object",
@@ -343,7 +365,8 @@ export const collectionsTools: MiniTool[] = [
   },
   {
     name: "array_count_by",
-    description: "Count occurrences of each unique value for a property. Group and count elements by key. Use for frequency analysis, histograms, or distribution stats. Keywords: count by, frequency count, group count, histogram, occurrence count.",
+    description:
+      "Count occurrences of each unique value for a property. Group and count elements by key. Use for frequency analysis, histograms, or distribution stats. Keywords: count by, frequency count, group count, histogram, occurrence count.",
     category: "collections",
     inputSchema: {
       type: "object",

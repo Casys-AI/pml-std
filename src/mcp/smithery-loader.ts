@@ -134,9 +134,7 @@ export class SmitheryLoader {
         // Protocol: HTTP Streamable transport
         protocol: "http" as const,
         // Store Smithery config in env for SmitheryMCPClient to use
-        env: s.config
-          ? { __smithery_config: JSON.stringify(s.config) }
-          : undefined,
+        env: s.config ? { __smithery_config: JSON.stringify(s.config) } : undefined,
       }));
   }
 }

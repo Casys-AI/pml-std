@@ -8,7 +8,7 @@
  * @module telemetry/metrics-collector
  */
 
-import type { PmlEvent, EventType } from "../events/types.ts";
+import type { EventType, PmlEvent } from "../events/types.ts";
 import { eventBus } from "../events/mod.ts";
 import { getLogger } from "./logger.ts";
 

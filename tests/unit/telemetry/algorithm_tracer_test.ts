@@ -13,13 +13,10 @@
  * @module tests/unit/telemetry/algorithm_tracer_test
  */
 
-import { assertEquals, assertExists, assertAlmostEquals } from "@std/assert";
+import { assertAlmostEquals, assertEquals, assertExists } from "@std/assert";
 import { PGliteClient } from "../../../src/db/client.ts";
 import { getAllMigrations, MigrationRunner } from "../../../src/db/migrations.ts";
-import {
-  AlgorithmTracer,
-  type TraceInput,
-} from "../../../src/telemetry/algorithm-tracer.ts";
+import { AlgorithmTracer, type TraceInput } from "../../../src/telemetry/algorithm-tracer.ts";
 
 /**
  * Setup test database with migrations
@@ -121,7 +118,11 @@ Deno.test("AlgorithmTracer - updateOutcome() updates trace in buffer", async () 
   );
 
   assertExists(result[0]?.outcome);
-  const outcome = result[0].outcome as { userAction: string; executionSuccess: boolean; durationMs: number };
+  const outcome = result[0].outcome as {
+    userAction: string;
+    executionSuccess: boolean;
+    durationMs: number;
+  };
   assertEquals(outcome.userAction, "selected");
   assertEquals(outcome.executionSuccess, true);
   assertEquals(outcome.durationMs, 150);
@@ -222,7 +223,10 @@ Deno.test("AlgorithmTracer - getMetrics() returns aggregated metrics", async () 
 
   // Verify avg final scores (use assertAlmostEquals for float precision)
   assertAlmostEquals(metrics.avgFinalScore.tool, 0.80, 0.001);
-  assertEquals(metrics.avgFinalScore.capability > 0.6 && metrics.avgFinalScore.capability < 0.7, true);
+  assertEquals(
+    metrics.avgFinalScore.capability > 0.6 && metrics.avgFinalScore.capability < 0.7,
+    true,
+  );
 
   await tracer.stop();
   await db.close();
@@ -304,7 +308,9 @@ Deno.test("AlgorithmTracer - handles SQL injection in intent field", async () =>
   await tracer.flush();
 
   // Table should still exist and have the trace
-  const result = await db.query("SELECT intent FROM algorithm_traces WHERE trace_id = $1", [traceId]);
+  const result = await db.query("SELECT intent FROM algorithm_traces WHERE trace_id = $1", [
+    traceId,
+  ]);
   assertExists(result[0]);
   assertEquals(result[0].intent, "Test'; DROP TABLE algorithm_traces; --");
 

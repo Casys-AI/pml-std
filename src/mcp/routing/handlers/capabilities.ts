@@ -8,7 +8,7 @@
 
 import * as log from "@std/log";
 import type { RouteContext } from "../types.ts";
-import { jsonResponse, errorResponse } from "../types.ts";
+import { errorResponse, jsonResponse } from "../types.ts";
 import type { CapabilityFilters } from "../../../capabilities/types.ts";
 
 /**

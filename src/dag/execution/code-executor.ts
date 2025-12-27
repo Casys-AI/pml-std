@@ -32,16 +32,16 @@ const log = getLogger("default");
  */
 function isDeterministicError(message: string): boolean {
   const deterministicPatterns = [
-    /is not defined/i,           // Variable/function not in scope
-    /SyntaxError/i,              // Invalid code syntax
-    /TypeError/i,                // Type mismatch
-    /ReferenceError/i,           // Reference to undefined variable
-    /Cannot read propert/i,      // Property access on undefined
-    /is not a function/i,        // Calling non-function
-    /Unexpected token/i,         // Parse error
+    /is not defined/i, // Variable/function not in scope
+    /SyntaxError/i, // Invalid code syntax
+    /TypeError/i, // Type mismatch
+    /ReferenceError/i, // Reference to undefined variable
+    /Cannot read propert/i, // Property access on undefined
+    /is not a function/i, // Calling non-function
+    /Unexpected token/i, // Parse error
   ];
 
-  return deterministicPatterns.some(pattern => pattern.test(message));
+  return deterministicPatterns.some((pattern) => pattern.test(message));
 }
 
 /**
@@ -74,8 +74,8 @@ export async function executeCodeTask(
 ): Promise<{ output: unknown; executionTimeMs: number }> {
   const startTime = performance.now();
   // Get permission set from parameter, sandboxConfig, or default to "minimal"
-  const currentPermissionSet: PermissionSet =
-    permissionSet ?? (task.sandboxConfig?.permissionSet as PermissionSet) ?? "minimal";
+  const currentPermissionSet: PermissionSet = permissionSet ??
+    (task.sandboxConfig?.permissionSet as PermissionSet) ?? "minimal";
 
   log.debug(`Executing code task: ${task.id}`, { permissionSet: currentPermissionSet });
 

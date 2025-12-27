@@ -10,9 +10,9 @@
 import * as log from "@std/log";
 import type { DbClient } from "../../db/types.ts";
 import {
-  type EdgeType,
-  EDGE_TYPE_WEIGHTS,
   EDGE_SOURCE_MODIFIERS,
+  EDGE_TYPE_WEIGHTS,
+  type EdgeType,
   OBSERVED_THRESHOLD,
 } from "../algorithms/edge-weights.ts";
 import { sanitizeForStorage } from "../../utils/mod.ts";
@@ -57,7 +57,7 @@ export interface SyncResult {
  */
 export async function syncGraphFromDatabase(
   db: DbClient,
-  graph: SyncableGraph
+  graph: SyncableGraph,
 ): Promise<SyncResult> {
   const startTime = performance.now();
 
@@ -151,7 +151,7 @@ export async function syncGraphFromDatabase(
   const syncDurationMs = performance.now() - startTime;
 
   log.info(
-    `✓ Graph synced: ${graph.order} nodes, ${graph.size} edges (${syncDurationMs.toFixed(1)}ms)`
+    `✓ Graph synced: ${graph.order} nodes, ${graph.size} edges (${syncDurationMs.toFixed(1)}ms)`,
   );
 
   return {
@@ -172,7 +172,7 @@ export async function syncGraphFromDatabase(
  */
 export async function persistEdgesToDatabase(
   db: DbClient,
-  graph: SyncableGraph
+  graph: SyncableGraph,
 ): Promise<void> {
   for (const edge of graph.edges()) {
     const [from, to] = graph.extremities(edge);
@@ -202,7 +202,7 @@ export async function persistEdgesToDatabase(
         attrs.weight,
         attrs.edge_type || "sequence",
         attrs.edge_source || "inferred",
-      ]
+      ],
     );
   }
 }
@@ -223,7 +223,7 @@ export async function persistCapabilityDependency(
   db: DbClient,
   fromCapabilityId: string,
   toCapabilityId: string,
-  edgeType: EdgeType
+  edgeType: EdgeType,
 ): Promise<void> {
   const baseWeight = EDGE_TYPE_WEIGHTS[edgeType];
   const inferredModifier = EDGE_SOURCE_MODIFIERS["inferred"];
@@ -259,7 +259,7 @@ export async function persistCapabilityDependency(
       baseWeight,
       observedModifier,
       inferredModifier,
-    ]
+    ],
   );
 
   // Warn if contains cycle detected (potential paradox)
@@ -267,11 +267,11 @@ export async function persistCapabilityDependency(
     const reverseExists = await db.queryOne(
       `SELECT 1 FROM capability_dependency
        WHERE from_capability_id = $1 AND to_capability_id = $2 AND edge_type = 'contains'`,
-      [toCapabilityId, fromCapabilityId]
+      [toCapabilityId, fromCapabilityId],
     );
     if (reverseExists) {
       log.warn(
-        `Potential paradox: contains cycle detected between capabilities ${fromCapabilityId} ↔ ${toCapabilityId}`
+        `Potential paradox: contains cycle detected between capabilities ${fromCapabilityId} ↔ ${toCapabilityId}`,
       );
     }
   }
@@ -300,7 +300,7 @@ export async function persistWorkflowExecution(
     taskResults?: unknown[];
     executedPath?: string[];
     parentTraceId?: string;
-  }
+  },
 ): Promise<string | undefined> {
   const userId = execution.userId || "local";
 
@@ -330,7 +330,7 @@ export async function persistWorkflowExecution(
       execution.parentTraceId || null,
       {}, // initial_context - postgres.js auto-serializes
       DEFAULT_TRACE_PRIORITY,
-    ]
+    ],
   );
 
   // Return the generated trace ID

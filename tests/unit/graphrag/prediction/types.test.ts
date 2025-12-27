@@ -7,7 +7,10 @@
  */
 
 import { assertEquals } from "jsr:@std/assert@1";
-import { isDangerousOperation, DANGEROUS_OPERATIONS } from "../../../../src/graphrag/prediction/types.ts";
+import {
+  DANGEROUS_OPERATIONS,
+  isDangerousOperation,
+} from "../../../../src/graphrag/prediction/types.ts";
 
 Deno.test("isDangerousOperation - Dangerous Operations Detection", async (t) => {
   await t.step("detects exact dangerous operation names", () => {

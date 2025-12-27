@@ -107,7 +107,7 @@ defaults:
   alpha: 0.80
   path_confidence: 0.55
   pagerank_weight: 0.35
-`
+`,
   );
 
   try {
@@ -209,14 +209,14 @@ limits:
   ranked_candidates: 5
   community_members: 5
   alternatives: 3
-`
+`,
   );
 
   try {
     await assertRejects(
       async () => await loadDagScoringConfig(tempFile),
       DagScoringConfigError,
-      "hybridSearchCandidates"
+      "hybridSearchCandidates",
     );
   } finally {
     await Deno.remove(tempDir, { recursive: true });
@@ -240,14 +240,14 @@ weights:
   candidate_ranking:
     hybrid_score: 1.5
     pagerank: 0.2
-`
+`,
   );
 
   try {
     await assertRejects(
       async () => await loadDagScoringConfig(tempFile),
       DagScoringConfigError,
-      "candidateRanking.hybridScore"
+      "candidateRanking.hybridScore",
     );
   } finally {
     await Deno.remove(tempDir, { recursive: true });
@@ -270,14 +270,14 @@ limits:
 thresholds:
   suggestion_floor: -0.1
   dependency_threshold: 0.5
-`
+`,
   );
 
   try {
     await assertRejects(
       async () => await loadDagScoringConfig(tempFile),
       DagScoringConfigError,
-      "suggestionFloor"
+      "suggestionFloor",
     );
   } finally {
     await Deno.remove(tempDir, { recursive: true });
@@ -299,14 +299,14 @@ limits:
 
 caps:
   max_confidence: 0.3
-`
+`,
   );
 
   try {
     await assertRejects(
       async () => await loadDagScoringConfig(tempFile),
       DagScoringConfigError,
-      "maxConfidence"
+      "maxConfidence",
     );
   } finally {
     await Deno.remove(tempDir, { recursive: true });
@@ -326,7 +326,7 @@ limits:
   ranked_candidates: 10
   community_members: 8
   alternatives: 5
-`
+`,
   );
 
   try {
@@ -337,7 +337,10 @@ limits:
     assertEquals(config.limits.rankedCandidates, 10);
 
     // Verify defaults are preserved for missing values
-    assertEquals(config.limits.replanCandidates, DEFAULT_DAG_SCORING_CONFIG.limits.replanCandidates);
+    assertEquals(
+      config.limits.replanCandidates,
+      DEFAULT_DAG_SCORING_CONFIG.limits.replanCandidates,
+    );
     assertEquals(config.weights, DEFAULT_DAG_SCORING_CONFIG.weights);
     assertEquals(config.thresholds, DEFAULT_DAG_SCORING_CONFIG.thresholds);
     assertEquals(config.caps, DEFAULT_DAG_SCORING_CONFIG.caps);
@@ -365,14 +368,14 @@ hop_confidence:
   hop_2: 0.8
   hop_3: 0.65
   hop_4_plus: 0.5
-`
+`,
   );
 
   try {
     await assertRejects(
       async () => await loadDagScoringConfig(tempFile),
       DagScoringConfigError,
-      "hop1"
+      "hop1",
     );
   } finally {
     await Deno.remove(tempDir, { recursive: true });
@@ -398,14 +401,14 @@ episodic:
   failure_penalty_factor: 0.25
   failure_penalty_cap: 0.15
   failure_exclusion_rate: 1.5
-`
+`,
   );
 
   try {
     await assertRejects(
       async () => await loadDagScoringConfig(tempFile),
       DagScoringConfigError,
-      "failureExclusionRate"
+      "failureExclusionRate",
     );
   } finally {
     await Deno.remove(tempDir, { recursive: true });

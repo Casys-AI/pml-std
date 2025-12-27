@@ -7,7 +7,13 @@
  */
 
 import * as log from "@std/log";
-import type { MCPClientBase, MCPServer, MCPTool, SamplingRequestHandler, ServerDiscoveryResult } from "./types.ts";
+import type {
+  MCPClientBase,
+  MCPServer,
+  MCPTool,
+  SamplingRequestHandler,
+  ServerDiscoveryResult,
+} from "./types.ts";
 import { MCPServerError, TimeoutError } from "../errors/error-types.ts";
 import { withTimeout } from "../utils/timeout.ts";
 import type { JsonRpcRequest, JsonRpcResponse } from "./server/types.ts";
@@ -381,7 +387,9 @@ export class MCPClient implements MCPClientBase {
                 pending.resolve(response);
                 this.pendingRequests.delete(response.id);
               } else {
-                log.debug(`[${this.server.id}] Received response for unknown request ID: ${response.id}`);
+                log.debug(
+                  `[${this.server.id}] Received response for unknown request ID: ${response.id}`,
+                );
               }
             } catch {
               // Not valid JSON, skip this line

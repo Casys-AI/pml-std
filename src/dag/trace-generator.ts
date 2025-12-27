@@ -72,7 +72,7 @@ export interface LogicalTaskResult {
  */
 export function generateLogicalTrace(
   optimizedDAG: OptimizedDAGStructure,
-  physicalResults: Map<string, TaskResult>
+  physicalResults: Map<string, TaskResult>,
 ): LogicalTrace {
   const executedPath: string[] = [];
   const taskResults: LogicalTaskResult[] = [];
@@ -83,7 +83,7 @@ export function generateLogicalTrace(
 
   log.debug("Generating logical trace", {
     physicalResultsCount: physicalResults.size,
-    logicalTasksCount: optimizedDAG.logicalDAG.tasks.length
+    logicalTasksCount: optimizedDAG.logicalDAG.tasks.length,
   });
 
   // Process each logical task in order
@@ -92,7 +92,7 @@ export function generateLogicalTrace(
 
     if (!physicalTaskId) {
       log.warn("No physical task mapping for logical task", {
-        logicalTaskId: logicalTask.id
+        logicalTaskId: logicalTask.id,
       });
       continue;
     }
@@ -102,7 +102,7 @@ export function generateLogicalTrace(
     if (!physicalResult) {
       log.warn("No physical result found", {
         logicalTaskId: logicalTask.id,
-        physicalTaskId
+        physicalTaskId,
       });
       continue;
     }
@@ -132,7 +132,7 @@ export function generateLogicalTrace(
         tool: logicalTask.tool || "unknown",
         output: extractIntermediateResult(physicalResult, fusedTaskIndex, totalLogicalTasks),
         success: isSuccess,
-        durationMs: logicalDuration
+        durationMs: logicalDuration,
       });
 
       totalDurationMs += logicalDuration;
@@ -150,7 +150,7 @@ export function generateLogicalTrace(
         tool: logicalTask.tool || "unknown",
         output: physicalResult.output,
         success: isSuccess,
-        durationMs: physicalResult.executionTimeMs || 0
+        durationMs: physicalResult.executionTimeMs || 0,
       });
 
       totalDurationMs += physicalResult.executionTimeMs || 0;
@@ -163,13 +163,13 @@ export function generateLogicalTrace(
     toolsUsed: Array.from(toolsUsed),
     taskResults,
     success: totalSuccess,
-    totalDurationMs
+    totalDurationMs,
   };
 
   log.debug("Logical trace generated", {
     executedPathLength: executedPath.length,
     toolsUsedCount: toolsUsed.size,
-    success: totalSuccess
+    success: totalSuccess,
   });
 
   return trace;
@@ -189,7 +189,7 @@ export function generateLogicalTrace(
 function extractIntermediateResult(
   physicalResult: TaskResult,
   index: number,
-  total: number
+  total: number,
 ): unknown {
   // Phase 2a: Return final output for all logical tasks
   // This is an approximation - intermediate values aren't captured
@@ -214,7 +214,7 @@ function extractIntermediateResult(
  */
 export function isFusedTask(
   taskId: string,
-  optimizedDAG: OptimizedDAGStructure
+  optimizedDAG: OptimizedDAGStructure,
 ): boolean {
   const logicalTasks = optimizedDAG.physicalToLogical.get(taskId);
   return logicalTasks !== undefined && logicalTasks.length > 1;
@@ -225,7 +225,7 @@ export function isFusedTask(
  */
 export function getLogicalTasks(
   physicalTaskId: string,
-  optimizedDAG: OptimizedDAGStructure
+  optimizedDAG: OptimizedDAGStructure,
 ): string[] {
   return optimizedDAG.physicalToLogical.get(physicalTaskId) || [];
 }

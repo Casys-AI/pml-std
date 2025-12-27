@@ -305,8 +305,7 @@ export class DenoSandboxExecutor {
             msg.includes("requires") && msg.includes("access")
           ) {
             error = { ...error, type: "PermissionError" };
-          }
-          // Detect syntax errors from message patterns
+          } // Detect syntax errors from message patterns
           else if (
             msg.includes("unexpected") ||
             msg.includes("parse error") ||
@@ -399,7 +398,10 @@ export class DenoSandboxExecutor {
             toolsUsed: [], // No tools in basic execute()
             // Story 11.2: Include traceData for execution trace persistence
             traceData: {
-              initialContext: (context ?? {}) as Record<string, import("../capabilities/types.ts").JsonValue>,
+              initialContext: (context ?? {}) as Record<
+                string,
+                import("../capabilities/types.ts").JsonValue
+              >,
               executedPath: [], // No tool traces in basic execute()
               decisions: [],
               taskResults: [], // No tools in basic execute()
@@ -701,7 +703,9 @@ export class DenoSandboxExecutor {
       if (existingReadFlag) {
         const idx = permissionFlags.indexOf(existingReadFlag);
         permissionFlags[idx] = `${existingReadFlag},${this.config.allowedReadPaths.join(",")}`;
-      } else if (!permissionFlags.includes("--allow-read") && !permissionFlags.includes("--allow-all")) {
+      } else if (
+        !permissionFlags.includes("--allow-read") && !permissionFlags.includes("--allow-all")
+      ) {
         // No existing read flag, add one with config paths
         const readArg = args.find((a) => a.startsWith("--allow-read="));
         if (readArg) {

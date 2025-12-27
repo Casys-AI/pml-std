@@ -10,8 +10,13 @@ import * as log from "@std/log";
 import type { GraphRAGEngine } from "../../graphrag/graph-engine.ts";
 import type { VectorSearch } from "../../vector/search.ts";
 import type { DAGSuggester } from "../../graphrag/dag-suggester.ts";
-import type { MCPToolResponse, MCPErrorResponse, SearchToolsArgs, SearchCapabilitiesArgs } from "../server/types.ts";
-import { formatMCPToolError, formatMCPSuccess } from "../server/responses.ts";
+import type {
+  MCPErrorResponse,
+  MCPToolResponse,
+  SearchCapabilitiesArgs,
+  SearchToolsArgs,
+} from "../server/types.ts";
+import { formatMCPSuccess, formatMCPToolError } from "../server/responses.ts";
 import { addBreadcrumb, captureError, startTransaction } from "../../telemetry/sentry.ts";
 
 /**
@@ -31,7 +36,9 @@ export async function handleSearchTools(
   vectorSearch: VectorSearch,
 ): Promise<MCPToolResponse> {
   // Deprecation warning (Story 10.6)
-  log.warn("[DEPRECATED] pml:search_tools is deprecated. Use pml:discover instead for unified search.");
+  log.warn(
+    "[DEPRECATED] pml:search_tools is deprecated. Use pml:discover instead for unified search.",
+  );
 
   const params = args as SearchToolsArgs;
 
@@ -136,7 +143,9 @@ export async function handleSearchCapabilities(
   dagSuggester: DAGSuggester,
 ): Promise<MCPToolResponse | MCPErrorResponse> {
   // Deprecation warning (Story 10.6)
-  log.warn("[DEPRECATED] pml:search_capabilities is deprecated. Use pml:discover instead for unified search.");
+  log.warn(
+    "[DEPRECATED] pml:search_capabilities is deprecated. Use pml:discover instead for unified search.",
+  );
 
   const transaction = startTransaction("mcp.capabilities.search", "mcp");
   try {

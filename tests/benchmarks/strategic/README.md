@@ -4,29 +4,29 @@ Comparison of three SHGAT (Semantic Heterogeneous Graph Attention) scoring appro
 
 ## Architectures
 
-| Version | Description |
-|---------|-------------|
-| **v1** | Message passing (V→E→V) + 3 specialized heads (semantic/structure/temporal) |
-| **v2** | Direct embeddings + Rich TraceFeatures (17 features) + K heads + Fusion MLP |
-| **v3** | HYBRID: Message passing + TraceFeatures + K heads + Fusion MLP |
+| Version | Description                                                                 |
+| ------- | --------------------------------------------------------------------------- |
+| **v1**  | Message passing (V→E→V) + 3 specialized heads (semantic/structure/temporal) |
+| **v2**  | Direct embeddings + Rich TraceFeatures (17 features) + K heads + Fusion MLP |
+| **v3**  | HYBRID: Message passing + TraceFeatures + K heads + Fusion MLP              |
 
 ## Results
 
 ### Accuracy vs Training Epochs
 
-| Epochs | v1 MRR | v2 MRR | v3 MRR |
-|--------|--------|--------|--------|
-| 3 | 0.275 | 0.298 | 0.198 |
-| 15 | 0.315 | 0.437 | 0.151 |
-| 25 | 0.178 | **0.733** | 0.233 |
+| Epochs | v1 MRR | v2 MRR    | v3 MRR |
+| ------ | ------ | --------- | ------ |
+| 3      | 0.275  | 0.298     | 0.198  |
+| 15     | 0.315  | 0.437     | 0.151  |
+| 25     | 0.178  | **0.733** | 0.233  |
 
 ### Best Results (25 epochs, 100 training examples)
 
-| Version | MRR | Hit@1 | Hit@3 | Latency |
-|---------|-----|-------|-------|---------|
-| v1 | 0.178 | 0% | 33.3% | 119 ms |
-| **v2** | **0.733** | **66.7%** | **66.7%** | **2.5 ms** |
-| v3 | 0.233 | 0% | 33.3% | 121 ms |
+| Version | MRR       | Hit@1     | Hit@3     | Latency    |
+| ------- | --------- | --------- | --------- | ---------- |
+| v1      | 0.178     | 0%        | 33.3%     | 119 ms     |
+| **v2**  | **0.733** | **66.7%** | **66.7%** | **2.5 ms** |
+| v3      | 0.233     | 0%        | 33.3%     | 121 ms     |
 
 ## Key Findings
 
@@ -38,6 +38,7 @@ Comparison of three SHGAT (Semantic Heterogeneous Graph Attention) scoring appro
 ## Conclusion
 
 **v2 (direct + K heads + MLP)** is the recommended architecture:
+
 - Best accuracy (MRR 0.733)
 - Best latency (2.5ms, 47x faster)
 - Best learning capacity (scales with training data)

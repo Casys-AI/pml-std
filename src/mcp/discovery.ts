@@ -107,7 +107,9 @@ export class MCPServerDiscovery {
             env: typeof cfg.env === "object" ? cfg.env as Record<string, string> : undefined,
             protocol: protocol as "stdio" | "http",
             url: cfg.url ? String(cfg.url) : undefined,
-            headers: typeof cfg.headers === "object" ? cfg.headers as Record<string, string> : undefined,
+            headers: typeof cfg.headers === "object"
+              ? cfg.headers as Record<string, string>
+              : undefined,
           });
         }
       }
@@ -129,7 +131,9 @@ export class MCPServerDiscovery {
               env: typeof srv.env === "object" ? srv.env as Record<string, string> : undefined,
               protocol: String(srv.protocol || "stdio") as "stdio" | "http",
               url: srv.url ? String(srv.url) : undefined,
-              headers: typeof srv.headers === "object" ? srv.headers as Record<string, string> : undefined,
+              headers: typeof srv.headers === "object"
+                ? srv.headers as Record<string, string>
+                : undefined,
             };
           }),
         };

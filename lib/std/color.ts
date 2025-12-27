@@ -12,8 +12,16 @@
 import type { MiniTool } from "./types.ts";
 
 // Type definitions
-interface RGB { r: number; g: number; b: number }
-interface HSL { h: number; s: number; l: number }
+interface RGB {
+  r: number;
+  g: number;
+  b: number;
+}
+interface HSL {
+  h: number;
+  s: number;
+  l: number;
+}
 
 // Helper functions
 const hexToRgb = (hex: string): RGB | null => {
@@ -30,7 +38,8 @@ const hexToRgb = (hex: string): RGB | null => {
 };
 
 const rgbToHex = (r: number, g: number, b: number): string => {
-  const toHex = (n: number) => Math.round(Math.max(0, Math.min(255, n))).toString(16).padStart(2, "0");
+  const toHex = (n: number) =>
+    Math.round(Math.max(0, Math.min(255, n))).toString(16).padStart(2, "0");
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 };
 
@@ -47,9 +56,15 @@ const rgbToHsl = (r: number, g: number, b: number): HSL => {
     const d = max - min;
     s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
     switch (max) {
-      case rNorm: h = ((gNorm - bNorm) / d + (gNorm < bNorm ? 6 : 0)) / 6; break;
-      case gNorm: h = ((bNorm - rNorm) / d + 2) / 6; break;
-      case bNorm: h = ((rNorm - gNorm) / d + 4) / 6; break;
+      case rNorm:
+        h = ((gNorm - bNorm) / d + (gNorm < bNorm ? 6 : 0)) / 6;
+        break;
+      case gNorm:
+        h = ((bNorm - rNorm) / d + 2) / 6;
+        break;
+      case bNorm:
+        h = ((rNorm - gNorm) / d + 4) / 6;
+        break;
     }
   }
   return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
@@ -68,9 +83,9 @@ const hslToRgb = (h: number, s: number, l: number): RGB => {
   const hue2rgb = (p: number, q: number, t: number) => {
     if (t < 0) t += 1;
     if (t > 1) t -= 1;
-    if (t < 1/6) return p + (q - p) * 6 * t;
-    if (t < 1/2) return q;
-    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
     return p;
   };
 
@@ -78,25 +93,46 @@ const hslToRgb = (h: number, s: number, l: number): RGB => {
   const p = 2 * lNorm - q;
 
   return {
-    r: Math.round(hue2rgb(p, q, hNorm + 1/3) * 255),
+    r: Math.round(hue2rgb(p, q, hNorm + 1 / 3) * 255),
     g: Math.round(hue2rgb(p, q, hNorm) * 255),
-    b: Math.round(hue2rgb(p, q, hNorm - 1/3) * 255),
+    b: Math.round(hue2rgb(p, q, hNorm - 1 / 3) * 255),
   };
 };
 
 // Named colors
 const namedColors: Record<string, string> = {
-  black: "#000000", white: "#ffffff", red: "#ff0000", green: "#008000", blue: "#0000ff",
-  yellow: "#ffff00", cyan: "#00ffff", magenta: "#ff00ff", gray: "#808080", grey: "#808080",
-  silver: "#c0c0c0", maroon: "#800000", olive: "#808000", lime: "#00ff00", aqua: "#00ffff",
-  teal: "#008080", navy: "#000080", fuchsia: "#ff00ff", purple: "#800080", orange: "#ffa500",
-  pink: "#ffc0cb", brown: "#a52a2a", coral: "#ff7f50", gold: "#ffd700", indigo: "#4b0082",
+  black: "#000000",
+  white: "#ffffff",
+  red: "#ff0000",
+  green: "#008000",
+  blue: "#0000ff",
+  yellow: "#ffff00",
+  cyan: "#00ffff",
+  magenta: "#ff00ff",
+  gray: "#808080",
+  grey: "#808080",
+  silver: "#c0c0c0",
+  maroon: "#800000",
+  olive: "#808000",
+  lime: "#00ff00",
+  aqua: "#00ffff",
+  teal: "#008080",
+  navy: "#000080",
+  fuchsia: "#ff00ff",
+  purple: "#800080",
+  orange: "#ffa500",
+  pink: "#ffc0cb",
+  brown: "#a52a2a",
+  coral: "#ff7f50",
+  gold: "#ffd700",
+  indigo: "#4b0082",
 };
 
 export const colorTools: MiniTool[] = [
   {
     name: "color_hex_to_rgb",
-    description: "Convert hex color code to RGB values. Parse #RRGGBB or #RGB format to red, green, blue components (0-255). Use for color manipulation, CSS processing, or design tools. Keywords: hex to RGB, color convert, parse hex, hex color, RGB values, color code.",
+    description:
+      "Convert hex color code to RGB values. Parse #RRGGBB or #RGB format to red, green, blue components (0-255). Use for color manipulation, CSS processing, or design tools. Keywords: hex to RGB, color convert, parse hex, hex color, RGB values, color code.",
     category: "color",
     inputSchema: {
       type: "object",
@@ -113,7 +149,8 @@ export const colorTools: MiniTool[] = [
   },
   {
     name: "color_rgb_to_hex",
-    description: "Convert RGB values to hex color code. Transform red, green, blue components to #RRGGBB format for CSS or design. Use for color formatting, CSS generation, or palette export. Keywords: RGB to hex, color convert, hex color, generate hex, color code, format color.",
+    description:
+      "Convert RGB values to hex color code. Transform red, green, blue components to #RRGGBB format for CSS or design. Use for color formatting, CSS generation, or palette export. Keywords: RGB to hex, color convert, hex color, generate hex, color code, format color.",
     category: "color",
     inputSchema: {
       type: "object",
@@ -131,7 +168,8 @@ export const colorTools: MiniTool[] = [
   },
   {
     name: "color_rgb_to_hsl",
-    description: "Convert RGB to HSL (Hue, Saturation, Lightness). Transform RGB color model to HSL for easier color manipulation and adjustment. Use for color adjustments, theme generation, or color theory. Keywords: RGB to HSL, color convert, HSL color, hue saturation, color model, transform color.",
+    description:
+      "Convert RGB to HSL (Hue, Saturation, Lightness). Transform RGB color model to HSL for easier color manipulation and adjustment. Use for color adjustments, theme generation, or color theory. Keywords: RGB to HSL, color convert, HSL color, hue saturation, color model, transform color.",
     category: "color",
     inputSchema: {
       type: "object",
@@ -149,7 +187,8 @@ export const colorTools: MiniTool[] = [
   },
   {
     name: "color_hsl_to_rgb",
-    description: "Convert HSL to RGB values. Transform Hue (0-360), Saturation (0-100), Lightness (0-100) to RGB. Use for generating colors from HSL adjustments or color wheel operations. Keywords: HSL to RGB, color convert, RGB from HSL, hue to RGB, color transform.",
+    description:
+      "Convert HSL to RGB values. Transform Hue (0-360), Saturation (0-100), Lightness (0-100) to RGB. Use for generating colors from HSL adjustments or color wheel operations. Keywords: HSL to RGB, color convert, RGB from HSL, hue to RGB, color transform.",
     category: "color",
     inputSchema: {
       type: "object",
@@ -162,12 +201,17 @@ export const colorTools: MiniTool[] = [
     },
     handler: ({ h, s, l }) => {
       const rgb = hslToRgb(h as number, s as number, l as number);
-      return { ...rgb, hex: rgbToHex(rgb.r, rgb.g, rgb.b), css: `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})` };
+      return {
+        ...rgb,
+        hex: rgbToHex(rgb.r, rgb.g, rgb.b),
+        css: `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`,
+      };
     },
   },
   {
     name: "color_rgb_to_hsv",
-    description: "Convert RGB to HSV (Hue, Saturation, Value). Transform RGB to HSV for color picker interfaces or brightness adjustments. Use for color pickers, image processing, or color matching. Keywords: RGB to HSV, HSB, color convert, value brightness, color picker, saturation.",
+    description:
+      "Convert RGB to HSV (Hue, Saturation, Value). Transform RGB to HSV for color picker interfaces or brightness adjustments. Use for color pickers, image processing, or color matching. Keywords: RGB to HSV, HSB, color convert, value brightness, color picker, saturation.",
     category: "color",
     inputSchema: {
       type: "object",
@@ -200,7 +244,8 @@ export const colorTools: MiniTool[] = [
   },
   {
     name: "color_hsv_to_rgb",
-    description: "Convert HSV to RGB values. Transform Hue, Saturation, Value (Brightness) to RGB. Use for color picker output, HSB color handling, or brightness-based color generation. Keywords: HSV to RGB, HSB to RGB, color convert, brightness to RGB, color picker output.",
+    description:
+      "Convert HSV to RGB values. Transform Hue, Saturation, Value (Brightness) to RGB. Use for color picker output, HSB color handling, or brightness-based color generation. Keywords: HSV to RGB, HSB to RGB, color convert, brightness to RGB, color picker output.",
     category: "color",
     inputSchema: {
       type: "object",
@@ -224,12 +269,36 @@ export const colorTools: MiniTool[] = [
 
       let r = 0, g = 0, b = 0;
       switch (i % 6) {
-        case 0: r = vNorm; g = t; b = p; break;
-        case 1: r = q; g = vNorm; b = p; break;
-        case 2: r = p; g = vNorm; b = t; break;
-        case 3: r = p; g = q; b = vNorm; break;
-        case 4: r = t; g = p; b = vNorm; break;
-        case 5: r = vNorm; g = p; b = q; break;
+        case 0:
+          r = vNorm;
+          g = t;
+          b = p;
+          break;
+        case 1:
+          r = q;
+          g = vNorm;
+          b = p;
+          break;
+        case 2:
+          r = p;
+          g = vNorm;
+          b = t;
+          break;
+        case 3:
+          r = p;
+          g = q;
+          b = vNorm;
+          break;
+        case 4:
+          r = t;
+          g = p;
+          b = vNorm;
+          break;
+        case 5:
+          r = vNorm;
+          g = p;
+          b = q;
+          break;
       }
 
       const rgb = { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
@@ -238,7 +307,8 @@ export const colorTools: MiniTool[] = [
   },
   {
     name: "color_rgb_to_cmyk",
-    description: "Convert RGB to CMYK (Cyan, Magenta, Yellow, Key/Black). Transform screen colors to print color model. Use for print design, color proofing, or prepress work. Keywords: RGB to CMYK, print color, color convert, cyan magenta, screen to print, prepress.",
+    description:
+      "Convert RGB to CMYK (Cyan, Magenta, Yellow, Key/Black). Transform screen colors to print color model. Use for print design, color proofing, or prepress work. Keywords: RGB to CMYK, print color, color convert, cyan magenta, screen to print, prepress.",
     category: "color",
     inputSchema: {
       type: "object",
@@ -267,7 +337,8 @@ export const colorTools: MiniTool[] = [
   },
   {
     name: "color_cmyk_to_rgb",
-    description: "Convert CMYK to RGB values. Transform print colors (Cyan, Magenta, Yellow, Key) to screen RGB. Use for importing print colors, design conversion, or color matching. Keywords: CMYK to RGB, print to screen, color convert, cyan magenta, import print.",
+    description:
+      "Convert CMYK to RGB values. Transform print colors (Cyan, Magenta, Yellow, Key) to screen RGB. Use for importing print colors, design conversion, or color matching. Keywords: CMYK to RGB, print to screen, color convert, cyan magenta, import print.",
     category: "color",
     inputSchema: {
       type: "object",
@@ -295,7 +366,8 @@ export const colorTools: MiniTool[] = [
   },
   {
     name: "color_parse",
-    description: "Parse any color format to RGB values. Accepts hex (#fff, #ffffff), rgb(), hsl(), named colors. Universal color input handler. Use for accepting user color input or normalizing color formats. Keywords: parse color, color input, any format, named color, detect format, universal color.",
+    description:
+      "Parse any color format to RGB values. Accepts hex (#fff, #ffffff), rgb(), hsl(), named colors. Universal color input handler. Use for accepting user color input or normalizing color formats. Keywords: parse color, color input, any format, named color, detect format, universal color.",
     category: "color",
     inputSchema: {
       type: "object",
@@ -343,7 +415,8 @@ export const colorTools: MiniTool[] = [
   },
   {
     name: "color_lighten",
-    description: "Lighten a color by percentage. Increase lightness in HSL color space. Use for hover states, highlights, or creating lighter variants. Keywords: lighten color, tint, increase brightness, lighter shade, color variant, hover color.",
+    description:
+      "Lighten a color by percentage. Increase lightness in HSL color space. Use for hover states, highlights, or creating lighter variants. Keywords: lighten color, tint, increase brightness, lighter shade, color variant, hover color.",
     category: "color",
     inputSchema: {
       type: "object",
@@ -368,7 +441,8 @@ export const colorTools: MiniTool[] = [
   },
   {
     name: "color_darken",
-    description: "Darken a color by percentage. Decrease lightness in HSL color space. Use for pressed states, shadows, or creating darker variants. Keywords: darken color, shade, decrease brightness, darker variant, color variant, pressed color.",
+    description:
+      "Darken a color by percentage. Decrease lightness in HSL color space. Use for pressed states, shadows, or creating darker variants. Keywords: darken color, shade, decrease brightness, darker variant, color variant, pressed color.",
     category: "color",
     inputSchema: {
       type: "object",
@@ -393,7 +467,8 @@ export const colorTools: MiniTool[] = [
   },
   {
     name: "color_saturate",
-    description: "Increase color saturation by percentage. Make colors more vivid and intense. Use for emphasis, highlighting, or vibrancy adjustment. Keywords: saturate color, increase saturation, vivid color, color intensity, vibrant, color boost.",
+    description:
+      "Increase color saturation by percentage. Make colors more vivid and intense. Use for emphasis, highlighting, or vibrancy adjustment. Keywords: saturate color, increase saturation, vivid color, color intensity, vibrant, color boost.",
     category: "color",
     inputSchema: {
       type: "object",
@@ -418,7 +493,8 @@ export const colorTools: MiniTool[] = [
   },
   {
     name: "color_desaturate",
-    description: "Decrease color saturation by percentage. Make colors more muted and gray. Use for disabled states, backgrounds, or subtle variants. Keywords: desaturate color, muted color, gray out, reduce saturation, subtle color, mute.",
+    description:
+      "Decrease color saturation by percentage. Make colors more muted and gray. Use for disabled states, backgrounds, or subtle variants. Keywords: desaturate color, muted color, gray out, reduce saturation, subtle color, mute.",
     category: "color",
     inputSchema: {
       type: "object",
@@ -443,7 +519,8 @@ export const colorTools: MiniTool[] = [
   },
   {
     name: "color_invert",
-    description: "Invert a color to its complement. Create opposite color on the color wheel for high contrast. Use for dark mode, contrast effects, or visual highlighting. Keywords: invert color, complement, opposite color, negate, color flip, contrast.",
+    description:
+      "Invert a color to its complement. Create opposite color on the color wheel for high contrast. Use for dark mode, contrast effects, or visual highlighting. Keywords: invert color, complement, opposite color, negate, color flip, contrast.",
     category: "color",
     inputSchema: {
       type: "object",
@@ -464,7 +541,8 @@ export const colorTools: MiniTool[] = [
   },
   {
     name: "color_grayscale",
-    description: "Convert color to grayscale equivalent. Remove all color leaving only luminance. Use for print preview, disabled states, or accessibility testing. Keywords: grayscale, black white, desaturate full, monochrome, luminance, gray.",
+    description:
+      "Convert color to grayscale equivalent. Remove all color leaving only luminance. Use for print preview, disabled states, or accessibility testing. Keywords: grayscale, black white, desaturate full, monochrome, luminance, gray.",
     category: "color",
     inputSchema: {
       type: "object",
@@ -480,12 +558,17 @@ export const colorTools: MiniTool[] = [
       if (!rgb) return { error: "Unable to parse color" };
 
       const gray = Math.round(0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b);
-      return { hex: rgbToHex(gray, gray, gray), rgb: { r: gray, g: gray, b: gray }, luminance: gray };
+      return {
+        hex: rgbToHex(gray, gray, gray),
+        rgb: { r: gray, g: gray, b: gray },
+        luminance: gray,
+      };
     },
   },
   {
     name: "color_palette",
-    description: "Generate color palette from base color. Create complementary, analogous, triadic, or split-complementary schemes. Use for design systems, theme generation, or color harmony. Keywords: color palette, color scheme, complementary, analogous, triadic, color harmony.",
+    description:
+      "Generate color palette from base color. Create complementary, analogous, triadic, or split-complementary schemes. Use for design systems, theme generation, or color harmony. Keywords: color palette, color scheme, complementary, analogous, triadic, color harmony.",
     category: "color",
     inputSchema: {
       type: "object",
@@ -496,7 +579,10 @@ export const colorTools: MiniTool[] = [
           enum: ["complementary", "triadic", "analogous", "split", "tetradic", "monochromatic"],
           description: "Palette type (default: complementary)",
         },
-        count: { type: "number", description: "Number of colors for analogous/monochromatic (default: 5)" },
+        count: {
+          type: "number",
+          description: "Number of colors for analogous/monochromatic (default: 5)",
+        },
       },
       required: ["color"],
     },
@@ -525,7 +611,7 @@ export const colorTools: MiniTool[] = [
           palette = [baseHex, hslToHex(h + 0.5, s, l)];
           break;
         case "triadic":
-          palette = [baseHex, hslToHex(h + 1/3, s, l), hslToHex(h + 2/3, s, l)];
+          palette = [baseHex, hslToHex(h + 1 / 3, s, l), hslToHex(h + 2 / 3, s, l)];
           break;
         case "analogous": {
           const step = 0.083;
@@ -539,7 +625,12 @@ export const colorTools: MiniTool[] = [
           palette = [baseHex, hslToHex(h + 0.417, s, l), hslToHex(h + 0.583, s, l)];
           break;
         case "tetradic":
-          palette = [baseHex, hslToHex(h + 0.25, s, l), hslToHex(h + 0.5, s, l), hslToHex(h + 0.75, s, l)];
+          palette = [
+            baseHex,
+            hslToHex(h + 0.25, s, l),
+            hslToHex(h + 0.5, s, l),
+            hslToHex(h + 0.75, s, l),
+          ];
           break;
         case "monochromatic":
           for (let i = 0; i < (count as number); i++) {
@@ -551,12 +642,18 @@ export const colorTools: MiniTool[] = [
           palette = [baseHex];
       }
 
-      return { base: baseHex, type, palette, hsl: { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) } };
+      return {
+        base: baseHex,
+        type,
+        palette,
+        hsl: { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) },
+      };
     },
   },
   {
     name: "color_blend",
-    description: "Blend two colors together with optional gradient steps. Mix colors for transitions, gradients, or intermediate colors. Use for creating color blends, gradients, or interpolation. Keywords: blend colors, mix colors, color gradient, interpolate colors, merge colors, gradient steps.",
+    description:
+      "Blend two colors together with optional gradient steps. Mix colors for transitions, gradients, or intermediate colors. Use for creating color blends, gradients, or interpolation. Keywords: blend colors, mix colors, color gradient, interpolate colors, merge colors, gradient steps.",
     category: "color",
     inputSchema: {
       type: "object",
@@ -569,8 +666,12 @@ export const colorTools: MiniTool[] = [
       required: ["color1", "color2"],
     },
     handler: ({ color1, color2, ratio = 0.5, steps }) => {
-      const c1 = hexToRgb((color1 as string).replace(/^#/, "").length === 6 ? (color1 as string) : `#${color1}`);
-      const c2 = hexToRgb((color2 as string).replace(/^#/, "").length === 6 ? (color2 as string) : `#${color2}`);
+      const c1 = hexToRgb(
+        (color1 as string).replace(/^#/, "").length === 6 ? (color1 as string) : `#${color1}`,
+      );
+      const c2 = hexToRgb(
+        (color2 as string).replace(/^#/, "").length === 6 ? (color2 as string) : `#${color2}`,
+      );
 
       if (!c1 || !c2) return { error: "Unable to parse colors" };
 
@@ -596,7 +697,8 @@ export const colorTools: MiniTool[] = [
   },
   {
     name: "color_contrast",
-    description: "Calculate WCAG contrast ratio between two colors. Measure accessibility compliance for text/background combinations. Returns ratio and WCAG level (AA, AAA). Use for accessibility testing, design validation, or a11y compliance. Keywords: contrast ratio, WCAG, accessibility, a11y, text contrast, background contrast.",
+    description:
+      "Calculate WCAG contrast ratio between two colors. Measure accessibility compliance for text/background combinations. Returns ratio and WCAG level (AA, AAA). Use for accessibility testing, design validation, or a11y compliance. Keywords: contrast ratio, WCAG, accessibility, a11y, text contrast, background contrast.",
     category: "color",
     inputSchema: {
       type: "object",
@@ -607,8 +709,16 @@ export const colorTools: MiniTool[] = [
       required: ["foreground", "background"],
     },
     handler: ({ foreground, background }) => {
-      const fg = hexToRgb((foreground as string).replace(/^#/, "").length === 6 ? (foreground as string) : `#${foreground}`);
-      const bg = hexToRgb((background as string).replace(/^#/, "").length === 6 ? (background as string) : `#${background}`);
+      const fg = hexToRgb(
+        (foreground as string).replace(/^#/, "").length === 6
+          ? (foreground as string)
+          : `#${foreground}`,
+      );
+      const bg = hexToRgb(
+        (background as string).replace(/^#/, "").length === 6
+          ? (background as string)
+          : `#${background}`,
+      );
 
       if (!fg || !bg) return { error: "Unable to parse colors" };
 
@@ -635,14 +745,23 @@ export const colorTools: MiniTool[] = [
   },
   {
     name: "color_random",
-    description: "Generate random colors with optional constraints. Create random hex colors with saturation and lightness ranges. Use for placeholder colors, random themes, or generative design. Keywords: random color, generate color, random hex, color generator, random palette.",
+    description:
+      "Generate random colors with optional constraints. Create random hex colors with saturation and lightness ranges. Use for placeholder colors, random themes, or generative design. Keywords: random color, generate color, random hex, color generator, random palette.",
     category: "color",
     inputSchema: {
       type: "object",
       properties: {
         count: { type: "number", description: "Number of colors (default: 1)" },
-        saturation: { type: "array", items: { type: "number" }, description: "Saturation range [min, max] (0-100)" },
-        lightness: { type: "array", items: { type: "number" }, description: "Lightness range [min, max] (0-100)" },
+        saturation: {
+          type: "array",
+          items: { type: "number" },
+          description: "Saturation range [min, max] (0-100)",
+        },
+        lightness: {
+          type: "array",
+          items: { type: "number" },
+          description: "Lightness range [min, max] (0-100)",
+        },
       },
     },
     handler: ({ count = 1, saturation, lightness }) => {
@@ -656,7 +775,10 @@ export const colorTools: MiniTool[] = [
         const l = lRange[0] + Math.random() * (lRange[1] - lRange[0]);
 
         const rgb = hslToRgb(h, Math.round(s), Math.round(l));
-        colors.push({ hex: rgbToHex(rgb.r, rgb.g, rgb.b), hsl: { h, s: Math.round(s), l: Math.round(l) } });
+        colors.push({
+          hex: rgbToHex(rgb.r, rgb.g, rgb.b),
+          hsl: { h, s: Math.round(s), l: Math.round(l) },
+        });
       }
 
       return (count as number) === 1 ? colors[0] : colors;

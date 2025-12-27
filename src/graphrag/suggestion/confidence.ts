@@ -91,7 +91,9 @@ export function getAdaptiveWeightsFromAlpha(
   const path = confidenceBase.path - factor * confidenceScaling.pathDelta;
 
   log.debug(
-    `[confidence] Adaptive weights from alpha=${alpha.toFixed(2)}: hybrid=${hybrid.toFixed(2)}, pageRank=${pageRank.toFixed(2)}, path=${path.toFixed(2)}`,
+    `[confidence] Adaptive weights from alpha=${alpha.toFixed(2)}: hybrid=${
+      hybrid.toFixed(2)
+    }, pageRank=${pageRank.toFixed(2)}, path=${path.toFixed(2)}`,
   );
 
   return { hybrid, pageRank, path };
@@ -163,8 +165,13 @@ export function calculateCommunityConfidence(
   adamicAdarScore: number,
   config: DagScoringConfig,
 ): number {
-  const { baseConfidence, pagerankMultiplier, pagerankBoostCap, edgeWeightBoostCap, adamicAdarBoostCap } =
-    config.community;
+  const {
+    baseConfidence,
+    pagerankMultiplier,
+    pagerankBoostCap,
+    edgeWeightBoostCap,
+    adamicAdarBoostCap,
+  } = config.community;
 
   // Base confidence for community membership
   let confidence = baseConfidence;

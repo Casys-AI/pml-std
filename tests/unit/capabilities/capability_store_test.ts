@@ -646,7 +646,7 @@ Deno.test("CapabilityStore - searchByContext respects minOverlap threshold", asy
 
   // Save capability with 4 tools
   await store.saveCapability({
-    code: 'await tools.multi();',
+    code: "await tools.multi();",
     intent: "Multi tool operation",
     durationMs: 100,
     toolsUsed: ["tool:a", "tool:b", "tool:c", "tool:d"],

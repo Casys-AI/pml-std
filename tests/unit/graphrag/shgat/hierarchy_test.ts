@@ -12,8 +12,8 @@ import {
   computeHierarchyLevels,
   getCapabilitiesAtLevel,
   getSortedLevels,
-  validateAcyclic,
   HierarchyCycleError,
+  validateAcyclic,
 } from "../../../../src/graphrag/algorithms/shgat/graph/hierarchy.ts";
 import type { CapabilityNode } from "../../../../src/graphrag/algorithms/shgat/types.ts";
 

@@ -10,8 +10,8 @@
 import { assertEquals, assertStringIncludes } from "jsr:@std/assert@1";
 import {
   explainPath,
-  generateRationaleHybrid,
   generatePredictionReasoning,
+  generateRationaleHybrid,
 } from "../../../../src/graphrag/suggestion/rationale.ts";
 import type { RationaleCandidate } from "../../../../src/graphrag/suggestion/rationale.ts";
 import type { DependencyPath } from "../../../../src/graphrag/types.ts";
@@ -85,7 +85,7 @@ Deno.test("explainPath - Edge Cases", async (t) => {
 
     assertEquals(
       explanation,
-      "Direct dependency: very_long_tool_name_with_many_characters → another_very_long_tool_name"
+      "Direct dependency: very_long_tool_name_with_many_characters → another_very_long_tool_name",
     );
   });
 });

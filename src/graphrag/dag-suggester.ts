@@ -38,19 +38,19 @@ import { eventBus } from "../events/mod.ts";
 import {
   calculateAverageAlpha,
   calculateConfidenceHybrid,
+  type CandidateAlpha,
   extractDependencyPaths,
   generateRationaleHybrid,
   rankCandidates,
-  type CandidateAlpha,
 } from "./suggestion/mod.ts";
 import {
   adjustConfidenceFromEpisodes,
   applyLocalAlpha,
+  type CapabilityPredictionDeps,
+  type EpisodeStatsMap,
   injectMatchingCapabilities,
   isDangerousOperation,
   predictCapabilities,
-  type CapabilityPredictionDeps,
-  type EpisodeStatsMap,
 } from "./prediction/mod.ts";
 import { suggestAlternatives } from "./prediction/alternatives.ts";
 import {
@@ -61,9 +61,9 @@ import { loadEpisodeStatistics } from "./learning/episodic-adapter.ts";
 import {
   exportLearnedPatterns,
   importLearnedPatterns,
-  registerAgentHint,
   type LearnedPatternData,
   type PatternImport,
+  registerAgentHint,
 } from "./learning/pattern-io.ts";
 import { computeClusterBoosts, getCapabilityPageranks } from "./clustering/boost-calculator.ts";
 
@@ -192,7 +192,9 @@ export class DAGSuggester {
       const avgAlpha = calculateAverageAlpha(candidateAlphas, this.scoringConfig.defaults.alpha);
 
       log.debug(
-        `[suggestDAG] Average local alpha: ${avgAlpha.toFixed(2)} across ${candidateAlphas.length} candidates`,
+        `[suggestDAG] Average local alpha: ${
+          avgAlpha.toFixed(2)
+        } across ${candidateAlphas.length} candidates`,
       );
 
       // Log traces for each candidate
@@ -230,7 +232,11 @@ export class DAGSuggester {
       );
 
       log.info(
-        `Confidence: ${confidence.toFixed(2)} (semantic: ${semanticScore.toFixed(2)}, pageRank: ${pageRankScore.toFixed(2)}, pathStrength: ${pathStrength.toFixed(2)}, avgAlpha: ${avgAlpha.toFixed(2)}) for intent: "${intent.text}"`,
+        `Confidence: ${confidence.toFixed(2)} (semantic: ${semanticScore.toFixed(2)}, pageRank: ${
+          pageRankScore.toFixed(2)
+        }, pathStrength: ${pathStrength.toFixed(2)}, avgAlpha: ${
+          avgAlpha.toFixed(2)
+        }) for intent: "${intent.text}"`,
       );
 
       // Find alternatives
@@ -239,24 +245,35 @@ export class DAGSuggester {
         .slice(0, this.scoringConfig.limits.alternatives);
 
       // Generate rationale
-      const rationale = generateRationaleHybrid(rankedCandidates, dependencyPaths, this.scoringConfig);
+      const rationale = generateRationaleHybrid(
+        rankedCandidates,
+        dependencyPaths,
+        this.scoringConfig,
+      );
 
       // Reject if confidence too low (no matching tools)
       if (confidence < this.scoringConfig.thresholds.suggestionReject) {
-        log.info(`Confidence ${confidence.toFixed(2)} below rejection threshold (${this.scoringConfig.thresholds.suggestionReject}), returning null`);
+        log.info(
+          `Confidence ${
+            confidence.toFixed(2)
+          } below rejection threshold (${this.scoringConfig.thresholds.suggestionReject}), returning null`,
+        );
         return null;
       }
 
       // Return with warning if below suggestion floor but above rejection threshold
       if (confidence < this.scoringConfig.thresholds.suggestionFloor) {
-        log.info(`Confidence below floor (${confidence.toFixed(2)}), returning suggestion with warning`);
+        log.info(
+          `Confidence below floor (${confidence.toFixed(2)}), returning suggestion with warning`,
+        );
         return {
           dagStructure,
           confidence,
           rationale,
           dependencyPaths,
           alternatives,
-          warning: "Low confidence suggestion - results may not be relevant. Confidence may improve with usage.",
+          warning:
+            "Low confidence suggestion - results may not be relevant. Confidence may improve with usage.",
         };
       }
 
@@ -302,7 +319,9 @@ export class DAGSuggester {
 
       const existingTaskIds = currentDAG.tasks.map((t) => t.id);
       const newTasks = rankedCandidates.map((candidate, idx) => {
-        const lastSuccessfulTask = context.completedTasks.filter((t) => t.status === "success").slice(-1)[0];
+        const lastSuccessfulTask = context.completedTasks.filter((t) =>
+          t.status === "success"
+        ).slice(-1)[0];
         return {
           id: `replan_task_${existingTaskIds.length + idx}`,
           tool: candidate.toolId,
@@ -320,7 +339,11 @@ export class DAGSuggester {
         return currentDAG;
       }
 
-      log.info(`✓ DAG replanned: added ${newTasks.length} new tasks (${(performance.now() - startTime).toFixed(1)}ms)`);
+      log.info(
+        `✓ DAG replanned: added ${newTasks.length} new tasks (${
+          (performance.now() - startTime).toFixed(1)
+        }ms)`,
+      );
       return augmentedDAG;
     } catch (error) {
       log.error(`DAG replanning failed: ${error}`);
@@ -352,15 +375,33 @@ export class DAGSuggester {
 
       log.debug(`[predictNextNodes] Predicting next tools after: ${lastToolId}`);
 
-      const episodeStats = await loadEpisodeStatistics(workflowState, this.episodicMemory, this.scoringConfig);
+      const episodeStats = await loadEpisodeStatistics(
+        workflowState,
+        this.episodicMemory,
+        this.scoringConfig,
+      );
       const predictions: PredictedNode[] = [];
       const seenTools = new Set<string>();
 
       // Community predictions
-      this.addCommunityPredictions(predictions, seenTools, lastToolId, executedTools, contextToolsList, episodeStats);
+      this.addCommunityPredictions(
+        predictions,
+        seenTools,
+        lastToolId,
+        executedTools,
+        contextToolsList,
+        episodeStats,
+      );
 
       // Co-occurrence predictions
-      this.addCooccurrencePredictions(predictions, seenTools, lastToolId, executedTools, contextToolsList, episodeStats);
+      this.addCooccurrencePredictions(
+        predictions,
+        seenTools,
+        lastToolId,
+        executedTools,
+        contextToolsList,
+        episodeStats,
+      );
 
       // Capability predictions
       const clusterBoostsResult = this.computeClusterBoostsForCapabilities(contextToolsList);
@@ -372,13 +413,18 @@ export class DAGSuggester {
         episodeStats,
         clusterBoostsResult.boosts,
         this.getPredictionDeps(),
-        (cap, score, seen, stats) => suggestAlternatives(cap, score, seen, stats, this.getAlternativeDeps()),
+        (cap, score, seen, stats) =>
+          suggestAlternatives(cap, score, seen, stats, this.getAlternativeDeps()),
       );
       predictions.push(...capabilityPredictions);
 
       predictions.sort((a, b) => b.confidence - a.confidence);
 
-      log.info(`[predictNextNodes] Generated ${predictions.length} predictions for ${lastToolId} (${(performance.now() - startTime).toFixed(1)}ms)`);
+      log.info(
+        `[predictNextNodes] Generated ${predictions.length} predictions for ${lastToolId} (${
+          (performance.now() - startTime).toFixed(1)
+        }ms)`,
+      );
       return predictions;
     } catch (error) {
       log.error(`[predictNextNodes] Failed: ${error}`);
@@ -390,7 +436,11 @@ export class DAGSuggester {
   // Pattern Management (Story 3.5-1)
   // ===========================================================================
 
-  async registerAgentHint(toToolId: string, fromToolId: string, confidence?: number): Promise<void> {
+  async registerAgentHint(
+    toToolId: string,
+    fromToolId: string,
+    confidence?: number,
+  ): Promise<void> {
     await registerAgentHint(toToolId, fromToolId, this.graphEngine, this.scoringConfig, confidence);
   }
 
@@ -398,7 +448,10 @@ export class DAGSuggester {
     return exportLearnedPatterns(this.graphEngine);
   }
 
-  async importLearnedPatterns(patterns: PatternImport[], mergeStrategy: "replace" | "merge" = "merge"): Promise<number> {
+  async importLearnedPatterns(
+    patterns: PatternImport[],
+    mergeStrategy: "replace" | "merge" = "merge",
+  ): Promise<number> {
     return importLearnedPatterns(patterns, this.graphEngine, mergeStrategy);
   }
 
@@ -431,15 +484,39 @@ export class DAGSuggester {
   ): CandidateAlpha[] {
     return candidates.map((candidate) => {
       if (this.localAlphaCalculator) {
-        const result = this.localAlphaCalculator.getLocalAlphaWithBreakdown("active", candidate.toolId, "tool", contextTools);
-        return { toolId: candidate.toolId, alpha: result.alpha, algorithm: result.algorithm, coldStart: result.coldStart };
+        const result = this.localAlphaCalculator.getLocalAlphaWithBreakdown(
+          "active",
+          candidate.toolId,
+          "tool",
+          contextTools,
+        );
+        return {
+          toolId: candidate.toolId,
+          alpha: result.alpha,
+          algorithm: result.algorithm,
+          coldStart: result.coldStart,
+        };
       }
-      return { toolId: candidate.toolId, alpha: this.scoringConfig.defaults.alpha, algorithm: "none", coldStart: false };
+      return {
+        toolId: candidate.toolId,
+        alpha: this.scoringConfig.defaults.alpha,
+        algorithm: "none",
+        coldStart: false,
+      };
     });
   }
 
   private logCandidateTraces(
-    candidates: Array<{ toolId: string; semanticScore: number; graphScore: number; pageRank: number; adamicAdar: number; combinedScore: number }>,
+    candidates: Array<
+      {
+        toolId: string;
+        semanticScore: number;
+        graphScore: number;
+        pageRank: number;
+        adamicAdar: number;
+        combinedScore: number;
+      }
+    >,
     alphas: CandidateAlpha[],
     intentText: string,
   ): void {
@@ -451,8 +528,25 @@ export class DAGSuggester {
         algorithmMode: "active_search",
         targetType: "tool",
         intent: intentText.substring(0, 200),
-        signals: { semanticScore: c.semanticScore, pagerank: c.pageRank, graphDensity, spectralClusterMatch: false, localAlpha: a.alpha, alphaAlgorithm: a.algorithm as "embeddings_hybrides" | "heat_diffusion" | "heat_hierarchical" | "bayesian" | "none", coldStart: a.coldStart },
-        params: { alpha: a.alpha, reliabilityFactor: 1.0, structuralBoost: this.scoringConfig.weights.candidateRanking.pagerank },
+        signals: {
+          semanticScore: c.semanticScore,
+          pagerank: c.pageRank,
+          graphDensity,
+          spectralClusterMatch: false,
+          localAlpha: a.alpha,
+          alphaAlgorithm: a.algorithm as
+            | "embeddings_hybrides"
+            | "heat_diffusion"
+            | "heat_hierarchical"
+            | "bayesian"
+            | "none",
+          coldStart: a.coldStart,
+        },
+        params: {
+          alpha: a.alpha,
+          reliabilityFactor: 1.0,
+          structuralBoost: this.scoringConfig.weights.candidateRanking.pagerank,
+        },
         finalScore: c.combinedScore,
         thresholdUsed: this.scoringConfig.thresholds.dependencyThreshold,
         decision: "accepted",
@@ -462,13 +556,32 @@ export class DAGSuggester {
       eventBus.emit({
         type: "algorithm.scored",
         source: "dag-suggester",
-        payload: { itemId: c.toolId, itemName: toolName, itemType: "tool", intent: intentText.substring(0, 100), signals: { semanticScore: c.semanticScore, graphScore: c.graphScore, pagerank: c.pageRank, adamicAdar: c.adamicAdar, localAlpha: a.alpha }, finalScore: c.combinedScore, threshold: this.scoringConfig.thresholds.dependencyThreshold, decision: "accepted" },
+        payload: {
+          itemId: c.toolId,
+          itemName: toolName,
+          itemType: "tool",
+          intent: intentText.substring(0, 100),
+          signals: {
+            semanticScore: c.semanticScore,
+            graphScore: c.graphScore,
+            pagerank: c.pageRank,
+            adamicAdar: c.adamicAdar,
+            localAlpha: a.alpha,
+          },
+          finalScore: c.combinedScore,
+          threshold: this.scoringConfig.thresholds.dependencyThreshold,
+          decision: "accepted",
+        },
       });
     }
   }
 
-  private computeClusterBoostsForCapabilities(contextTools: string[]): { boosts: Map<string, number>; spectralClustering: SpectralClusteringManager | null } {
-    if (!this.capabilityStore) return { boosts: new Map(), spectralClustering: this.spectralClustering };
+  private computeClusterBoostsForCapabilities(
+    contextTools: string[],
+  ): { boosts: Map<string, number>; spectralClustering: SpectralClusteringManager | null } {
+    if (!this.capabilityStore) {
+      return { boosts: new Map(), spectralClustering: this.spectralClustering };
+    }
 
     // This is a simplified version - in practice, you'd fetch capabilities first
     return computeClusterBoosts([], contextTools, {
@@ -488,21 +601,42 @@ export class DAGSuggester {
   ): void {
     const communityMembers = this.graphEngine.findCommunityMembers(lastToolId);
     for (const memberId of communityMembers.slice(0, this.scoringConfig.limits.communityMembers)) {
-      if (seenTools.has(memberId) || executedTools.has(memberId) || isDangerousOperation(memberId)) continue;
+      if (
+        seenTools.has(memberId) || executedTools.has(memberId) || isDangerousOperation(memberId)
+      ) continue;
 
       const pageRank = this.graphEngine.getPageRank(memberId);
       const edgeData = this.graphEngine.getEdgeData(lastToolId, memberId);
       const aaScore = this.graphEngine.adamicAdarBetween(lastToolId, memberId);
-      const baseConfidence = calculateCommunityConfidence(pageRank, edgeData?.weight ?? null, aaScore, this.scoringConfig);
+      const baseConfidence = calculateCommunityConfidence(
+        pageRank,
+        edgeData?.weight ?? null,
+        aaScore,
+        this.scoringConfig,
+      );
 
-      const alphaResult = applyLocalAlpha(baseConfidence, memberId, "tool", contextTools, this.localAlphaCalculator, this.scoringConfig);
-      const adjusted = adjustConfidenceFromEpisodes(alphaResult.confidence, memberId, episodeStats, this.scoringConfig);
+      const alphaResult = applyLocalAlpha(
+        baseConfidence,
+        memberId,
+        "tool",
+        contextTools,
+        this.localAlphaCalculator,
+        this.scoringConfig,
+      );
+      const adjusted = adjustConfidenceFromEpisodes(
+        alphaResult.confidence,
+        memberId,
+        episodeStats,
+        this.scoringConfig,
+      );
       if (!adjusted) continue;
 
       predictions.push({
         toolId: memberId,
         confidence: adjusted.confidence,
-        reasoning: `Same community as ${lastToolId} (PageRank: ${(pageRank * 100).toFixed(1)}%, α=${alphaResult.alpha.toFixed(2)})`,
+        reasoning: `Same community as ${lastToolId} (PageRank: ${(pageRank * 100).toFixed(1)}%, α=${
+          alphaResult.alpha.toFixed(2)
+        })`,
         source: "community",
       });
       seenTools.add(memberId);
@@ -519,20 +653,44 @@ export class DAGSuggester {
   ): void {
     const neighbors = this.graphEngine.getNeighbors(lastToolId, "out");
     for (const neighborId of neighbors) {
-      if (seenTools.has(neighborId) || executedTools.has(neighborId) || isDangerousOperation(neighborId)) continue;
+      if (
+        seenTools.has(neighborId) || executedTools.has(neighborId) ||
+        isDangerousOperation(neighborId)
+      ) continue;
 
       const edgeData = this.graphEngine.getEdgeData(lastToolId, neighborId);
-      const recencyBoost = executedTools.has(neighborId) ? this.scoringConfig.cooccurrence.recencyBoost : 0.0;
-      const baseConfidence = calculateCooccurrenceConfidence(edgeData?.weight ?? null, edgeData?.count ?? 0, recencyBoost, this.scoringConfig);
+      const recencyBoost = executedTools.has(neighborId)
+        ? this.scoringConfig.cooccurrence.recencyBoost
+        : 0.0;
+      const baseConfidence = calculateCooccurrenceConfidence(
+        edgeData?.weight ?? null,
+        edgeData?.count ?? 0,
+        recencyBoost,
+        this.scoringConfig,
+      );
 
-      const alphaResult = applyLocalAlpha(baseConfidence, neighborId, "tool", contextTools, this.localAlphaCalculator, this.scoringConfig);
-      const adjusted = adjustConfidenceFromEpisodes(alphaResult.confidence, neighborId, episodeStats, this.scoringConfig);
+      const alphaResult = applyLocalAlpha(
+        baseConfidence,
+        neighborId,
+        "tool",
+        contextTools,
+        this.localAlphaCalculator,
+        this.scoringConfig,
+      );
+      const adjusted = adjustConfidenceFromEpisodes(
+        alphaResult.confidence,
+        neighborId,
+        episodeStats,
+        this.scoringConfig,
+      );
       if (!adjusted) continue;
 
       predictions.push({
         toolId: neighborId,
         confidence: adjusted.confidence,
-        reasoning: `Historical co-occurrence (60%) + Community (30%) + Recency (${(recencyBoost * 100).toFixed(0)}%) + α=${alphaResult.alpha.toFixed(2)}`,
+        reasoning: `Historical co-occurrence (60%) + Community (30%) + Recency (${
+          (recencyBoost * 100).toFixed(0)
+        }%) + α=${alphaResult.alpha.toFixed(2)}`,
         source: "co-occurrence",
       });
       seenTools.add(neighborId);
@@ -568,7 +726,9 @@ export class DAGSuggester {
     }
 
     if (sorted.length !== dag.tasks.length) {
-      throw new Error(`Cycle detected: topological sort produced ${sorted.length} tasks, expected ${dag.tasks.length}`);
+      throw new Error(
+        `Cycle detected: topological sort produced ${sorted.length} tasks, expected ${dag.tasks.length}`,
+      );
     }
   }
 }

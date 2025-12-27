@@ -7,21 +7,15 @@
  * @module tests/unit/graphrag/suggestion/confidence.test
  */
 
+import { assertAlmostEquals, assertEquals, assertExists } from "jsr:@std/assert@1";
 import {
-  assertEquals,
-  assertAlmostEquals,
-  assertExists,
-} from "jsr:@std/assert@1";
-import {
+  calculateCommunityConfidence,
+  calculateConfidenceHybrid,
+  calculateCooccurrenceConfidence,
   calculatePathConfidence,
   getAdaptiveWeightsFromAlpha,
-  calculateConfidenceHybrid,
-  calculateCommunityConfidence,
-  calculateCooccurrenceConfidence,
 } from "../../../../src/graphrag/suggestion/confidence.ts";
-import type {
-  ScoredCandidate,
-} from "../../../../src/graphrag/suggestion/confidence.ts";
+import type { ScoredCandidate } from "../../../../src/graphrag/suggestion/confidence.ts";
 import type { DependencyPath } from "../../../../src/graphrag/types.ts";
 import { DEFAULT_DAG_SCORING_CONFIG } from "../../../../src/graphrag/dag-scoring-config.ts";
 
@@ -89,11 +83,11 @@ Deno.test("getAdaptiveWeightsFromAlpha - Happy Path", async (t) => {
     const weights = getAdaptiveWeightsFromAlpha(1.0, config);
 
     const expectedHybrid = config.weights.confidenceBase.hybrid +
-                          config.weights.confidenceScaling.hybridDelta;
+      config.weights.confidenceScaling.hybridDelta;
     const expectedPageRank = config.weights.confidenceBase.pagerank -
-                            config.weights.confidenceScaling.pagerankDelta;
+      config.weights.confidenceScaling.pagerankDelta;
     const expectedPath = config.weights.confidenceBase.path -
-                        config.weights.confidenceScaling.pathDelta;
+      config.weights.confidenceScaling.pathDelta;
 
     assertAlmostEquals(weights.hybrid, expectedHybrid, 0.01);
     assertAlmostEquals(weights.pageRank, expectedPageRank, 0.01);
@@ -110,11 +104,11 @@ Deno.test("getAdaptiveWeightsFromAlpha - Happy Path", async (t) => {
 
     // alpha=0.75 → factor=0.5 → midpoint between base and base+delta
     const expectedHybrid = config.weights.confidenceBase.hybrid +
-                          0.5 * config.weights.confidenceScaling.hybridDelta;
+      0.5 * config.weights.confidenceScaling.hybridDelta;
     const expectedPageRank = config.weights.confidenceBase.pagerank -
-                            0.5 * config.weights.confidenceScaling.pagerankDelta;
+      0.5 * config.weights.confidenceScaling.pagerankDelta;
     const expectedPath = config.weights.confidenceBase.path -
-                        0.5 * config.weights.confidenceScaling.pathDelta;
+      0.5 * config.weights.confidenceScaling.pathDelta;
 
     assertAlmostEquals(weights.hybrid, expectedHybrid, 0.01);
     assertAlmostEquals(weights.pageRank, expectedPageRank, 0.01);
@@ -471,7 +465,7 @@ Deno.test("calculateCommunityConfidence - Happy Path", async (t) => {
 
     const expected = Math.min(
       config.community.baseConfidence + pagerankBoost + edgeBoost + aaBoost,
-      config.caps.maxConfidence
+      config.caps.maxConfidence,
     );
 
     assertAlmostEquals(confidence, expected, 0.001);
@@ -486,7 +480,7 @@ Deno.test("calculateCommunityConfidence - Happy Path", async (t) => {
       highPageRank,
       highEdgeWeight,
       highAdamicAdar,
-      config
+      config,
     );
 
     assertEquals(confidence, config.caps.maxConfidence);
@@ -563,7 +557,7 @@ Deno.test("calculateCooccurrenceConfidence - Happy Path", async (t) => {
 
     const countBoost = Math.min(
       Math.log2(edgeCount + 1) * config.cooccurrence.countBoostFactor,
-      config.cooccurrence.countBoostCap
+      config.cooccurrence.countBoostCap,
     );
 
     const expected = Math.min(edgeWeight + countBoost, config.caps.maxConfidence);
@@ -589,13 +583,13 @@ Deno.test("calculateCooccurrenceConfidence - Happy Path", async (t) => {
 
     const countBoost = Math.min(
       Math.log2(edgeCount + 1) * config.cooccurrence.countBoostFactor,
-      config.cooccurrence.countBoostCap
+      config.cooccurrence.countBoostCap,
     );
     const cappedRecency = Math.min(recencyBoost, config.cooccurrence.recencyBoostCap);
 
     const expected = Math.min(
       edgeWeight + countBoost + cappedRecency,
-      config.caps.maxConfidence
+      config.caps.maxConfidence,
     );
 
     assertAlmostEquals(confidence, expected, 0.001);
@@ -610,7 +604,7 @@ Deno.test("calculateCooccurrenceConfidence - Happy Path", async (t) => {
       highEdgeWeight,
       highEdgeCount,
       highRecency,
-      config
+      config,
     );
 
     // Edge weight (0.60) + count boost (0.20 cap) + recency (0.10 cap) = 0.90
@@ -664,7 +658,12 @@ Deno.test("calculateCooccurrenceConfidence - Edge Cases", async (t) => {
     const edgeCount = 5;
     const veryHighRecency = 0.50;
 
-    const confidence = calculateCooccurrenceConfidence(edgeWeight, edgeCount, veryHighRecency, config);
+    const confidence = calculateCooccurrenceConfidence(
+      edgeWeight,
+      edgeCount,
+      veryHighRecency,
+      config,
+    );
 
     // Recency boost should be capped at 0.10
     assert(confidence <= config.caps.maxConfidence);
@@ -675,7 +674,12 @@ Deno.test("calculateCooccurrenceConfidence - Edge Cases", async (t) => {
     const edgeCount = 5;
     const negativeRecency = -0.10;
 
-    const confidence = calculateCooccurrenceConfidence(edgeWeight, edgeCount, negativeRecency, config);
+    const confidence = calculateCooccurrenceConfidence(
+      edgeWeight,
+      edgeCount,
+      negativeRecency,
+      config,
+    );
 
     // Negative recency should be treated as 0 (min with cap)
     assert(confidence >= edgeWeight);

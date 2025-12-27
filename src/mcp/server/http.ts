@@ -13,16 +13,16 @@ import { logAuthMode, validateAuthConfig, validateRequest } from "../../lib/auth
 import { RateLimiter } from "../../utils/rate-limiter.ts";
 import { getRateLimitKey } from "../../lib/rate-limiter-helpers.ts";
 import {
-  routeRequest,
-  type RouteContext,
-  getAllowedOrigin,
   buildCorsHeaders,
+  getAllowedOrigin,
   isPublicRoute,
-  unauthorizedResponse,
   rateLimitResponse,
+  type RouteContext,
+  routeRequest,
+  unauthorizedResponse,
 } from "../routing/mod.ts";
 import { MCPErrorCodes, SERVER_TITLE } from "./constants.ts";
-import type { ResolvedGatewayConfig, JsonRpcRequest } from "./types.ts";
+import type { JsonRpcRequest, ResolvedGatewayConfig } from "./types.ts";
 
 /**
  * Dependencies required for HTTP server

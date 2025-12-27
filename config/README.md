@@ -19,9 +19,9 @@ config/
 
 ## MCP Permissions (`mcp-permissions.yaml`)
 
-**Important:** Ce fichier contient des **métadonnées**, pas des permissions sandbox.
-Le Worker Deno exécute toujours avec `permissions: "none"`. Les MCP servers
-tournent comme des processus séparés avec leurs propres droits.
+**Important:** Ce fichier contient des **métadonnées**, pas des permissions sandbox. Le Worker Deno
+exécute toujours avec `permissions: "none"`. Les MCP servers tournent comme des processus séparés
+avec leurs propres droits.
 
 ### Utilité
 
@@ -33,8 +33,8 @@ tournent comme des processus séparés avec leurs propres droits.
 ```yaml
 # Format simple
 github:
-  scope: network-api    # minimal|readonly|filesystem|network-api|mcp-standard
-  approvalMode: auto    # auto = fonctionne, hil = validation requise
+  scope: network-api # minimal|readonly|filesystem|network-api|mcp-standard
+  approvalMode: auto # auto = fonctionne, hil = validation requise
 
 # Format legacy (rétrocompatible)
 filesystem:
@@ -45,6 +45,7 @@ filesystem:
 ### Validation Rules
 
 La validation per-layer est déclenchée si :
+
 - **Outil inconnu** (pas dans ce fichier)
 - **`approvalMode: hil`** explicite
 - **`code_execution`** avec permissions non-minimales

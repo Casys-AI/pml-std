@@ -61,13 +61,13 @@ async function createTestCapabilities(
   });
 
   const { capability: capB } = await store.saveCapability({
-    code: 'const b = await tools.transform({data});',
+    code: "const b = await tools.transform({data});",
     intent: "Transform data",
     durationMs: 50,
   });
 
   const { capability: capC } = await store.saveCapability({
-    code: 'const c = await tools.save({data});',
+    code: "const c = await tools.save({data});",
     intent: "Save data to storage",
     durationMs: 75,
   });

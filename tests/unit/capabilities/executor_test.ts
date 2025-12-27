@@ -8,11 +8,7 @@
  * - findMatch() delegation
  */
 
-import {
-  assertEquals,
-  assertExists,
-  assertStringIncludes,
-} from "@std/assert";
+import { assertEquals, assertExists, assertStringIncludes } from "@std/assert";
 import { CapabilityExecutor } from "../../../src/capabilities/executor.ts";
 import type { CapabilityMatcher } from "../../../src/capabilities/matcher.ts";
 import type { Capability, CapabilityMatch } from "../../../src/capabilities/types.ts";

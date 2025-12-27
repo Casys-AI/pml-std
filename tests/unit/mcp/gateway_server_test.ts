@@ -124,29 +124,29 @@ Deno.test({
   name: "PMLGatewayServer - Initialization",
   sanitizeOps: false, // Async operations may overlap in parallel mode
   fn: () => {
-  const db = createMockDB();
-  const vectorSearch = createMockVectorSearch();
-  const graphEngine = createMockGraphEngine();
-  const dagSuggester = createMockDAGSuggester();
-  const executor = createMockExecutor();
-  const mcpClients = new Map<string, MCPClient>();
+    const db = createMockDB();
+    const vectorSearch = createMockVectorSearch();
+    const graphEngine = createMockGraphEngine();
+    const dagSuggester = createMockDAGSuggester();
+    const executor = createMockExecutor();
+    const mcpClients = new Map<string, MCPClient>();
 
-  const gateway = new PMLGatewayServer(
-    db,
-    vectorSearch,
-    graphEngine,
-    dagSuggester,
-    executor,
-    mcpClients,
-    undefined, // capabilityStore
-    undefined, // adaptiveThresholdManager
-    {
-      name: "pml-test",
-      version: "1.0.0-test",
-    },
-  );
+    const gateway = new PMLGatewayServer(
+      db,
+      vectorSearch,
+      graphEngine,
+      dagSuggester,
+      executor,
+      mcpClients,
+      undefined, // capabilityStore
+      undefined, // adaptiveThresholdManager
+      {
+        name: "pml-test",
+        version: "1.0.0-test",
+      },
+    );
 
-  assertExists(gateway);
+    assertExists(gateway);
   },
 });
 
@@ -173,58 +173,58 @@ Deno.test({
   name: "PMLGatewayServer - list_tools without query",
   sanitizeOps: false, // Async operations may overlap in parallel mode
   fn: async () => {
-  const db = createMockDB();
-  const vectorSearch = createMockVectorSearch();
-  const graphEngine = createMockGraphEngine();
-  const dagSuggester = createMockDAGSuggester();
-  const executor = createMockExecutor();
-  const mcpClients = new Map<string, MCPClient>();
+    const db = createMockDB();
+    const vectorSearch = createMockVectorSearch();
+    const graphEngine = createMockGraphEngine();
+    const dagSuggester = createMockDAGSuggester();
+    const executor = createMockExecutor();
+    const mcpClients = new Map<string, MCPClient>();
 
-  const gateway = new PMLGatewayServer(
-    db,
-    vectorSearch,
-    graphEngine,
-    dagSuggester,
-    executor,
-    mcpClients,
-  );
+    const gateway = new PMLGatewayServer(
+      db,
+      vectorSearch,
+      graphEngine,
+      dagSuggester,
+      executor,
+      mcpClients,
+    );
 
-  // Access private method via type assertion (see strategy comment above)
-  const handleListTools = (gateway as any).handleListTools.bind(gateway);
-  const result = await handleListTools({});
+    // Access private method via type assertion (see strategy comment above)
+    const handleListTools = (gateway as any).handleListTools.bind(gateway);
+    const result = await handleListTools({});
 
-  assertExists(result.tools);
-  assert(Array.isArray(result.tools));
+    assertExists(result.tools);
+    assert(Array.isArray(result.tools));
 
-  // ADR-013: Verify presence of critical meta-tools (more robust than exact count)
-  // This approach survives refactoring that adds/removes tools
-  // Note: pml:search_tools replaced by pml:discover (Story 10.6)
-  // Note: pml:execute is the primary API (Story 10.7)
-  const criticalTools = [
-    "pml:execute",
-    "pml:discover",
-    "pml:execute_dag",
-    "pml:execute_code",
-    "pml:continue",
-    "pml:abort",
-    "pml:replan",
-  ];
+    // ADR-013: Verify presence of critical meta-tools (more robust than exact count)
+    // This approach survives refactoring that adds/removes tools
+    // Note: pml:search_tools replaced by pml:discover (Story 10.6)
+    // Note: pml:execute is the primary API (Story 10.7)
+    const criticalTools = [
+      "pml:execute",
+      "pml:discover",
+      "pml:execute_dag",
+      "pml:execute_code",
+      "pml:continue",
+      "pml:abort",
+      "pml:replan",
+    ];
 
-  criticalTools.forEach((name) => {
-    const tool = result.tools.find((t: MCPTool) => t.name === name);
-    assertExists(tool, `Missing critical meta-tool: ${name}`);
-  });
+    criticalTools.forEach((name) => {
+      const tool = result.tools.find((t: MCPTool) => t.name === name);
+      assertExists(tool, `Missing critical meta-tool: ${name}`);
+    });
 
-  // Should have at least the core meta-tools (allows for additions)
-  assert(
-    result.tools.length >= criticalTools.length,
-    `Expected at least ${criticalTools.length} tools, got ${result.tools.length}`,
-  );
+    // Should have at least the core meta-tools (allows for additions)
+    assert(
+      result.tools.length >= criticalTools.length,
+      `Expected at least ${criticalTools.length} tools, got ${result.tools.length}`,
+    );
 
-  // Verify DAG execution tool is included (renamed from execute_workflow)
-  const dagTool = result.tools.find((t: MCPTool) => t.name === "pml:execute_dag");
-  assertExists(dagTool);
-  assertEquals(dagTool.name, "pml:execute_dag");
+    // Verify DAG execution tool is included (renamed from execute_workflow)
+    const dagTool = result.tools.find((t: MCPTool) => t.name === "pml:execute_dag");
+    assertExists(dagTool);
+    assertEquals(dagTool.name, "pml:execute_dag");
   },
 });
 
@@ -232,31 +232,31 @@ Deno.test({
   name: "PMLGatewayServer - list_tools with query",
   sanitizeOps: false, // Async operations may overlap in parallel mode
   fn: async () => {
-  const db = createMockDB();
-  const vectorSearch = createMockVectorSearch();
-  const graphEngine = createMockGraphEngine();
-  const dagSuggester = createMockDAGSuggester();
-  const executor = createMockExecutor();
-  const mcpClients = new Map<string, MCPClient>();
+    const db = createMockDB();
+    const vectorSearch = createMockVectorSearch();
+    const graphEngine = createMockGraphEngine();
+    const dagSuggester = createMockDAGSuggester();
+    const executor = createMockExecutor();
+    const mcpClients = new Map<string, MCPClient>();
 
-  const gateway = new PMLGatewayServer(
-    db,
-    vectorSearch,
-    graphEngine,
-    dagSuggester,
-    executor,
-    mcpClients,
-  );
+    const gateway = new PMLGatewayServer(
+      db,
+      vectorSearch,
+      graphEngine,
+      dagSuggester,
+      executor,
+      mcpClients,
+    );
 
-  const handleListTools = (gateway as any).handleListTools.bind(gateway);
-  const result = await handleListTools({ params: { query: "read files" } });
+    const handleListTools = (gateway as any).handleListTools.bind(gateway);
+    const result = await handleListTools({ params: { query: "read files" } });
 
-  assertExists(result.tools);
-  assert(Array.isArray(result.tools));
+    assertExists(result.tools);
+    assert(Array.isArray(result.tools));
 
-  // Should include DAG execution tool + semantic search results (renamed from execute_workflow)
-  const dagTool = result.tools.find((t: MCPTool) => t.name === "pml:execute_dag");
-  assertExists(dagTool);
+    // Should include DAG execution tool + semantic search results (renamed from execute_workflow)
+    const dagTool = result.tools.find((t: MCPTool) => t.name === "pml:execute_dag");
+    assertExists(dagTool);
   },
 });
 
@@ -319,7 +319,12 @@ Deno.test("PMLGatewayServer - call_tool workflow execution", async () => {
         workflow: {
           tasks: [
             // Use known tool (filesystem:read) to avoid validation requirement
-            { id: "t1", tool: "filesystem:read", arguments: { path: "/tmp/test.txt" }, dependsOn: [] },
+            {
+              id: "t1",
+              tool: "filesystem:read",
+              arguments: { path: "/tmp/test.txt" },
+              dependsOn: [],
+            },
           ],
         },
       },
@@ -338,33 +343,33 @@ Deno.test({
   name: "PMLGatewayServer - MCP error responses",
   sanitizeOps: false, // Async operations may overlap in parallel mode
   fn: async () => {
-  const db = createMockDB();
-  const vectorSearch = createMockVectorSearch();
-  const graphEngine = createMockGraphEngine();
-  const dagSuggester = createMockDAGSuggester();
-  const executor = createMockExecutor();
-  const mcpClients = new Map<string, MCPClient>();
+    const db = createMockDB();
+    const vectorSearch = createMockVectorSearch();
+    const graphEngine = createMockGraphEngine();
+    const dagSuggester = createMockDAGSuggester();
+    const executor = createMockExecutor();
+    const mcpClients = new Map<string, MCPClient>();
 
-  const gateway = new PMLGatewayServer(
-    db,
-    vectorSearch,
-    graphEngine,
-    dagSuggester,
-    executor,
-    mcpClients,
-  );
+    const gateway = new PMLGatewayServer(
+      db,
+      vectorSearch,
+      graphEngine,
+      dagSuggester,
+      executor,
+      mcpClients,
+    );
 
-  // Test missing tool name
-  const handleCallTool = (gateway as any).handleCallTool.bind(gateway);
-  const result = await handleCallTool({
-    params: {
-      arguments: {},
-    },
-  });
+    // Test missing tool name
+    const handleCallTool = (gateway as any).handleCallTool.bind(gateway);
+    const result = await handleCallTool({
+      params: {
+        arguments: {},
+      },
+    });
 
-  assertExists(result.error);
-  assertEquals(result.error.code, -32602); // INVALID_PARAMS
-  assert(result.error.message.includes("Missing required parameter"));
+    assertExists(result.error);
+    assertEquals(result.error.code, -32602); // INVALID_PARAMS
+    assert(result.error.message.includes("Missing required parameter"));
   },
 });
 
@@ -372,34 +377,34 @@ Deno.test({
   name: "PMLGatewayServer - Unknown MCP server error",
   sanitizeOps: false, // Async operations may overlap in parallel mode
   fn: async () => {
-  const db = createMockDB();
-  const vectorSearch = createMockVectorSearch();
-  const graphEngine = createMockGraphEngine();
-  const dagSuggester = createMockDAGSuggester();
-  const executor = createMockExecutor();
-  const mcpClients = new Map<string, MCPClient>(); // Empty - no servers
+    const db = createMockDB();
+    const vectorSearch = createMockVectorSearch();
+    const graphEngine = createMockGraphEngine();
+    const dagSuggester = createMockDAGSuggester();
+    const executor = createMockExecutor();
+    const mcpClients = new Map<string, MCPClient>(); // Empty - no servers
 
-  const gateway = new PMLGatewayServer(
-    db,
-    vectorSearch,
-    graphEngine,
-    dagSuggester,
-    executor,
-    mcpClients,
-  );
+    const gateway = new PMLGatewayServer(
+      db,
+      vectorSearch,
+      graphEngine,
+      dagSuggester,
+      executor,
+      mcpClients,
+    );
 
-  const handleCallTool = (gateway as any).handleCallTool.bind(gateway);
-  const result = await handleCallTool({
-    params: {
-      name: "unknown:tool",
-      arguments: {},
-    },
-  });
+    const handleCallTool = (gateway as any).handleCallTool.bind(gateway);
+    const result = await handleCallTool({
+      params: {
+        name: "unknown:tool",
+        arguments: {},
+      },
+    });
 
-  // Gateway returns MCP tool error format (visible to LLM)
-  assertEquals(result.isError, true);
-  assertExists(result.content);
-  const errorContent = JSON.parse(result.content[0].text);
-  assert(errorContent.error.includes("Unknown MCP server"));
+    // Gateway returns MCP tool error format (visible to LLM)
+    assertEquals(result.isError, true);
+    assertExists(result.content);
+    const errorContent = JSON.parse(result.content[0].text);
+    assert(errorContent.error.includes("Unknown MCP server"));
   },
 });

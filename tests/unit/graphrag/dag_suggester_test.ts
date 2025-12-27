@@ -39,7 +39,12 @@ async function insertTestData(db: PGliteClient, model: MockEmbeddingModel): Prom
       desc: "Write content to file",
     },
     { id: "http:get", server: "http", name: "get", desc: "Fetch HTTP resource from URL" },
-    { id: "json:stringify", server: "json", name: "stringify", desc: "Convert data to JSON string" },
+    {
+      id: "json:stringify",
+      server: "json",
+      name: "stringify",
+      desc: "Convert data to JSON string",
+    },
     { id: "filesystem:list", server: "filesystem", name: "list", desc: "List files in directory" },
     { id: "http:post", server: "http", name: "post", desc: "Send HTTP POST request" },
     { id: "json:validate", server: "json", name: "validate", desc: "Validate JSON schema" },
@@ -172,8 +177,6 @@ Deno.test({
       );
       assert(suggestion.confidence < 0.50, "Confidence should be below threshold");
     }
-
-
   },
 });
 
@@ -184,9 +187,6 @@ Deno.test({
   fn: async () => {
     // Using shared DB
     // Using shared model
-    
-
-    
 
     const graphEngine = new GraphRAGEngine(sharedDb);
     await graphEngine.syncFromDatabase();
@@ -202,8 +202,6 @@ Deno.test({
       assertExists(suggestion.dependencyPaths, "Should include dependency paths");
       assert(Array.isArray(suggestion.dependencyPaths), "Dependency paths should be an array");
     }
-
-
   },
 });
 
@@ -214,9 +212,6 @@ Deno.test({
   fn: async () => {
     // Using shared DB
     // Using shared model
-    
-
-    
 
     const graphEngine = new GraphRAGEngine(sharedDb);
     await graphEngine.syncFromDatabase();
@@ -239,8 +234,6 @@ Deno.test({
         "Rationale should mention hybrid, semantic, or PageRank",
       );
     }
-
-
   },
 });
 
@@ -251,9 +244,6 @@ Deno.test({
   fn: async () => {
     // Using shared DB
     // Using shared model
-    
-
-    
 
     const graphEngine = new GraphRAGEngine(sharedDb);
     await graphEngine.syncFromDatabase();
@@ -269,8 +259,6 @@ Deno.test({
       assertExists(suggestion.alternatives);
       assert(Array.isArray(suggestion.alternatives), "Alternatives should be an array");
     }
-
-
   },
 });
 

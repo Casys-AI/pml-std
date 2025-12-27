@@ -13,8 +13,8 @@
 
 import {
   createSHGATFromCapabilities,
-  trainSHGATOnEpisodes,
   type TrainingExample,
+  trainSHGATOnEpisodes,
 } from "../../../src/graphrag/algorithms/shgat.ts";
 import {
   DEFAULT_TRACE_STATS,
@@ -22,9 +22,7 @@ import {
   type TraceFeatures,
 } from "../../../src/graphrag/algorithms/shgat/types.ts";
 import { SpectralClusteringManager } from "../../../src/graphrag/spectral-clustering.ts";
-import {
-  loadScenario,
-} from "../fixtures/scenario-loader.ts";
+import { loadScenario } from "../fixtures/scenario-loader.ts";
 
 // ============================================================================
 // Setup
@@ -353,8 +351,8 @@ function buildMockTraceFeatures(embedding: number[]): TraceFeatures {
     contextEmbeddings: testContext,
     contextAggregated: testContext.length > 0
       ? testContext[0].map((_, i) =>
-          testContext.reduce((sum, ctx) => sum + ctx[i], 0) / testContext.length
-        )
+        testContext.reduce((sum, ctx) => sum + ctx[i], 0) / testContext.length
+      )
       : new Array(1024).fill(0),
     traceStats: {
       ...DEFAULT_TRACE_STATS,

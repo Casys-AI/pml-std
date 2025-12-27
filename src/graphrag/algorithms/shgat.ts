@@ -21,99 +21,99 @@ import { getLogger } from "../../telemetry/logger.ts";
 
 // Module imports
 import {
-  GraphBuilder,
-  generateDefaultToolEmbedding,
-  computeHierarchyLevels,
   buildMultiLevelIncidence,
+  computeHierarchyLevels,
+  generateDefaultToolEmbedding,
+  GraphBuilder,
   type HierarchyResult,
   type MultiLevelIncidence,
 } from "./shgat/graph/index.ts";
 import {
-  initializeParameters,
-  initializeLevelParameters,
-  initializeV2GradientAccumulators,
-  resetV2GradientAccumulators,
+  countParameters,
   exportParams as exportParamsHelper,
   importParams as importParamsHelper,
-  countParameters,
+  initializeLevelParameters,
+  initializeParameters,
+  initializeV2GradientAccumulators,
+  resetV2GradientAccumulators,
   type SHGATParams,
   type V2GradientAccumulators,
 } from "./shgat/initialization/index.ts";
 import { MultiLevelOrchestrator } from "./shgat/message-passing/index.ts";
 import * as math from "./shgat/utils/math.ts";
 import {
-  initV1Gradients,
-  computeFusionWeights,
-  backward as backwardV1,
   accumulateW_intentGradients,
-  applyLayerGradients,
-  applyFusionGradients,
   applyFeatureGradients,
+  applyFusionGradients,
+  applyLayerGradients,
   applyW_intentGradients,
+  backward as backwardV1,
+  computeFusionWeights,
+  initV1Gradients,
   trainOnEpisodes,
 } from "./shgat/training/v1-trainer.ts";
 import {
-  traceStatsToVector,
-  forwardV2WithCache,
-  backwardV2,
   applyV2Gradients,
+  backwardV2,
   buildTraceFeatures,
   createDefaultTraceStatsFromFeatures,
+  forwardV2WithCache,
+  traceStatsToVector,
 } from "./shgat/training/v2-trainer.ts";
 import {
-  initMultiLevelKHeadGradients,
-  computeMultiHeadKHeadScoresWithCache,
-  backpropMultiHeadKHead,
-  backpropWIntent,
   applyKHeadGradients,
   applyWIntentGradients,
+  backpropMultiHeadKHead,
+  backpropWIntent,
   computeKHeadGradientNorm,
+  computeMultiHeadKHeadScoresWithCache,
+  initMultiLevelKHeadGradients,
 } from "./shgat/training/multi-level-trainer-khead.ts";
 import { applyLevelGradients, computeGradientNorm } from "./shgat/training/multi-level-trainer.ts";
 
 // Re-export all types from ./shgat/types.ts for backward compatibility
 export {
-  type TraceStats,
-  DEFAULT_TRACE_STATS,
-  NUM_TRACE_STATS,
-  type TraceFeatures,
-  createDefaultTraceFeatures,
-  type FusionWeights,
-  DEFAULT_FUSION_WEIGHTS,
-  type FeatureWeights,
-  DEFAULT_FEATURE_WEIGHTS,
-  type SHGATConfig,
-  DEFAULT_SHGAT_CONFIG,
-  getAdaptiveConfig,
-  type TrainingExample,
-  type HypergraphFeatures,
-  DEFAULT_HYPERGRAPH_FEATURES,
-  type ToolGraphFeatures,
-  DEFAULT_TOOL_GRAPH_FEATURES,
-  type ToolNode,
-  type CapabilityNode,
   type AttentionResult,
+  type CapabilityNode,
+  createDefaultTraceFeatures,
+  DEFAULT_FEATURE_WEIGHTS,
+  DEFAULT_FUSION_WEIGHTS,
+  DEFAULT_HYPERGRAPH_FEATURES,
+  DEFAULT_SHGAT_CONFIG,
+  DEFAULT_TOOL_GRAPH_FEATURES,
+  DEFAULT_TRACE_STATS,
+  type FeatureWeights,
   type ForwardCache,
+  type FusionWeights,
+  getAdaptiveConfig,
+  type HypergraphFeatures,
+  NUM_TRACE_STATS,
+  type SHGATConfig,
+  type ToolGraphFeatures,
+  type ToolNode,
+  type TraceFeatures,
+  type TraceStats,
+  type TrainingExample,
 } from "./shgat/types.ts";
 
 import {
-  type TraceStats,
-  DEFAULT_TRACE_STATS,
-  type TraceFeatures,
-  type SHGATConfig,
-  DEFAULT_SHGAT_CONFIG,
-  type TrainingExample,
-  type HypergraphFeatures,
-  DEFAULT_HYPERGRAPH_FEATURES,
-  type ToolGraphFeatures,
-  DEFAULT_TOOL_GRAPH_FEATURES,
-  type ToolNode,
-  type CapabilityNode,
   type AttentionResult,
+  type CapabilityNode,
+  createMembersFromLegacy,
+  DEFAULT_HYPERGRAPH_FEATURES,
+  DEFAULT_SHGAT_CONFIG,
+  DEFAULT_TOOL_GRAPH_FEATURES,
+  DEFAULT_TRACE_STATS,
   type ForwardCache,
   type FusionWeights,
+  type HypergraphFeatures,
   type LevelParams,
-  createMembersFromLegacy,
+  type SHGATConfig,
+  type ToolGraphFeatures,
+  type ToolNode,
+  type TraceFeatures,
+  type TraceStats,
+  type TrainingExample,
 } from "./shgat/types.ts";
 
 const log = getLogger("default");
@@ -385,12 +385,14 @@ export class SHGAT {
     for (let l = 1; l < numLayers; l++) {
       // Interpolate: lerp between init and final
       const alpha = l / numLayers;
-      H_layers.push(H_init.map((row, i) =>
-        row.map((v, j) => v * (1 - alpha) + (result.H[i]?.[j] ?? v) * alpha)
-      ));
-      E_layers.push(E_init.map((row, i) =>
-        row.map((v, j) => v * (1 - alpha) + (E_flat[i]?.[j] ?? v) * alpha)
-      ));
+      H_layers.push(
+        H_init.map((row, i) =>
+          row.map((v, j) => v * (1 - alpha) + (result.H[i]?.[j] ?? v) * alpha)
+        ),
+      );
+      E_layers.push(
+        E_init.map((row, i) => row.map((v, j) => v * (1 - alpha) + (E_flat[i]?.[j] ?? v) * alpha)),
+      );
     }
     H_layers.push(result.H);
     E_layers.push(E_flat);
@@ -439,9 +441,7 @@ export class SHGAT {
       capIndex.set(capId, idx++);
     }
 
-    const matrix: number[][] = Array.from({ length: numTools }, () =>
-      Array(numCapsLevel0).fill(0)
-    );
+    const matrix: number[][] = Array.from({ length: numTools }, () => Array(numCapsLevel0).fill(0));
 
     for (const [toolId, caps] of this.multiLevelIncidence!.toolToCapIncidence) {
       const tIdx = this.graphBuilder.getToolIndex(toolId);
@@ -484,8 +484,9 @@ export class SHGAT {
       for (const capId of capsAtParentLevel) parentIndex.set(capId, idx++);
 
       // Build matrix [numChildren][numParents]
-      const matrix: number[][] = Array.from({ length: capsAtChildLevel.size }, () =>
-        Array(capsAtParentLevel.size).fill(0)
+      const matrix: number[][] = Array.from(
+        { length: capsAtChildLevel.size },
+        () => Array(capsAtParentLevel.size).fill(0),
       );
 
       const levelMap = this.multiLevelIncidence.capToCapIncidence.get(level);
@@ -569,8 +570,9 @@ export class SHGAT {
     for (let l = 0; l < numLayers; l++) {
       const layerAttention: number[][][] = [];
       for (let h = 0; h < numHeads; h++) {
-        const headMatrix: number[][] = Array.from({ length: numSources }, () =>
-          Array(numTargets).fill(0)
+        const headMatrix: number[][] = Array.from(
+          { length: numSources },
+          () => Array(numTargets).fill(0),
         );
         layerAttention.push(headMatrix);
       }
@@ -633,7 +635,12 @@ export class SHGAT {
   private projectFeaturesV2(features: TraceFeatures): number[] {
     const { hiddenDim } = this.config;
     const statsVec = traceStatsToVector(features.traceStats);
-    const combined = [...features.intentEmbedding, ...features.candidateEmbedding, ...features.contextAggregated, ...statsVec];
+    const combined = [
+      ...features.intentEmbedding,
+      ...features.candidateEmbedding,
+      ...features.contextAggregated,
+      ...statsVec,
+    ];
 
     const result = new Array(hiddenDim).fill(0);
     for (let i = 0; i < hiddenDim; i++) {
@@ -670,7 +677,10 @@ export class SHGAT {
 
   private computeMultiHeadScoresV2(features: TraceFeatures): number[] {
     const projected = this.projectFeaturesV2(features);
-    return Array.from({ length: this.config.numHeads }, (_, h) => this.computeHeadScoreV2(projected, h));
+    return Array.from(
+      { length: this.config.numHeads },
+      (_, h) => this.computeHeadScoreV2(projected, h),
+    );
   }
 
   private fusionMLPForward(headScores: number[]): number {
@@ -720,9 +730,15 @@ export class SHGAT {
       const hgFeatures = cap.hypergraphFeatures || DEFAULT_HYPERGRAPH_FEATURES;
 
       const features: TraceFeatures = {
-        intentEmbedding, candidateEmbedding: cap.embedding, contextEmbeddings, contextAggregated,
+        intentEmbedding,
+        candidateEmbedding: cap.embedding,
+        contextEmbeddings,
+        contextAggregated,
         traceStats: providedFeatures?.traceStats ?? createDefaultTraceStatsFromFeatures(
-          cap.successRate, hgFeatures.cooccurrence, hgFeatures.recency, hgFeatures.hypergraphPageRank
+          cap.successRate,
+          hgFeatures.cooccurrence,
+          hgFeatures.recency,
+          hgFeatures.hypergraphPageRank,
         ),
       };
 
@@ -735,8 +751,15 @@ export class SHGAT {
         headWeights: new Array(numHeads).fill(1 / numHeads),
         headScores,
         recursiveContribution: 0,
-        featureContributions: { semantic: headScores[0] ?? 0, structure: headScores[1] ?? 0, temporal: headScores[2] ?? 0, reliability: reliabilityMult },
-        toolAttention: this.getCapabilityToolAttention(this.graphBuilder.getCapabilityIndex(capId)!),
+        featureContributions: {
+          semantic: headScores[0] ?? 0,
+          structure: headScores[1] ?? 0,
+          temporal: headScores[2] ?? 0,
+          reliability: reliabilityMult,
+        },
+        toolAttention: this.getCapabilityToolAttention(
+          this.graphBuilder.getCapabilityIndex(capId)!,
+        ),
       });
     }
 
@@ -763,8 +786,17 @@ export class SHGAT {
       const toolFeatures = tool.toolFeatures || DEFAULT_TOOL_GRAPH_FEATURES;
 
       const features: TraceFeatures = {
-        intentEmbedding, candidateEmbedding: tool.embedding, contextEmbeddings, contextAggregated,
-        traceStats: providedFeatures?.traceStats ?? createDefaultTraceStatsFromFeatures(0.5, toolFeatures.cooccurrence, toolFeatures.recency, toolFeatures.pageRank),
+        intentEmbedding,
+        candidateEmbedding: tool.embedding,
+        contextEmbeddings,
+        contextAggregated,
+        traceStats: providedFeatures?.traceStats ??
+          createDefaultTraceStatsFromFeatures(
+            0.5,
+            toolFeatures.cooccurrence,
+            toolFeatures.recency,
+            toolFeatures.pageRank,
+          ),
       };
 
       const { score, headScores } = this.scoreWithTraceFeaturesV2(features);
@@ -799,9 +831,15 @@ export class SHGAT {
       const hgFeatures = cap.hypergraphFeatures || DEFAULT_HYPERGRAPH_FEATURES;
 
       const features: TraceFeatures = {
-        intentEmbedding, candidateEmbedding: E[cIdx], contextEmbeddings, contextAggregated,
+        intentEmbedding,
+        candidateEmbedding: E[cIdx],
+        contextEmbeddings,
+        contextAggregated,
         traceStats: providedFeatures?.traceStats ?? createDefaultTraceStatsFromFeatures(
-          cap.successRate, hgFeatures.cooccurrence, hgFeatures.recency, hgFeatures.hypergraphPageRank
+          cap.successRate,
+          hgFeatures.cooccurrence,
+          hgFeatures.recency,
+          hgFeatures.hypergraphPageRank,
         ),
       };
 
@@ -814,7 +852,12 @@ export class SHGAT {
         headWeights: new Array(numHeads).fill(1 / numHeads),
         headScores,
         recursiveContribution: 0,
-        featureContributions: { semantic: headScores[0] ?? 0, structure: headScores[1] ?? 0, temporal: headScores[2] ?? 0, reliability: reliabilityMult },
+        featureContributions: {
+          semantic: headScores[0] ?? 0,
+          structure: headScores[1] ?? 0,
+          temporal: headScores[2] ?? 0,
+          reliability: reliabilityMult,
+        },
         toolAttention: this.getCapabilityToolAttention(cIdx),
       });
     }
@@ -834,7 +877,11 @@ export class SHGAT {
    * - K = W_k @ capEmbedding
    * - score = sigmoid(Q·K / √dim)
    */
-  private computeHeadScoreV1(intentProjected: number[], capEmbedding: number[], headIdx: number): number {
+  private computeHeadScoreV1(
+    intentProjected: number[],
+    capEmbedding: number[],
+    headIdx: number,
+  ): number {
     const hp = this.params.headParams[headIdx];
     const { hiddenDim } = this.config;
 
@@ -862,8 +909,9 @@ export class SHGAT {
    * Returns K scores, one per attention head.
    */
   private computeMultiHeadScoresV1(intentProjected: number[], capEmbedding: number[]): number[] {
-    return Array.from({ length: this.config.numHeads }, (_, h) =>
-      this.computeHeadScoreV1(intentProjected, capEmbedding, h)
+    return Array.from(
+      { length: this.config.numHeads },
+      (_, h) => this.computeHeadScoreV1(intentProjected, capEmbedding, h),
     );
   }
 
@@ -924,7 +972,10 @@ export class SHGAT {
    * @param intentEmbedding - User intent embedding (1024 dim)
    * @param _contextToolIds - Unused in v1 (kept for API compatibility)
    */
-  scoreAllTools(intentEmbedding: number[], _contextToolIds?: string[]): Array<{ toolId: string; score: number; headScores: number[] }> {
+  scoreAllTools(
+    intentEmbedding: number[],
+    _contextToolIds?: string[],
+  ): Array<{ toolId: string; score: number; headScores: number[] }> {
     const { H } = this.forward();
     const results: Array<{ toolId: string; score: number; headScores: number[] }> = [];
     const toolNodes = this.graphBuilder.getToolNodes();
@@ -965,7 +1016,9 @@ export class SHGAT {
       for (const r of this.scoreAllTools(intentEmbedding)) toolScoresMap.set(r.toolId, r.score);
     }
     if (path.some((id) => capabilityNodes.has(id))) {
-      for (const r of this.scoreAllCapabilities(intentEmbedding)) capScoresMap.set(r.capabilityId, r.score);
+      for (const r of this.scoreAllCapabilities(intentEmbedding)) {
+        capScoresMap.set(r.capabilityId, r.score);
+      }
     }
 
     let weightedSum = 0, weightTotal = 0;
@@ -979,10 +1032,16 @@ export class SHGAT {
     return weightedSum / weightTotal;
   }
 
-  computeAttention(intentEmbedding: number[], _contextToolEmbeddings: number[][], capabilityId: string, _contextCapabilityIds?: string[]): AttentionResult {
+  computeAttention(
+    intentEmbedding: number[],
+    _contextToolEmbeddings: number[][],
+    capabilityId: string,
+    _contextCapabilityIds?: string[],
+  ): AttentionResult {
     const results = this.scoreAllCapabilities(intentEmbedding);
     return results.find((r) => r.capabilityId === capabilityId) || {
-      capabilityId, score: 0,
+      capabilityId,
+      score: 0,
       headWeights: new Array(this.config.numHeads).fill(0),
       headScores: new Array(this.config.numHeads).fill(0),
       recursiveContribution: 0,
@@ -1010,7 +1069,11 @@ export class SHGAT {
     return this.trainBatch([example]);
   }
 
-  trainBatch(examples: TrainingExample[], isWeights?: number[], gamma: number = 0.99): { loss: number; accuracy: number; tdErrors: number[] } {
+  trainBatch(
+    examples: TrainingExample[],
+    isWeights?: number[],
+    gamma: number = 0.99,
+  ): { loss: number; accuracy: number; tdErrors: number[] } {
     const weights = isWeights ?? new Array(examples.length).fill(1);
     const tdErrors: number[] = [];
     this.trainingMode = true;
@@ -1024,7 +1087,10 @@ export class SHGAT {
 
       const { E, cache } = this.forward();
       const capIdx = this.graphBuilder.getCapabilityIndex(example.candidateId);
-      if (capIdx === undefined) { tdErrors.push(0); continue; }
+      if (capIdx === undefined) {
+        tdErrors.push(0);
+        continue;
+      }
 
       const capNode = this.graphBuilder.getCapabilityNode(example.candidateId)!;
       const features = capNode.hypergraphFeatures || DEFAULT_HYPERGRAPH_FEATURES;
@@ -1040,8 +1106,11 @@ export class SHGAT {
       const temporalScore = rawTemporal * this.params.featureWeights.temporal;
 
       const groupWeights = computeFusionWeights(this.params.fusionWeights);
-      const reliabilityMult = capNode.successRate < 0.5 ? 0.5 : (capNode.successRate > 0.9 ? 1.2 : 1.0);
-      const baseScore = groupWeights.semantic * semanticScore + groupWeights.structure * structureScore + groupWeights.temporal * temporalScore;
+      const reliabilityMult = capNode.successRate < 0.5
+        ? 0.5
+        : (capNode.successRate > 0.9 ? 1.2 : 1.0);
+      const baseScore = groupWeights.semantic * semanticScore +
+        groupWeights.structure * structureScore + groupWeights.temporal * temporalScore;
       const score = math.sigmoid(baseScore * reliabilityMult);
 
       const tdError = example.outcome * Math.pow(gamma, example.contextTools?.length ?? 0) - score;
@@ -1054,15 +1123,24 @@ export class SHGAT {
       const sigmoidGrad = score * (1 - score) * reliabilityMult;
       const { semantic: ws, structure: wst, temporal: wt } = groupWeights;
 
-      grads.fusionGradients.semantic += dLoss * sigmoidGrad * (ws * (1 - ws) * semanticScore - ws * wst * structureScore - ws * wt * temporalScore);
-      grads.fusionGradients.structure += dLoss * sigmoidGrad * (wst * (1 - wst) * structureScore - wst * ws * semanticScore - wst * wt * temporalScore);
-      grads.fusionGradients.temporal += dLoss * sigmoidGrad * (wt * (1 - wt) * temporalScore - wt * ws * semanticScore - wt * wst * structureScore);
+      grads.fusionGradients.semantic += dLoss * sigmoidGrad *
+        (ws * (1 - ws) * semanticScore - ws * wst * structureScore - ws * wt * temporalScore);
+      grads.fusionGradients.structure += dLoss * sigmoidGrad *
+        (wst * (1 - wst) * structureScore - wst * ws * semanticScore - wst * wt * temporalScore);
+      grads.fusionGradients.temporal += dLoss * sigmoidGrad *
+        (wt * (1 - wt) * temporalScore - wt * ws * semanticScore - wt * wst * structureScore);
       grads.featureGradients.semantic += dLoss * sigmoidGrad * ws * rawSemantic;
       grads.featureGradients.structure += dLoss * sigmoidGrad * wst * rawStructure;
       grads.featureGradients.temporal += dLoss * sigmoidGrad * wt * rawTemporal;
 
       backwardV1(grads, cache, capIdx, intentProjected, dLoss, this.config);
-      accumulateW_intentGradients(grads, example.intentEmbedding, intentProjected, E[capIdx], dLoss);
+      accumulateW_intentGradients(
+        grads,
+        example.intentEmbedding,
+        intentProjected,
+        E[capIdx],
+        dLoss,
+      );
     }
 
     applyLayerGradients(grads, this.params.layerParams, this.config, examples.length);
@@ -1078,7 +1156,12 @@ export class SHGAT {
     resetV2GradientAccumulators(this.v2GradAccum, this.config);
   }
 
-  trainBatchV2(examples: TrainingExample[], traceStatsMap: Map<string, TraceStats>, isWeights?: number[], gamma: number = 0.99): { loss: number; accuracy: number; tdErrors: number[] } {
+  trainBatchV2(
+    examples: TrainingExample[],
+    traceStatsMap: Map<string, TraceStats>,
+    isWeights?: number[],
+    gamma: number = 0.99,
+  ): { loss: number; accuracy: number; tdErrors: number[] } {
     const weights = isWeights ?? new Array(examples.length).fill(1);
     const tdErrors: number[] = [];
     this.trainingMode = true;
@@ -1091,7 +1174,10 @@ export class SHGAT {
       const isWeight = weights[i];
 
       const capNode = this.graphBuilder.getCapabilityNode(example.candidateId);
-      if (!capNode) { tdErrors.push(0); continue; }
+      if (!capNode) {
+        tdErrors.push(0);
+        continue;
+      }
 
       const traceStats = traceStatsMap.get(example.candidateId) ?? { ...DEFAULT_TRACE_STATS };
       const contextEmbeddings: number[][] = [];
@@ -1100,8 +1186,21 @@ export class SHGAT {
         if (toolNode) contextEmbeddings.push(toolNode.embedding);
       }
 
-      const features = buildTraceFeatures(example.intentEmbedding, capNode.embedding, contextEmbeddings, traceStats, this.config.embeddingDim);
-      const cache = forwardV2WithCache(features, this.config, this.params.headParams, this.params.W_proj, this.params.b_proj, this.params.fusionMLP);
+      const features = buildTraceFeatures(
+        example.intentEmbedding,
+        capNode.embedding,
+        contextEmbeddings,
+        traceStats,
+        this.config.embeddingDim,
+      );
+      const cache = forwardV2WithCache(
+        features,
+        this.config,
+        this.params.headParams,
+        this.params.W_proj,
+        this.params.b_proj,
+        this.params.fusionMLP,
+      );
 
       const tdError = example.outcome * Math.pow(gamma, example.contextTools.length) - cache.score;
       tdErrors.push(tdError);
@@ -1109,16 +1208,37 @@ export class SHGAT {
       totalLoss += math.binaryCrossEntropy(cache.score, example.outcome) * isWeight;
       if ((cache.score > 0.5 ? 1 : 0) === example.outcome) correct++;
 
-      backwardV2(cache, (cache.score - example.outcome) * isWeight, this.config, this.params.headParams, this.params.fusionMLP, this.v2GradAccum);
+      backwardV2(
+        cache,
+        (cache.score - example.outcome) * isWeight,
+        this.config,
+        this.params.headParams,
+        this.params.fusionMLP,
+        this.v2GradAccum,
+      );
     }
 
-    applyV2Gradients(this.v2GradAccum, this.config, this.params.W_proj, this.params.b_proj, this.params.fusionMLP, examples.length);
+    applyV2Gradients(
+      this.v2GradAccum,
+      this.config,
+      this.params.W_proj,
+      this.params.b_proj,
+      this.params.fusionMLP,
+      examples.length,
+    );
     this.trainingMode = false;
     return { loss: totalLoss / examples.length, accuracy: correct / examples.length, tdErrors };
   }
 
   applyV2Gradients(batchSize: number): void {
-    applyV2Gradients(this.v2GradAccum, this.config, this.params.W_proj, this.params.b_proj, this.params.fusionMLP, batchSize);
+    applyV2Gradients(
+      this.v2GradAccum,
+      this.config,
+      this.params.W_proj,
+      this.params.b_proj,
+      this.params.fusionMLP,
+      batchSize,
+    );
   }
 
   /**
@@ -1127,7 +1247,9 @@ export class SHGAT {
    * Unlike trainBatch() which uses cosine + fusion weights,
    * this trains the K-head attention mechanism used in scoreAllCapabilities().
    */
-  trainBatchV1KHead(examples: TrainingExample[]): { loss: number; accuracy: number; tdErrors: number[]; gradNorm: number } {
+  trainBatchV1KHead(
+    examples: TrainingExample[],
+  ): { loss: number; accuracy: number; tdErrors: number[]; gradNorm: number } {
     this.trainingMode = true;
     const tdErrors: number[] = [];
 
@@ -1182,9 +1304,7 @@ export class SHGAT {
 
       // Backward pass through K-head scoring
       // dLoss/dScore = -(y/p) + (1-y)/(1-p) for BCE
-      const dLoss = example.outcome === 1
-        ? -1 / (predScore + 1e-7)
-        : 1 / (1 - predScore + 1e-7);
+      const dLoss = example.outcome === 1 ? -1 / (predScore + 1e-7) : 1 / (1 - predScore + 1e-7);
 
       const { dIntentProjected } = backpropMultiHeadKHead(
         dLoss,
@@ -1253,18 +1373,33 @@ export class SHGAT {
   }
 
   getStats(): {
-    numHeads: number; hiddenDim: number; numLayers: number; paramCount: number; v2ParamCount: number;
-    registeredCapabilities: number; registeredTools: number; incidenceNonZeros: number;
-    fusionWeights: { semantic: number; structure: number; temporal: number }; mlpHiddenDim: number; maxContextLength: number;
+    numHeads: number;
+    hiddenDim: number;
+    numLayers: number;
+    paramCount: number;
+    v2ParamCount: number;
+    registeredCapabilities: number;
+    registeredTools: number;
+    incidenceNonZeros: number;
+    fusionWeights: { semantic: number; structure: number; temporal: number };
+    mlpHiddenDim: number;
+    maxContextLength: number;
   } {
     const { v1ParamCount, v2ParamCount } = countParameters(this.config);
     const incidenceStats = this.graphBuilder.getIncidenceStats();
 
     return {
-      numHeads: this.config.numHeads, hiddenDim: this.config.hiddenDim, numLayers: this.config.numLayers,
-      paramCount: v1ParamCount, v2ParamCount,
-      registeredCapabilities: incidenceStats.numCapabilities, registeredTools: incidenceStats.numTools, incidenceNonZeros: incidenceStats.nonZeros,
-      fusionWeights: this.getFusionWeights(), mlpHiddenDim: this.config.mlpHiddenDim, maxContextLength: this.config.maxContextLength,
+      numHeads: this.config.numHeads,
+      hiddenDim: this.config.hiddenDim,
+      numLayers: this.config.numLayers,
+      paramCount: v1ParamCount,
+      v2ParamCount,
+      registeredCapabilities: incidenceStats.numCapabilities,
+      registeredTools: incidenceStats.numTools,
+      incidenceNonZeros: incidenceStats.nonZeros,
+      fusionWeights: this.getFusionWeights(),
+      mlpHiddenDim: this.config.mlpHiddenDim,
+      maxContextLength: this.config.maxContextLength,
     };
   }
 }
@@ -1274,7 +1409,17 @@ export class SHGAT {
 // ============================================================================
 
 export function createSHGATFromCapabilities(
-  capabilities: Array<{ id: string; embedding: number[]; toolsUsed: string[]; successRate: number; parents?: string[]; children?: string[]; hypergraphFeatures?: HypergraphFeatures }>,
+  capabilities: Array<
+    {
+      id: string;
+      embedding: number[];
+      toolsUsed: string[];
+      successRate: number;
+      parents?: string[];
+      children?: string[];
+      hypergraphFeatures?: HypergraphFeatures;
+    }
+  >,
   configOrToolEmbeddings?: Partial<SHGATConfig> | Map<string, number[]>,
   config?: Partial<SHGATConfig>,
 ): SHGAT {
@@ -1294,7 +1439,10 @@ export function createSHGATFromCapabilities(
 
   const embeddingDim = capabilities[0]?.embedding.length || 1024;
   for (const toolId of allTools) {
-    shgat.registerTool({ id: toolId, embedding: toolEmbeddings?.get(toolId) || generateDefaultToolEmbedding(toolId, embeddingDim) });
+    shgat.registerTool({
+      id: toolId,
+      embedding: toolEmbeddings?.get(toolId) || generateDefaultToolEmbedding(toolId, embeddingDim),
+    });
   }
 
   for (const cap of capabilities) {
@@ -1315,8 +1463,14 @@ export function createSHGATFromCapabilities(
 }
 
 export async function trainSHGATOnEpisodes(
-  shgat: SHGAT, episodes: TrainingExample[], _getEmbedding: (id: string) => number[] | null,
-  options: { epochs?: number; batchSize?: number; onEpoch?: (epoch: number, loss: number, accuracy: number) => void } = {},
+  shgat: SHGAT,
+  episodes: TrainingExample[],
+  _getEmbedding: (id: string) => number[] | null,
+  options: {
+    epochs?: number;
+    batchSize?: number;
+    onEpoch?: (epoch: number, loss: number, accuracy: number) => void;
+  } = {},
 ): Promise<{ finalLoss: number; finalAccuracy: number }> {
   return trainOnEpisodes((batch) => shgat.trainBatch(batch), episodes, options);
 }
@@ -1328,8 +1482,14 @@ export async function trainSHGATOnEpisodes(
  * this trains the K-head attention mechanism used in scoreAllCapabilities().
  */
 export async function trainSHGATOnEpisodesKHead(
-  shgat: SHGAT, episodes: TrainingExample[], _getEmbedding: (id: string) => number[] | null,
-  options: { epochs?: number; batchSize?: number; onEpoch?: (epoch: number, loss: number, accuracy: number) => void } = {},
+  shgat: SHGAT,
+  episodes: TrainingExample[],
+  _getEmbedding: (id: string) => number[] | null,
+  options: {
+    epochs?: number;
+    batchSize?: number;
+    onEpoch?: (epoch: number, loss: number, accuracy: number) => void;
+  } = {},
 ): Promise<{ finalLoss: number; finalAccuracy: number }> {
   return trainOnEpisodes((batch) => shgat.trainBatchV1KHead(batch), episodes, options);
 }

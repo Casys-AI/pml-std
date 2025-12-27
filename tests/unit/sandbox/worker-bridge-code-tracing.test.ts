@@ -58,10 +58,10 @@ Deno.test({
 
       // Verify tool name in traces
       const codeFilterStart = toolStartTraces.find(
-        (t) => t.type === "tool_start" && t.tool === "code:filter"
+        (t) => t.type === "tool_start" && t.tool === "code:filter",
       );
       const codeFilterEnd = toolEndTraces.find(
-        (t) => t.type === "tool_end" && t.tool === "code:filter"
+        (t) => t.type === "tool_end" && t.tool === "code:filter",
       );
 
       assertExists(codeFilterStart, "Should have code:filter tool_start");
@@ -91,7 +91,7 @@ Deno.test({
       const traces = bridge.getTraces();
 
       const toolEndTrace = traces.find(
-        (t) => t.type === "tool_end" && t.tool === "code:map"
+        (t) => t.type === "tool_end" && t.tool === "code:map",
       );
 
       assertExists(toolEndTrace, "Should have tool_end trace");
@@ -126,7 +126,7 @@ Deno.test({
       const traces = bridge.getTraces();
 
       const toolEndTrace = traces.find(
-        (t) => t.type === "tool_end" && t.tool === "code:reduce"
+        (t) => t.type === "tool_end" && t.tool === "code:reduce",
       );
 
       assertExists(toolEndTrace, "Should have tool_end trace");
@@ -162,7 +162,7 @@ Deno.test({
       const traces = bridge.getTraces();
 
       const toolEndTrace = traces.find(
-        (t) => t.type === "tool_end" && t.tool === "code:filter"
+        (t) => t.type === "tool_end" && t.tool === "code:filter",
       );
 
       assertExists(toolEndTrace, "Should have tool_end trace");
@@ -294,7 +294,7 @@ Deno.test({
         assertEquals(
           traces[i].ts >= traces[i - 1].ts,
           true,
-          `Trace ${i} should have timestamp >= trace ${i - 1}`
+          `Trace ${i} should have timestamp >= trace ${i - 1}`,
         );
       }
     } finally {
@@ -322,21 +322,23 @@ Deno.test({
       const traces = bridge.getTraces();
 
       // Each operation should have a unique traceId
-      const codeTraces = traces.filter(t =>
-        t.type === "tool_start" || t.type === "tool_end"
-      );
+      const codeTraces = traces.filter((t) => t.type === "tool_start" || t.type === "tool_end");
       const traceIds = new Set(codeTraces.map((t) => t.traceId));
 
       // Should have 2 unique traceIds (one per operation)
       assertEquals(traceIds.size, 2, "Should have 2 unique traceIds");
 
       // Verify start/end pairs have matching traceIds
-      const filterStart = traces.find(t => t.type === "tool_start" && t.tool === "code:filter");
-      const filterEnd = traces.find(t => t.type === "tool_end" && t.tool === "code:filter");
-      assertEquals(filterStart?.traceId, filterEnd?.traceId, "Filter start/end should have same traceId");
+      const filterStart = traces.find((t) => t.type === "tool_start" && t.tool === "code:filter");
+      const filterEnd = traces.find((t) => t.type === "tool_end" && t.tool === "code:filter");
+      assertEquals(
+        filterStart?.traceId,
+        filterEnd?.traceId,
+        "Filter start/end should have same traceId",
+      );
 
-      const mapStart = traces.find(t => t.type === "tool_start" && t.tool === "code:map");
-      const mapEnd = traces.find(t => t.type === "tool_end" && t.tool === "code:map");
+      const mapStart = traces.find((t) => t.type === "tool_start" && t.tool === "code:map");
+      const mapEnd = traces.find((t) => t.type === "tool_end" && t.tool === "code:map");
       assertEquals(mapStart?.traceId, mapEnd?.traceId, "Map start/end should have same traceId");
     } finally {
       await bridge.terminate();
@@ -367,7 +369,7 @@ Deno.test({
       const traces = bridge.getTraces();
 
       const toolEndTrace = traces.find(
-        (t) => t.type === "tool_end" && t.tool === "code:Object.keys"
+        (t) => t.type === "tool_end" && t.tool === "code:Object.keys",
       );
 
       assertExists(toolEndTrace, "Should have code:Object.keys trace");
@@ -401,7 +403,7 @@ Deno.test({
       const traces = bridge.getTraces();
 
       const toolEndTrace = traces.find(
-        (t) => t.type === "tool_end" && t.tool === "code:Math.max"
+        (t) => t.type === "tool_end" && t.tool === "code:Math.max",
       );
 
       assertExists(toolEndTrace, "Should have code:Math.max trace");
@@ -435,7 +437,7 @@ Deno.test({
       const traces = bridge.getTraces();
 
       const toolEndTrace = traces.find(
-        (t) => t.type === "tool_end" && t.tool === "code:JSON.parse"
+        (t) => t.type === "tool_end" && t.tool === "code:JSON.parse",
       );
 
       assertExists(toolEndTrace, "Should have code:JSON.parse trace");

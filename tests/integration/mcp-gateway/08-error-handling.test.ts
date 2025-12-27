@@ -12,12 +12,12 @@
  * @module tests/integration/mcp-gateway/error-handling
  */
 
-import { assertEquals, assertExists, assert } from "@std/assert";
+import { assert, assertEquals, assertExists } from "@std/assert";
 import {
   createTestGatewayServer,
+  getRandomPort,
   makeGatewayRequest,
   makeJsonRpcRequest,
-  getRandomPort,
 } from "./fixtures/gateway-test-helpers.ts";
 
 Deno.test({

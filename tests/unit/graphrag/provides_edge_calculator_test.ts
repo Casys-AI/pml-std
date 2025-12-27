@@ -7,12 +7,12 @@
  * @module tests/unit/graphrag/provides_edge_calculator_test
  */
 
-import { assertEquals, assert } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import {
   areTypesCompatible,
   computeCoverage,
-  createFieldMapping,
   type ConsumerInputs,
+  createFieldMapping,
 } from "../../../src/graphrag/provides-edge-calculator.ts";
 import type { JSONSchema } from "../../../src/graphrag/types.ts";
 
@@ -462,11 +462,11 @@ Deno.test("Integration - multiple field mappings", () => {
 import { PGliteClient } from "../../../src/db/client.ts";
 import { getAllMigrations, MigrationRunner } from "../../../src/db/migrations.ts";
 import {
+  findDirectProvidesEdge,
+  getToolProvidesEdges,
   persistProvidesEdges,
   syncAllProvidesEdges,
   syncProvidesEdgesForTool,
-  getToolProvidesEdges,
-  findDirectProvidesEdge,
 } from "../../../src/graphrag/provides-edge-calculator.ts";
 import type { ProvidesEdge } from "../../../src/graphrag/types.ts";
 
@@ -496,7 +496,11 @@ async function insertToolSchemas(db: PGliteClient): Promise<void> {
       "fs:read",
       "filesystem",
       "read",
-      JSON.stringify({ type: "object", properties: { path: { type: "string" } }, required: ["path"] }),
+      JSON.stringify({
+        type: "object",
+        properties: { path: { type: "string" } },
+        required: ["path"],
+      }),
       JSON.stringify({ type: "object", properties: { content: { type: "string" } } }),
     ],
   );
@@ -509,7 +513,11 @@ async function insertToolSchemas(db: PGliteClient): Promise<void> {
       "json:parse",
       "json",
       "parse",
-      JSON.stringify({ type: "object", properties: { json: { type: "string" } }, required: ["json"] }),
+      JSON.stringify({
+        type: "object",
+        properties: { json: { type: "string" } },
+        required: ["json"],
+      }),
       JSON.stringify({ type: "object", properties: { parsed: { type: "object" } } }),
     ],
   );
@@ -522,7 +530,11 @@ async function insertToolSchemas(db: PGliteClient): Promise<void> {
       "http:post",
       "http",
       "post",
-      JSON.stringify({ type: "object", properties: { url: { type: "string" }, body: { type: "object" } }, required: ["url"] }),
+      JSON.stringify({
+        type: "object",
+        properties: { url: { type: "string" }, body: { type: "object" } },
+        required: ["url"],
+      }),
       null,
     ],
   );
@@ -560,7 +572,12 @@ Deno.test("DB Persistence - persistProvidesEdges stores edges", async () => {
   // Verify they're in the DB
   const rows = await db.query(
     `SELECT from_tool_id, to_tool_id, edge_type, confidence_score FROM tool_dependency WHERE edge_type = 'provides'`,
-  ) as unknown as { from_tool_id: string; to_tool_id: string; edge_type: string; confidence_score: number }[];
+  ) as unknown as {
+    from_tool_id: string;
+    to_tool_id: string;
+    edge_type: string;
+    confidence_score: number;
+  }[];
 
   assertEquals(rows.length, 2);
   assert(rows.some((r) => r.from_tool_id === "tool-a" && r.confidence_score === 1.0)); // strict
@@ -632,8 +649,15 @@ Deno.test("DB Persistence - syncAllProvidesEdges calculates and stores", async (
      ('consumer:b', 'test', 'consumer', $3, NULL)`,
     [
       JSON.stringify({ type: "object", properties: { path: { type: "string" } } }),
-      JSON.stringify({ type: "object", properties: { data: { type: "string" }, size: { type: "number" } } }),
-      JSON.stringify({ type: "object", properties: { data: { type: "string" } }, required: ["data"] }),
+      JSON.stringify({
+        type: "object",
+        properties: { data: { type: "string" }, size: { type: "number" } },
+      }),
+      JSON.stringify({
+        type: "object",
+        properties: { data: { type: "string" } },
+        required: ["data"],
+      }),
     ],
   );
 
@@ -674,7 +698,11 @@ Deno.test("DB Persistence - syncProvidesEdgesForTool incremental update", async 
     `INSERT INTO tool_schema (tool_id, server_id, name, input_schema, output_schema) VALUES
      ('sink:tool', 'test', 'sink', $1, NULL)`,
     [
-      JSON.stringify({ type: "object", properties: { data: { type: "string" } }, required: ["data"] }),
+      JSON.stringify({
+        type: "object",
+        properties: { data: { type: "string" } },
+        required: ["data"],
+      }),
     ],
   );
 
@@ -695,9 +723,36 @@ Deno.test("DB Persistence - coverage to confidence mapping", async () => {
 
   // Test all coverage levels
   const edges: ProvidesEdge[] = [
-    { from: "a", to: "b", type: "provides", coverage: "strict", providerOutputSchema: {}, consumerInputSchema: {}, fieldMapping: [], weight: 0.7 },
-    { from: "c", to: "d", type: "provides", coverage: "partial", providerOutputSchema: {}, consumerInputSchema: {}, fieldMapping: [], weight: 0.7 },
-    { from: "e", to: "f", type: "provides", coverage: "optional", providerOutputSchema: {}, consumerInputSchema: {}, fieldMapping: [], weight: 0.7 },
+    {
+      from: "a",
+      to: "b",
+      type: "provides",
+      coverage: "strict",
+      providerOutputSchema: {},
+      consumerInputSchema: {},
+      fieldMapping: [],
+      weight: 0.7,
+    },
+    {
+      from: "c",
+      to: "d",
+      type: "provides",
+      coverage: "partial",
+      providerOutputSchema: {},
+      consumerInputSchema: {},
+      fieldMapping: [],
+      weight: 0.7,
+    },
+    {
+      from: "e",
+      to: "f",
+      type: "provides",
+      coverage: "optional",
+      providerOutputSchema: {},
+      consumerInputSchema: {},
+      fieldMapping: [],
+      weight: 0.7,
+    },
   ];
 
   await persistProvidesEdges(db, edges);

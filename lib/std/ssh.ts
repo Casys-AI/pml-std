@@ -4,12 +4,13 @@
  * @module lib/std/tools/ssh
  */
 
-import { runCommand, type MiniTool } from "./common.ts";
+import { type MiniTool, runCommand } from "./common.ts";
 
 export const sshTools: MiniTool[] = [
   {
     name: "ssh_exec",
-    description: "Execute shell commands on remote servers via SSH. Run any command on remote hosts and capture output. Supports custom ports and identity files. Use for remote server management, automation, deployment scripts, or system administration. Keywords: ssh command, remote execution, run on server, SSH shell, remote shell, execute remotely.",
+    description:
+      "Execute shell commands on remote servers via SSH. Run any command on remote hosts and capture output. Supports custom ports and identity files. Use for remote server management, automation, deployment scripts, or system administration. Keywords: ssh command, remote execution, run on server, SSH shell, remote shell, execute remotely.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -41,7 +42,8 @@ export const sshTools: MiniTool[] = [
   },
   {
     name: "scp_copy",
-    description: "Secure copy files between local and remote hosts over SSH. Transfer files to/from servers with encryption. Supports recursive directory copying and custom SSH ports. Use for deploying files, downloading from servers, or secure file transfers. Keywords: scp, secure copy, remote file transfer, upload to server, download from server, SSH file copy.",
+    description:
+      "Secure copy files between local and remote hosts over SSH. Transfer files to/from servers with encryption. Supports recursive directory copying and custom SSH ports. Use for deploying files, downloading from servers, or secure file transfers. Keywords: scp, secure copy, remote file transfer, upload to server, download from server, SSH file copy.",
     category: "system",
     inputSchema: {
       type: "object",
@@ -70,7 +72,8 @@ export const sshTools: MiniTool[] = [
   },
   {
     name: "rsync",
-    description: "Efficiently synchronize files and directories locally or over SSH. Only transfers changed portions of files, ideal for backups and mirroring. Supports dry-run, delete mode, and exclude patterns. Keywords: rsync, file sync, incremental backup, mirror directory, synchronize folders, delta transfer, backup sync.",
+    description:
+      "Efficiently synchronize files and directories locally or over SSH. Only transfers changed portions of files, ideal for backups and mirroring. Supports dry-run, delete mode, and exclude patterns. Keywords: rsync, file sync, incremental backup, mirror directory, synchronize folders, delta transfer, backup sync.",
     category: "system",
     inputSchema: {
       type: "object",

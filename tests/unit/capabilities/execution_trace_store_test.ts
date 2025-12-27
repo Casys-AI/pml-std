@@ -20,7 +20,10 @@
 import { assertEquals, assertExists, assertGreater, assertLess } from "@std/assert";
 import { PGliteClient } from "../../../src/db/client.ts";
 import { getAllMigrations, MigrationRunner } from "../../../src/db/migrations.ts";
-import { ExecutionTraceStore, type SaveTraceInput } from "../../../src/capabilities/execution-trace-store.ts";
+import {
+  ExecutionTraceStore,
+  type SaveTraceInput,
+} from "../../../src/capabilities/execution-trace-store.ts";
 import type { BranchDecision, TraceTaskResult } from "../../../src/capabilities/types.ts";
 
 /**
@@ -49,7 +52,8 @@ async function createTestCapability(db: PGliteClient): Promise<string> {
   // PGlite requires vector as string format: '[0.5, 0.5, ...]'
   const embeddingStr = `[${new Array(1024).fill(0.5).join(",")}]`;
 
-  const result = await db.query(`
+  const result = await db.query(
+    `
     INSERT INTO workflow_pattern (
       pattern_id,
       pattern_hash,
@@ -67,7 +71,9 @@ async function createTestCapability(db: PGliteClient): Promise<string> {
       $3
     )
     RETURNING pattern_id
-  `, [uniqueHash, embeddingStr, `code-hash-${uniqueHash}`]);
+  `,
+    [uniqueHash, embeddingStr, `code-hash-${uniqueHash}`],
+  );
   return result[0].pattern_id as string;
 }
 
@@ -163,12 +169,15 @@ Deno.test("ExecutionTraceStore - AC7: saveTrace() with FK capability validates",
 
   // Verify FK relationship in database
   // Note: Migration 022 removed 'name' from workflow_pattern, just verify FK works
-  const result = await db.query(`
+  const result = await db.query(
+    `
     SELECT et.*, wp.pattern_id
     FROM execution_trace et
     JOIN workflow_pattern wp ON et.capability_id = wp.pattern_id
     WHERE et.id = $1
-  `, [trace.id]);
+  `,
+    [trace.id],
+  );
 
   assertEquals(result.length, 1);
   assertEquals(result[0].pattern_id, capabilityId);

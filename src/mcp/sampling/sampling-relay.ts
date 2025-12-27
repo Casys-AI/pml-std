@@ -15,10 +15,7 @@
  */
 
 import * as log from "@std/log";
-import type {
-  JsonRpcRequest,
-  JsonRpcResponse,
-} from "../server/types.ts";
+import type { JsonRpcRequest, JsonRpcResponse } from "../server/types.ts";
 
 /**
  * MCP SDK CreateMessageRequest (matching SDK interface)

@@ -4,7 +4,8 @@
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Deno Version](https://img.shields.io/badge/deno-2.x-blue.svg)](https://deno.land)
 
-**Procedural Memory Layer** — An open-source memory layer for AI agents. PML captures workflows and crystallizes them into reusable skills.
+**Procedural Memory Layer** — An open-source memory layer for AI agents. PML captures workflows and
+crystallizes them into reusable skills.
 
 ## The Problem
 
@@ -17,10 +18,10 @@ MCP ecosystems have two critical issues:
 
 PML exposes intelligent meta-tools instead of proxying all underlying tools:
 
-| Tool | Description |
-|------|-------------|
+| Tool           | Description                                             |
+| -------------- | ------------------------------------------------------- |
 | `pml:discover` | Semantic + graph hybrid search for tools & capabilities |
-| `pml:execute` | Execute workflows (intent-based or explicit DAG) |
+| `pml:execute`  | Execute workflows (intent-based or explicit DAG)        |
 
 Context usage drops to <5%. Independent tasks run in parallel.
 
@@ -65,20 +66,23 @@ Add to your `.mcp.json`:
 ## Usage Examples
 
 **Search for tools:**
+
 ```typescript
 await callTool("pml:discover", {
-  intent: "read and parse configuration files"
+  intent: "read and parse configuration files",
 });
 ```
 
 **Intent-based execution:**
+
 ```typescript
 await callTool("pml:execute", {
-  intent: "Read config.json and create a memory entity"
+  intent: "Read config.json and create a memory entity",
 });
 ```
 
 **Explicit DAG:**
+
 ```typescript
 await callTool("pml:execute", {
   workflow: {
@@ -129,5 +133,4 @@ deno task lint && deno task fmt  # Code quality
 ---
 
 [Report Bug](https://github.com/casys-ai/casys-pml/issues) |
-[Request Feature](https://github.com/casys-ai/casys-pml/issues) |
-[Documentation](docs/)
+[Request Feature](https://github.com/casys-ai/casys-pml/issues) | [Documentation](docs/)

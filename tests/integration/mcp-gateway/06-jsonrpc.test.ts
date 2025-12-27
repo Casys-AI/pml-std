@@ -14,14 +14,14 @@
  * @module tests/integration/mcp-gateway/jsonrpc
  */
 
-import { assertEquals, assertExists, assert } from "@std/assert";
+import { assert, assertEquals, assertExists } from "@std/assert";
 import {
   createTestGatewayServer,
+  getRandomPort,
   makeGatewayRequest,
   makeJsonRpcRequest,
   seedTestApiKeys,
   withCloudMode,
-  getRandomPort,
 } from "./fixtures/gateway-test-helpers.ts";
 
 Deno.test({

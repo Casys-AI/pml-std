@@ -17,7 +17,6 @@ export type {
   AlgorithmScoredEvent,
   AlgorithmScoredPayload,
   AlgorithmSuggestedPayload,
-  PmlEvent,
   CapabilityEndEvent,
   // Capability event payloads
   CapabilityEndPayload,
@@ -47,6 +46,7 @@ export type {
   HealthCheckPayload,
   HeartbeatPayload,
   MetricsSnapshotPayload,
+  PmlEvent,
   ThresholdAdjustedPayload,
   ToolEndEvent,
   // Tool event payloads

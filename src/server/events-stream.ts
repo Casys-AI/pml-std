@@ -7,7 +7,7 @@
  * Broadcasts all events from unified EventBus to connected clients with heartbeat support.
  */
 
-import type { PmlEvent, EventType } from "../events/types.ts";
+import type { EventType, PmlEvent } from "../events/types.ts";
 import { eventBus } from "../events/mod.ts";
 import * as log from "@std/log";
 
@@ -239,7 +239,11 @@ export class EventsStreamManager {
     const sseData = `event: ${event.type}\ndata: ${JSON.stringify(event.payload)}\n\n`;
     // Debug logging for zone events
     if (event.type.startsWith("capability.zone")) {
-      log.info(`[SSE-DEBUG] Sending ${event.type} to client, payload keys: ${Object.keys(event.payload || {}).join(", ")}`);
+      log.info(
+        `[SSE-DEBUG] Sending ${event.type} to client, payload keys: ${
+          Object.keys(event.payload || {}).join(", ")
+        }`,
+      );
     }
     await writer.write(this.encoder.encode(sseData));
   }

@@ -8,10 +8,7 @@
  */
 
 // Re-export the main discovery functionality
-export {
-  MCPServerDiscovery,
-  createDefaultDiscovery,
-} from "../discovery.ts";
+export { createDefaultDiscovery, MCPServerDiscovery } from "../discovery.ts";
 
 /**
  * Tool discovery result

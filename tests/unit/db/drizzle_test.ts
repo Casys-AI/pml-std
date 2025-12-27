@@ -23,7 +23,7 @@ Deno.test("Drizzle + PGlite - create and query user", async () => {
     apiKeyPrefix: null,
   };
 
-  // We need to suppress TS error for missing default fields if we don't provide them, 
+  // We need to suppress TS error for missing default fields if we don't provide them,
   // but Drizzle's inferInsert should handle optional fields.
   await db.insert(users).values(newUser);
 
@@ -52,7 +52,7 @@ Deno.test("Drizzle + PGlite - API key prefix lookup", async () => {
     username: "apiuser",
     apiKeyHash: "hashed_key_here",
     apiKeyPrefix: "ac_testpref",
-    role: "user"
+    role: "user",
   };
 
   await db.insert(users).values(newUser);

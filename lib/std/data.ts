@@ -269,16 +269,22 @@ export const dataTools: MiniTool[] = [
         text: { type: "string", description: "Text to display (default: WxH)" },
         bgColor: { type: "string", description: "Background color (default: #cccccc)" },
         textColor: { type: "string", description: "Text color (default: #666666)" },
-        fontSize: { type: "number", description: "Font size in pixels (auto-calculated if not set)" },
+        fontSize: {
+          type: "number",
+          description: "Font size in pixels (auto-calculated if not set)",
+        },
       },
     },
-    handler: ({ width = 300, height = 150, text, bgColor = "#cccccc", textColor = "#666666", fontSize }) => {
+    handler: (
+      { width = 300, height = 150, text, bgColor = "#cccccc", textColor = "#666666", fontSize },
+    ) => {
       const w = width as number;
       const h = height as number;
       const displayText = (text as string) || `${w}×${h}`;
       const size = (fontSize as number) || Math.min(w, h) / 5;
 
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+      const svg =
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
   <rect fill="${bgColor}" width="${w}" height="${h}"/>
   <text fill="${textColor}" font-family="Arial, sans-serif" font-size="${size}"
         x="50%" y="50%" dominant-baseline="middle" text-anchor="middle">
@@ -308,7 +314,8 @@ export const dataTools: MiniTool[] = [
         format: {
           type: "string",
           enum: ["url", "svg"],
-          description: "Output format: 'url' for Google Charts API, 'svg' for inline SVG placeholder",
+          description:
+            "Output format: 'url' for Google Charts API, 'svg' for inline SVG placeholder",
         },
       },
       required: ["data"],
@@ -332,34 +339,39 @@ export const dataTools: MiniTool[] = [
       const moduleSize = s / modules;
 
       // Generate a deterministic pattern based on input data
-      const hash = [...(data as string)].reduce((acc, c) => ((acc << 5) - acc + c.charCodeAt(0)) | 0, 0);
+      const hash = [...(data as string)].reduce(
+        (acc, c) => ((acc << 5) - acc + c.charCodeAt(0)) | 0,
+        0,
+      );
 
       let rects = "";
       for (let y = 0; y < modules; y++) {
         for (let x = 0; x < modules; x++) {
           // Position patterns (corners)
-          const isPositionPattern =
-            (x < 7 && y < 7) || // Top-left
+          const isPositionPattern = (x < 7 && y < 7) || // Top-left
             (x >= modules - 7 && y < 7) || // Top-right
             (x < 7 && y >= modules - 7); // Bottom-left
 
           // Timing patterns
-          const isTimingPattern = (x === 6 || y === 6);
+          const isTimingPattern = x === 6 || y === 6;
 
           // Generate pseudo-random data based on position and input hash
           const seed = (x * 31 + y * 17 + hash) >>> 0;
           const isDataModule = (seed % 3) === 0;
 
           const isFilled = isPositionPattern || (isTimingPattern && (x + y) % 2 === 0) ||
-                          (!isPositionPattern && !isTimingPattern && isDataModule);
+            (!isPositionPattern && !isTimingPattern && isDataModule);
 
           if (isFilled) {
-            rects += `<rect x="${x * moduleSize}" y="${y * moduleSize}" width="${moduleSize}" height="${moduleSize}"/>`;
+            rects += `<rect x="${x * moduleSize}" y="${
+              y * moduleSize
+            }" width="${moduleSize}" height="${moduleSize}"/>`;
           }
         }
       }
 
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">
+      const svg =
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">
   <rect fill="white" width="${s}" height="${s}"/>
   <g fill="black">${rects}</g>
 </svg>`;
@@ -369,7 +381,8 @@ export const dataTools: MiniTool[] = [
         dataUri: `data:image/svg+xml;base64,${btoa(svg)}`,
         size: s,
         data: data as string,
-        warning: "This is a visual placeholder. For real QR codes, use format='url' for Google Charts API.",
+        warning:
+          "This is a visual placeholder. For real QR codes, use format='url' for Google Charts API.",
       };
     },
   },
@@ -397,7 +410,9 @@ export const dataTools: MiniTool[] = [
       const h = height as number;
 
       // Using bwip-js public API endpoint style URL
-      const url = `https://bwipjs-api.metafloor.com/?bcid=${type}&text=${d}&scale=3&height=${Math.floor(h / 10)}&includetext`;
+      const url = `https://bwipjs-api.metafloor.com/?bcid=${type}&text=${d}&scale=3&height=${
+        Math.floor(h / 10)
+      }&includetext`;
 
       return {
         url,

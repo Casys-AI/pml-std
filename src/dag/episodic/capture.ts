@@ -37,11 +37,7 @@ export function getContextHash(state: WorkflowState | null): string {
   const context = {
     workflowType: "dag-execution",
     domain: "pml",
-    complexity: state.tasks.length > 10
-      ? "high"
-      : state.tasks.length > 5
-      ? "medium"
-      : "low",
+    complexity: state.tasks.length > 10 ? "high" : state.tasks.length > 5 ? "medium" : "low",
   };
 
   // Simple hash matching EpisodicMemoryStore pattern

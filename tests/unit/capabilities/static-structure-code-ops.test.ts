@@ -37,7 +37,7 @@ async function setupTestDb(): Promise<PGliteClient> {
  */
 function findCodeNodes(structure: { nodes: Array<{ type: string; tool?: string }> }) {
   return structure.nodes.filter(
-    (n) => n.type === "task" && n.tool?.startsWith("code:")
+    (n) => n.type === "task" && n.tool?.startsWith("code:"),
   );
 }
 
@@ -454,7 +454,7 @@ Deno.test("StaticStructureBuilder - code field contains actual code from span ex
   const structure = await builder.buildStaticStructure(code);
 
   const filterNode = structure.nodes.find(
-    (n) => n.type === "task" && n.tool === "code:filter"
+    (n) => n.type === "task" && n.tool === "code:filter",
   );
 
   assertExists(filterNode, "Should have code:filter node");
@@ -467,7 +467,7 @@ Deno.test("StaticStructureBuilder - code field contains actual code from span ex
     assertEquals(
       filterNode.code?.includes("filter"),
       true,
-      "Code should contain 'filter'"
+      "Code should contain 'filter'",
     );
   }
 
@@ -489,7 +489,7 @@ Deno.test("StaticStructureBuilder - code field preserves callback in map operati
   const structure = await builder.buildStaticStructure(code);
 
   const mapNode = structure.nodes.find(
-    (n) => n.type === "task" && n.tool === "code:map"
+    (n) => n.type === "task" && n.tool === "code:map",
   );
 
   assertExists(mapNode, "Should have code:map node");
@@ -523,7 +523,7 @@ Deno.test("StaticStructureBuilder - detects MCP tools and code operations togeth
 
   // Should have MCP task nodes
   const mcpNodes = structure.nodes.filter(
-    (n) => n.type === "task" && !n.tool?.startsWith("code:")
+    (n) => n.type === "task" && !n.tool?.startsWith("code:"),
   );
   assertEquals(mcpNodes.length, 2, "Should have 2 MCP task nodes");
 
@@ -601,7 +601,11 @@ Deno.test("StaticStructureBuilder - variableBindings tracks multiple variables",
   // They should be different node IDs
   const usersNodeId = structure.variableBindings!["users"];
   const itemsNodeId = structure.variableBindings!["items"];
-  assertEquals(usersNodeId !== itemsNodeId, true, "Different variables should have different node IDs");
+  assertEquals(
+    usersNodeId !== itemsNodeId,
+    true,
+    "Different variables should have different node IDs",
+  );
 
   await db.close();
 });

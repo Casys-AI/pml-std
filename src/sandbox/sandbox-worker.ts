@@ -339,7 +339,9 @@ function unwrapMCPContent(result: unknown): unknown {
     Array.isArray((result as Record<string, unknown>).content)
   ) {
     const content = (result as { content: Array<{ type?: string; text?: string }> }).content;
-    if (content.length === 1 && content[0]?.type === "text" && typeof content[0]?.text === "string") {
+    if (
+      content.length === 1 && content[0]?.type === "text" && typeof content[0]?.text === "string"
+    ) {
       try {
         return JSON.parse(content[0].text);
       } catch {

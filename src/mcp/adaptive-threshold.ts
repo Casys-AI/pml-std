@@ -21,13 +21,16 @@ import type { ExecutionRecord, SpeculativeMetrics } from "../graphrag/types.ts";
 import type { DbClient } from "../db/types.ts";
 import type { StoredThreshold, ThresholdContext } from "../learning/types.ts";
 import {
-  ThompsonSampler,
-  type ThompsonConfig,
   type RiskCategory,
+  type ThompsonConfig,
+  ThompsonSampler,
   type ThresholdMode,
   type ThresholdResult,
 } from "../graphrag/algorithms/thompson.ts";
-import { getToolPermissionConfig, type PermissionConfig } from "../capabilities/permission-inferrer.ts";
+import {
+  getToolPermissionConfig,
+  type PermissionConfig,
+} from "../capabilities/permission-inferrer.ts";
 
 /**
  * Adaptive threshold configuration
@@ -44,7 +47,11 @@ export interface AdaptiveConfig {
 }
 
 // Re-export Thompson types for external consumers
-export type { RiskCategory, ThresholdMode, ThresholdResult } from "../graphrag/algorithms/thompson.ts";
+export type {
+  RiskCategory,
+  ThresholdMode,
+  ThresholdResult,
+} from "../graphrag/algorithms/thompson.ts";
 
 /**
  * Threshold adjustment result

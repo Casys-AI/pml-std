@@ -24,7 +24,7 @@ async function execWithTimeout(
     cwd?: string;
     env?: Record<string, string>;
     stdin?: string;
-  } = {}
+  } = {},
 ): Promise<{ stdout: string; stderr: string; code: number }> {
   const timeout = options.timeout ?? 30000;
 
@@ -127,7 +127,7 @@ async function findPython(): Promise<string> {
         } else if (version) {
           console.error(
             `[python] ${cmd} version ${version.major}.${version.minor}.${version.patch} ` +
-            `is below minimum ${MIN_PYTHON_VERSION.major}.${MIN_PYTHON_VERSION.minor}`
+              `is below minimum ${MIN_PYTHON_VERSION.major}.${MIN_PYTHON_VERSION.minor}`,
           );
         }
       }
@@ -137,7 +137,7 @@ async function findPython(): Promise<string> {
   }
   throw new Error(
     `Python ${MIN_PYTHON_VERSION.major}.${MIN_PYTHON_VERSION.minor}+ not found. ` +
-    `Install Python or set PYTHON_PATH env var.`
+      `Install Python or set PYTHON_PATH env var.`,
   );
 }
 
@@ -203,8 +203,7 @@ export const pythonTools: MiniTool[] = [
   {
     name: "python_eval",
     category: "python",
-    description:
-      "Evaluate a Python expression and return the result as JSON. " +
+    description: "Evaluate a Python expression and return the result as JSON. " +
       "Use for calculations, data transformations, or getting values. " +
       "Keywords: python, eval, evaluate, expression, calculate, compute, math, py.",
     inputSchema: {
@@ -327,8 +326,7 @@ print(json.dumps(result))
   {
     name: "python_script",
     category: "python",
-    description:
-      "Execute a Python script file. Optionally pass arguments and stdin data. " +
+    description: "Execute a Python script file. Optionally pass arguments and stdin data. " +
       "Keywords: python, script, file, run, execute, .py, arguments, stdin, py.",
     inputSchema: {
       type: "object" as const,
@@ -392,8 +390,7 @@ print(json.dumps(result))
   {
     name: "python_version",
     category: "python",
-    description:
-      "Get Python version and installation info. " +
+    description: "Get Python version and installation info. " +
       "Keywords: python, version, info, installation, path, executable, py.",
     inputSchema: {
       type: "object" as const,

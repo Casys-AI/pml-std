@@ -70,7 +70,12 @@ export interface AlgorithmSignals {
   adamicAdar?: number;
   // ADR-048: Local adaptive alpha signals
   localAlpha?: number;
-  alphaAlgorithm?: "embeddings_hybrides" | "heat_diffusion" | "heat_hierarchical" | "bayesian" | "none";
+  alphaAlgorithm?:
+    | "embeddings_hybrides"
+    | "heat_diffusion"
+    | "heat_hierarchical"
+    | "bayesian"
+    | "none";
   coldStart?: boolean;
 }
 

@@ -23,7 +23,14 @@
       {
         "id": "cap__checkout_flow",
         "description": "Complete purchase and checkout flow for customer orders. Process payment, validate inventory, charge credit card, save order to database, and send confirmation email. Use for e-commerce transactions, completing purchases, finalizing orders, or payment processing. Keywords: checkout, purchase, buy, order, payment, transaction, complete order, finalize purchase.",
-        "toolsUsed": ["db__get_cart", "inventory__check", "payment__validate", "payment__charge", "db__save_order", "email__order_confirm"],
+        "toolsUsed": [
+          "db__get_cart",
+          "inventory__check",
+          "payment__validate",
+          "payment__charge",
+          "db__save_order",
+          "email__order_confirm"
+        ],
         "successRate": 0.94,
         "parents": ["meta__transactions"],
         "staticEdges": [
@@ -37,7 +44,12 @@
       {
         "id": "cap__order_cancellation",
         "description": "Cancel existing order and process refund. Retrieve order from cart, issue payment refund, release reserved inventory, and notify customer. Use for order cancellations, refund requests, or reversing transactions. Keywords: cancel order, refund, cancellation, reverse transaction, return money, void order.",
-        "toolsUsed": ["db__get_cart", "payment__refund", "inventory__release", "email__order_confirm"],
+        "toolsUsed": [
+          "db__get_cart",
+          "payment__refund",
+          "inventory__release",
+          "email__order_confirm"
+        ],
         "successRate": 0.92,
         "parents": ["meta__transactions"],
         "staticEdges": [
@@ -68,7 +80,16 @@
         "contains": ["cap__checkout_flow", "cap__order_cancellation"],
         "parents": ["meta__ecommerce"],
         "successRate": 0.88,
-        "toolsAggregated": ["db__get_cart", "inventory__check", "payment__validate", "payment__charge", "payment__refund", "db__save_order", "inventory__release", "email__order_confirm"]
+        "toolsAggregated": [
+          "db__get_cart",
+          "inventory__check",
+          "payment__validate",
+          "payment__charge",
+          "payment__refund",
+          "db__save_order",
+          "inventory__release",
+          "email__order_confirm"
+        ]
       },
       {
         "id": "meta__browsing",
@@ -76,7 +97,13 @@
         "contains": ["cap__user_profile", "cap__product_browse"],
         "parents": ["meta__ecommerce"],
         "successRate": 0.98,
-        "toolsAggregated": ["api__fetch_user", "db__get_user", "api__fetch_orders", "api__fetch_products", "inventory__check"]
+        "toolsAggregated": [
+          "api__fetch_user",
+          "db__get_user",
+          "api__fetch_orders",
+          "api__fetch_products",
+          "inventory__check"
+        ]
       },
       {
         "id": "meta__ecommerce",
@@ -84,30 +111,167 @@
         "contains": ["meta__transactions", "meta__browsing"],
         "parents": [],
         "successRate": 0.93,
-        "toolsAggregated": ["api__fetch_user", "api__fetch_orders", "api__fetch_products", "db__get_user", "db__get_cart", "db__save_order", "db__update_inventory", "payment__validate", "payment__charge", "payment__refund", "email__order_confirm", "inventory__check", "inventory__reserve", "inventory__release"]
+        "toolsAggregated": [
+          "api__fetch_user",
+          "api__fetch_orders",
+          "api__fetch_products",
+          "db__get_user",
+          "db__get_cart",
+          "db__save_order",
+          "db__update_inventory",
+          "payment__validate",
+          "payment__charge",
+          "payment__refund",
+          "email__order_confirm",
+          "inventory__check",
+          "inventory__reserve",
+          "inventory__release"
+        ]
       }
     ]
   },
   "edges": [
-    { "source": "db__get_cart", "target": "inventory__check", "type": "provides", "source_type": "observed", "weight": 0.95, "count": 500 },
-    { "source": "inventory__check", "target": "payment__validate", "type": "provides", "source_type": "observed", "weight": 0.90, "count": 450 },
-    { "source": "payment__validate", "target": "payment__charge", "type": "provides", "source_type": "observed", "weight": 0.85, "count": 400 },
-    { "source": "payment__charge", "target": "db__save_order", "type": "provides", "source_type": "observed", "weight": 0.98, "count": 390 },
-    { "source": "db__save_order", "target": "email__order_confirm", "type": "provides", "source_type": "observed", "weight": 0.99, "count": 385 },
-    { "source": "db__save_order", "target": "db__update_inventory", "type": "provides", "source_type": "observed", "weight": 0.95, "count": 380 },
-    { "source": "api__fetch_user", "target": "db__get_user", "type": "sequence", "source_type": "observed", "weight": 0.70, "count": 200 },
-    { "source": "payment__charge", "target": "payment__refund", "type": "sequence", "source_type": "observed", "weight": 0.15, "count": 30 },
+    {
+      "source": "db__get_cart",
+      "target": "inventory__check",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.95,
+      "count": 500
+    },
+    {
+      "source": "inventory__check",
+      "target": "payment__validate",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.90,
+      "count": 450
+    },
+    {
+      "source": "payment__validate",
+      "target": "payment__charge",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.85,
+      "count": 400
+    },
+    {
+      "source": "payment__charge",
+      "target": "db__save_order",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.98,
+      "count": 390
+    },
+    {
+      "source": "db__save_order",
+      "target": "email__order_confirm",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.99,
+      "count": 385
+    },
+    {
+      "source": "db__save_order",
+      "target": "db__update_inventory",
+      "type": "provides",
+      "source_type": "observed",
+      "weight": 0.95,
+      "count": 380
+    },
+    {
+      "source": "api__fetch_user",
+      "target": "db__get_user",
+      "type": "sequence",
+      "source_type": "observed",
+      "weight": 0.70,
+      "count": 200
+    },
+    {
+      "source": "payment__charge",
+      "target": "payment__refund",
+      "type": "sequence",
+      "source_type": "observed",
+      "weight": 0.15,
+      "count": 30
+    },
 
-    { "source": "meta__ecommerce", "target": "meta__transactions", "type": "contains", "source_type": "static", "weight": 1.0, "count": null },
-    { "source": "meta__ecommerce", "target": "meta__browsing", "type": "contains", "source_type": "static", "weight": 1.0, "count": null },
-    { "source": "meta__transactions", "target": "cap__checkout_flow", "type": "contains", "source_type": "static", "weight": 1.0, "count": null },
-    { "source": "meta__transactions", "target": "cap__order_cancellation", "type": "contains", "source_type": "static", "weight": 1.0, "count": null },
-    { "source": "meta__browsing", "target": "cap__user_profile", "type": "contains", "source_type": "static", "weight": 1.0, "count": null },
-    { "source": "meta__browsing", "target": "cap__product_browse", "type": "contains", "source_type": "static", "weight": 1.0, "count": null },
+    {
+      "source": "meta__ecommerce",
+      "target": "meta__transactions",
+      "type": "contains",
+      "source_type": "static",
+      "weight": 1.0,
+      "count": null
+    },
+    {
+      "source": "meta__ecommerce",
+      "target": "meta__browsing",
+      "type": "contains",
+      "source_type": "static",
+      "weight": 1.0,
+      "count": null
+    },
+    {
+      "source": "meta__transactions",
+      "target": "cap__checkout_flow",
+      "type": "contains",
+      "source_type": "static",
+      "weight": 1.0,
+      "count": null
+    },
+    {
+      "source": "meta__transactions",
+      "target": "cap__order_cancellation",
+      "type": "contains",
+      "source_type": "static",
+      "weight": 1.0,
+      "count": null
+    },
+    {
+      "source": "meta__browsing",
+      "target": "cap__user_profile",
+      "type": "contains",
+      "source_type": "static",
+      "weight": 1.0,
+      "count": null
+    },
+    {
+      "source": "meta__browsing",
+      "target": "cap__product_browse",
+      "type": "contains",
+      "source_type": "static",
+      "weight": 1.0,
+      "count": null
+    },
 
-    { "source": "payment__charge", "target": "payment__validate", "type": "depends_on", "source_type": "static", "weight": 1.0, "count": null, "note": "Charge requires prior validation" },
-    { "source": "inventory__reserve", "target": "inventory__check", "type": "depends_on", "source_type": "static", "weight": 1.0, "count": null, "note": "Reserve requires check" },
-    { "source": "email__shipping_notify", "target": "db__save_order", "type": "depends_on", "source_type": "inferred", "weight": 0.85, "count": 120, "note": "Notify requires saved order" }
+    {
+      "source": "payment__charge",
+      "target": "payment__validate",
+      "type": "depends_on",
+      "source_type": "static",
+      "weight": 1.0,
+      "count": null,
+      "note": "Charge requires prior validation"
+    },
+    {
+      "source": "inventory__reserve",
+      "target": "inventory__check",
+      "type": "depends_on",
+      "source_type": "static",
+      "weight": 1.0,
+      "count": null,
+      "note": "Reserve requires check"
+    },
+    {
+      "source": "email__shipping_notify",
+      "target": "db__save_order",
+      "type": "depends_on",
+      "source_type": "inferred",
+      "weight": 0.85,
+      "count": 120,
+      "note": "Notify requires saved order"
+    }
   ],
   "episodicEvents": [
     {

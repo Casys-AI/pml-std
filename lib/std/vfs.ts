@@ -14,7 +14,8 @@ const vfsStorage = new Map<string, { content: string; createdAt: Date; updatedAt
 export const vfsTools: MiniTool[] = [
   {
     name: "vfs_write",
-    description: "Write content to a virtual file in memory. Create or overwrite files in sandboxed storage with optional append mode. Use for temporary storage, testing, or environments without filesystem access. Keywords: virtual file, in-memory write, sandbox file, temp storage, create file, append file.",
+    description:
+      "Write content to a virtual file in memory. Create or overwrite files in sandboxed storage with optional append mode. Use for temporary storage, testing, or environments without filesystem access. Keywords: virtual file, in-memory write, sandbox file, temp storage, create file, append file.",
     category: "vfs",
     inputSchema: {
       type: "object",
@@ -49,7 +50,8 @@ export const vfsTools: MiniTool[] = [
   },
   {
     name: "vfs_read",
-    description: "Read content from a virtual file in memory. Retrieve previously stored data from sandboxed storage. Returns content and file size if exists. Use for accessing temp data, reading cached content, or sandbox testing. Keywords: virtual file read, in-memory read, get file, sandbox read, temp file, retrieve content.",
+    description:
+      "Read content from a virtual file in memory. Retrieve previously stored data from sandboxed storage. Returns content and file size if exists. Use for accessing temp data, reading cached content, or sandbox testing. Keywords: virtual file read, in-memory read, get file, sandbox read, temp file, retrieve content.",
     category: "vfs",
     inputSchema: {
       type: "object",
@@ -69,7 +71,8 @@ export const vfsTools: MiniTool[] = [
   },
   {
     name: "vfs_delete",
-    description: "Delete a virtual file from memory storage. Remove files from sandboxed filesystem permanently. Returns success status indicating if file existed. Use for cleanup, freeing memory, or resetting state. Keywords: virtual file delete, remove file, sandbox delete, clear temp, file cleanup, unlink.",
+    description:
+      "Delete a virtual file from memory storage. Remove files from sandboxed filesystem permanently. Returns success status indicating if file existed. Use for cleanup, freeing memory, or resetting state. Keywords: virtual file delete, remove file, sandbox delete, clear temp, file cleanup, unlink.",
     category: "vfs",
     inputSchema: {
       type: "object",
@@ -86,7 +89,8 @@ export const vfsTools: MiniTool[] = [
   },
   {
     name: "vfs_list",
-    description: "List virtual files in memory with optional glob pattern filtering. Shows file paths, sizes, and timestamps. Use for directory listing, finding files, or inventory of virtual storage. Keywords: list files, virtual directory, glob pattern, file listing, sandbox ls, enumerate files.",
+    description:
+      "List virtual files in memory with optional glob pattern filtering. Shows file paths, sizes, and timestamps. Use for directory listing, finding files, or inventory of virtual storage. Keywords: list files, virtual directory, glob pattern, file listing, sandbox ls, enumerate files.",
     category: "vfs",
     inputSchema: {
       type: "object",
@@ -114,7 +118,8 @@ export const vfsTools: MiniTool[] = [
   },
   {
     name: "vfs_exists",
-    description: "Check if a virtual file exists in memory storage. Quick existence check without reading content. Use for conditional logic, validation before read, or file guards. Keywords: file exists, check file, virtual exists, sandbox stat, file test, path exists.",
+    description:
+      "Check if a virtual file exists in memory storage. Quick existence check without reading content. Use for conditional logic, validation before read, or file guards. Keywords: file exists, check file, virtual exists, sandbox stat, file test, path exists.",
     category: "vfs",
     inputSchema: {
       type: "object",
@@ -130,7 +135,8 @@ export const vfsTools: MiniTool[] = [
   },
   {
     name: "vfs_copy",
-    description: "Copy a virtual file to a new path in memory storage. Duplicate file content to another location without modifying source. Use for backups, file duplication, or creating variations. Keywords: copy file, duplicate, virtual copy, sandbox cp, file clone, replicate.",
+    description:
+      "Copy a virtual file to a new path in memory storage. Duplicate file content to another location without modifying source. Use for backups, file duplication, or creating variations. Keywords: copy file, duplicate, virtual copy, sandbox cp, file clone, replicate.",
     category: "vfs",
     inputSchema: {
       type: "object",
@@ -158,7 +164,8 @@ export const vfsTools: MiniTool[] = [
   },
   {
     name: "vfs_move",
-    description: "Move or rename a virtual file in memory storage. Relocate file to new path, removing from original location. Use for file reorganization, renaming, or path changes. Keywords: move file, rename file, virtual mv, sandbox move, relocate, file rename.",
+    description:
+      "Move or rename a virtual file in memory storage. Relocate file to new path, removing from original location. Use for file reorganization, renaming, or path changes. Keywords: move file, rename file, virtual mv, sandbox move, relocate, file rename.",
     category: "vfs",
     inputSchema: {
       type: "object",
@@ -182,7 +189,8 @@ export const vfsTools: MiniTool[] = [
   },
   {
     name: "vfs_clear",
-    description: "Clear all virtual files or files matching a pattern from memory. Bulk delete with optional glob filtering. Returns count of cleared files. Use for cleanup, resetting storage, or selective purge. Keywords: clear files, bulk delete, virtual clear, sandbox reset, purge files, wipe storage.",
+    description:
+      "Clear all virtual files or files matching a pattern from memory. Bulk delete with optional glob filtering. Returns count of cleared files. Use for cleanup, resetting storage, or selective purge. Keywords: clear files, bulk delete, virtual clear, sandbox reset, purge files, wipe storage.",
     category: "vfs",
     inputSchema: {
       type: "object",
