@@ -12,7 +12,7 @@ export type { SaveTraceInput } from "./execution-trace-store.ts";
 export { CapabilityMatcher } from "./matcher.ts";
 export { SchemaInferrer } from "./schema-inferrer.ts";
 export { StaticStructureBuilder } from "./static-structure-builder.ts";
-export { getToolPermissionConfig, PermissionInferrer } from "./permission-inferrer.ts";
+export { getToolPermissionConfig, initMcpPermissions, PermissionInferrer } from "./permission-inferrer.ts";
 export type {
   DetectedPattern,
   InferredPermissions,

@@ -190,18 +190,37 @@ async function __rpcCall(
 function generateToolProxies(
   toolDefinitions: ToolDefinition[],
 ): Record<string, Record<string, (args: Record<string, unknown>) => Promise<unknown>>> {
-  const mcp: Record<string, Record<string, (args: Record<string, unknown>) => Promise<unknown>>> =
+  const knownServers: Record<string, Record<string, (args: Record<string, unknown>) => Promise<unknown>>> =
     {};
 
   for (const def of toolDefinitions) {
-    if (!mcp[def.server]) {
-      mcp[def.server] = {};
+    if (!knownServers[def.server]) {
+      knownServers[def.server] = {};
     }
-    mcp[def.server][def.name] = (args: Record<string, unknown>) =>
+    knownServers[def.server][def.name] = (args: Record<string, unknown>) =>
       __rpcCall(def.server, def.name, args);
   }
 
-  return mcp;
+  // Return a Proxy that:
+  // 1. Returns known MCP servers as-is
+  // 2. For unknown servers, returns a Proxy that creates RPC calls on-the-fly
+  //    This allows capability calls like mcp.fs.ls() to be routed to WorkerBridge
+  return new Proxy(knownServers, {
+    get(target, serverName: string) {
+      // Return known server if exists
+      if (target[serverName]) {
+        return target[serverName];
+      }
+      // For unknown servers, return a Proxy that creates RPC functions on-the-fly
+      // These will be routed to capabilities by WorkerBridge if capabilityRegistry is set
+      return new Proxy({}, {
+        get(_target, toolName: string) {
+          return (args: Record<string, unknown> = {}) =>
+            __rpcCall(serverName, toolName, args);
+        },
+      });
+    },
+  });
 }
 
 /**

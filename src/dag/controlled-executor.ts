@@ -95,8 +95,23 @@ import {
 } from "./execution/capability-executor.ts";
 import { isPermissionError } from "./permissions/escalation-integration.ts";
 import { resolveDependencies } from "./execution/dependency-resolver.ts";
+import { getToolPermissionConfig } from "../capabilities/permission-inferrer.ts";
 
 const log = getLogger("controlled-executor");
+
+/**
+ * Check if a task requires Human-in-the-Loop approval before execution.
+ * Returns true for unknown tools or tools with approvalMode: "hil"
+ */
+function taskRequiresHIL(task: Task): boolean {
+  if (!task.tool) return false;
+  // Pure operations never require HIL (Phase 2a: no side effects)
+  if (task.metadata?.pure === true) return false;
+  const prefix = task.tool.split(":")[0];
+  const config = getToolPermissionConfig(prefix);
+  // Unknown tool or explicit HIL required
+  return !config || config.approvalMode === "hil";
+}
 
 /**
  * Maximum length for result preview strings in AIL decision making events.
@@ -394,16 +409,82 @@ export class ControlledExecutor extends ParallelExecutor {
         },
       ).catch((err) => log.debug(`Speculation failed: ${err}`));
 
-      // Execute layer
-      for (const task of layer) yield* this.emitTaskStart(workflowId, task);
+      // Option B: Filter out non-executable tasks (nested operations like multiply inside map callback)
+      // These tasks exist for SHGAT learning but cannot be executed standalone
+      const executableTasks = layer.filter((task) => task.metadata?.executable !== false);
+
+      if (executableTasks.length < layer.length) {
+        log.debug("Skipping non-executable nested tasks", {
+          layerIdx,
+          total: layer.length,
+          executable: executableTasks.length,
+          skipped: layer.filter((t) => t.metadata?.executable === false).map((t) => ({
+            id: t.id,
+            tool: t.tool,
+            parentOperation: t.metadata?.parentOperation,
+          })),
+        });
+      }
+
+      // Pre-execution HIL check: Ask approval BEFORE executing dangerous tasks
+      const hilTasks = executableTasks.filter(taskRequiresHIL);
+      if (hilTasks.length > 0) {
+        const approvalEvent: ExecutionEvent = {
+          type: "decision_required",
+          timestamp: Date.now(),
+          workflowId,
+          decisionType: "HIL",
+          description: `Approval required before executing ${hilTasks.length} task(s)`,
+          checkpointId: `pre-exec-${workflowId}-layer${layerIdx}`,
+          context: {
+            tasks: hilTasks.map((t) => ({
+              id: t.id,
+              tool: t.tool,
+              arguments: t.arguments ?? t.staticArguments ?? {},
+            })),
+            layerIndex: layerIdx,
+            totalLayers: layers.length,
+          },
+        };
+        await this.eventStream.emit(approvalEvent);
+        yield approvalEvent;
+
+        // Wait for user decision
+        log.info(`[HIL] Waiting for approval before executing layer ${layerIdx}`, {
+          hilTasks: hilTasks.map((t) => t.tool),
+        });
+        const cmd = await waitForDecisionCommand(this.commandQueue, "HIL", this.getTimeout("hil"));
+
+        if (!cmd || cmd.type === "abort") {
+          log.info(`[HIL] User aborted before execution`);
+          const abortEvent: ExecutionEvent = {
+            type: "workflow_abort",
+            timestamp: Date.now(),
+            workflowId,
+            reason: "User rejected pre-execution approval",
+            totalTimeMs: performance.now() - startTime,
+            successfulTasks,
+            failedTasks,
+          };
+          await this.eventStream.emit(abortEvent);
+          yield abortEvent;
+          await this.eventStream.close();
+          return this.state!;
+        }
+        log.info(`[HIL] User approved, proceeding with execution`);
+      }
+
+      // Execute layer (only executable tasks)
+      for (const task of executableTasks) yield* this.emitTaskStart(workflowId, task);
 
       let layerResults = await Promise.allSettled(
-        layer.map((task) => this.executeTask(task, results)),
+        executableTasks.map((task) => this.executeTask(task, results)),
       );
 
       // Handle deferred permission escalations (Deferred Escalation Pattern)
       // Phase 1: Prepare escalation events (non-blocking)
-      const escalationPrep = this.prepareEscalations(workflowId, layer, layerResults);
+      // Note: Use executableTasks to match layerResults indices
+      const escalationPrep = this.prepareEscalations(workflowId, executableTasks, layerResults);
 
       // Yield escalation events BEFORE waiting for responses
       for (const event of escalationPrep.events) {
@@ -414,17 +495,17 @@ export class ControlledExecutor extends ParallelExecutor {
       // Phase 2: Wait for responses and re-execute (only if there are escalations)
       if (escalationPrep.escalations.length > 0) {
         layerResults = await this.processEscalationResponses(
-          layer,
+          executableTasks,
           layerResults,
           results,
           escalationPrep.escalations,
         );
       }
 
-      // Collect results
+      // Collect results (use executableTasks to match layerResults indices)
       const { layerTaskResults, layerSuccess, layerFailed } = await this.collectLayerResults(
         workflowId,
-        layer,
+        executableTasks,
         layerResults,
         results,
         layerIdx,
@@ -660,15 +741,26 @@ export class ControlledExecutor extends ParallelExecutor {
         }
       }
 
-      for (const task of layer) yield* this.emitTaskStart(workflowId, task);
+      // Option B: Filter out non-executable tasks (nested operations like multiply inside map callback)
+      const executableTasks = layer.filter((task) => task.metadata?.executable !== false);
+
+      if (executableTasks.length < layer.length) {
+        log.debug("Skipping non-executable nested tasks (resume)", {
+          actualLayerIdx,
+          total: layer.length,
+          executable: executableTasks.length,
+        });
+      }
+
+      for (const task of executableTasks) yield* this.emitTaskStart(workflowId, task);
 
       let layerResults = await Promise.allSettled(
-        layer.map((task) => this.executeTask(task, results)),
+        executableTasks.map((task) => this.executeTask(task, results)),
       );
 
       // Handle deferred permission escalations (Deferred Escalation Pattern)
       // Phase 1: Prepare escalation events (non-blocking)
-      const escalationPrep = this.prepareEscalations(workflowId, layer, layerResults);
+      const escalationPrep = this.prepareEscalations(workflowId, executableTasks, layerResults);
 
       // Yield escalation events BEFORE waiting for responses
       for (const event of escalationPrep.events) {
@@ -679,7 +771,7 @@ export class ControlledExecutor extends ParallelExecutor {
       // Phase 2: Wait for responses and re-execute (only if there are escalations)
       if (escalationPrep.escalations.length > 0) {
         layerResults = await this.processEscalationResponses(
-          layer,
+          executableTasks,
           layerResults,
           results,
           escalationPrep.escalations,
@@ -688,7 +780,7 @@ export class ControlledExecutor extends ParallelExecutor {
 
       const { layerTaskResults, layerSuccess, layerFailed } = await this.collectLayerResults(
         workflowId,
-        layer,
+        executableTasks,
         layerResults,
         results,
         actualLayerIdx,

@@ -43,6 +43,7 @@ export interface SyncResult {
   nodeCount: number;
   edgeCount: number;
   capabilityEdgeCount: number;
+  containsEdgeCount: number;
   syncDurationMs: number;
 }
 
@@ -106,15 +107,31 @@ export async function syncGraphFromDatabase(
     const from = dep.from_tool_id as string;
     const to = dep.to_tool_id as string;
 
-    if (graph.hasNode(from) && graph.hasNode(to)) {
-      graph.addEdge(from, to, {
-        weight: dep.confidence_score as number,
-        count: dep.observed_count as number,
-        // ADR-041: Load edge_type and edge_source with defaults for legacy data
-        edge_type: (dep.edge_type as string) || "sequence",
-        edge_source: (dep.edge_source as string) || "inferred",
+    // Create missing nodes (e.g., code:* operations not in tool_schema)
+    if (!graph.hasNode(from)) {
+      const isOp = from.startsWith("code:");
+      graph.addNode(from, {
+        type: isOp ? "operation" : "tool",
+        name: from.split(":").pop() ?? from,
+        pure: isOp ? isPureOperation(from) : false,
       });
     }
+    if (!graph.hasNode(to)) {
+      const isOp = to.startsWith("code:");
+      graph.addNode(to, {
+        type: isOp ? "operation" : "tool",
+        name: to.split(":").pop() ?? to,
+        pure: isOp ? isPureOperation(to) : false,
+      });
+    }
+
+    graph.addEdge(from, to, {
+      weight: dep.confidence_score as number,
+      count: dep.observed_count as number,
+      // ADR-041: Load edge_type and edge_source with defaults for legacy data
+      edge_type: (dep.edge_type as string) || "sequence",
+      edge_source: (dep.edge_source as string) || "inferred",
+    });
   }
 
   // 3. Load capability-to-capability edges from capability_dependency table
@@ -148,6 +165,65 @@ export async function syncGraphFromDatabase(
     }
   }
 
+  // 4. Load capability → tool "contains" edges from workflow_pattern.dag_structure.tools_used
+  interface CapToolsRow {
+    pattern_id: string;
+    tools_used: string[] | string | null;
+  }
+  const capTools = await db.query(`
+    SELECT pattern_id, dag_structure->'tools_used' as tools_used
+    FROM workflow_pattern
+    WHERE dag_structure->'tools_used' IS NOT NULL
+  `) as unknown as CapToolsRow[];
+
+  let containsEdgeCount = 0;
+  for (const cap of capTools) {
+    const capNode = `capability:${cap.pattern_id}`;
+
+    // Ensure capability node exists
+    if (!graph.hasNode(capNode)) {
+      graph.addNode(capNode, { type: "capability" });
+    }
+
+    // Parse tools_used (can be array or JSON string)
+    let tools: string[] = [];
+    if (Array.isArray(cap.tools_used)) {
+      tools = cap.tools_used;
+    } else if (typeof cap.tools_used === "string") {
+      try {
+        tools = JSON.parse(cap.tools_used);
+      } catch {
+        continue;
+      }
+    }
+
+    // Create "contains" edges from capability to each tool
+    for (const toolId of tools) {
+      if (!toolId || typeof toolId !== "string") continue;
+
+      // Ensure tool node exists
+      if (!graph.hasNode(toolId)) {
+        const isOp = toolId.startsWith("code:");
+        graph.addNode(toolId, {
+          type: isOp ? "operation" : "tool",
+          name: toolId.split(":").pop() ?? toolId,
+          pure: isOp ? isPureOperation(toolId) : false,
+        });
+      }
+
+      // Add contains edge if not present
+      if (!graph.hasEdge(capNode, toolId)) {
+        graph.addEdge(capNode, toolId, {
+          weight: 0.8, // contains edge weight from ADR
+          count: 1,
+          edge_type: "contains",
+          edge_source: "structural",
+        });
+        containsEdgeCount++;
+      }
+    }
+  }
+
   const syncDurationMs = performance.now() - startTime;
 
   log.info(
@@ -158,6 +234,7 @@ export async function syncGraphFromDatabase(
     nodeCount: graph.order,
     edgeCount: deps.length,
     capabilityEdgeCount: capDeps.length,
+    containsEdgeCount,
     syncDurationMs,
   };
 }

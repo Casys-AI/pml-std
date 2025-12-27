@@ -27,50 +27,21 @@ export function createAlgorithmTracesMigration(): Migration {
       // Create algorithm_traces table
       // ============================================
 
+      // Create algorithm_traces table (comments removed for PostgreSQL compatibility)
       await db.exec(`
         CREATE TABLE IF NOT EXISTS algorithm_traces (
-          -- Primary key: UUID for distributed-safe ID generation
           trace_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-
-          -- Timestamp for ordering and retention cleanup
           timestamp TIMESTAMPTZ DEFAULT NOW(),
-
-          -- Algorithm mode: 'active_search' (intent-based) or 'passive_suggestion' (context-based)
           algorithm_mode TEXT NOT NULL,
-
-          -- Target type: 'tool' or 'capability'
           target_type TEXT NOT NULL,
-
-          -- Optional intent text (for active_search mode)
           intent TEXT,
-
-          -- Context hash for linking to AdaptiveThresholds (Story 4.1c pattern)
           context_hash TEXT,
-
-          -- Raw input signals as JSONB for flexibility
-          -- Contains: semanticScore, toolsOverlap, successRate, pagerank, cooccurrence,
-          --           graphDensity, spectralClusterMatch, adamicAdar
           signals JSONB NOT NULL DEFAULT '{}'::jsonb,
-
-          -- Algorithm parameters used for this decision
-          -- Contains: alpha (semantic vs graph), reliabilityFactor, structuralBoost
           params JSONB NOT NULL DEFAULT '{}'::jsonb,
-
-          -- Computed final score after all adjustments
           final_score REAL NOT NULL,
-
-          -- Adaptive threshold value used for this decision
           threshold_used REAL NOT NULL,
-
-          -- Decision outcome: 'accepted', 'rejected_by_threshold', 'filtered_by_reliability'
           decision TEXT NOT NULL,
-
-          -- Outcome (updated async after user feedback)
-          -- Contains: userAction ('selected', 'ignored', 'explicit_rejection'),
-          --           executionSuccess (boolean), durationMs (number)
           outcome JSONB,
-
-          -- Audit column for when the trace was created (redundant with timestamp but follows pattern)
           created_at TIMESTAMPTZ DEFAULT NOW()
         )
       `);

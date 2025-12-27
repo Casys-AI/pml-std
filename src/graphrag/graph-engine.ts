@@ -424,6 +424,7 @@ export class GraphRAGEngine {
     contextTools: string[] = [],
     includeRelated = false,
     minScore?: number,
+    correlationId?: string,
   ): Promise<HybridSearchResult[]> {
     return hybridSearch(vectorSearch, this.graph, this.pageRanks, query, {
       limit,
@@ -432,6 +433,7 @@ export class GraphRAGEngine {
       includeRelated,
       localAlphaCalculator: this.localAlphaCalculator,
       algorithmTracer: this.algorithmTracer,
+      correlationId,
     });
   }
 

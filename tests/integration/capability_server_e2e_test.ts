@@ -21,16 +21,41 @@ import type { PGliteClient } from "../../src/db/client.ts";
 import type { WorkerBridge } from "../../src/sandbox/worker-bridge.ts";
 
 /**
+ * Clean up test capabilities from previous runs
+ *
+ * Removes capabilities with namespace='code' and action='analyze'
+ * to ensure test isolation.
+ */
+async function cleanupTestCapabilities(db: PGliteClient): Promise<void> {
+  // Delete capability_records first (FK constraint)
+  await db.query(
+    `DELETE FROM capability_records WHERE namespace = 'code' AND action = 'analyze'`,
+  );
+  // Delete orphaned workflow_patterns from test runs
+  await db.query(
+    `DELETE FROM workflow_pattern WHERE pattern_hash LIKE 'test-hash-%'`,
+  );
+}
+
+/**
  * Setup test capability in database
  *
  * Creates:
  * 1. workflow_pattern with code_snippet
  * 2. capability_records with FQDN and FK to workflow_pattern
+ *
+ * @param cleanup - Whether to cleanup old test data first (default: true)
  */
 async function setupTestCapability(
   db: PGliteClient,
   embeddingModel: EmbeddingModel,
+  cleanup = true,
 ): Promise<string> {
+  // Clean up old test data first (optional)
+  if (cleanup) {
+    await cleanupTestCapabilities(db);
+  }
+
   // Use unique ID for each test run
   const uniqueId = crypto.randomUUID().slice(0, 8);
 
@@ -288,11 +313,14 @@ Deno.test({
     await embeddingModel.load();
 
     try {
-      // 3. Initialize components
+      // 3. Cleanup any old test data first
+      await cleanupTestCapabilities(db);
+
+      // 4. Initialize components
       const capabilityStore = new CapabilityStore(db, embeddingModel);
       const capabilityRegistry = new CapabilityRegistry(db);
 
-      // 4. Create CapabilityMCPServer with mock WorkerBridge
+      // 5. Create CapabilityMCPServer with mock WorkerBridge
       const mockWorkerBridge = createMockWorkerBridge();
       const capabilityServer = new CapabilityMCPServer(
         capabilityStore,
@@ -300,13 +328,13 @@ Deno.test({
         mockWorkerBridge,
       );
 
-      // 5. Get initial tool count
+      // 6. Get initial tool count (after cleanup)
       const toolsBefore = await capabilityServer.handleListTools();
       const countBefore = toolsBefore.length;
       console.log("Tools before:", countBefore);
 
-      // 6. Create a new capability in the database
-      await setupTestCapability(db, embeddingModel);
+      // 7. Create a new capability in the database (without cleanup)
+      await setupTestCapability(db, embeddingModel, false);
 
       // 7. List tools again - should see the new capability IMMEDIATELY (no cache)
       const toolsAfter = await capabilityServer.handleListTools();

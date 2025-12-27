@@ -329,6 +329,7 @@ export async function predictCapabilities(
 
       // Log trace for capability prediction (fire-and-forget)
       deps.algorithmTracer?.logTrace({
+        algorithmName: "CapabilitiesPrediction",
         algorithmMode: "passive_suggestion",
         targetType: "capability",
         signals: {

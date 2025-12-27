@@ -102,6 +102,7 @@ export interface Task {
    *
    * Contains execution hints like:
    * - pure: Whether this is a pure operation (no side effects)
+   * - executable: Whether this task can be executed standalone (Option B)
    */
   metadata?: {
     /** Whether this task is a pure operation (safe to retry, no side effects) */
@@ -110,6 +111,29 @@ export interface Task {
     fusedFrom?: string[];
     /** Logical tool names that were fused into this task (Phase 2a) */
     logicalTools?: string[];
+    /**
+     * Whether this task is executable standalone (Option B - Phase 2a)
+     *
+     * Tasks nested inside callbacks (e.g., multiply inside map callback)
+     * have executable=false because their code fragments aren't valid alone.
+     * SHGAT still learns from them, but they're skipped during execution.
+     *
+     * @default true for top-level operations
+     */
+    executable?: boolean;
+    /**
+     * Nesting level in callback hierarchy (Option B - Phase 2a)
+     *
+     * 0 = top-level (executable)
+     * 1+ = inside callback (not executable standalone)
+     */
+    nestingLevel?: number;
+    /**
+     * Parent operation that contains this nested operation (Option B - Phase 2a)
+     *
+     * E.g., "code:map" if this multiply is inside a map callback
+     */
+    parentOperation?: string;
   };
 }
 

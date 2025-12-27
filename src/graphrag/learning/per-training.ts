@@ -22,6 +22,7 @@ import {
   type EmbeddingProvider,
 } from "../../capabilities/per-priority.ts";
 import { extractPathLevelFeatures, type PathLevelFeatures } from "./path-level-features.ts";
+import { spawnSHGATTraining } from "../algorithms/shgat/spawn-training.ts";
 import { getLogger } from "../../telemetry/logger.ts";
 
 const log = getLogger("default");
@@ -479,4 +480,236 @@ export function resetExecutionCounter(): void {
  */
 export function getExecutionCount(): number {
   return executionCounter;
+}
+
+// ============================================================================
+// Subprocess PER Training
+// ============================================================================
+
+/**
+ * Capability data needed for subprocess training
+ */
+interface CapabilityForTraining {
+  id: string;
+  embedding: number[];
+  toolsUsed: string[];
+  successRate: number;
+}
+
+/**
+ * Options for subprocess PER training
+ */
+export interface SubprocessPEROptions extends PERTrainingOptions {
+  /** Capabilities with embeddings for SHGAT initialization */
+  capabilities: CapabilityForTraining[];
+  /** Number of epochs (default: 1 for live, 3-5 for batch) */
+  epochs?: number;
+}
+
+/**
+ * Train SHGAT on path traces using subprocess (non-blocking)
+ *
+ * Same algorithm as trainSHGATOnPathTraces but runs training in subprocess.
+ * Uses TD errors from subprocess to update priorities.
+ *
+ * @param shgat - SHGAT instance (will import returned params)
+ * @param traceStore - ExecutionTraceStore for traces and priority updates
+ * @param embeddingProvider - Provider for intent embeddings
+ * @param options - Training options including capabilities
+ * @returns Training results with metrics
+ */
+export async function trainSHGATOnPathTracesSubprocess(
+  shgat: SHGAT,
+  traceStore: ExecutionTraceStore,
+  embeddingProvider: EmbeddingProvider,
+  options: SubprocessPEROptions,
+): Promise<PERTrainingResult> {
+  const {
+    minTraces = DEFAULT_MIN_TRACES,
+    maxTraces = DEFAULT_MAX_TRACES,
+    batchSize = DEFAULT_BATCH_SIZE,
+    minPriority = DEFAULT_MIN_PRIORITY,
+    alpha = DEFAULT_PER_ALPHA,
+    capabilityId,
+    capabilities,
+    epochs = 1,
+  } = options;
+
+  const startTime = performance.now();
+
+  // Step 1: Check trace availability
+  const traceCount = await traceStore.getTraceCount(capabilityId);
+
+  if (traceCount < minTraces) {
+    log.debug("[PER-Subprocess] Insufficient traces", {
+      available: traceCount,
+      required: minTraces,
+    });
+    return {
+      loss: 0,
+      accuracy: 0,
+      tracesProcessed: 0,
+      highPriorityCount: 0,
+      prioritiesUpdated: 0,
+      examplesGenerated: 0,
+      fallback: "tool-level",
+      fallbackReason: `insufficient traces (${traceCount} < ${minTraces})`,
+    };
+  }
+
+  // Step 2: Sample traces using PER
+  const traces = await traceStore.sampleByPriority(maxTraces, minPriority, alpha);
+
+  if (traces.length === 0) {
+    log.debug("[PER-Subprocess] No traces sampled", { minPriority });
+    return {
+      loss: 0,
+      accuracy: 0,
+      tracesProcessed: 0,
+      highPriorityCount: 0,
+      prioritiesUpdated: 0,
+      examplesGenerated: 0,
+      fallback: "tool-level",
+      fallbackReason: "no traces above minPriority threshold",
+    };
+  }
+
+  // Step 3: Extract path-level features
+  const pathFeatures = extractPathLevelFeatures(traces);
+
+  // Step 4: Generate training examples
+  const allExamples: TrainingExample[] = [];
+  const intentEmbeddings = new Map<string, number[]>();
+  const exampleToTraceId: string[] = [];
+
+  // Batch compute embeddings
+  const uniqueIntents = [...new Set(traces.map((t) => t.intentText ?? ""))];
+  for (const intent of uniqueIntents) {
+    try {
+      const embedding = await embeddingProvider.getEmbedding(intent);
+      intentEmbeddings.set(intent, embedding);
+    } catch (error) {
+      log.warn("[PER-Subprocess] Failed to embed intent", {
+        intent: intent.slice(0, 50),
+        error: String(error),
+      });
+    }
+  }
+
+  // Generate examples for each trace
+  for (const trace of traces) {
+    const intentEmbedding = intentEmbeddings.get(trace.intentText ?? "");
+    if (!intentEmbedding) continue;
+
+    const flatPath = await flattenExecutedPath(trace, traceStore);
+    const examples = traceToTrainingExamples(trace, flatPath, intentEmbedding, pathFeatures);
+
+    for (const _ex of examples) {
+      exampleToTraceId.push(trace.id);
+    }
+    allExamples.push(...examples);
+  }
+
+  if (allExamples.length === 0) {
+    log.warn("[PER-Subprocess] No training examples generated");
+    return {
+      loss: 0,
+      accuracy: 0,
+      tracesProcessed: traces.length,
+      highPriorityCount: traces.filter((t) => t.priority > 0.7).length,
+      prioritiesUpdated: 0,
+      examplesGenerated: 0,
+      fallback: "tool-level",
+      fallbackReason: "no valid training examples could be generated",
+    };
+  }
+
+  // Step 5: Collect all tools from examples for subprocess SHGAT
+  const allToolsFromExamples = new Set<string>();
+  for (const ex of allExamples) {
+    for (const tool of ex.contextTools) {
+      allToolsFromExamples.add(tool);
+    }
+  }
+
+  // Ensure first capability includes all tools
+  const capsForWorker = capabilities.map((c, i) => ({
+    ...c,
+    toolsUsed: i === 0
+      ? [...new Set([...c.toolsUsed, ...allToolsFromExamples])]
+      : c.toolsUsed,
+  }));
+
+  // Step 6: Train in subprocess
+  log.info(`[PER-Subprocess] Spawning training with ${allExamples.length} examples...`);
+
+  const result = await spawnSHGATTraining({
+    capabilities: capsForWorker,
+    examples: allExamples,
+    epochs,
+    batchSize,
+    existingParams: shgat.exportParams(),
+  });
+
+  if (!result.success) {
+    log.error(`[PER-Subprocess] Training failed: ${result.error}`);
+    return {
+      loss: 0,
+      accuracy: 0,
+      tracesProcessed: traces.length,
+      highPriorityCount: traces.filter((t) => t.priority > 0.7).length,
+      prioritiesUpdated: 0,
+      examplesGenerated: allExamples.length,
+      fallback: "tool-level",
+      fallbackReason: `subprocess failed: ${result.error}`,
+    };
+  }
+
+  // Step 7: Import trained params
+  if (result.params) {
+    shgat.importParams(result.params);
+  }
+
+  // Step 8: Update priorities using TD errors
+  let prioritiesUpdated = 0;
+  if (result.tdErrors && result.tdErrors.length > 0) {
+    // Aggregate TD errors per trace (max |TD error| per trace)
+    const tdErrorsPerTrace = new Map<string, number>();
+    for (let i = 0; i < result.tdErrors.length && i < exampleToTraceId.length; i++) {
+      const traceId = exampleToTraceId[i];
+      if (!traceId) continue;
+      const absError = Math.abs(result.tdErrors[i]);
+      const current = tdErrorsPerTrace.get(traceId) ?? 0;
+      if (absError > current) {
+        tdErrorsPerTrace.set(traceId, absError);
+      }
+    }
+
+    prioritiesUpdated = await batchUpdatePrioritiesFromTDErrors(
+      traceStore,
+      traces,
+      tdErrorsPerTrace,
+    );
+  }
+
+  const elapsed = performance.now() - startTime;
+
+  log.info("[PER-Subprocess] Training completed", {
+    tracesProcessed: traces.length,
+    examplesGenerated: allExamples.length,
+    epochs,
+    loss: result.finalLoss?.toFixed(4),
+    accuracy: result.finalAccuracy?.toFixed(4),
+    prioritiesUpdated,
+    elapsedMs: elapsed.toFixed(1),
+  });
+
+  return {
+    loss: result.finalLoss ?? 0,
+    accuracy: result.finalAccuracy ?? 0,
+    tracesProcessed: traces.length,
+    highPriorityCount: traces.filter((t) => t.priority > 0.7).length,
+    prioritiesUpdated,
+    examplesGenerated: allExamples.length,
+  };
 }

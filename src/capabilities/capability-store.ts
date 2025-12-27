@@ -102,6 +102,13 @@ export class CapabilityStore {
   }
 
   /**
+   * Get the ExecutionTraceStore for PER training
+   */
+  getTraceStore(): ExecutionTraceStore | undefined {
+    return this.traceStore;
+  }
+
+  /**
    * Save a capability after execution (eager learning)
    *
    * Uses UPSERT: INSERT ... ON CONFLICT to handle deduplication.

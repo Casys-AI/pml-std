@@ -35,7 +35,7 @@ import { WorkerBridge } from "../sandbox/worker-bridge.ts";
 import { addBreadcrumb, captureError, startTransaction } from "../telemetry/sentry.ts";
 import type { CapabilityStore } from "../capabilities/capability-store.ts";
 import type { AdaptiveThresholdManager } from "./adaptive-threshold.ts";
-import { CapabilityDataService } from "../capabilities/mod.ts";
+import { CapabilityDataService, initMcpPermissions } from "../capabilities/mod.ts";
 import { CapabilityRegistry } from "../capabilities/capability-registry.ts";
 import { CapabilityMCPServer } from "./capability-server/mod.ts";
 // TraceFeatureExtractor removed - V1 uses message passing, not TraceFeatures
@@ -85,8 +85,8 @@ import {
   createSHGATFromCapabilities,
   SHGAT,
   type TrainingExample,
-  trainSHGATOnEpisodes,
 } from "../graphrag/algorithms/shgat.ts";
+import { spawnSHGATTraining } from "../graphrag/algorithms/shgat/spawn-training.ts";
 import { buildDRDSPFromCapabilities, DRDSP } from "../graphrag/algorithms/dr-dsp.ts";
 import type { EmbeddingModelInterface } from "../vector/embeddings.ts";
 
@@ -117,7 +117,6 @@ export class PMLGatewayServer {
   private shgat: SHGAT | null = null;
   private drdsp: DRDSP | null = null;
   private embeddingModel: EmbeddingModelInterface | null = null;
-  private shgatSaveInterval: number | null = null; // Story 10.7b: periodic save timer
   private capabilityRegistry: CapabilityRegistry | null = null; // Story 13.2
   private capabilityMCPServer: CapabilityMCPServer | null = null; // Story 13.3
   // traceFeatureExtractor removed - V1 uses message passing, not TraceFeatures
@@ -192,7 +191,8 @@ export class PMLGatewayServer {
     }
 
     // Story 13.5: Initialize PmlStdServer for cap:* management tools
-    this.pmlStdServer = new PmlStdServer(this.capabilityRegistry, this.db);
+    // Pass embeddingModel for embedding updates on rename
+    this.pmlStdServer = new PmlStdServer(this.capabilityRegistry, this.db, this.embeddingModel ?? undefined);
     log.info("[Gateway] PmlStdServer initialized (Story 13.5)");
 
     // Story 13.3: Initialize CapabilityMCPServer for capability-as-tool execution
@@ -200,6 +200,7 @@ export class PMLGatewayServer {
       const workerBridge = new WorkerBridge(this.mcpClients, {
         capabilityStore: this.capabilityStore,
         graphRAG: this.graphEngine,
+        capabilityRegistry: this.capabilityRegistry,
       });
       this.capabilityMCPServer = new CapabilityMCPServer(
         this.capabilityStore,
@@ -536,6 +537,8 @@ export class PMLGatewayServer {
       checkpointManager: this.checkpointManager ?? undefined,
       workflowDeps: this.getWorkflowDeps(),
       capabilityRegistry: this.capabilityRegistry ?? undefined, // Story 13.2
+      traceStore: this.capabilityStore?.getTraceStore(), // Story 11.6: PER training
+      onSHGATParamsUpdated: () => this.saveSHGATParams(), // Save after PER training
     };
   }
 
@@ -622,10 +625,27 @@ export class PMLGatewayServer {
       ) as unknown as CapRow[];
 
       // Initialize SHGAT with capabilities that have embeddings (or empty)
+      // Note: pgvector returns string like "[0.1,0.2,...]", pglite returns array
       const capabilitiesWithEmbeddings = rows
-        .filter((c): c is CapRow & { embedding: number[] } =>
-          c.embedding !== null && Array.isArray(c.embedding) && c.embedding.length > 0
-        )
+        .filter((c) => c.embedding !== null)
+        .map((c) => {
+          // Parse embedding: handle both string (pgvector) and array (pglite)
+          let embedding: number[];
+          if (Array.isArray(c.embedding)) {
+            embedding = c.embedding;
+          } else if (typeof c.embedding === "string") {
+            try {
+              embedding = JSON.parse(c.embedding);
+            } catch {
+              return null;
+            }
+          } else {
+            return null;
+          }
+          if (!Array.isArray(embedding) || embedding.length === 0) return null;
+          return { ...c, embedding };
+        })
+        .filter((c): c is CapRow & { embedding: number[] } => c !== null)
         .map((c) => ({
           id: c.id,
           embedding: c.embedding,
@@ -640,17 +660,29 @@ export class PMLGatewayServer {
       );
 
       // Story 10.7b: Load persisted SHGAT params if available
-      await this.loadSHGATParams();
-
-      // Story 10.7b: Start periodic save (every 10 minutes)
-      this.startPeriodicSHGATSave();
+      const { loaded: paramsLoaded, updatedAt: paramsUpdatedAt } = await this.loadSHGATParams();
 
       // Story 10.7: Populate tool features for multi-head attention
       await this.populateToolFeaturesForSHGAT();
 
-      if (capabilitiesWithEmbeddings.length > 0) {
-        // Story 10.7: Train SHGAT on execution traces if available (≥20 traces)
-        await this.trainSHGATOnTraces(capabilitiesWithEmbeddings);
+      // Story 10.7: Train SHGAT on execution traces if needed
+      // Skip batch training if params are recent (< 1 hour) - PER handles incremental updates
+      const ONE_HOUR_MS = 60 * 60 * 1000;
+      const paramsAreRecent = paramsLoaded && paramsUpdatedAt &&
+        (Date.now() - paramsUpdatedAt.getTime()) < ONE_HOUR_MS;
+
+      if (capabilitiesWithEmbeddings.length > 0 && !paramsAreRecent) {
+        // Run in background to avoid blocking server startup (~30s per epoch)
+        log.info(
+          `[Gateway] Starting background SHGAT training (params ${paramsLoaded ? "outdated" : "not found"})`,
+        );
+        this.trainSHGATOnTraces(capabilitiesWithEmbeddings).catch((err) =>
+          log.warn(`[Gateway] Background SHGAT training failed: ${err}`)
+        );
+      } else if (paramsAreRecent) {
+        log.info(
+          `[Gateway] Skipping batch SHGAT training - params are recent (${Math.round((Date.now() - paramsUpdatedAt!.getTime()) / 60000)} min old)`,
+        );
       }
 
       // TraceFeatureExtractor removed - V1 uses message passing, not TraceFeatures
@@ -674,7 +706,12 @@ export class PMLGatewayServer {
    * Requires ≥20 traces to start training
    */
   private async trainSHGATOnTraces(
-    capabilities: Array<{ id: string; embedding: number[] }>,
+    capabilities: Array<{
+      id: string;
+      embedding: number[];
+      toolsUsed: string[];
+      successRate: number;
+    }>,
   ): Promise<void> {
     if (!this.shgat || !this.embeddingModel) {
       return;
@@ -733,26 +770,46 @@ export class PMLGatewayServer {
         return;
       }
 
-      // Train SHGAT
-      const getEmbedding = (id: string) => capEmbeddings.get(id) ?? null;
+      // Train SHGAT in subprocess to avoid blocking event loop
+      // Also collect tools from examples that may not be in capabilities
+      const allToolsFromExamples = new Set<string>();
+      for (const ex of examples) {
+        for (const tool of ex.contextTools) {
+          allToolsFromExamples.add(tool);
+        }
+      }
 
-      const result = await trainSHGATOnEpisodes(this.shgat, examples, getEmbedding, {
-        epochs: 5,
+      // Pass each capability with its tools, plus ensure all tools from examples are registered
+      const capsForWorker = capabilities.map((c, i) => ({
+        id: c.id,
+        embedding: c.embedding,
+        // First capability gets all tools from examples to ensure they're registered
+        toolsUsed: i === 0
+          ? [...new Set([...c.toolsUsed, ...allToolsFromExamples])]
+          : c.toolsUsed,
+        successRate: c.successRate,
+      }));
+
+      const result = await spawnSHGATTraining({
+        capabilities: capsForWorker,
+        examples,
+        epochs: 3, // Reduced for faster training
         batchSize: 16,
-        onEpoch: (epoch, loss, accuracy) => {
-          log.debug(
-            `[Gateway] SHGAT training epoch ${epoch}: loss=${loss.toFixed(4)}, acc=${
-              accuracy.toFixed(2)
-            }`,
-          );
-        },
       });
 
-      log.info(
-        `[Gateway] SHGAT training complete: loss=${result.finalLoss.toFixed(4)}, accuracy=${
-          result.finalAccuracy.toFixed(2)
-        }`,
-      );
+      if (result.success && result.params && this.shgat) {
+        // Import trained params back into main SHGAT
+        this.shgat.importParams(result.params);
+        log.info(
+          `[Gateway] SHGAT training complete: loss=${result.finalLoss?.toFixed(4)}, accuracy=${
+            result.finalAccuracy?.toFixed(2)
+          }`,
+        );
+        // Save immediately after training (don't wait for periodic save)
+        await this.saveSHGATParams();
+      } else if (!result.success) {
+        log.warn(`[Gateway] SHGAT subprocess training failed: ${result.error}`);
+      }
     } catch (error) {
       log.warn(`[Gateway] SHGAT training failed: ${error}`);
     }
@@ -884,6 +941,7 @@ export class PMLGatewayServer {
         SELECT task_results, executed_at
         FROM execution_trace
         WHERE task_results IS NOT NULL
+          AND jsonb_typeof(task_results) = 'array'
           AND jsonb_array_length(task_results) > 0
         ORDER BY executed_at DESC
         LIMIT 500
@@ -953,6 +1011,7 @@ export class PMLGatewayServer {
   }
 
   async start(): Promise<void> {
+    await initMcpPermissions(); // Load mcp-permissions.yaml for HIL detection
     await this.initializeAlgorithms();
     await this.healthChecker.initialHealthCheck();
     this.healthChecker.startPeriodicChecks();
@@ -965,7 +1024,8 @@ export class PMLGatewayServer {
    * Uses extracted HTTP server module for cleaner architecture.
    */
   async startHttp(port: number): Promise<void> {
-    // Initialize algorithms before starting server
+    // Initialize MCP permissions and algorithms before starting server
+    await initMcpPermissions(); // Load mcp-permissions.yaml for HIL detection
     await this.initializeAlgorithms();
 
     // Prepare dependencies for HTTP server
@@ -1004,8 +1064,7 @@ export class PMLGatewayServer {
    * Graceful shutdown
    */
   async stop(): Promise<void> {
-    // Story 10.7b: Stop periodic save and do final save
-    this.stopPeriodicSHGATSave();
+    // Story 10.7b: Final save on shutdown
     await this.saveSHGATParams();
 
     // Class-specific cleanup
@@ -1028,9 +1087,11 @@ export class PMLGatewayServer {
   /**
    * Load persisted SHGAT params from database
    * Called at startup after SHGAT structure is initialized
+   *
+   * @returns Object with loaded status and timestamp (for skip-training logic)
    */
-  private async loadSHGATParams(): Promise<void> {
-    if (!this.shgat) return;
+  private async loadSHGATParams(): Promise<{ loaded: boolean; updatedAt?: Date }> {
+    if (!this.shgat) return { loaded: false };
 
     try {
       interface ParamsRow {
@@ -1045,15 +1106,19 @@ export class PMLGatewayServer {
 
       if (rows.length > 0 && rows[0].params) {
         this.shgat.importParams(rows[0].params);
+        const updatedAt = new Date(rows[0].updated_at);
         log.info(
           `[Gateway] SHGAT params loaded from DB (saved: ${rows[0].updated_at})`,
         );
+        return { loaded: true, updatedAt };
       } else {
         log.info("[Gateway] No persisted SHGAT params found - using fresh weights");
+        return { loaded: false };
       }
     } catch (error) {
       // Table might not exist yet (migration not run)
       log.debug(`[Gateway] Could not load SHGAT params: ${error}`);
+      return { loaded: false };
     }
   }
 
@@ -1083,31 +1148,4 @@ export class PMLGatewayServer {
     }
   }
 
-  /**
-   * Start periodic SHGAT save (every 10 minutes)
-   * Prevents losing learned weights on crash
-   */
-  private startPeriodicSHGATSave(): void {
-    if (this.shgatSaveInterval) return; // Already running
-
-    const TEN_MINUTES_MS = 10 * 60 * 1000;
-    this.shgatSaveInterval = setInterval(() => {
-      this.saveSHGATParams().catch((error) => {
-        log.warn(`[Gateway] Periodic SHGAT save failed: ${error}`);
-      });
-    }, TEN_MINUTES_MS);
-
-    log.info("[Gateway] SHGAT periodic save started (every 10 min)");
-  }
-
-  /**
-   * Stop periodic SHGAT save
-   */
-  private stopPeriodicSHGATSave(): void {
-    if (this.shgatSaveInterval) {
-      clearInterval(this.shgatSaveInterval);
-      this.shgatSaveInterval = null;
-      log.info("[Gateway] SHGAT periodic save stopped");
-    }
-  }
 }

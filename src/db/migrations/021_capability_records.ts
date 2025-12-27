@@ -27,9 +27,9 @@ export function createCapabilityRecordsMigration(): Migration {
       // ============================================
       // 1. Create capability_records table (AC1)
       // ============================================
+      // Create capability_records table (AC1: Identity, Provenance, Versioning, Trust, Metrics, Metadata)
       await db.exec(`
         CREATE TABLE IF NOT EXISTS capability_records (
-          -- Identity (AC1)
           id TEXT PRIMARY KEY,
           display_name TEXT NOT NULL,
           org TEXT NOT NULL,
@@ -37,27 +37,17 @@ export function createCapabilityRecordsMigration(): Migration {
           namespace TEXT NOT NULL,
           action TEXT NOT NULL,
           hash TEXT NOT NULL,
-
-          -- Provenance (AC1)
           created_by TEXT NOT NULL DEFAULT 'local',
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_by TEXT,
           updated_at TIMESTAMPTZ,
-
-          -- Versioning (AC1)
           version INTEGER NOT NULL DEFAULT 1,
           version_tag TEXT,
-
-          -- Trust (AC1)
           verified BOOLEAN NOT NULL DEFAULT FALSE,
           signature TEXT,
-
-          -- Metrics (AC1)
           usage_count INTEGER NOT NULL DEFAULT 0,
           success_count INTEGER NOT NULL DEFAULT 0,
           total_latency_ms BIGINT NOT NULL DEFAULT 0,
-
-          -- Metadata (AC1)
           tags TEXT[] DEFAULT '{}',
           visibility TEXT NOT NULL DEFAULT 'private'
             CHECK (visibility IN ('private', 'project', 'org', 'public')),

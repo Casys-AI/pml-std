@@ -32,6 +32,8 @@ export interface WorkerBridgeExecutorConfig {
   capabilityStore?: WorkerBridgeConfig["capabilityStore"];
   /** Optional GraphRAGEngine for trace learning */
   graphRAG?: WorkerBridgeConfig["graphRAG"];
+  /** Optional CapabilityRegistry for routing to capabilities when MCP server not found */
+  capabilityRegistry?: WorkerBridgeConfig["capabilityRegistry"];
   /** Execution timeout in ms (default: 30000) */
   timeout?: number;
 }
@@ -73,13 +75,14 @@ export interface ExecutorContext {
 export function createToolExecutorViaWorker(
   config: WorkerBridgeExecutorConfig,
 ): [ToolExecutor, ExecutorContext] {
-  const { mcpClients, toolDefinitions = [], capabilityStore, graphRAG, timeout = 30000 } = config;
+  const { mcpClients, toolDefinitions = [], capabilityStore, graphRAG, capabilityRegistry, timeout = 30000 } = config;
 
   // Create persistent WorkerBridge for all tool calls
   const bridge = new WorkerBridge(mcpClients, {
     timeout,
     capabilityStore,
     graphRAG,
+    capabilityRegistry,
   });
 
   const context: ExecutorContext = {

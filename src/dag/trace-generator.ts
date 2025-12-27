@@ -66,6 +66,9 @@ export interface LogicalTaskResult {
  * Maps physical task results back to logical operations using the
  * optimized DAG's logical-to-physical mapping.
  *
+ * Option B: Non-executable tasks (nested operations) are included in the trace
+ * for SHGAT learning even though they weren't executed directly.
+ *
  * @param optimizedDAG Optimized DAG structure with mappings
  * @param physicalResults Results from physical task execution
  * @returns Logical trace for SHGAT learning
@@ -88,6 +91,34 @@ export function generateLogicalTrace(
 
   // Process each logical task in order
   for (const logicalTask of optimizedDAG.logicalDAG.tasks) {
+    // Option B: Check if this is a non-executable nested operation
+    const isNonExecutable = logicalTask.metadata?.executable === false;
+
+    if (isNonExecutable) {
+      // Non-executable task: Include in trace for SHGAT learning
+      // but mark as "nested" with no direct execution result
+      if (logicalTask.tool) {
+        executedPath.push(logicalTask.tool);
+        toolsUsed.add(logicalTask.tool);
+      }
+
+      // Create a synthetic result for learning purposes
+      taskResults.push({
+        taskId: logicalTask.id,
+        tool: logicalTask.tool || "unknown",
+        output: undefined, // No direct output - nested inside parent operation
+        success: true, // Assume success if parent succeeded
+        durationMs: 0, // Duration is part of parent's execution
+      });
+
+      log.debug("Included non-executable task in trace for SHGAT", {
+        taskId: logicalTask.id,
+        tool: logicalTask.tool,
+        parentOperation: logicalTask.metadata?.parentOperation,
+      });
+      continue;
+    }
+
     const physicalTaskId = optimizedDAG.logicalToPhysical.get(logicalTask.id);
 
     if (!physicalTaskId) {

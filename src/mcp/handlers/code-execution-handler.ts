@@ -257,9 +257,9 @@ async function tryDagExecution(
       const physicalResultsMap = new Map(
         physicalResults.results.map((r) => [r.taskId, {
           taskId: r.taskId,
+          status: r.status,
           output: r.output,
-          success: r.status === "success",
-          durationMs: r.executionTimeMs ?? 0,
+          executionTimeMs: r.executionTimeMs ?? 0,
         }]),
       );
 

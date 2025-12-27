@@ -58,6 +58,18 @@ interface ToolSchema {
  *
  * @internal This type is not exported - use StaticStructureNode for external APIs
  */
+/**
+ * Metadata for Option B: executable tracking
+ */
+interface NodeMetadata {
+  /** Whether this task is executable standalone (false if nested in callback) */
+  executable?: boolean;
+  /** Nesting level: 0 = top-level, 1+ = inside callback */
+  nestingLevel?: number;
+  /** Parent operation that contains this nested op (e.g., "code:map") */
+  parentOperation?: string;
+}
+
 type InternalNode =
   & {
     /** Unique node identifier (e.g., "n1", "d1", "f1") */
@@ -66,6 +78,8 @@ type InternalNode =
     position: number;
     /** Parent scope for conditional/parallel containment (e.g., "d1:true", "f1") */
     parentScope?: string;
+    /** Option B: Execution metadata for nested operation tracking */
+    metadata?: NodeMetadata;
   }
   & (
     | { type: "task"; tool: string; arguments?: ArgumentsStructure; code?: string }
@@ -298,12 +312,25 @@ export class StaticStructureBuilder {
 
   /**
    * Find all nodes in the AST recursively
+   *
+   * Option B: Uses nestingLevel parameter for tracking callback nesting.
+   * - nestingLevel=0: top-level code (executable=true)
+   * - nestingLevel>0: inside callback (executable=false)
+   *
+   * @param node AST node to process
+   * @param nodes Accumulator for found nodes
+   * @param position AST traversal position
+   * @param parentScope Parent scope for containment (e.g., "d1:true")
+   * @param nestingLevel Current callback nesting depth (default 0 = top-level)
+   * @param currentParentOp Parent operation name if inside callback (e.g., "code:map")
    */
   private findNodes(
     node: unknown,
     nodes: InternalNode[],
     position: number,
     parentScope?: string,
+    nestingLevel: number = 0,
+    currentParentOp?: string,
   ): void {
     if (!node || typeof node !== "object") {
       return;
@@ -311,59 +338,94 @@ export class StaticStructureBuilder {
 
     const n = node as Record<string, unknown>;
 
+    // Option B: Detect callback functions and increment nestingLevel
+    if (n.type === "ArrowFunctionExpression" || n.type === "FunctionExpression") {
+      // Recurse into callback body with incremented nesting level
+      const body = n.body as Record<string, unknown> | undefined;
+      if (body) {
+        this.findNodes(
+          body,
+          nodes,
+          position,
+          parentScope,
+          nestingLevel + 1, // Increment for callback context
+          currentParentOp,
+        );
+      }
+      return; // Don't continue normal recursion
+    }
+
     // Story 10.5: Track variable declarations for reference resolution
     // Pattern: const file = await mcp.fs.read(...) → track "file" → node ID
     if (n.type === "VariableDeclarator") {
-      this.handleVariableDeclarator(n, nodes, position, parentScope);
+      this.handleVariableDeclarator(n, nodes, position, parentScope, nestingLevel, currentParentOp);
       return; // Handled, don't recurse normally
     }
 
     // Check for MCP tool calls: mcp.server.tool()
     if (n.type === "CallExpression") {
-      const fullyHandled = this.handleCallExpression(n, nodes, position, parentScope);
+      const fullyHandled = this.handleCallExpression(
+        n,
+        nodes,
+        position,
+        parentScope,
+        nestingLevel,
+        currentParentOp,
+      );
       if (fullyHandled) return; // Promise.all etc. handle their own children
     }
 
     // Check for binary operations (arithmetic, comparison, logical)
     if (n.type === "BinaryExpression") {
-      this.handleBinaryExpression(n, nodes, position, parentScope);
+      this.handleBinaryExpression(n, nodes, position, parentScope, nestingLevel, currentParentOp);
       return; // Handled, don't recurse normally
     }
 
     // Check for if statements
     if (n.type === "IfStatement") {
-      this.handleIfStatement(n, nodes, position, parentScope);
+      this.handleIfStatement(n, nodes, position, parentScope, nestingLevel, currentParentOp);
       return; // Don't recurse normally, handled in handleIfStatement
     }
 
     // Check for switch statements
     if (n.type === "SwitchStatement") {
-      this.handleSwitchStatement(n, nodes, position, parentScope);
+      this.handleSwitchStatement(n, nodes, position, parentScope, nestingLevel, currentParentOp);
       return;
     }
 
     // Check for ternary operators
     if (n.type === "ConditionalExpression") {
-      this.handleConditionalExpression(n, nodes, position, parentScope);
+      this.handleConditionalExpression(
+        n,
+        nodes,
+        position,
+        parentScope,
+        nestingLevel,
+        currentParentOp,
+      );
       return;
     }
 
-    // Recurse through AST
+    // Recurse through AST (pass nestingLevel unchanged)
     let childPosition = position;
     for (const key of Object.keys(n)) {
       const val = n[key];
       if (Array.isArray(val)) {
         for (const item of val) {
-          this.findNodes(item, nodes, childPosition++, parentScope);
+          this.findNodes(item, nodes, childPosition++, parentScope, nestingLevel, currentParentOp);
         }
       } else if (typeof val === "object" && val !== null) {
-        this.findNodes(val, nodes, childPosition++, parentScope);
+        this.findNodes(val, nodes, childPosition++, parentScope, nestingLevel, currentParentOp);
       }
     }
   }
 
   /**
    * Handle CallExpression: mcp.server.tool() or capabilities.name()
+   *
+   * Option B: Accepts nestingLevel and currentParentOp for executable tracking.
+   * Sets currentParentOp when entering array operations with callbacks.
+   *
    * @returns true if this node was fully handled (don't recurse into children)
    */
   private handleCallExpression(
@@ -371,6 +433,8 @@ export class StaticStructureBuilder {
     nodes: InternalNode[],
     position: number,
     parentScope?: string,
+    nestingLevel: number = 0,
+    currentParentOp?: string,
   ): boolean {
     const callee = n.callee as Record<string, unknown> | undefined;
     if (!callee) return false;
@@ -381,7 +445,7 @@ export class StaticStructureBuilder {
 
       // Promise.all or Promise.allSettled - handles its own children
       if (chain[0] === "Promise" && (chain[1] === "all" || chain[1] === "allSettled")) {
-        this.handlePromiseAll(n, nodes, position, parentScope);
+        this.handlePromiseAll(n, nodes, position, parentScope, nestingLevel, currentParentOp);
         return true; // Fully handled, don't recurse
       }
 
@@ -413,6 +477,9 @@ export class StaticStructureBuilder {
         const span = n.span as { start: number; end: number } | undefined;
         const code = this.extractCodeFromSpan(span);
 
+        // Option B: Determine if this task is executable
+        const isExecutable = nestingLevel === 0;
+
         nodes.push({
           id: nodeId,
           type: "task",
@@ -420,13 +487,39 @@ export class StaticStructureBuilder {
           position,
           parentScope,
           code, // Original code extracted via span
+          // Option B: Add execution metadata
+          metadata: {
+            executable: isExecutable,
+            nestingLevel,
+            parentOperation: currentParentOp,
+          },
         });
         logger.debug("Detected array operation", {
           operation: methodName,
           nodeId,
           codeExtracted: !!code,
+          executable: isExecutable,
+          nestingLevel,
         });
-        return false; // Continue recursing
+
+        // Option B: When recursing into callback arguments, set currentParentOp
+        // so nested operations know their parent
+        const args = n.arguments as Array<Record<string, unknown>> | undefined;
+        if (args) {
+          for (const arg of args) {
+            const argExpr = (arg?.expression as Record<string, unknown>) ?? arg;
+            // Pass the current operation as parent for nested ops
+            this.findNodes(
+              argExpr,
+              nodes,
+              position + 1,
+              parentScope,
+              nestingLevel,
+              `code:${methodName}`, // This becomes currentParentOp for nested ops
+            );
+          }
+        }
+        return true; // Fully handled (we recursed into args ourselves)
       }
 
       // String operations
@@ -447,10 +540,9 @@ export class StaticStructureBuilder {
 
       if (stringOps.includes(methodName)) {
         const nodeId = this.generateNodeId("task");
-
-        // Extract code via SWC span
         const span = n.span as { start: number; end: number } | undefined;
         const code = span ? this.extractCodeFromSpan(span) : undefined;
+        const isExecutable = nestingLevel === 0;
 
         nodes.push({
           id: nodeId,
@@ -458,12 +550,14 @@ export class StaticStructureBuilder {
           tool: `code:${methodName}`,
           position,
           parentScope,
-          code, // Original code extracted via span
+          code,
+          metadata: { executable: isExecutable, nestingLevel, parentOperation: currentParentOp },
         });
         logger.debug("Detected string operation", {
           operation: methodName,
           nodeId,
           codeExtracted: !!code,
+          executable: isExecutable,
         });
         return false;
       }
@@ -475,10 +569,9 @@ export class StaticStructureBuilder {
       ) {
         const nodeId = this.generateNodeId("task");
         const operation = chain[1];
-
-        // Extract code via SWC span
         const span = n.span as { start: number; end: number } | undefined;
         const code = span ? this.extractCodeFromSpan(span) : undefined;
+        const isExecutable = nestingLevel === 0;
 
         nodes.push({
           id: nodeId,
@@ -486,9 +579,15 @@ export class StaticStructureBuilder {
           tool: `code:Object.${operation}`,
           position,
           parentScope,
-          code, // Original code extracted via span
+          code,
+          metadata: { executable: isExecutable, nestingLevel, parentOperation: currentParentOp },
         });
-        logger.debug("Detected Object operation", { operation, nodeId, codeExtracted: !!code });
+        logger.debug("Detected Object operation", {
+          operation,
+          nodeId,
+          codeExtracted: !!code,
+          executable: isExecutable,
+        });
         return false;
       }
 
@@ -498,10 +597,9 @@ export class StaticStructureBuilder {
       ) {
         const nodeId = this.generateNodeId("task");
         const operation = chain[1];
-
-        // Extract code via SWC span
         const span = n.span as { start: number; end: number } | undefined;
         const code = span ? this.extractCodeFromSpan(span) : undefined;
+        const isExecutable = nestingLevel === 0;
 
         nodes.push({
           id: nodeId,
@@ -509,9 +607,15 @@ export class StaticStructureBuilder {
           tool: `code:Math.${operation}`,
           position,
           parentScope,
-          code, // Original code extracted via span
+          code,
+          metadata: { executable: isExecutable, nestingLevel, parentOperation: currentParentOp },
         });
-        logger.debug("Detected Math operation", { operation, nodeId, codeExtracted: !!code });
+        logger.debug("Detected Math operation", {
+          operation,
+          nodeId,
+          codeExtracted: !!code,
+          executable: isExecutable,
+        });
         return false;
       }
 
@@ -519,10 +623,9 @@ export class StaticStructureBuilder {
       if (chain[0] === "JSON" && ["parse", "stringify"].includes(chain[1])) {
         const nodeId = this.generateNodeId("task");
         const operation = chain[1];
-
-        // Extract code via SWC span
         const span = n.span as { start: number; end: number } | undefined;
         const code = span ? this.extractCodeFromSpan(span) : undefined;
+        const isExecutable = nestingLevel === 0;
 
         nodes.push({
           id: nodeId,
@@ -530,18 +633,22 @@ export class StaticStructureBuilder {
           tool: `code:JSON.${operation}`,
           position,
           parentScope,
-          code, // Original code extracted via span
+          code,
+          metadata: { executable: isExecutable, nestingLevel, parentOperation: currentParentOp },
         });
-        logger.debug("Detected JSON operation", { operation, nodeId, codeExtracted: !!code });
+        logger.debug("Detected JSON operation", {
+          operation,
+          nodeId,
+          codeExtracted: !!code,
+          executable: isExecutable,
+        });
         return false;
       }
 
-      // mcp.server.tool pattern
+      // mcp.server.tool pattern - MCP tools are always executable (they handle their own context)
       if (chain[0] === "mcp" && chain.length >= 3) {
         const toolId = `${chain[1]}:${chain[2]}`;
         const id = this.generateNodeId("task");
-
-        // Story 10.2: Extract arguments from CallExpression
         const args = n.arguments as Array<Record<string, unknown>> | undefined;
         const extractedArgs = this.extractArguments(args);
 
@@ -551,10 +658,11 @@ export class StaticStructureBuilder {
           tool: toolId,
           position,
           parentScope,
-          // Only include arguments if we extracted some (backward compatibility)
           ...(Object.keys(extractedArgs).length > 0 ? { arguments: extractedArgs } : {}),
+          // MCP tools are always executable - they're self-contained
+          metadata: { executable: true, nestingLevel, parentOperation: currentParentOp },
         });
-        return false; // Continue recursing for nested expressions
+        return false;
       }
 
       // capabilities.name pattern
@@ -568,7 +676,7 @@ export class StaticStructureBuilder {
           position,
           parentScope,
         });
-        return false; // Continue recursing for nested expressions
+        return false;
       }
     }
 
@@ -586,6 +694,8 @@ export class StaticStructureBuilder {
     nodes: InternalNode[],
     position: number,
     parentScope?: string,
+    nestingLevel: number = 0,
+    currentParentOp?: string,
   ): void {
     // Extract variable name from id
     const id = n.id as Record<string, unknown> | undefined;
@@ -613,7 +723,7 @@ export class StaticStructureBuilder {
     // Process the initializer (this may create nodes)
     const init = n.init;
     if (init) {
-      this.findNodes(init, nodes, position, parentScope);
+      this.findNodes(init, nodes, position, parentScope, nestingLevel, currentParentOp);
     }
 
     // If a new task node was created, map the variable to it
@@ -638,6 +748,8 @@ export class StaticStructureBuilder {
     nodes: InternalNode[],
     position: number,
     parentScope?: string,
+    nestingLevel: number = 0,
+    currentParentOp?: string,
   ): void {
     const args = n.arguments as Array<Record<string, unknown>> | undefined;
     if (!args || args.length === 0) return;
@@ -648,18 +760,32 @@ export class StaticStructureBuilder {
 
     // Pattern 1: Direct ArrayExpression - Promise.all([a, b, c])
     if (arrayArg?.type === "ArrayExpression") {
-      this.handlePromiseAllArray(arrayArg, nodes, position, parentScope);
+      this.handlePromiseAllArray(
+        arrayArg,
+        nodes,
+        position,
+        parentScope,
+        nestingLevel,
+        currentParentOp,
+      );
       return;
     }
 
     // Pattern 2: map() call - Promise.all(arr.map(fn))
     if (arrayArg?.type === "CallExpression") {
-      const mapResult = this.handlePromiseAllMap(arrayArg, nodes, position, parentScope);
+      const mapResult = this.handlePromiseAllMap(
+        arrayArg,
+        nodes,
+        position,
+        parentScope,
+        nestingLevel,
+        currentParentOp,
+      );
       if (mapResult) return;
     }
 
     // Fallback: try to find MCP calls in the expression
-    this.findNodes(arrayArg, nodes, position, parentScope);
+    this.findNodes(arrayArg, nodes, position, parentScope, nestingLevel, currentParentOp);
   }
 
   /**
@@ -670,6 +796,8 @@ export class StaticStructureBuilder {
     nodes: InternalNode[],
     position: number,
     parentScope?: string,
+    nestingLevel: number = 0,
+    currentParentOp?: string,
   ): void {
     const elements = arrayArg.elements as Array<Record<string, unknown>> | undefined;
     if (!elements || elements.length === 0) return;
@@ -687,7 +815,7 @@ export class StaticStructureBuilder {
     // Elements are also wrapped in { spread, expression } structure
     for (const element of elements) {
       const expr = (element?.expression as Record<string, unknown>) ?? element;
-      this.findNodes(expr, nodes, position + 1, forkId);
+      this.findNodes(expr, nodes, position + 1, forkId, nestingLevel, currentParentOp);
     }
 
     // Create join node
@@ -713,6 +841,8 @@ export class StaticStructureBuilder {
     nodes: InternalNode[],
     position: number,
     parentScope?: string,
+    nestingLevel: number = 0,
+    currentParentOp?: string,
   ): boolean {
     const callee = callExpr.callee as Record<string, unknown> | undefined;
     if (!callee || callee.type !== "MemberExpression") return false;
@@ -758,8 +888,16 @@ export class StaticStructureBuilder {
         // For each element, process the callback body
         // Note: We can't substitute the actual values statically,
         // but we can create N identical task nodes
+        // Note: nestingLevel stays same, callback body processing handles it
         for (let i = 0; i < elements.length; i++) {
-          this.findNodes(callbackBody, nodes, position + 1 + i, forkId);
+          this.findNodes(
+            callbackBody,
+            nodes,
+            position + 1 + i,
+            forkId,
+            nestingLevel,
+            currentParentOp,
+          );
         }
 
         const joinId = this.generateNodeId("join");
@@ -787,7 +925,7 @@ export class StaticStructureBuilder {
     });
 
     // Process callback body to find MCP calls (creates 1 task node as template)
-    this.findNodes(callbackBody, nodes, position + 1, forkId);
+    this.findNodes(callbackBody, nodes, position + 1, forkId, nestingLevel, currentParentOp);
 
     const joinId = this.generateNodeId("join");
     nodes.push({
@@ -808,6 +946,8 @@ export class StaticStructureBuilder {
     nodes: InternalNode[],
     position: number,
     parentScope?: string,
+    nestingLevel: number = 0,
+    currentParentOp?: string,
   ): void {
     // Extract condition
     const test = n.test as Record<string, unknown> | undefined;
@@ -826,13 +966,27 @@ export class StaticStructureBuilder {
     // Process consequent (if true)
     const consequent = n.consequent as Record<string, unknown> | undefined;
     if (consequent) {
-      this.findNodes(consequent, nodes, position + 1, `${decisionId}:true`);
+      this.findNodes(
+        consequent,
+        nodes,
+        position + 1,
+        `${decisionId}:true`,
+        nestingLevel,
+        currentParentOp,
+      );
     }
 
     // Process alternate (else)
     const alternate = n.alternate as Record<string, unknown> | undefined;
     if (alternate) {
-      this.findNodes(alternate, nodes, position + 100, `${decisionId}:false`);
+      this.findNodes(
+        alternate,
+        nodes,
+        position + 100,
+        `${decisionId}:false`,
+        nestingLevel,
+        currentParentOp,
+      );
     }
   }
 
@@ -844,6 +998,8 @@ export class StaticStructureBuilder {
     nodes: InternalNode[],
     position: number,
     parentScope?: string,
+    nestingLevel: number = 0,
+    currentParentOp?: string,
   ): void {
     // Extract discriminant
     const discriminant = n.discriminant as Record<string, unknown> | undefined;
@@ -871,7 +1027,7 @@ export class StaticStructureBuilder {
         const consequent = caseClause.consequent as Array<Record<string, unknown>> | undefined;
         if (consequent) {
           for (const stmt of consequent) {
-            this.findNodes(stmt, nodes, casePosition++, caseScope);
+            this.findNodes(stmt, nodes, casePosition++, caseScope, nestingLevel, currentParentOp);
           }
         }
       }
@@ -886,6 +1042,8 @@ export class StaticStructureBuilder {
     nodes: InternalNode[],
     position: number,
     parentScope?: string,
+    nestingLevel: number = 0,
+    currentParentOp?: string,
   ): void {
     const test = n.test as Record<string, unknown> | undefined;
     const condition = this.extractConditionText(test);
@@ -903,13 +1061,27 @@ export class StaticStructureBuilder {
     // Process consequent (true branch)
     const consequent = n.consequent as Record<string, unknown> | undefined;
     if (consequent) {
-      this.findNodes(consequent, nodes, position + 1, `${decisionId}:true`);
+      this.findNodes(
+        consequent,
+        nodes,
+        position + 1,
+        `${decisionId}:true`,
+        nestingLevel,
+        currentParentOp,
+      );
     }
 
     // Process alternate (false branch)
     const alternate = n.alternate as Record<string, unknown> | undefined;
     if (alternate) {
-      this.findNodes(alternate, nodes, position + 100, `${decisionId}:false`);
+      this.findNodes(
+        alternate,
+        nodes,
+        position + 100,
+        `${decisionId}:false`,
+        nestingLevel,
+        currentParentOp,
+      );
     }
   }
 
@@ -918,12 +1090,16 @@ export class StaticStructureBuilder {
    *
    * Creates pseudo-tool tasks for operators to enable complete SHGAT learning.
    * Example: a + b becomes a task with tool: "code:add"
+   *
+   * Option B: Binary operations inside callbacks have executable=false
    */
   private handleBinaryExpression(
     n: Record<string, unknown>,
     nodes: InternalNode[],
     position: number,
     parentScope?: string,
+    nestingLevel: number = 0,
+    currentParentOp?: string,
   ): void {
     const operator = n.operator as string;
 
@@ -962,8 +1138,10 @@ export class StaticStructureBuilder {
       // Unknown operator, skip but recurse into children
       const left = n.left as Record<string, unknown> | undefined;
       const right = n.right as Record<string, unknown> | undefined;
-      if (left) this.findNodes(left, nodes, position, parentScope);
-      if (right) this.findNodes(right, nodes, position + 1, parentScope);
+      if (left) this.findNodes(left, nodes, position, parentScope, nestingLevel, currentParentOp);
+      if (right) {
+        this.findNodes(right, nodes, position + 1, parentScope, nestingLevel, currentParentOp);
+      }
       return;
     }
 
@@ -972,10 +1150,10 @@ export class StaticStructureBuilder {
     const right = n.right as Record<string, unknown> | undefined;
 
     if (left) {
-      this.findNodes(left, nodes, position, parentScope);
+      this.findNodes(left, nodes, position, parentScope, nestingLevel, currentParentOp);
     }
     if (right) {
-      this.findNodes(right, nodes, position + 1, parentScope);
+      this.findNodes(right, nodes, position + 1, parentScope, nestingLevel, currentParentOp);
     }
 
     // Create a task for the operator
@@ -985,13 +1163,23 @@ export class StaticStructureBuilder {
     const span = n.span as { start: number; end: number } | undefined;
     const code = span ? this.extractCodeFromSpan(span) : undefined;
 
+    // Option B: Binary operations inside callbacks are NOT executable standalone
+    // e.g., "n * 2" inside map callback - the 'n' variable doesn't exist outside the callback
+    const isExecutable = nestingLevel === 0;
+
     nodes.push({
       id: nodeId,
       type: "task",
       tool: `code:${operation}`,
       position: position + 2,
       parentScope,
-      code, // Original code extracted via span
+      code,
+      // Option B: Add execution metadata
+      metadata: {
+        executable: isExecutable,
+        nestingLevel,
+        parentOperation: currentParentOp,
+      },
     });
 
     logger.debug("Detected binary operation", {
@@ -999,6 +1187,9 @@ export class StaticStructureBuilder {
       operator,
       nodeId,
       codeExtracted: !!code,
+      executable: isExecutable,
+      nestingLevel,
+      parentOperation: currentParentOp,
     });
   }
 

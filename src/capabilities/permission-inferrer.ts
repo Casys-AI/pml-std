@@ -254,6 +254,14 @@ export function reloadMcpPermissions(): void {
 }
 
 /**
+ * Initialize MCP permissions by loading from config file
+ * Call this at server startup to ensure config is loaded before use
+ */
+export async function initMcpPermissions(): Promise<void> {
+  await loadMcpPermissions();
+}
+
+/**
  * Filesystem read-only operations
  */
 const FILESYSTEM_READ_OPS = new Set([

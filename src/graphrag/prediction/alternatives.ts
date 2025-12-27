@@ -110,6 +110,7 @@ export async function suggestAlternatives(
 
       // Log trace for alternative suggestion (fire-and-forget)
       deps.algorithmTracer?.logTrace({
+        algorithmName: "AlternativesPrediction",
         algorithmMode: "passive_suggestion",
         targetType: "capability",
         signals: {

@@ -307,6 +307,7 @@ export function createServeCommand() {
         const algorithmTracer = new AlgorithmTracer(db);
         capabilityMatcher.setAlgorithmTracer(algorithmTracer);
         dagSuggester.setAlgorithmTracer(algorithmTracer);
+        graphEngine.setAlgorithmTracer(algorithmTracer);
         log.info("✓ Algorithm tracing enabled");
 
         // Create tool executor with tracking callback (Story 3.7)

@@ -89,6 +89,8 @@ export interface WorkerBridgeConfig {
   capabilityStore?: CapabilityStore;
   /** Optional GraphRAGEngine for trace learning (Story 7.3b - AC#5) */
   graphRAG?: GraphRAGEngine;
+  /** Optional CapabilityRegistry for routing to capabilities when MCP server not found */
+  capabilityRegistry?: import("../capabilities/capability-registry.ts").CapabilityRegistry;
   // Note: permissionSet removed - Worker always uses "none" permissions.
   // Note: cap_* tools use global CapModule via getCapModule() (Story 13.5)
   // All I/O goes through MCP RPC for complete tracing. See WORKER_PERMISSIONS.
@@ -136,9 +138,10 @@ const DEFAULTS = {
  * ```
  */
 export class WorkerBridge {
-  private config: Omit<Required<WorkerBridgeConfig>, "capabilityStore" | "graphRAG">;
+  private config: Omit<Required<WorkerBridgeConfig>, "capabilityStore" | "graphRAG" | "capabilityRegistry">;
   private capabilityStore?: CapabilityStore;
   private graphRAG?: GraphRAGEngine;
+  private capabilityRegistry?: import("../capabilities/capability-registry.ts").CapabilityRegistry;
   private worker: Worker | null = null;
   private traces: TraceEvent[] = [];
   private pendingRPCs: Map<string, {
@@ -170,6 +173,7 @@ export class WorkerBridge {
     };
     this.capabilityStore = config?.capabilityStore;
     this.graphRAG = config?.graphRAG;
+    this.capabilityRegistry = config?.capabilityRegistry;
 
     // Story 7.3b: Setup BroadcastChannel for capability traces
     // Story 6.5: Bridge capability traces to unified EventBus (ADR-036)
@@ -660,6 +664,60 @@ export class WorkerBridge {
 
       const client = this.mcpClients.get(server);
       if (!client) {
+        // Try capability routing if registry available
+        if (this.capabilityRegistry && this.capabilityStore) {
+          const capabilityName = `${server}:${tool}`;
+          const record = await this.capabilityRegistry.resolveByName(
+            capabilityName,
+            { org: "local", project: "default" },
+          );
+          if (record && record.workflowPatternId) {
+            // Found capability - execute via NEW WorkerBridge (avoid re-entrance bug)
+            const pattern = await this.capabilityStore.findById(record.workflowPatternId);
+            if (pattern?.codeSnippet) {
+              logger.info("Routing to capability", { server, tool, fqdn: record.id });
+
+              // Create NEW WorkerBridge for capability execution
+              // IMPORTANT: Cannot use this.execute() - it would overwrite this.worker!
+              const capBridge = new WorkerBridge(this.mcpClients, {
+                timeout: this.config.timeout,
+                capabilityStore: this.capabilityStore,
+                graphRAG: this.graphRAG,
+                // Don't pass capabilityRegistry to avoid infinite recursion
+              });
+
+              try {
+                const capResult = await capBridge.execute(
+                  pattern.codeSnippet,
+                  [], // toolDefinitions - capability code is self-contained
+                  { ...args, __capability_fqdn: record.id },
+                );
+                const endTime = Date.now();
+                const durationMs = endTime - startTime;
+                this.traces.push({
+                  type: "tool_end",
+                  tool: toolId,
+                  traceId: id,
+                  ts: endTime,
+                  success: capResult.success,
+                  durationMs,
+                  parentTraceId,
+                  result: capResult.result,
+                });
+                const response: RPCResultMessage = {
+                  type: "rpc_result",
+                  id,
+                  success: capResult.success,
+                  result: capResult.result as JsonValue,
+                };
+                this.worker?.postMessage(response);
+              } finally {
+                capBridge.cleanup();
+              }
+              return;
+            }
+          }
+        }
         throw new Error(`MCP server "${server}" not connected`);
       }
 

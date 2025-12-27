@@ -15,6 +15,9 @@
 
 import type { ToolDefinition } from "../../../sandbox/types.ts";
 import type { MCPClientBase } from "../../types.ts";
+import type { CapabilityRegistry } from "../../../capabilities/capability-registry.ts";
+import type { CapabilityStore } from "../../../capabilities/capability-store.ts";
+import type { Scope } from "../../../capabilities/types.ts";
 
 /**
  * Minimal DAG structure interface for tool extraction
@@ -35,6 +38,12 @@ export interface StaticStructureWithNodes {
  */
 export interface ToolDefinitionDeps {
   mcpClients: Map<string, MCPClientBase>;
+  /** Optional: For resolving capabilities when MCP server not found */
+  capabilityRegistry?: CapabilityRegistry;
+  /** Optional: For fetching capability schemas */
+  capabilityStore?: CapabilityStore;
+  /** Scope for capability resolution (default: local.default) */
+  scope?: Scope;
 }
 
 /**
@@ -98,8 +107,11 @@ export async function buildToolDefinitionsFromDAG(
  * Similar to buildToolDefinitionsFromDAG but works with static analysis nodes.
  * Filters for task nodes only.
  *
+ * Story 14.x: When MCP server not found, checks capabilityRegistry for
+ * learned capabilities that match the namespace:action pattern.
+ *
  * @param staticStructure - Static structure with nodes array
- * @param deps - Dependencies with MCP clients
+ * @param deps - Dependencies with MCP clients and optional capability resolution
  * @returns Array of tool definitions for WorkerBridge context
  */
 export async function buildToolDefinitionsFromStaticStructure(
@@ -108,6 +120,7 @@ export async function buildToolDefinitionsFromStaticStructure(
 ): Promise<ToolDefinition[]> {
   const toolDefs: ToolDefinition[] = [];
   const seenTools = new Set<string>();
+  const scope = deps.scope ?? { org: "local", project: "default" };
 
   for (const node of staticStructure.nodes) {
     if (node.type !== "task" || !node.tool || seenTools.has(node.tool)) continue;
@@ -120,27 +133,57 @@ export async function buildToolDefinitionsFromStaticStructure(
     const toolName = node.tool.substring(colonIndex + 1);
 
     const client = deps.mcpClients.get(serverId);
-    if (!client) continue;
 
-    try {
-      const tools = await client.listTools();
-      const toolSchema = tools.find((t) => t.name === toolName);
-      if (toolSchema) {
+    if (client) {
+      // Standard MCP tool resolution
+      try {
+        const tools = await client.listTools();
+        const toolSchema = tools.find((t) => t.name === toolName);
+        if (toolSchema) {
+          toolDefs.push({
+            server: serverId,
+            name: toolName,
+            description: toolSchema.description ?? "",
+            inputSchema: toolSchema.inputSchema as Record<string, unknown>,
+          });
+        }
+      } catch {
+        // Server doesn't have schema, add minimal definition
         toolDefs.push({
           server: serverId,
           name: toolName,
-          description: toolSchema.description ?? "",
-          inputSchema: toolSchema.inputSchema as Record<string, unknown>,
+          description: "",
+          inputSchema: {},
         });
       }
-    } catch {
-      // Server doesn't have schema, add minimal definition
-      toolDefs.push({
-        server: serverId,
-        name: toolName,
-        description: "",
-        inputSchema: {},
-      });
+    } else if (deps.capabilityRegistry) {
+      // No MCP client - try capability resolution
+      const capabilityName = `${serverId}:${toolName}`;
+      const record = await deps.capabilityRegistry.resolveByName(capabilityName, scope);
+
+      if (record) {
+        // Capability found - get schema from workflow_pattern if available
+        let description = "";
+        let inputSchema: Record<string, unknown> = {};
+
+        if (record.workflowPatternId && deps.capabilityStore) {
+          const pattern = await deps.capabilityStore.findById(record.workflowPatternId);
+          if (pattern) {
+            description = pattern.description ?? "";
+            inputSchema = pattern.parametersSchema as Record<string, unknown> ?? {};
+          }
+        }
+
+        toolDefs.push({
+          server: serverId,
+          name: toolName,
+          description,
+          inputSchema,
+          // Mark as capability for WorkerBridge routing
+          isCapability: true,
+          capabilityFqdn: record.id,
+        });
+      }
     }
   }
 

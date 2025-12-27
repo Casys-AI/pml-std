@@ -9,7 +9,6 @@ import {
   canFuseTasks,
   fuseTasks,
   optimizeDAG,
-  type OptimizedDAGStructure,
 } from "../../../src/dag/dag-optimizer.ts";
 import type { DAGStructure, Task } from "../../../src/graphrag/types.ts";
 
@@ -100,7 +99,7 @@ Deno.test("canFuseTasks - returns false for different permission sets", () => {
       code: "data.map(x => x.name)",
       arguments: {},
       dependsOn: ["task_c1"],
-      sandboxConfig: { permissionSet: "full" }, // ← Different!
+      sandboxConfig: { permissionSet: "trusted" }, // ← Different!
     },
   ];
 

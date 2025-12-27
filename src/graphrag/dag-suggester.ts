@@ -150,12 +150,12 @@ export class DAGSuggester {
     return getCapabilityPageranks(this.spectralClustering);
   }
 
-  async searchCapabilities(intent: string): Promise<CapabilityMatch | null> {
+  async searchCapabilities(intent: string, correlationId?: string): Promise<CapabilityMatch | null> {
     if (!this.capabilityMatcher) {
       log.debug("[DAGSuggester] searchCapabilities called but CapabilityMatcher not configured");
       return null;
     }
-    return await this.capabilityMatcher.findMatch(intent);
+    return await this.capabilityMatcher.findMatch(intent, correlationId);
   }
 
   // ===========================================================================
@@ -525,6 +525,7 @@ export class DAGSuggester {
       const c = candidates[i];
       const a = alphas[i];
       this.algorithmTracer?.logTrace({
+        algorithmName: "DAGSuggester",
         algorithmMode: "active_search",
         targetType: "tool",
         intent: intentText.substring(0, 200),

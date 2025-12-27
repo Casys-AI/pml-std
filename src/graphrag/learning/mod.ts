@@ -42,8 +42,10 @@ export {
   type PERTrainingResult,
   resetExecutionCounter,
   shouldRunBatchTraining,
+  type SubprocessPEROptions,
   traceToTrainingExamples,
   trainSHGATOnPathTraces,
+  trainSHGATOnPathTracesSubprocess,
 } from "./per-training.ts";
 
 export {

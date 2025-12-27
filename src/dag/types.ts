@@ -272,6 +272,15 @@ export type ExecutionEvent =
     totalTimeMs: number;
     successfulTasks: number;
     failedTasks: number;
+  }
+  | {
+    type: "workflow_abort";
+    timestamp: number;
+    workflowId: string;
+    reason: string;
+    totalTimeMs: number;
+    successfulTasks: number;
+    failedTasks: number;
   };
 
 // ============================================================================

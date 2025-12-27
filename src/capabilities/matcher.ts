@@ -144,9 +144,10 @@ export class CapabilityMatcher {
    * ADR-042 §3: Now uses transitive reliability when computing final score.
    *
    * @param intent - User intent (natural language)
+   * @param correlationId - Optional ID to group traces from same operation
    * @returns Best match or null if no match above threshold
    */
-  async findMatch(intent: string): Promise<CapabilityMatch | null> {
+  async findMatch(intent: string, correlationId?: string): Promise<CapabilityMatch | null> {
     // 1. Get adaptive threshold for "capability_matching" context
     // Note: Story 7.3a specifies using suggestionThreshold
     const thresholds = this.adaptiveThresholds.getThresholds();
@@ -216,6 +217,8 @@ export class CapabilityMatcher {
 
       // Story 7.6: Log trace for each candidate (fire-and-forget)
       this.algorithmTracer?.logTrace({
+        correlationId,
+        algorithmName: "CapabilityMatcher",
         algorithmMode: "active_search",
         targetType: "capability",
         intent: intent.substring(0, 200),

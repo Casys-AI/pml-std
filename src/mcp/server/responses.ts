@@ -143,7 +143,7 @@ export function formatApprovalRequired(
     decision_type: decisionType,
     description,
     context,
-    options: ["approve", "reject"],
+    options: ["continue", "abort", "replan"],
   });
 }
 

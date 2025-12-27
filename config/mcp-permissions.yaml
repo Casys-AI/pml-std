@@ -342,3 +342,13 @@ vfs:
 plots:
   scope: filesystem
   approvalMode: auto
+
+# =============================================================================
+# PML INTERNAL TOOLS - Capability management, trusted operations
+# =============================================================================
+
+# STD capability management tools (cap_list, cap_rename, cap_lookup, cap_whois)
+# These are internal PML operations that don't require human approval
+std:
+  scope: minimal
+  approvalMode: auto

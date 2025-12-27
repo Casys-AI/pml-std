@@ -159,6 +159,12 @@ export function smartHILCheck(
   }> = [];
 
   for (const task of dag.tasks) {
+    // Pure operations skip HIL entirely (Phase 2a: no side effects)
+    if (task.metadata?.pure === true) {
+      log.debug(`[SmartHIL] Skipping pure operation: ${task.tool}`);
+      continue;
+    }
+
     const taskType = getTaskType(task);
 
     // Only check MCP tools for Thompson thresholds

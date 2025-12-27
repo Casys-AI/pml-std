@@ -229,9 +229,10 @@ function findSequentialChain(
  *
  * Fusion rules:
  * 1. All tasks must be code_execution
- * 2. All tasks must be pure operations (no side effects)
- * 3. All tasks must have same permission set
- * 4. No MCP calls in the code
+ * 2. All tasks must be executable standalone (Option B)
+ * 3. All tasks must be pure operations (no side effects)
+ * 4. All tasks must have same permission set
+ * 5. No MCP calls in the code
  */
 export function canFuseTasks(tasks: Task[]): boolean {
   if (tasks.length === 0) return false;
@@ -241,7 +242,22 @@ export function canFuseTasks(tasks: Task[]): boolean {
     return false;
   }
 
-  // Rule 2: No MCP calls in code (side effects)
+  // Rule 2 (Option B): All must be executable standalone
+  // Tasks nested inside callbacks (executable=false) cannot be fused or executed
+  const nonExecutable = tasks.filter((t) => t.metadata?.executable === false);
+  if (nonExecutable.length > 0) {
+    log.debug("Cannot fuse: contains non-executable nested operations", {
+      taskIds: tasks.map((t) => t.id),
+      nonExecutable: nonExecutable.map((t) => ({
+        id: t.id,
+        tool: t.tool,
+        parentOperation: t.metadata?.parentOperation,
+      })),
+    });
+    return false;
+  }
+
+  // Rule 3: No MCP calls in code (side effects)
   for (const task of tasks) {
     if (task.code?.includes("mcp.")) {
       return false;
@@ -251,13 +267,13 @@ export function canFuseTasks(tasks: Task[]): boolean {
   // Single task passes basic checks - can be part of a fusion
   if (tasks.length === 1) return true;
 
-  // Rule 3: All must be pure operations (Phase 2a: checked via metadata)
+  // Rule 4: All must be pure operations (Phase 2a: checked via metadata)
   // For multi-task fusion, we require explicit pure marking
   if (!tasks.every((t) => t.metadata?.pure === true)) {
     return false;
   }
 
-  // Rule 4: Same permission set
+  // Rule 5: Same permission set
   const permSets = tasks.map((t) => t.sandboxConfig?.permissionSet ?? "minimal");
   if (new Set(permSets).size > 1) {
     return false;
@@ -281,9 +297,10 @@ export function fuseTasks(tasks: Task[]): Task {
     return tasks[0];
   }
 
-  log.debug("Fusing tasks", {
+  log.info("[DEBUG] Fusing tasks", {
     taskIds: tasks.map((t) => t.id),
     operations: tasks.map((t) => t.tool),
+    codes: tasks.map((t) => t.code?.substring(0, 100)),
   });
 
   // Collect external dependencies (dependencies outside the fused group)
@@ -300,6 +317,8 @@ export function fuseTasks(tasks: Task[]): Task {
 
   // Generate fused code
   const fusedCode = generateFusedCode(tasks);
+
+  log.info("[DEBUG] Generated fused code:", { fusedCode });
 
   // Create fused task
   const fusedTask: Task = {

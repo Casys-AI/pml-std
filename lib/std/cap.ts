@@ -16,8 +16,30 @@
 
 import type { CapabilityRegistry, Scope } from "../../src/capabilities/capability-registry.ts";
 import type { DbClient } from "../../src/db/mod.ts";
+import type { EmbeddingModelInterface } from "../../src/vector/embeddings.ts";
 import { isValidMCPName } from "../../src/capabilities/fqdn.ts";
 import * as log from "@std/log";
+
+// =============================================================================
+// Embedding Text Builder
+// =============================================================================
+
+/**
+ * Build text for embedding generation
+ *
+ * Combines name and description for better semantic search.
+ * Format: "name: description" or just "name" if no description.
+ *
+ * @param name - Capability display name
+ * @param description - Optional description
+ * @returns Text for embedding generation
+ */
+export function buildEmbeddingText(name: string, description?: string | null): string {
+  if (description) {
+    return `${name}: ${description}`;
+  }
+  return name;
+}
 
 // =============================================================================
 // Types
@@ -266,6 +288,7 @@ export class CapModule {
   constructor(
     private registry: CapabilityRegistry,
     private db: DbClient,
+    private embeddingModel?: EmbeddingModelInterface,
   ) {}
 
   /**
@@ -476,6 +499,7 @@ export class CapModule {
    * AC5: Basic rename with alias creation
    * AC6: Rename with description update
    * AC7: Collision error if newName already exists
+   * AC-NEW: Recalculate embedding with new name + description
    */
   private async handleRename(options: CapRenameOptions): Promise<CapToolResult> {
     const { name, newName, description } = options;
@@ -502,9 +526,45 @@ export class CapModule {
     const fqdn = record.id;
     const oldName = record.displayName;
 
+    // Get current description if not provided
+    let finalDescription = description;
+    if (finalDescription === undefined && record.workflowPatternId) {
+      interface DescRow { description: string | null }
+      const descRows = (await this.db.query(
+        `SELECT description FROM workflow_pattern WHERE pattern_id = $1`,
+        [record.workflowPatternId],
+      )) as unknown as DescRow[];
+      if (descRows.length > 0) {
+        finalDescription = descRows[0].description ?? undefined;
+      }
+    }
+
     // Update display_name (FQDN stays immutable!)
     // Note: No alias creation - old name is simply overwritten (simpler, no collisions)
     await this.updateDisplayName(fqdn, newName, description);
+
+    // AC-NEW: Recalculate embedding with new name + description
+    let embeddingUpdated = false;
+    if (this.embeddingModel && record.workflowPatternId) {
+      try {
+        const embeddingText = buildEmbeddingText(newName, finalDescription);
+        const newEmbedding = await this.embeddingModel.encode(embeddingText);
+        const embeddingStr = `[${newEmbedding.join(",")}]`;
+
+        await this.db.query(
+          `UPDATE workflow_pattern
+           SET intent_embedding = $1::vector
+           WHERE pattern_id = $2`,
+          [embeddingStr, record.workflowPatternId],
+        );
+        embeddingUpdated = true;
+        log.info(`[CapModule] Embedding updated for ${newName}`);
+      } catch (error) {
+        // Log but don't fail the rename
+        const msg = error instanceof Error ? error.message : String(error);
+        log.warn(`[CapModule] Failed to update embedding: ${msg}`);
+      }
+    }
 
     const response: CapRenameResponse = {
       success: true,
@@ -512,7 +572,7 @@ export class CapModule {
       aliasCreated: false, // No longer creating aliases
     };
 
-    log.info(`[CapModule] Renamed ${oldName} -> ${newName} (FQDN: ${fqdn})`);
+    log.info(`[CapModule] Renamed ${oldName} -> ${newName} (FQDN: ${fqdn}, embeddingUpdated: ${embeddingUpdated})`);
     return this.successResult(response);
   }
 
@@ -658,11 +718,26 @@ export class CapModule {
     newName: string,
     description?: string,
   ): Promise<void> {
+    // Parse namespace and action from newName
+    // Format: "namespace:action" or just "action" (defaults to namespace="cap")
+    let namespace: string;
+    let action: string;
+    const colonIndex = newName.indexOf(":");
+    if (colonIndex > 0) {
+      namespace = newName.substring(0, colonIndex);
+      action = newName.substring(colonIndex + 1);
+    } else {
+      // Default namespace for named capabilities
+      namespace = "cap";
+      action = newName;
+    }
+
+    // Update display_name, namespace, and action
     await this.db.query(
       `UPDATE capability_records
-       SET display_name = $1, updated_at = NOW()
+       SET display_name = $1, namespace = $3, action = $4, updated_at = NOW()
        WHERE id = $2`,
-      [newName, fqdn],
+      [newName, fqdn, namespace, action],
     );
 
     if (description !== undefined) {
@@ -840,11 +915,11 @@ export class PmlStdServer {
   readonly serverId = "pml-std";
   private cap: CapModule;
 
-  constructor(registry: CapabilityRegistry, db: DbClient) {
-    this.cap = new CapModule(registry, db);
+  constructor(registry: CapabilityRegistry, db: DbClient, embeddingModel?: EmbeddingModelInterface) {
+    this.cap = new CapModule(registry, db, embeddingModel);
     // Set global CapModule for pmlTools discovery
     setCapModule(this.cap);
-    log.info(`[PmlStdServer] Initialized with cap:* tools`);
+    log.info(`[PmlStdServer] Initialized with cap:* tools${embeddingModel ? " (embedding support enabled)" : ""}`);
   }
 
   /** Get the underlying CapModule */

@@ -48,6 +48,8 @@ export interface HybridSearchOptions {
   localAlphaCalculator?: LocalAlphaCalculator | null;
   /** AlgorithmTracer for observability (Story 7.6) */
   algorithmTracer?: AlgorithmTracer | null;
+  /** Correlation ID for grouping related traces (Story 7.6+) */
+  correlationId?: string;
 }
 
 /**
@@ -212,6 +214,8 @@ export async function searchToolsHybrid(
         };
 
         algorithmTracer.logTrace({
+          correlationId: options.correlationId,
+          algorithmName: "HybridSearch",
           algorithmMode: "active_search",
           targetType: "tool",
           intent: query.substring(0, 200),
@@ -228,6 +232,7 @@ export async function searchToolsHybrid(
               | "bayesian"
               | "none",
             coldStart: breakdown.coldStart,
+            targetId: result.toolId, // Auto-detects pure in AlgorithmTracer
           },
           params: {
             alpha: breakdown.alpha,

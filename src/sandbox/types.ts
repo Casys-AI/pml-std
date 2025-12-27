@@ -165,16 +165,30 @@ export interface CommandOutput {
 /**
  * Tool definition for Worker sandbox (serializable - no functions!)
  * Passed to Worker during initialization to generate tool proxies.
+ *
+ * Story 14.x: Extended with isCapability/capabilityFqdn for capabilities
+ * discovered during static analysis when no MCP server exists.
  */
 export interface ToolDefinition {
-  /** MCP server identifier (e.g., "filesystem", "memory") */
+  /** MCP server identifier (e.g., "filesystem", "memory") or capability namespace (e.g., "fs") */
   server: string;
-  /** Tool name (e.g., "read_file", "write_file") */
+  /** Tool name (e.g., "read_file") or capability action (e.g., "ls") */
   name: string;
   /** Human-readable tool description */
   description: string;
   /** JSON Schema for tool input parameters */
   inputSchema: Record<string, unknown>;
+
+  /**
+   * Whether this is a capability rather than an MCP tool.
+   * When true, WorkerBridge routes to CapabilityExecutorService.
+   */
+  isCapability?: boolean;
+  /**
+   * FQDN of the capability (e.g., "local.default.fs.ls.a7f3").
+   * Only present when isCapability=true.
+   */
+  capabilityFqdn?: string;
 }
 
 /**

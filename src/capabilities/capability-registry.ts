@@ -168,10 +168,11 @@ export class CapabilityRegistry {
    *
    * Resolution order:
    * 1. Exact match on (org, project, display_name)
-   * 2. Alias match in capability_aliases
-   * 3. Public capability match (visibility = 'public')
+   * 2. Match by namespace:action format (for MCP tool calls)
+   * 3. Alias match in capability_aliases
+   * 4. Public capability match (visibility = 'public')
    *
-   * @param name - The display name to resolve
+   * @param name - The display name or namespace:action to resolve
    * @param scope - The org/project scope
    * @returns The resolved record or null
    */
@@ -179,7 +180,7 @@ export class CapabilityRegistry {
     name: string,
     scope: Scope,
   ): Promise<CapabilityRecord | null> {
-    // 1. Try exact match in current scope
+    // 1. Try exact match in current scope by display_name
     const exactMatch = await this.db.query(
       `SELECT * FROM capability_records
        WHERE org = $1 AND project = $2 AND display_name = $3`,
@@ -190,13 +191,30 @@ export class CapabilityRegistry {
       return this.rowToRecord(exactMatch[0]);
     }
 
-    // 2. Try alias resolution
+    // 2. Try namespace:action format (used by CapabilityMCPServer)
+    const colonIndex = name.indexOf(":");
+    if (colonIndex > 0) {
+      const namespace = name.substring(0, colonIndex);
+      const action = name.substring(colonIndex + 1);
+
+      const namespaceMatch = await this.db.query(
+        `SELECT * FROM capability_records
+         WHERE org = $1 AND project = $2 AND namespace = $3 AND action = $4`,
+        [scope.org, scope.project, namespace, action],
+      );
+
+      if (namespaceMatch.length > 0) {
+        return this.rowToRecord(namespaceMatch[0]);
+      }
+    }
+
+    // 3. Try alias resolution
     const aliasResult = await this.resolveByAlias(name, scope);
     if (aliasResult) {
       return aliasResult.record;
     }
 
-    // 3. Try public capability match
+    // 4. Try public capability match by display_name
     const publicMatch = await this.db.query(
       `SELECT * FROM capability_records
        WHERE display_name = $1 AND visibility = 'public'

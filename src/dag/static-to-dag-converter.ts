@@ -253,6 +253,9 @@ function nodeToTask(
           });
         }
 
+        // Get metadata from static analysis (Option B: executable tracking)
+        const nodeMetadata = (node as { metadata?: Record<string, unknown> }).metadata;
+
         return {
           id: taskId,
           tool: node.tool, // Keep the pseudo-tool ID for tracing
@@ -263,7 +266,11 @@ function nodeToTask(
           sandboxConfig: {
             permissionSet: "minimal", // Pure operations have minimal permissions
           },
-          metadata: { pure: isPureOperation(node.tool) },
+          // Merge node metadata with pure operation check (Option B)
+          metadata: {
+            pure: isPureOperation(node.tool),
+            ...nodeMetadata, // Preserve executable, nestingLevel, parentOperation
+          },
           staticArguments: node.arguments,
           // Pass variable bindings for context injection at runtime
           variableBindings,
