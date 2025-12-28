@@ -143,6 +143,17 @@ export class StaticStructureBuilder {
   private variableToNodeId = new Map<string, string>();
 
   /**
+   * Maps variable names to literal values (Story 10.2b - Option B)
+   *
+   * When we see `const numbers = [10, 20, 30]`, we track:
+   * - "numbers" → [10, 20, 30] (the literal value)
+   *
+   * This allows us to resolve shorthand arguments like `{ numbers }`
+   * where `numbers` is a local variable with a literal value.
+   */
+  private literalBindings = new Map<string, JsonValue>();
+
+  /**
    * Original source code for span extraction
    * Used to extract code operations via SWC spans
    */
@@ -225,20 +236,24 @@ export class StaticStructureBuilder {
       // Export variable bindings for code task context injection
       const variableBindings = Object.fromEntries(this.variableToNodeId);
 
+      // Export literal bindings for argument resolution (Story 10.2b)
+      const literalBindings = Object.fromEntries(this.literalBindings);
+
       logger.debug("Static structure built", {
         nodeCount: nodes.length,
         edgeCount: edges.length,
         variableBindingsCount: Object.keys(variableBindings).length,
+        literalBindingsCount: Object.keys(literalBindings).length,
       });
 
-      return { nodes, edges, variableBindings };
+      return { nodes, edges, variableBindings, literalBindings };
     } catch (error) {
       // Non-critical: return empty structure on parse errors
       logger.warn("Static structure analysis failed, returning empty", {
         error: error instanceof Error ? error.message : String(error),
       });
 
-      return { nodes: [], edges: [], variableBindings: {} };
+      return { nodes: [], edges: [], variableBindings: {}, literalBindings: {} };
     }
   }
 
@@ -278,6 +293,7 @@ export class StaticStructureBuilder {
       join: 0,
     };
     this.variableToNodeId.clear();
+    this.literalBindings.clear();
   }
 
   /**
@@ -685,9 +701,13 @@ export class StaticStructureBuilder {
 
   /**
    * Handle variable declarations to track variable → nodeId mapping (Story 10.5)
+   * and variable → literal value mapping (Story 10.2b - Option B)
    *
-   * Pattern: const file = await mcp.fs.read({ path: "config.json" });
+   * Pattern 1: const file = await mcp.fs.read({ path: "config.json" });
    * → Tracks "file" → "n1" so that references like file.content become n1.content
+   *
+   * Pattern 2: const numbers = [10, 20, 30];
+   * → Tracks "numbers" → [10, 20, 30] so that { numbers } resolves to the literal value
    */
   private handleVariableDeclarator(
     n: Record<string, unknown>,
@@ -717,11 +737,35 @@ export class StaticStructureBuilder {
       }
     }
 
+    // Story 10.2b Option B: Check if init is a literal value (no MCP call)
+    // If so, store it in literalBindings for argument resolution
+    const init = n.init as Record<string, unknown> | undefined;
+    if (variableName && init) {
+      // Handle AwaitExpression: unwrap to get the actual expression
+      const actualInit = init.type === "AwaitExpression"
+        ? init.argument as Record<string, unknown>
+        : init;
+
+      // Check if it's a literal value (not a function call that creates a node)
+      if (actualInit && this.isLiteralExpression(actualInit)) {
+        const literalValue = this.extractLiteralValue(actualInit);
+        if (literalValue !== undefined) {
+          this.literalBindings.set(variableName, literalValue);
+          logger.debug("Tracked variable to literal binding", {
+            variableName,
+            valueType: typeof literalValue,
+            isArray: Array.isArray(literalValue),
+          });
+          // Don't recurse into literal - no nodes to create
+          return;
+        }
+      }
+    }
+
     // Track current node count before processing init
     const nodeCountBefore = this.nodeCounters.task;
 
     // Process the initializer (this may create nodes)
-    const init = n.init;
     if (init) {
       this.findNodes(init, nodes, position, parentScope, nestingLevel, currentParentOp);
     }
@@ -734,6 +778,42 @@ export class StaticStructureBuilder {
       this.variableToNodeId.set(variableName, nodeId);
       logger.debug("Tracked variable to node mapping", { variableName, nodeId });
     }
+  }
+
+  /**
+   * Check if an AST node is a literal expression (not a function call)
+   *
+   * Story 10.2b: Used to determine if a variable declaration should be
+   * tracked as a literal binding (for argument resolution) vs a node mapping
+   * (for task result references).
+   *
+   * Extended to support computed expressions (a + b) where operands are literals.
+   */
+  private isLiteralExpression(node: Record<string, unknown>): boolean {
+    const literalTypes = [
+      "StringLiteral",
+      "NumericLiteral",
+      "BooleanLiteral",
+      "NullLiteral",
+      "ArrayExpression",
+      "ObjectExpression",
+      // Story 10.2b: Support computed expressions
+      "BinaryExpression",
+      "UnaryExpression",
+      "ParenthesisExpression",
+    ];
+
+    if (literalTypes.includes(node.type as string)) {
+      return true;
+    }
+
+    // Identifier is only a "literal expression" if it references a tracked literal
+    if (node.type === "Identifier") {
+      const varName = node.value as string;
+      return this.literalBindings.has(varName);
+    }
+
+    return false;
   }
 
   /**
@@ -1513,6 +1593,9 @@ export class StaticStructureBuilder {
   /**
    * Extract a literal value from an AST node (recursive helper for objects/arrays)
    *
+   * Story 10.2b: Extended to support BinaryExpression (a + b) and Identifier references
+   * to already-tracked literal bindings.
+   *
    * @param node AST node
    * @returns The literal value, or undefined for non-literal nodes
    */
@@ -1540,8 +1623,137 @@ export class StaticStructureBuilder {
       return this.extractArrayLiteral(node);
     }
 
+    // Story 10.2b: Support Identifier references to tracked literals
+    if (node.type === "Identifier") {
+      const varName = node.value as string;
+      if (this.literalBindings.has(varName)) {
+        return this.literalBindings.get(varName);
+      }
+      return undefined;
+    }
+
+    // Story 10.2b: Support BinaryExpression (a + b, a - b, etc.)
+    if (node.type === "BinaryExpression") {
+      return this.evaluateBinaryExpression(node);
+    }
+
+    // Story 10.2b: Support UnaryExpression (-a, !a, etc.)
+    if (node.type === "UnaryExpression") {
+      return this.evaluateUnaryExpression(node);
+    }
+
+    // Story 10.2b: Support parenthesized expressions
+    if (node.type === "ParenthesisExpression") {
+      const expr = node.expression as Record<string, unknown>;
+      return expr ? this.extractLiteralValue(expr) : undefined;
+    }
+
     // Non-literal values return undefined
     return undefined;
+  }
+
+  /**
+   * Evaluate a binary expression statically (Story 10.2b)
+   *
+   * Supports: +, -, *, /, %, **, &&, ||, ==, ===, !=, !==, <, >, <=, >=
+   * Only works if both operands can be resolved to literal values.
+   */
+  private evaluateBinaryExpression(node: Record<string, unknown>): JsonValue | undefined {
+    const left = this.extractLiteralValue(node.left as Record<string, unknown>);
+    const right = this.extractLiteralValue(node.right as Record<string, unknown>);
+    const operator = node.operator as string;
+
+    if (left === undefined || right === undefined) {
+      return undefined;
+    }
+
+    // Type-safe evaluation of binary operations
+    switch (operator) {
+      // Arithmetic (numbers)
+      case "+":
+        if (typeof left === "number" && typeof right === "number") return left + right;
+        if (typeof left === "string" || typeof right === "string") return String(left) + String(right);
+        return undefined;
+      case "-":
+        if (typeof left === "number" && typeof right === "number") return left - right;
+        return undefined;
+      case "*":
+        if (typeof left === "number" && typeof right === "number") return left * right;
+        return undefined;
+      case "/":
+        if (typeof left === "number" && typeof right === "number" && right !== 0) return left / right;
+        return undefined;
+      case "%":
+        if (typeof left === "number" && typeof right === "number" && right !== 0) return left % right;
+        return undefined;
+      case "**":
+        if (typeof left === "number" && typeof right === "number") return left ** right;
+        return undefined;
+
+      // Comparison
+      case "==":
+        return left == right;
+      case "===":
+        return left === right;
+      case "!=":
+        return left != right;
+      case "!==":
+        return left !== right;
+      case "<":
+        if (typeof left === "number" && typeof right === "number") return left < right;
+        if (typeof left === "string" && typeof right === "string") return left < right;
+        return undefined;
+      case ">":
+        if (typeof left === "number" && typeof right === "number") return left > right;
+        if (typeof left === "string" && typeof right === "string") return left > right;
+        return undefined;
+      case "<=":
+        if (typeof left === "number" && typeof right === "number") return left <= right;
+        if (typeof left === "string" && typeof right === "string") return left <= right;
+        return undefined;
+      case ">=":
+        if (typeof left === "number" && typeof right === "number") return left >= right;
+        if (typeof left === "string" && typeof right === "string") return left >= right;
+        return undefined;
+
+      // Logical
+      case "&&":
+        return left && right;
+      case "||":
+        return left || right;
+
+      default:
+        return undefined;
+    }
+  }
+
+  /**
+   * Evaluate a unary expression statically (Story 10.2b)
+   *
+   * Supports: -, +, !, typeof
+   */
+  private evaluateUnaryExpression(node: Record<string, unknown>): JsonValue | undefined {
+    const argument = this.extractLiteralValue(node.argument as Record<string, unknown>);
+    const operator = node.operator as string;
+
+    if (argument === undefined) {
+      return undefined;
+    }
+
+    switch (operator) {
+      case "-":
+        if (typeof argument === "number") return -argument;
+        return undefined;
+      case "+":
+        if (typeof argument === "number") return +argument;
+        return undefined;
+      case "!":
+        return !argument;
+      case "typeof":
+        return typeof argument;
+      default:
+        return undefined;
+    }
   }
 
   /**

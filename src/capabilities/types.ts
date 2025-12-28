@@ -689,6 +689,23 @@ export interface StaticStructure {
    * ```
    */
   variableBindings?: Record<string, string>;
+  /**
+   * Variable to literal value bindings for argument resolution (Story 10.2b).
+   *
+   * Maps local variable names to their literal values when the variable
+   * is assigned a static literal (number, string, boolean, array, object).
+   * Used to resolve shorthand arguments like `{ numbers }` where `numbers`
+   * is a local variable with a literal value.
+   *
+   * @example
+   * ```typescript
+   * // Code: const numbers = [10, 20, 30];
+   * //       mcp.math.sum({ numbers })
+   * // Produces: { "numbers": [10, 20, 30] }
+   * // At resolution: { numbers } → { numbers: [10, 20, 30] }
+   * ```
+   */
+  literalBindings?: Record<string, JsonValue>;
 }
 
 /**

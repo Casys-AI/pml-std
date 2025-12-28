@@ -653,3 +653,263 @@ Deno.test("StaticStructureBuilder - variableBindings for chained operations", as
 
   await db.close();
 });
+
+// =============================================================================
+// Literal Bindings for Argument Resolution (Story 10.2b - Option B)
+// =============================================================================
+
+Deno.test("StaticStructureBuilder - literalBindings tracks array literals", async () => {
+  const db = await setupTestDb();
+  const builder = new StaticStructureBuilder(db);
+
+  const code = `
+    const numbers = [10, 20, 30];
+    await mcp.math.sum({ numbers });
+  `;
+
+  const structure = await builder.buildStaticStructure(code);
+
+  // literalBindings should map "numbers" to the array value
+  assertExists(structure.literalBindings, "Should have literalBindings");
+  const numbersBinding = structure.literalBindings!["numbers"];
+  assertExists(numbersBinding, "Should have binding for 'numbers' variable");
+
+  // Value should be the actual array
+  assertEquals(Array.isArray(numbersBinding), true, "Should be an array");
+  assertEquals(numbersBinding, [10, 20, 30], "Should match the literal array");
+
+  await db.close();
+});
+
+Deno.test("StaticStructureBuilder - literalBindings tracks object literals", async () => {
+  const db = await setupTestDb();
+  const builder = new StaticStructureBuilder(db);
+
+  const code = `
+    const config = { timeout: 5000, retries: 3 };
+    await mcp.http.fetch({ ...config, url: "https://api.example.com" });
+  `;
+
+  const structure = await builder.buildStaticStructure(code);
+
+  assertExists(structure.literalBindings, "Should have literalBindings");
+  const configBinding = structure.literalBindings!["config"];
+  assertExists(configBinding, "Should have binding for 'config' variable");
+
+  // Value should be the actual object
+  assertEquals(typeof configBinding, "object", "Should be an object");
+  assertEquals((configBinding as Record<string, number>).timeout, 5000, "Should have timeout property");
+  assertEquals((configBinding as Record<string, number>).retries, 3, "Should have retries property");
+
+  await db.close();
+});
+
+Deno.test("StaticStructureBuilder - literalBindings tracks primitive literals", async () => {
+  const db = await setupTestDb();
+  const builder = new StaticStructureBuilder(db);
+
+  const code = `
+    const name = "test-file";
+    const count = 42;
+    const enabled = true;
+    await mcp.fs.write({ path: name, data: String(count), enabled });
+  `;
+
+  const structure = await builder.buildStaticStructure(code);
+
+  assertExists(structure.literalBindings, "Should have literalBindings");
+
+  assertEquals(structure.literalBindings!["name"], "test-file", "Should track string literal");
+  assertEquals(structure.literalBindings!["count"], 42, "Should track number literal");
+  assertEquals(structure.literalBindings!["enabled"], true, "Should track boolean literal");
+
+  await db.close();
+});
+
+Deno.test("StaticStructureBuilder - literalBindings does NOT track MCP results", async () => {
+  const db = await setupTestDb();
+  const builder = new StaticStructureBuilder(db);
+
+  const code = `
+    const file = await mcp.fs.read({ path: "config.json" });
+    const numbers = [1, 2, 3];
+    await mcp.process.run({ input: file, numbers });
+  `;
+
+  const structure = await builder.buildStaticStructure(code);
+
+  // "file" should be in variableBindings (MCP result), not literalBindings
+  assertExists(structure.variableBindings, "Should have variableBindings");
+  assertExists(structure.variableBindings!["file"], "Should have 'file' in variableBindings");
+
+  // "numbers" should be in literalBindings (literal array), not variableBindings
+  assertExists(structure.literalBindings, "Should have literalBindings");
+  assertExists(structure.literalBindings!["numbers"], "Should have 'numbers' in literalBindings");
+
+  // Cross-check: file should NOT be in literalBindings
+  assertEquals(
+    structure.literalBindings!["file"],
+    undefined,
+    "'file' should NOT be in literalBindings (it's an MCP result)"
+  );
+
+  await db.close();
+});
+
+Deno.test("StaticStructureBuilder - literalBindings works with nested arrays", async () => {
+  const db = await setupTestDb();
+  const builder = new StaticStructureBuilder(db);
+
+  const code = `
+    const matrix = [[1, 2], [3, 4], [5, 6]];
+    await mcp.math.process({ matrix });
+  `;
+
+  const structure = await builder.buildStaticStructure(code);
+
+  assertExists(structure.literalBindings, "Should have literalBindings");
+  const matrixBinding = structure.literalBindings!["matrix"];
+  assertExists(matrixBinding, "Should have binding for 'matrix'");
+
+  assertEquals(matrixBinding, [[1, 2], [3, 4], [5, 6]], "Should preserve nested array structure");
+
+  await db.close();
+});
+
+// =============================================================================
+// Computed Expressions (Story 10.2b Extension)
+// =============================================================================
+
+Deno.test("StaticStructureBuilder - literalBindings evaluates arithmetic expressions", async () => {
+  const db = await setupTestDb();
+  const builder = new StaticStructureBuilder(db);
+
+  const code = `
+    const a = 10;
+    const b = 5;
+    const sum = a + b;
+    const diff = a - b;
+    const prod = a * b;
+    const quot = a / b;
+    await mcp.math.process({ sum, diff, prod, quot });
+  `;
+
+  const structure = await builder.buildStaticStructure(code);
+
+  assertExists(structure.literalBindings, "Should have literalBindings");
+  assertEquals(structure.literalBindings!["a"], 10, "Should track a");
+  assertEquals(structure.literalBindings!["b"], 5, "Should track b");
+  assertEquals(structure.literalBindings!["sum"], 15, "Should evaluate a + b = 15");
+  assertEquals(structure.literalBindings!["diff"], 5, "Should evaluate a - b = 5");
+  assertEquals(structure.literalBindings!["prod"], 50, "Should evaluate a * b = 50");
+  assertEquals(structure.literalBindings!["quot"], 2, "Should evaluate a / b = 2");
+
+  await db.close();
+});
+
+Deno.test("StaticStructureBuilder - literalBindings evaluates string concatenation", async () => {
+  const db = await setupTestDb();
+  const builder = new StaticStructureBuilder(db);
+
+  const code = `
+    const firstName = "John";
+    const lastName = "Doe";
+    const fullName = firstName + " " + lastName;
+    await mcp.user.greet({ name: fullName });
+  `;
+
+  const structure = await builder.buildStaticStructure(code);
+
+  assertExists(structure.literalBindings, "Should have literalBindings");
+  assertEquals(structure.literalBindings!["firstName"], "John", "Should track firstName");
+  assertEquals(structure.literalBindings!["lastName"], "Doe", "Should track lastName");
+  assertEquals(structure.literalBindings!["fullName"], "John Doe", "Should evaluate concatenation");
+
+  await db.close();
+});
+
+Deno.test("StaticStructureBuilder - literalBindings evaluates comparison expressions", async () => {
+  const db = await setupTestDb();
+  const builder = new StaticStructureBuilder(db);
+
+  const code = `
+    const x = 10;
+    const y = 5;
+    const isGreater = x > y;
+    const isEqual = x === y;
+    await mcp.logic.check({ isGreater, isEqual });
+  `;
+
+  const structure = await builder.buildStaticStructure(code);
+
+  assertExists(structure.literalBindings, "Should have literalBindings");
+  assertEquals(structure.literalBindings!["isGreater"], true, "10 > 5 should be true");
+  assertEquals(structure.literalBindings!["isEqual"], false, "10 === 5 should be false");
+
+  await db.close();
+});
+
+Deno.test("StaticStructureBuilder - literalBindings evaluates unary expressions", async () => {
+  const db = await setupTestDb();
+  const builder = new StaticStructureBuilder(db);
+
+  const code = `
+    const positive = 42;
+    const negative = -positive;
+    const flag = true;
+    const inverted = !flag;
+    await mcp.math.process({ negative, inverted });
+  `;
+
+  const structure = await builder.buildStaticStructure(code);
+
+  assertExists(structure.literalBindings, "Should have literalBindings");
+  assertEquals(structure.literalBindings!["positive"], 42, "Should track positive");
+  assertEquals(structure.literalBindings!["negative"], -42, "Should evaluate -positive");
+  assertEquals(structure.literalBindings!["flag"], true, "Should track flag");
+  assertEquals(structure.literalBindings!["inverted"], false, "Should evaluate !flag");
+
+  await db.close();
+});
+
+Deno.test("StaticStructureBuilder - literalBindings handles complex expressions", async () => {
+  const db = await setupTestDb();
+  const builder = new StaticStructureBuilder(db);
+
+  const code = `
+    const a = 2;
+    const b = 3;
+    const c = 4;
+    const result = a + b * c;
+    await mcp.math.compute({ result });
+  `;
+
+  const structure = await builder.buildStaticStructure(code);
+
+  assertExists(structure.literalBindings, "Should have literalBindings");
+  // Note: SWC respects operator precedence, so b * c is evaluated first
+  assertEquals(structure.literalBindings!["result"], 14, "Should evaluate 2 + (3 * 4) = 14");
+
+  await db.close();
+});
+
+Deno.test("StaticStructureBuilder - literalBindings skips expressions with unknown variables", async () => {
+  const db = await setupTestDb();
+  const builder = new StaticStructureBuilder(db);
+
+  const code = `
+    const known = 10;
+    const unknown = getData();  // Function call - not tracked
+    const sum = known + unknown;  // Cannot evaluate - unknown operand
+    await mcp.math.process({ sum });
+  `;
+
+  const structure = await builder.buildStaticStructure(code);
+
+  assertExists(structure.literalBindings, "Should have literalBindings");
+  assertEquals(structure.literalBindings!["known"], 10, "Should track known literal");
+  assertEquals(structure.literalBindings!["unknown"], undefined, "Function call not tracked");
+  assertEquals(structure.literalBindings!["sum"], undefined, "Cannot evaluate with unknown operand");
+
+  await db.close();
+});

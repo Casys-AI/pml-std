@@ -344,7 +344,7 @@ export class CapabilityStore {
     if (isNew) {
       // New capability = new zone
       const zonePayload = {
-        capabilityId: `cap-${capability.id}`,
+        capabilityId: capability.id,
         label: capabilityName,
         toolIds: capabilityTools,
         successRate: capability.successRate,
@@ -366,7 +366,7 @@ export class CapabilityStore {
         type: "capability.zone.updated",
         source: "capability-store",
         payload: {
-          capabilityId: `cap-${capability.id}`,
+          capabilityId: capability.id,
           label: capabilityName,
           toolIds: capabilityTools,
           successRate: capability.successRate,

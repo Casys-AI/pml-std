@@ -241,8 +241,11 @@ async function tryDagExecution(
       const startTime = performance.now();
 
       // Resolve arguments before execution (AC3)
+      // Story 10.2b: Include literalBindings from static analysis for variable resolution
       const executionContext = {
         parameters: request.context || {},
+        // Spread literal bindings into context so resolveReference fallback can find them
+        ...staticStructure.literalBindings,
       };
       const dagWithResolvedArgs = resolveDAGArguments(
         { tasks: optimizedDAG.tasks },

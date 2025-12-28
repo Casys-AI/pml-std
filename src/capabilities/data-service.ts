@@ -406,7 +406,7 @@ export class CapabilityDataService {
 
         // Fetch traces in parallel (limit 10 per capability for performance)
         const tracePromises = capabilityNodes.map(async (capNode) => {
-          const capId = capNode.data.id.replace("cap-", "");
+          const capId = capNode.data.id;
           try {
             const traces = await traceStore.getTraces(capId, 10);
             capNode.data.traces = traces;

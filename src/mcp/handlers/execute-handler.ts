@@ -659,7 +659,10 @@ async function executeDirectMode(
         updateThompsonSampling(deps.adaptiveThresholdManager, taskResults);
 
         // Story 11.6: PER batch training (every execution)
-        await runPERBatchTraining(deps);
+        // Run in background (non-blocking) per ADR-053
+        runPERBatchTraining(deps).catch((err) =>
+          log.warn("[pml:execute] PER training failed", { error: String(err) })
+        );
 
         // Story 11.4 AC11: Learn fan-in/fan-out edges from layerIndex
         const tasksWithLayer = taskResults

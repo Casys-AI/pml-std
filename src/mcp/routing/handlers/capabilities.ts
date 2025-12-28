@@ -330,6 +330,60 @@ export async function handleDeleteDependency(
 }
 
 /**
+ * GET /api/capabilities/by-tool
+ *
+ * Find capability containing a specific tool (for search highlighting in Capabilities view)
+ */
+export async function handleGetCapabilityByTool(
+  _req: Request,
+  url: URL,
+  ctx: RouteContext,
+  corsHeaders: Record<string, string>,
+): Promise<Response> {
+  try {
+    if (!ctx.capabilityDataService) {
+      return errorResponse("CapabilityDataService not initialized", 503, corsHeaders);
+    }
+
+    const toolId = url.searchParams.get("tool_id");
+    if (!toolId) {
+      return errorResponse("Missing required parameter: tool_id", 400, corsHeaders);
+    }
+
+    // Get all capabilities and find one containing this tool
+    const result = await ctx.capabilityDataService.listCapabilities({ limit: 100 });
+
+    for (const cap of result.capabilities) {
+      if (cap.toolsUsed?.includes(toolId)) {
+        return jsonResponse(
+          {
+            capability_id: cap.id,
+            capability_name: cap.name,
+            tool_id: toolId,
+          },
+          200,
+          corsHeaders,
+        );
+      }
+    }
+
+    // Not found - return 404
+    return jsonResponse(
+      {
+        capability_id: null,
+        tool_id: toolId,
+        message: "No capability found containing this tool",
+      },
+      200,
+      corsHeaders,
+    );
+  } catch (error) {
+    log.error(`Failed to find capability by tool: ${error}`);
+    return errorResponse(`Failed to find capability by tool: ${error}`, 500, corsHeaders);
+  }
+}
+
+/**
  * Route all /api/capabilities/* requests
  */
 export async function handleCapabilitiesRoutes(
@@ -338,6 +392,11 @@ export async function handleCapabilitiesRoutes(
   ctx: RouteContext,
   corsHeaders: Record<string, string>,
 ): Promise<Response | null> {
+  // GET /api/capabilities/by-tool
+  if (url.pathname === "/api/capabilities/by-tool" && req.method === "GET") {
+    return await handleGetCapabilityByTool(req, url, ctx, corsHeaders);
+  }
+
   // GET /api/capabilities
   if (url.pathname === "/api/capabilities" && req.method === "GET") {
     return await handleListCapabilities(req, url, ctx, corsHeaders);

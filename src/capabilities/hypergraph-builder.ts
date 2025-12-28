@@ -32,7 +32,7 @@ const logger = getLogger("default");
  * Each capability is rendered as a convex hull around its tools
  */
 export interface CapabilityZone {
-  /** Capability ID (cap-{uuid}) */
+  /** Capability ID (uuid) */
   id: string;
   /** Display label */
   label: string;
@@ -124,7 +124,7 @@ export class HypergraphBuilder {
     // 1. Create capability nodes and collect tool data
     for (let i = 0; i < capabilities.length; i++) {
       const cap = capabilities[i];
-      const capId = `cap-${cap.id}`;
+      const capId = cap.id;
 
       // Create capability node (with pagerank from spectral clustering if available)
       const capNode: CapabilityNode = {
@@ -260,8 +260,8 @@ export class HypergraphBuilder {
     existingCapIds: Set<string>,
   ): void {
     for (const dep of dependencies) {
-      const fromCapId = `cap-${dep.from_capability_id}`;
-      const toCapId = `cap-${dep.to_capability_id}`;
+      const fromCapId = dep.from_capability_id;
+      const toCapId = dep.to_capability_id;
 
       // Only add edge if both capabilities are in visualization
       if (!existingCapIds.has(fromCapId) || !existingCapIds.has(toCapId)) {
