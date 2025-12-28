@@ -845,24 +845,8 @@ export class StaticStructureBuilder {
         return { nodeId, handled: false };
       }
 
-      // capabilities.name pattern
-      if (chain[0] === "capabilities" && chain.length >= 2) {
-        const capabilityId = chain[1];
-        const nodeId = this.generateNodeId("capability");
-        nodes.push({
-          id: nodeId,
-          type: "capability",
-          capabilityId,
-          position,
-          parentScope,
-        });
-
-        if (span) {
-          this.processedSpans.set(`${span.start}-${span.end}`, nodeId);
-        }
-
-        return { nodeId, handled: false };
-      }
+      // Note: capabilities.name pattern removed in Migration 028
+      // Capabilities are now called via mcp.namespace.action like regular tools
     }
 
     return { handled: false };
