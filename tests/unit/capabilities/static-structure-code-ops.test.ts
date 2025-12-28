@@ -35,7 +35,9 @@ async function setupTestDb(): Promise<PGliteClient> {
 /**
  * Helper to find nodes by tool prefix
  */
-function findCodeNodes(structure: { nodes: Array<{ type: string; tool?: string }> }) {
+function findCodeNodes(
+  structure: { nodes: Array<{ id: string; type: string; tool?: string; code?: string }> },
+) {
   return structure.nodes.filter(
     (n) => n.type === "task" && n.tool?.startsWith("code:"),
   );
@@ -915,6 +917,216 @@ Deno.test("StaticStructureBuilder - literalBindings skips expressions with unkno
   assertEquals(structure.literalBindings!["known"], 10, "Should track known literal");
   assertEquals(structure.literalBindings!["unknown"], undefined, "Function call not tracked");
   assertEquals(structure.literalBindings!["sum"], undefined, "Cannot evaluate with unknown operand");
+
+  await db.close();
+});
+
+// =============================================================================
+// Story 10.2c: Method Chaining Support
+// =============================================================================
+
+Deno.test("StaticStructureBuilder - Story 10.2c: detects all operations in a single chained call", async () => {
+  const db = await setupTestDb();
+  const builder = new StaticStructureBuilder(db);
+
+  // This is the key test: a single chained statement should detect ALL operations
+  const code = `
+    const numbers = [5, 3, 8, 1, 4];
+    const result = numbers.filter(n => n > 2).map(n => n * 2).sort();
+  `;
+
+  const structure = await builder.buildStaticStructure(code);
+  const codeNodes = findCodeNodes(structure);
+
+  // Should detect all 3 array operations (filter, map, sort) in the chain
+  // Note: May also detect binary operations from callbacks (n > 2, n * 2)
+  const filterNode = codeNodes.find((n) => n.tool === "code:filter");
+  const mapNode = codeNodes.find((n) => n.tool === "code:map");
+  const sortNode = codeNodes.find((n) => n.tool === "code:sort");
+
+  assertExists(filterNode, "Should detect filter");
+  assertExists(mapNode, "Should detect map");
+  assertExists(sortNode, "Should detect sort");
+
+  // Verify we have at least the 3 main array operations
+  assertEquals(codeNodes.length >= 3, true, "Should detect at least 3 code operations");
+
+  await db.close();
+});
+
+Deno.test("StaticStructureBuilder - Story 10.2c: creates edges between chained operations", async () => {
+  const db = await setupTestDb();
+  const builder = new StaticStructureBuilder(db);
+
+  const code = `
+    const data = [1, 2, 3, 4, 5];
+    const result = data.filter(x => x > 1).map(x => x * 10).sort();
+  `;
+
+  const structure = await builder.buildStaticStructure(code);
+  const codeNodes = findCodeNodes(structure);
+
+  // Get node IDs
+  const filterNode = codeNodes.find((n) => n.tool === "code:filter");
+  const mapNode = codeNodes.find((n) => n.tool === "code:map");
+  const sortNode = codeNodes.find((n) => n.tool === "code:sort");
+
+  assertExists(filterNode, "Should have filter node");
+  assertExists(mapNode, "Should have map node");
+  assertExists(sortNode, "Should have sort node");
+
+  // Check for chained edges: filter → map → sort
+  const filterToMap = structure.edges.find(
+    (e) => e.from === filterNode!.id && e.to === mapNode!.id && e.type === "sequence",
+  );
+  const mapToSort = structure.edges.find(
+    (e) => e.from === mapNode!.id && e.to === sortNode!.id && e.type === "sequence",
+  );
+
+  assertExists(filterToMap, "Should have edge from filter to map");
+  assertExists(mapToSort, "Should have edge from map to sort");
+
+  await db.close();
+});
+
+Deno.test("StaticStructureBuilder - Story 10.2c: non-executable nodes get method code only", async () => {
+  const db = await setupTestDb();
+  const builder = new StaticStructureBuilder(db);
+
+  const code = `
+    const items = [10, 20, 30];
+    const result = items.filter(x => x > 15).map(x => x + 5);
+  `;
+
+  const structure = await builder.buildStaticStructure(code);
+  const codeNodes = findCodeNodes(structure);
+
+  const filterNode = codeNodes.find((n) => n.tool === "code:filter");
+  const mapNode = codeNodes.find((n) => n.tool === "code:map");
+
+  assertExists(filterNode, "Should have filter node");
+  assertExists(mapNode, "Should have map node");
+
+  // Filter is an intermediate node (non-executable) - should have just method code
+  const filterMeta = (filterNode as { metadata?: { executable?: boolean } }).metadata;
+  assertEquals(filterMeta?.executable, false, "Filter should be non-executable (intermediate)");
+
+  if (filterNode!.code) {
+    assertEquals(
+      filterNode!.code.startsWith("filter("),
+      true,
+      `Filter code should start with 'filter(', got: ${filterNode!.code}`,
+    );
+  }
+
+  // Map is the final node (executable) - should have FULL chain code
+  const mapMeta = (mapNode as { metadata?: { executable?: boolean } }).metadata;
+  assertEquals(mapMeta?.executable !== false, true, "Map should be executable (final in chain)");
+
+  if (mapNode!.code) {
+    // The executable node should have the full chain code starting from source
+    assertEquals(
+      mapNode!.code.includes("items"),
+      true,
+      `Executable map code should include source 'items', got: ${mapNode!.code}`,
+    );
+    assertEquals(
+      mapNode!.code.includes(".filter("),
+      true,
+      "Executable map code should include the full chain",
+    );
+  }
+
+  await db.close();
+});
+
+// =============================================================================
+// Story 10.2c Regression Fix: Full Chain Code Extraction
+// =============================================================================
+
+Deno.test("StaticStructureBuilder - Story 10.2c fix: executable node has full chain code", async () => {
+  const db = await setupTestDb();
+  const builder = new StaticStructureBuilder(db);
+
+  const code = `
+    const numbers = [5, 3, 8, 1, 9];
+    const result = numbers.filter(n => n > 3).map(n => n * 2).sort();
+  `;
+
+  const structure = await builder.buildStaticStructure(code);
+
+  // Should detect 3 operations
+  const codeNodes = findCodeNodes(structure);
+  const arrayOps = codeNodes.filter((n) =>
+    ["code:filter", "code:map", "code:sort"].includes(n.tool!)
+  );
+  assertEquals(arrayOps.length, 3, "Should detect 3 array operations");
+
+  // Find the executable node (last in chain = sort)
+  const sortNode = codeNodes.find((n) => n.tool === "code:sort");
+  assertExists(sortNode, "Should have sort node");
+
+  const sortMeta = (sortNode as { metadata?: { executable?: boolean } }).metadata;
+  assertEquals(sortMeta?.executable !== false, true, "Sort should be executable");
+
+  // CRITICAL: Code should contain FULL chain, not just "sort()"
+  assertExists(sortNode!.code, "Executable node should have code");
+  assertEquals(
+    sortNode!.code?.includes("numbers"),
+    true,
+    `Code should include source 'numbers', got: ${sortNode!.code}`,
+  );
+  assertEquals(
+    sortNode!.code?.includes(".filter"),
+    true,
+    "Code should include filter operation",
+  );
+  assertEquals(
+    sortNode!.code?.includes(".map"),
+    true,
+    "Code should include map operation",
+  );
+  assertEquals(
+    sortNode!.code?.includes(".sort"),
+    true,
+    "Code should include sort operation",
+  );
+
+  await db.close();
+});
+
+Deno.test("StaticStructureBuilder - Story 10.2c fix: non-executable nodes have partial code", async () => {
+  const db = await setupTestDb();
+  const builder = new StaticStructureBuilder(db);
+
+  const code = `
+    const data = [1, 2, 3, 4, 5];
+    const result = data.filter(x => x > 2).map(x => x * 10);
+  `;
+
+  const structure = await builder.buildStaticStructure(code);
+  const codeNodes = findCodeNodes(structure);
+
+  // Filter is intermediate (non-executable)
+  const filterNode = codeNodes.find((n) => n.tool === "code:filter");
+  assertExists(filterNode, "Should have filter node");
+
+  const filterMeta = (filterNode as { metadata?: { executable?: boolean } }).metadata;
+  assertEquals(filterMeta?.executable, false, "Filter should be non-executable");
+
+  // Non-executable node should have just the method code (for SHGAT identification)
+  if (filterNode!.code) {
+    assertEquals(
+      filterNode!.code.startsWith("filter("),
+      true,
+      `Non-executable filter should have method code only, got: ${filterNode!.code}`,
+    );
+    assertEquals(
+      filterNode!.code.includes("data.filter"),
+      false,
+      "Non-executable filter should NOT have full chain",
+    );
+  }
 
   await db.close();
 });

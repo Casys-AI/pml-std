@@ -28,6 +28,7 @@ import type { ToolExecutor } from "../../dag/types.ts";
 import { CapabilityMatcher } from "../../capabilities/matcher.ts";
 import { CapabilityStore } from "../../capabilities/capability-store.ts";
 import { SchemaInferrer } from "../../capabilities/schema-inferrer.ts";
+import { StaticStructureBuilder } from "../../capabilities/static-structure-builder.ts";
 import { AdaptiveThresholdManager } from "../../mcp/adaptive-threshold.ts";
 import { AlgorithmTracer } from "../../telemetry/algorithm-tracer.ts";
 import { ensureStdBundle } from "../../lib/std-loader.ts";
@@ -292,7 +293,15 @@ export function createServeCommand() {
 
         // 4.1 Initialize Capabilities System (Story 7.3a)
         const schemaInferrer = new SchemaInferrer(db);
-        const capabilityStore = new CapabilityStore(db, embeddingModel, schemaInferrer);
+        const staticStructureBuilder = new StaticStructureBuilder(db);
+        // Pass staticStructureBuilder to enable nested capability detection (meta-capabilities)
+        const capabilityStore = new CapabilityStore(
+          db,
+          embeddingModel,
+          schemaInferrer,
+          undefined, // permissionInferrer - not used currently
+          staticStructureBuilder,
+        );
         const adaptiveThresholdManager = new AdaptiveThresholdManager({}, db);
         const capabilityMatcher = new CapabilityMatcher(capabilityStore, adaptiveThresholdManager);
 

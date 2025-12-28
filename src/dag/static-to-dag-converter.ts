@@ -122,7 +122,20 @@ export function staticStructureToDag(
   const forkChildren = new Map<string, string[]>(); // fork.id -> child task IDs
 
   for (const node of structure.nodes) {
-    const task = nodeToTask(node, taskIdPrefix, includeDecisionTasks, structure.variableBindings);
+    // Story 10.2c fix: Skip non-executable nested operations
+    // These are tracked in the logical DAG (SHGAT) but not executed as separate tasks
+    const nodeMetadata = (node as { metadata?: { executable?: boolean; nestingLevel?: number } })
+      .metadata;
+    if (nodeMetadata?.executable === false) {
+      logger.debug("Skipping non-executable nested operation", {
+        nodeId: node.id,
+        tool: node.type === "task" ? node.tool : undefined,
+        nestingLevel: nodeMetadata?.nestingLevel,
+      });
+      continue;
+    }
+
+    const task = nodeToTask(node, taskIdPrefix, includeDecisionTasks, structure.variableBindings, structure.literalBindings);
     if (task) {
       tasks.push(task);
       nodeToTaskId.set(node.id, task.id);
@@ -228,6 +241,7 @@ export function staticStructureToDag(
  * @param prefix Task ID prefix
  * @param includeDecisions Whether to include decision nodes as tasks
  * @param variableBindings Variable to node ID mappings for code task context injection
+ * @param literalBindings Literal values from static analysis for context injection
  * @returns Task or null if node should not become a task
  */
 function nodeToTask(
@@ -235,6 +249,7 @@ function nodeToTask(
   prefix: string,
   includeDecisions: boolean,
   variableBindings?: Record<string, string>,
+  literalBindings?: Record<string, unknown>,
 ): ConditionalTask | null {
   const taskId = `${prefix}${node.id}`;
 
@@ -274,6 +289,8 @@ function nodeToTask(
           staticArguments: node.arguments,
           // Pass variable bindings for context injection at runtime
           variableBindings,
+          // Pass literal bindings for context injection (e.g., const numbers = [1,2,3])
+          literalBindings,
         };
       }
 

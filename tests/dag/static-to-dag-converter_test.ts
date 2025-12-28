@@ -208,3 +208,99 @@ Deno.test("estimateParallelLayers - parallel structure", () => {
   // Fork/join nodes don't add layers, they structure parallelism
   assertEquals(layers, 2);
 });
+
+// =============================================================================
+// Story 10.2c Fix: Non-executable Node Filtering
+// =============================================================================
+
+Deno.test("staticStructureToDag - Story 10.2c fix: skips non-executable nodes", () => {
+  // Simulate a method chain structure where intermediate nodes are non-executable
+  const chainStructure: StaticStructure = {
+    nodes: [
+      // filter is non-executable (intermediate in chain)
+      {
+        id: "n1",
+        type: "task",
+        tool: "code:filter",
+        code: "filter(n => n > 3)",
+        metadata: { executable: false, nestingLevel: 0 },
+      } as StaticStructure["nodes"][0],
+      // map is non-executable (intermediate in chain)
+      {
+        id: "n2",
+        type: "task",
+        tool: "code:map",
+        code: "map(n => n * 2)",
+        metadata: { executable: false, nestingLevel: 0 },
+      } as StaticStructure["nodes"][0],
+      // sort is executable (final in chain) - has full code
+      {
+        id: "n3",
+        type: "task",
+        tool: "code:sort",
+        code: "numbers.filter(n => n > 3).map(n => n * 2).sort()",
+        metadata: { executable: true, nestingLevel: 0 },
+      } as StaticStructure["nodes"][0],
+    ],
+    edges: [
+      { from: "n1", to: "n2", type: "sequence" },
+      { from: "n2", to: "n3", type: "sequence" },
+    ],
+  };
+
+  const dag = staticStructureToDag(chainStructure);
+
+  // Should only have 1 task (the executable one)
+  assertEquals(dag.tasks.length, 1, "Should create only 1 physical task");
+
+  const task = dag.tasks[0];
+  assertEquals(task.tool, "code:sort", "Task should be the sort operation");
+  assertEquals(
+    task.code?.includes("numbers.filter"),
+    true,
+    "Task should have full chain code",
+  );
+});
+
+Deno.test("staticStructureToDag - Story 10.2c fix: preserves executable nodes", () => {
+  // Regular MCP tools should still work (they're always executable)
+  const mixedStructure: StaticStructure = {
+    nodes: [
+      // MCP tool (always executable)
+      {
+        id: "n1",
+        type: "task",
+        tool: "fs:read_file",
+        metadata: { executable: true },
+      } as StaticStructure["nodes"][0],
+      // Non-executable code operation
+      {
+        id: "n2",
+        type: "task",
+        tool: "code:filter",
+        metadata: { executable: false },
+      } as StaticStructure["nodes"][0],
+      // Executable code operation
+      {
+        id: "n3",
+        type: "task",
+        tool: "code:map",
+        metadata: { executable: true },
+      } as StaticStructure["nodes"][0],
+    ],
+    edges: [
+      { from: "n1", to: "n2", type: "sequence" },
+      { from: "n2", to: "n3", type: "sequence" },
+    ],
+  };
+
+  const dag = staticStructureToDag(mixedStructure);
+
+  // Should have 2 tasks: n1 (MCP) and n3 (executable code)
+  assertEquals(dag.tasks.length, 2, "Should have 2 executable tasks");
+
+  const taskTools = dag.tasks.map((t) => t.tool);
+  assertEquals(taskTools.includes("fs:read_file"), true, "Should include MCP tool");
+  assertEquals(taskTools.includes("code:map"), true, "Should include executable code op");
+  assertEquals(taskTools.includes("code:filter"), false, "Should NOT include non-executable code op");
+});

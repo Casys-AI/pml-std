@@ -320,6 +320,14 @@ export function fuseTasks(tasks: Task[]): Task {
 
   log.info("[DEBUG] Generated fused code:", { fusedCode });
 
+  // Merge literal bindings from all tasks (Story 10.2c fix)
+  const mergedLiteralBindings: Record<string, unknown> = {};
+  for (const task of tasks) {
+    if (task.literalBindings) {
+      Object.assign(mergedLiteralBindings, task.literalBindings);
+    }
+  }
+
   // Create fused task
   const fusedTask: Task = {
     id: `fused_${tasks[0].id}`,
@@ -336,6 +344,8 @@ export function fuseTasks(tasks: Task[]): Task {
     },
     // Preserve variable bindings from first task (for MCP dependencies)
     variableBindings: tasks[0].variableBindings,
+    // Merge literal bindings from all fused tasks (Story 10.2c fix)
+    literalBindings: Object.keys(mergedLiteralBindings).length > 0 ? mergedLiteralBindings : undefined,
   };
 
   return fusedTask;

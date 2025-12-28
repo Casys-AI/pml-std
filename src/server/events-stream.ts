@@ -28,7 +28,7 @@ export interface EventsStreamConfig {
  */
 const DEFAULT_CONFIG: EventsStreamConfig = {
   maxClients: 100,
-  heartbeatIntervalMs: 30_000,
+  heartbeatIntervalMs: 15_000, // Reduced from 30s for faster dead connection detection
   corsOrigins: [
     "http://localhost:*", // Allow any localhost port (dev)
     "http://127.0.0.1:*",

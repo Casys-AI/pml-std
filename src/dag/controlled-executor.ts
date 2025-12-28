@@ -84,11 +84,7 @@ import {
   saveCheckpointAfterLayer,
 } from "./checkpoints/integration.ts";
 import { getTaskType, isSafeToFail } from "./execution/task-router.ts";
-import {
-  type CodeExecutorDeps,
-  executeCodeTask,
-  executeWithRetry,
-} from "./execution/code-executor.ts";
+import { type CodeExecutorDeps } from "./execution/code-executor.ts";
 import {
   executeCapabilityTask,
   getCapabilityPermissionSet,
@@ -861,18 +857,22 @@ export class ControlledExecutor extends ParallelExecutor {
     };
 
     if (taskType === "code_execution") {
-      // Phase 1: Use WorkerBridge for pseudo-tool tracing if available
-      if (this.workerBridge && task.tool) {
-        return await this.executeCodeTaskViaWorkerBridge(task, previousResults);
+      // All code execution must go through WorkerBridge for proper tracing
+      if (!this.workerBridge) {
+        throw new Error(
+          `WorkerBridge required for code_execution task ${task.id}. ` +
+          `Ensure ControlledExecutor is initialized with workerBridge option.`
+        );
       }
-
-      // Fallback: Use DenoSandboxExecutor (no tracing)
-      // Both safe-to-fail and regular tasks go through escalation handler
-      // (executeWithRetry already skips retry for permission errors)
+      if (!task.tool) {
+        throw new Error(
+          `Code execution task ${task.id} missing required 'tool' field`
+        );
+      }
       try {
-        if (isSafeToFail(task)) return await executeWithRetry(task, previousResults, deps);
-        return await executeCodeTask(task, previousResults, deps);
+        return await this.executeCodeTaskViaWorkerBridge(task, previousResults);
       } catch (error) {
+        // Convert permission errors to PermissionEscalationNeeded for layer-level handling
         const errorMessage = error instanceof Error ? error.message : String(error);
         if (isPermissionError(errorMessage)) {
           this.handleCodeTaskPermissionEscalation(task, errorMessage);
@@ -930,11 +930,24 @@ export class ControlledExecutor extends ParallelExecutor {
       }
     }
 
+    // Inject literal bindings from static analysis (Story 10.2c fix)
+    // These are literal values defined in the code (e.g., const numbers = [1,2,3])
+    if (task.literalBindings) {
+      for (const [varName, value] of Object.entries(task.literalBindings)) {
+        // Don't override values already set from variableBindings
+        if (!(varName in executionContext)) {
+          executionContext[varName] = value;
+          log.debug(`Injected literal binding: ${varName}`);
+        }
+      }
+    }
+
     log.debug(`Executing code task via WorkerBridge`, {
       taskId: task.id,
       tool: task.tool,
       hasDeps: task.dependsOn.length > 0,
       injectedVars: task.variableBindings ? Object.keys(task.variableBindings) : [],
+      injectedLiterals: task.literalBindings ? Object.keys(task.literalBindings) : [],
     });
 
     // Execute via WorkerBridge (emits tool_start/tool_end traces)
@@ -1171,12 +1184,7 @@ export class ControlledExecutor extends ParallelExecutor {
         );
 
         try {
-          const deps: CodeExecutorDeps = {
-            capabilityStore: this.capabilityStore,
-            graphRAG: this.graphRAG,
-          };
-
-          const updatedTask = {
+          const updatedTask: Task = {
             ...task,
             sandboxConfig: {
               ...task.sandboxConfig,
@@ -1184,11 +1192,10 @@ export class ControlledExecutor extends ParallelExecutor {
             },
           };
 
-          const result = await executeCodeTask(
+          // Use WorkerBridge for proper tracing (no fallback)
+          const result = await this.executeCodeTaskViaWorkerBridge(
             updatedTask,
             previousResults,
-            deps,
-            error.requestedSet as PermissionSet,
           );
           updatedResults[index] = { status: "fulfilled", value: result };
           log.info(`Task ${task.id} re-execution successful after escalation`);

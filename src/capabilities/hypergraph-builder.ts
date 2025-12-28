@@ -14,7 +14,6 @@
 
 import type {
   CapabilityDependencyEdge,
-  CapabilityEdge,
   CapabilityNode,
   CapabilityResponseInternal,
   GraphEdge,
@@ -194,33 +193,9 @@ export class HypergraphBuilder {
       nodes.push(toolNode);
     }
 
-    // 3. Create capability_link edges for shared tools
-    const capIds = Array.from(capabilityToolsMap.keys());
-    for (let i = 0; i < capIds.length; i++) {
-      for (let j = i + 1; j < capIds.length; j++) {
-        const capId1 = capIds[i];
-        const capId2 = capIds[j];
-        const tools1 = capabilityToolsMap.get(capId1)!;
-        const tools2 = capabilityToolsMap.get(capId2)!;
-
-        // Count shared tools
-        const sharedTools = Array.from(tools1).filter((t) => tools2.has(t)).length;
-
-        if (sharedTools > 0) {
-          const linkEdge: CapabilityEdge = {
-            data: {
-              id: `edge-${capId1}-${capId2}-shared`,
-              source: capId1,
-              target: capId2,
-              sharedTools,
-              edgeType: "capability_link",
-              edgeSource: "inferred",
-            },
-          };
-          edges.push(linkEdge);
-        }
-      }
-    }
+    // NOTE: capability_link edges removed - O(n²) combinatorial explosion
+    // created too many edges when capabilities share common tools
+    // See: https://github.com/... for context
 
     const result: HypergraphResult = {
       nodes,

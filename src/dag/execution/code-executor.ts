@@ -100,6 +100,17 @@ export async function executeCodeTask(
   // Story 3.5: Pass full TaskResult to enable resilient patterns
   executionContext.deps = resolveDependencies(task.dependsOn, previousResults);
 
+  // Inject literal bindings from static analysis (Story 10.2c fix)
+  // These are literal values defined in the code (e.g., const numbers = [1,2,3])
+  if (task.literalBindings) {
+    for (const [varName, value] of Object.entries(task.literalBindings)) {
+      if (!(varName in executionContext)) {
+        executionContext[varName] = value;
+        log.debug(`Injected literal binding: ${varName}`);
+      }
+    }
+  }
+
   // Configure sandbox
   const sandboxConfig = task.sandboxConfig || {};
   const executor = new DenoSandboxExecutor({

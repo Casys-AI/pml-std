@@ -660,29 +660,22 @@ export class PMLGatewayServer {
       );
 
       // Story 10.7b: Load persisted SHGAT params if available
-      const { loaded: paramsLoaded, updatedAt: paramsUpdatedAt } = await this.loadSHGATParams();
+      const { loaded: paramsLoaded } = await this.loadSHGATParams();
 
       // Story 10.7: Populate tool features for multi-head attention
       await this.populateToolFeaturesForSHGAT();
 
-      // Story 10.7: Train SHGAT on execution traces if needed
-      // Skip batch training if params are recent (< 1 hour) - PER handles incremental updates
-      const ONE_HOUR_MS = 60 * 60 * 1000;
-      const paramsAreRecent = paramsLoaded && paramsUpdatedAt &&
-        (Date.now() - paramsUpdatedAt.getTime()) < ONE_HOUR_MS;
-
-      if (capabilitiesWithEmbeddings.length > 0 && !paramsAreRecent) {
+      // Story 10.7: Train SHGAT on execution traces only if no saved params
+      // PER training handles incremental updates on every execution, so batch
+      // training at startup is only needed for first-time initialization
+      if (capabilitiesWithEmbeddings.length > 0 && !paramsLoaded) {
         // Run in background to avoid blocking server startup (~30s per epoch)
-        log.info(
-          `[Gateway] Starting background SHGAT training (params ${paramsLoaded ? "outdated" : "not found"})`,
-        );
+        log.info(`[Gateway] Starting background SHGAT training (first-time init, no saved params)`);
         this.trainSHGATOnTraces(capabilitiesWithEmbeddings).catch((err) =>
           log.warn(`[Gateway] Background SHGAT training failed: ${err}`)
         );
-      } else if (paramsAreRecent) {
-        log.info(
-          `[Gateway] Skipping batch SHGAT training - params are recent (${Math.round((Date.now() - paramsUpdatedAt!.getTime()) / 60000)} min old)`,
-        );
+      } else if (paramsLoaded) {
+        log.info(`[Gateway] SHGAT params loaded from DB - skipping batch training (PER handles updates)`);
       }
 
       // TraceFeatureExtractor removed - V1 uses message passing, not TraceFeatures

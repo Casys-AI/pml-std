@@ -121,3 +121,4 @@ playground/
 # Debug files
 tests/debug-*.ts
 coverage_data/
+src/web/.vite/

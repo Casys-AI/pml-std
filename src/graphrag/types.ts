@@ -98,6 +98,21 @@ export interface Task {
   variableBindings?: Record<string, string>;
 
   /**
+   * Literal bindings for code task context injection
+   *
+   * Contains literal values from static analysis (e.g., array literals, numbers).
+   * At runtime, these are injected into the execution context.
+   *
+   * @example
+   * ```typescript
+   * // Code: const numbers = [1, 2, 3]; numbers.filter(...)
+   * // literalBindings: { "numbers": [1, 2, 3] }
+   * // At runtime: injects `const numbers = [1, 2, 3];`
+   * ```
+   */
+  literalBindings?: Record<string, unknown>;
+
+  /**
    * Task metadata for execution hints (Phase 1 Modular Execution)
    *
    * Contains execution hints like:
