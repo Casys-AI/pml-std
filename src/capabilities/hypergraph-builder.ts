@@ -138,6 +138,7 @@ export class HypergraphBuilder {
           pagerank: capabilityPageranks?.get(cap.id) ?? 0,
           toolsUsed: cap.toolsUsed, // Unique tools (deduplicated)
           toolInvocations: cap.toolInvocations, // Full sequence with timestamps (for invocation mode)
+          lastUsed: cap.lastUsed, // ISO timestamp for timeline sorting
         },
       };
       nodes.push(capNode);

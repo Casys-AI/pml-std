@@ -1,16 +1,17 @@
 /**
- * Code Transformer - Replaces capability display_names with FQDNs
+ * Code Transformer - Replaces capability names with UUID references
  *
  * When saving capabilities, this transformer ensures that any references
- * to other capabilities use FQDNs (immutable) instead of display_names (mutable).
+ * to other capabilities use UUIDs (immutable) instead of names (mutable).
  *
  * Uses shared SWC analyzer for robust AST-based parsing.
  *
  * Patterns handled (capabilities use same syntax as MCP tools):
- * - `mcp.namespace.action(args)` → `mcp["local.default.ns.action.hash"](args)`
+ * - `mcp.namespace.action(args)` → `mcp["$cap:<uuid>"](args)`
  *
+ * The $cap: prefix indicates this is a capability UUID reference.
  * The action name is resolved against the capability registry. If found,
- * it's replaced with the immutable FQDN. If not found, it's left as-is
+ * it's replaced with the immutable UUID. If not found, it's left as-is
  * (assumed to be an MCP tool call, not a capability).
  *
  * @module capabilities/code-transformer
@@ -31,21 +32,21 @@ const DEFAULT_SCOPE: Scope = { org: "local", project: "default" };
  * Result of code transformation
  */
 export interface CodeTransformResult {
-  /** Transformed code with FQDNs */
+  /** Transformed code with $cap:<uuid> references */
   code: string;
   /** Number of references replaced */
   replacedCount: number;
-  /** Map of display_name → FQDN for references found */
+  /** Map of name → UUID for references found */
   replacements: Record<string, string>;
   /** Names that couldn't be resolved (kept as-is) */
   unresolved: string[];
 }
 
 /**
- * Transform capability references in code from display_name to FQDN
+ * Transform capability references in code from names to UUID references
  *
  * Uses the shared SWC analyzer to find all capability references, then
- * resolves each display_name to its FQDN via the registry.
+ * resolves each name to its UUID via the registry.
  *
  * @param code - The code to transform
  * @param registry - CapabilityRegistry for name resolution
@@ -83,24 +84,24 @@ export async function transformCapabilityRefs(
     refs: toolRefs.map((r) => r.toolId),
   });
 
-  // Resolve each unique action name to FQDN
+  // Resolve each unique action name to UUID
   // The "tool" field contains the action name (last part of mcp.namespace.action)
   const uniqueActions = [...new Set(toolRefs.map((r) => r.tool))];
   for (const actionName of uniqueActions) {
-    // Skip if already looks like an FQDN (contains dots with structure)
-    if (actionName.includes(".") && actionName.split(".").length >= 4) {
-      logger.debug("Skipping already-FQDN reference", { actionName });
+    // Skip if already a $cap: reference (already transformed)
+    if (actionName.startsWith("$cap:")) {
+      logger.debug("Skipping already-transformed $cap: reference", { actionName });
       continue;
     }
 
     try {
-      // Try to resolve as capability by action name (display_name)
+      // Try to resolve as capability by action name (namespace:action format)
       const record = await registry.resolveByName(actionName, scope);
       if (record) {
-        replacements[actionName] = record.id; // record.id is the FQDN
-        logger.debug("Resolved capability action to FQDN", {
+        replacements[actionName] = record.id; // record.id is the UUID
+        logger.debug("Resolved capability action to UUID", {
           actionName,
-          fqdn: record.id,
+          uuid: record.id,
         });
       } else {
         // Not found in registry - probably an MCP tool, not a capability
@@ -137,8 +138,8 @@ export async function transformCapabilityRefs(
   });
 
   for (const ref of sortedRefs) {
-    const fqdn = replacements[ref.tool];
-    if (!fqdn) continue; // Not a capability, skip
+    const uuid = replacements[ref.tool];
+    if (!uuid) continue; // Not a capability, skip
 
     // Adjust positions for the original code (not wrapped)
     // Use dynamic baseOffset to handle SWC's cumulative positions
@@ -148,10 +149,10 @@ export async function transformCapabilityRefs(
     // Skip if positions are invalid (reference is in wrapper, not original code)
     if (start < 0 || end > code.length) continue;
 
-    // Replace mcp.namespace.action with mcp["FQDN"]
+    // Replace mcp.namespace.action with mcp["$cap:<uuid>"]
     const before = transformedCode.substring(0, start);
     const after = transformedCode.substring(end);
-    const replacement = `mcp["${fqdn}"]`;
+    const replacement = `mcp["$cap:${uuid}"]`;
     transformedCode = before + replacement + after;
     replacedCount++;
   }

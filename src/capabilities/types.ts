@@ -808,6 +808,8 @@ export interface CapabilityNode {
     toolInvocations?: CapabilityToolInvocation[]; // Full sequence with timestamps (for invocation mode)
     /** Execution traces (Story 11.4) - included when includeTraces=true */
     traces?: ExecutionTrace[];
+    /** Last used timestamp (ISO format) for timeline sorting */
+    lastUsed?: string;
   };
 }
 
@@ -1059,16 +1061,17 @@ export interface Scope {
  * This is the registry record type stored in `capability_records` table.
  * Different from `Capability` which is the workflow_pattern-based type.
  *
- * Architecture: Dual-table strategy (migration 023)
- * - capability_records: FQDN registry, naming, visibility, provenance
+ * Architecture: Dual-table strategy (migration 023, 028)
+ * - capability_records: UUID PK, FQDN components, visibility, provenance
  * - workflow_pattern: Code, embeddings, execution stats (via workflowPatternId FK)
+ *
+ * FQDN is computed from: `${org}.${project}.${namespace}.${action}.${hash}`
+ * Display name is derived from: `${namespace}:${action}`
  */
 export interface CapabilityRecord {
   // Identity
-  /** FQDN primary key: <org>.<project>.<namespace>.<action>.<hash> */
+  /** UUID primary key (immutable) - used in code as mcp["$cap:<uuid>"] */
   id: string;
-  /** Free-format display name (user-chosen) */
-  displayName: string;
   /** Organization */
   org: string;
   /** Project */
@@ -1124,6 +1127,30 @@ export interface CapabilityRecord {
 }
 
 /**
+ * Compute FQDN from CapabilityRecord components
+ *
+ * @param record - The capability record (or partial with FQDN components)
+ * @returns FQDN string: org.project.namespace.action.hash
+ */
+export function getCapabilityFqdn(
+  record: Pick<CapabilityRecord, "org" | "project" | "namespace" | "action" | "hash">,
+): string {
+  return `${record.org}.${record.project}.${record.namespace}.${record.action}.${record.hash}`;
+}
+
+/**
+ * Get display name from CapabilityRecord (namespace:action)
+ *
+ * @param record - The capability record (or partial with namespace/action)
+ * @returns Display name string: namespace:action
+ */
+export function getCapabilityDisplayName(
+  record: Pick<CapabilityRecord, "namespace" | "action">,
+): string {
+  return `${record.namespace}:${record.action}`;
+}
+
+/**
  * Hierarchy node for trace reconstruction (Phase 8 - Migration)
  *
  * Used by ExecutionTraceStore.buildHierarchy() to reconstruct
@@ -1138,39 +1165,8 @@ export interface HierarchyNode {
   children: HierarchyNode[];
 }
 
-/**
- * Alias record for capability name resolution (Story 13.1)
- *
- * Stored in `capability_aliases` table with composite PK (org, project, alias).
- * Used to support renames while maintaining backward compatibility.
- */
-export interface CapabilityAlias {
-  /** The old/alternative name */
-  alias: string;
-  /** Organization scope */
-  org: string;
-  /** Project scope */
-  project: string;
-  /** Points to current FQDN (no alias chains) */
-  targetFqdn: string;
-  /** When alias was created */
-  createdAt: Date;
-}
-
-/**
- * Result of alias resolution (Story 13.1)
- *
- * Includes both the record and whether it was resolved via alias.
- * When isAlias=true, a deprecation warning should be logged.
- */
-export interface AliasResolutionResult {
-  /** The resolved capability record */
-  record: CapabilityRecord;
-  /** Whether this was resolved via alias (deprecated name) */
-  isAlias: boolean;
-  /** The original alias used (only set if isAlias=true) */
-  usedAlias?: string;
-}
+// CapabilityAlias and AliasResolutionResult removed in migration 028
+// Aliases are no longer supported - use UUID for stable references
 
 // ============================================
 // MCP Tool Listing Types (Story 13.3)

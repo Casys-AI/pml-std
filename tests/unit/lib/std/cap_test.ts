@@ -1,9 +1,13 @@
 /**
- * Unit tests for lib/std/cap.ts
+ * Unit tests for lib/std/cap.ts (Migration 028)
  *
  * Story 13.5: Capability Management Tools
  *
  * Tests cap:list, cap:rename, cap:lookup, cap:whois
+ *
+ * Note: displayName and aliases were removed in migration 028.
+ * Display name is now computed as namespace:action.
+ * ID is now a UUID, not FQDN.
  */
 
 import { assertEquals, assertStringIncludes } from "@std/assert";
@@ -57,7 +61,7 @@ Deno.test("globToSqlLike - unicode patterns", () => {
 });
 
 // =============================================================================
-// Mock Database and Registry
+// Mock Database and Registry (Migration 028: UUID PK, no displayName/aliases)
 // =============================================================================
 
 interface MockRow {
@@ -86,9 +90,11 @@ class MockDb {
   }
 }
 
+/**
+ * Mock capability record (Migration 028: UUID id, no displayName)
+ */
 interface MockCapRecord {
-  id: string;
-  displayName: string;
+  id: string; // UUID now, not FQDN
   org: string;
   project: string;
   namespace: string;
@@ -111,58 +117,28 @@ interface MockCapRecord {
   routing: "local" | "cloud";
 }
 
+/**
+ * Mock registry (Migration 028: no aliases)
+ */
 class MockRegistry {
   public capabilities: Map<string, MockCapRecord> = new Map();
-  public aliases: Map<string, string> = new Map();
 
   resolveByName(
     name: string,
     _scope: { org: string; project: string },
   ): Promise<MockCapRecord | null> {
+    // Try to find by namespace:action format
     for (const [_, cap] of this.capabilities) {
-      if (cap.displayName === name) return Promise.resolve(cap);
-    }
-    const fqdn = this.aliases.get(name);
-    if (fqdn) return Promise.resolve(this.capabilities.get(fqdn) ?? null);
-    return Promise.resolve(null);
-  }
-
-  resolveByAlias(
-    alias: string,
-    _scope: { org: string; project: string },
-  ): Promise<{ record: MockCapRecord; isAlias: boolean; usedAlias: string } | null> {
-    const fqdn = this.aliases.get(alias);
-    if (fqdn) {
-      const record = this.capabilities.get(fqdn);
-      if (record) {
-        return Promise.resolve({ record, isAlias: true, usedAlias: alias });
-      }
+      const displayName = `${cap.namespace}:${cap.action}`;
+      if (displayName === name) return Promise.resolve(cap);
+      // Also match by action only
+      if (cap.action === name) return Promise.resolve(cap);
     }
     return Promise.resolve(null);
   }
 
-  getByFqdn(fqdn: string): Promise<MockCapRecord | null> {
-    return Promise.resolve(this.capabilities.get(fqdn) ?? null);
-  }
-
-  createAlias(
-    _org: string,
-    _project: string,
-    alias: string,
-    targetFqdn: string,
-  ): Promise<void> {
-    this.aliases.set(alias, targetFqdn);
-    return Promise.resolve();
-  }
-
-  getAliases(fqdn: string): Promise<Array<{ alias: string }>> {
-    const result: Array<{ alias: string }> = [];
-    for (const [alias, target] of this.aliases) {
-      if (target === fqdn) {
-        result.push({ alias });
-      }
-    }
-    return Promise.resolve(result);
+  getById(uuid: string): Promise<MockCapRecord | null> {
+    return Promise.resolve(this.capabilities.get(uuid) ?? null);
   }
 
   addCapability(cap: MockCapRecord): void {
@@ -172,8 +148,7 @@ class MockRegistry {
 
 function createMockCapability(overrides: Partial<MockCapRecord> = {}): MockCapRecord {
   return {
-    id: "local.default.fs.read_json.a7f3",
-    displayName: "json-reader",
+    id: "550e8400-e29b-41d4-a716-446655440001", // UUID
     org: "local",
     project: "default",
     namespace: "fs",
@@ -233,13 +208,12 @@ Deno.test("CapModule.listTools - each tool has inputSchema", () => {
 // cap:list Tests (AC1-4)
 // =============================================================================
 
-Deno.test("cap:list - AC1: returns items with correct fields", async () => {
+Deno.test("cap:list - returns items with correct fields (UUID id, namespace:action display)", async () => {
   const mockDb = new MockDb();
   const mockRegistry = new MockRegistry();
   mockDb.setMockRows([
     {
-      id: "local.default.fs.read.a1b2",
-      display_name: "file-reader",
+      id: "550e8400-e29b-41d4-a716-446655440001",
       namespace: "fs",
       action: "read",
       usage_count: 5,
@@ -256,8 +230,8 @@ Deno.test("cap:list - AC1: returns items with correct fields", async () => {
   const data = JSON.parse(result.content[0].text);
 
   assertEquals(data.items.length, 1);
-  assertEquals(data.items[0].id, "local.default.fs.read.a1b2");
-  assertEquals(data.items[0].name, "file-reader");
+  assertEquals(data.items[0].id, "550e8400-e29b-41d4-a716-446655440001");
+  // Display name is namespace:action
   assertEquals(data.items[0].namespace, "fs");
   assertEquals(data.items[0].action, "read");
   assertEquals(data.items[0].usageCount, 5);
@@ -265,7 +239,7 @@ Deno.test("cap:list - AC1: returns items with correct fields", async () => {
   assertEquals(data.items[0].description, "Reads files");
 });
 
-Deno.test("cap:list - AC2: pattern filter uses LIKE", async () => {
+Deno.test("cap:list - pattern filter uses LIKE on namespace:action", async () => {
   const mockDb = new MockDb();
   const mockRegistry = new MockRegistry();
   mockDb.setMockRows([]);
@@ -280,27 +254,12 @@ Deno.test("cap:list - AC2: pattern filter uses LIKE", async () => {
   assertEquals(query!.params[2], "fs:%");
 });
 
-Deno.test("cap:list - AC3: unnamedOnly filter", async () => {
-  const mockDb = new MockDb();
-  const mockRegistry = new MockRegistry();
-  mockDb.setMockRows([]);
-
-  // deno-lint-ignore no-explicit-any
-  const capModule = new CapModule(mockRegistry as any, mockDb as any);
-
-  await capModule.call("cap:list", { unnamedOnly: true });
-  const query = mockDb.getLastQuery();
-
-  assertStringIncludes(query!.sql, "unnamed\\_%");
-});
-
-Deno.test("cap:list - AC4: pagination with total", async () => {
+Deno.test("cap:list - pagination with total", async () => {
   const mockDb = new MockDb();
   const mockRegistry = new MockRegistry();
   mockDb.setMockRows([
     {
-      id: "local.default.fs.read.a1b2",
-      display_name: "reader",
+      id: "550e8400-e29b-41d4-a716-446655440001",
       namespace: "fs",
       action: "read",
       usage_count: 5,
@@ -322,14 +281,14 @@ Deno.test("cap:list - AC4: pagination with total", async () => {
 });
 
 // =============================================================================
-// cap:rename Tests (AC5-7)
+// cap:rename Tests (Migration 028: simpler, no aliases)
 // =============================================================================
 
-Deno.test("cap:rename - AC5: basic rename with alias", async () => {
+Deno.test("cap:rename - updates description", async () => {
   const mockDb = new MockDb();
   const mockRegistry = new MockRegistry();
 
-  const cap = createMockCapability({ displayName: "old-reader" });
+  const cap = createMockCapability();
   mockRegistry.addCapability(cap);
   mockDb.setMockRows([{ count: "0" }]);
 
@@ -337,87 +296,42 @@ Deno.test("cap:rename - AC5: basic rename with alias", async () => {
   const capModule = new CapModule(mockRegistry as any, mockDb as any);
 
   const result = await capModule.call("cap:rename", {
-    name: "old-reader",
-    newName: "json-reader",
+    name: "fs:read_json",
+    description: "Reads JSON files from disk",
   });
   const data = JSON.parse(result.content[0].text);
 
   assertEquals(data.success, true);
-  assertEquals(data.fqdn, cap.id);
-  assertEquals(data.aliasCreated, true);
-  assertEquals(mockRegistry.aliases.get("old-reader"), cap.id);
-});
+  assertEquals(data.id, cap.id);
 
-Deno.test("cap:rename - AC6: rename with description", async () => {
-  const mockDb = new MockDb();
-  const mockRegistry = new MockRegistry();
-
-  const cap = createMockCapability({ displayName: "old-reader" });
-  mockRegistry.addCapability(cap);
-  mockDb.setMockRows([{ count: "0" }]);
-
-  // deno-lint-ignore no-explicit-any
-  const capModule = new CapModule(mockRegistry as any, mockDb as any);
-
-  await capModule.call("cap:rename", {
-    name: "old-reader",
-    newName: "json-reader",
-    description: "Reads JSON files",
-  });
-
+  // Verify description was updated
   const queries = mockDb.queries.filter((q) => q.sql.includes("UPDATE workflow_pattern"));
   assertEquals(queries.length, 1);
   assertStringIncludes(queries[0].sql, "description");
 });
 
-Deno.test("cap:rename - AC7: collision error", async () => {
+Deno.test("cap:rename - not found error", async () => {
   const mockDb = new MockDb();
   const mockRegistry = new MockRegistry();
-
-  const cap = createMockCapability({ displayName: "old-reader" });
-  mockRegistry.addCapability(cap);
-  mockDb.setMockRows([{ count: "1" }]);
 
   // deno-lint-ignore no-explicit-any
   const capModule = new CapModule(mockRegistry as any, mockDb as any);
 
   const result = await capModule.call("cap:rename", {
-    name: "old-reader",
-    newName: "json-reader",
+    name: "nonexistent:action",
+    description: "New description",
   });
   const data = JSON.parse(result.content[0].text);
 
-  assertStringIncludes(data.error, "already exists");
-  assertEquals(result.isError, true);
-});
-
-// M4 Fix: Test invalid newName validation
-Deno.test("cap:rename - M4: rejects invalid newName", async () => {
-  const mockDb = new MockDb();
-  const mockRegistry = new MockRegistry();
-
-  const cap = createMockCapability({ displayName: "old-reader" });
-  mockRegistry.addCapability(cap);
-
-  // deno-lint-ignore no-explicit-any
-  const capModule = new CapModule(mockRegistry as any, mockDb as any);
-
-  // Test with invalid name containing space
-  const result = await capModule.call("cap:rename", {
-    name: "old-reader",
-    newName: "invalid name with spaces",
-  });
-  const data = JSON.parse(result.content[0].text);
-
-  assertStringIncludes(data.error, "Invalid name");
+  assertStringIncludes(data.error, "not found");
   assertEquals(result.isError, true);
 });
 
 // =============================================================================
-// cap:lookup Tests (AC8-9)
+// cap:lookup Tests
 // =============================================================================
 
-Deno.test("cap:lookup - AC8: returns capability details", async () => {
+Deno.test("cap:lookup - returns capability details", async () => {
   const mockDb = new MockDb();
   const mockRegistry = new MockRegistry();
 
@@ -428,34 +342,16 @@ Deno.test("cap:lookup - AC8: returns capability details", async () => {
   // deno-lint-ignore no-explicit-any
   const capModule = new CapModule(mockRegistry as any, mockDb as any);
 
-  const result = await capModule.call("cap:lookup", { name: "json-reader" });
+  const result = await capModule.call("cap:lookup", { name: "fs:read_json" });
   const data = JSON.parse(result.content[0].text);
 
-  assertEquals(data.fqdn, cap.id);
-  assertEquals(data.displayName, "json-reader");
+  assertEquals(data.id, cap.id);
+  // Display name is now namespace:action
+  assertEquals(data.namespace, "fs");
+  assertEquals(data.action, "read_json");
   assertEquals(data.usageCount, 10);
   assertEquals(data.successRate, 0.8);
   assertEquals(data.description, "Reads JSON files");
-});
-
-Deno.test("cap:lookup - AC9: alias warning", async () => {
-  const mockDb = new MockDb();
-  const mockRegistry = new MockRegistry();
-
-  const cap = createMockCapability({ displayName: "new-reader" });
-  mockRegistry.addCapability(cap);
-  mockRegistry.aliases.set("old-reader", cap.id);
-  mockDb.setMockRows([{ description: null }]);
-
-  // deno-lint-ignore no-explicit-any
-  const capModule = new CapModule(mockRegistry as any, mockDb as any);
-
-  const result = await capModule.call("cap:lookup", { name: "old-reader" });
-  const data = JSON.parse(result.content[0].text);
-
-  assertEquals(data.isAlias, true);
-  assertStringIncludes(data.warning, "deprecated alias");
-  assertStringIncludes(data.warning, "old-reader");
 });
 
 Deno.test("cap:lookup - not found error", async () => {
@@ -473,26 +369,24 @@ Deno.test("cap:lookup - not found error", async () => {
 });
 
 // =============================================================================
-// cap:whois Tests (AC10)
+// cap:whois Tests
 // =============================================================================
 
-Deno.test("cap:whois - AC10: returns full metadata", async () => {
+Deno.test("cap:whois - returns full metadata", async () => {
   const mockDb = new MockDb();
   const mockRegistry = new MockRegistry();
 
   const cap = createMockCapability();
   mockRegistry.addCapability(cap);
-  mockRegistry.aliases.set("old-name", cap.id);
   mockDb.setMockRows([{ description: "Full description" }]);
 
   // deno-lint-ignore no-explicit-any
   const capModule = new CapModule(mockRegistry as any, mockDb as any);
 
-  const result = await capModule.call("cap:whois", { fqdn: cap.id });
+  const result = await capModule.call("cap:whois", { id: cap.id });
   const data = JSON.parse(result.content[0].text);
 
   assertEquals(data.id, cap.id);
-  assertEquals(data.displayName, cap.displayName);
   assertEquals(data.org, "local");
   assertEquals(data.project, "default");
   assertEquals(data.namespace, "fs");
@@ -503,8 +397,8 @@ Deno.test("cap:whois - AC10: returns full metadata", async () => {
   assertEquals(data.successCount, 8);
   assertEquals(data.visibility, "private");
   assertEquals(data.routing, "local");
-  assertEquals(data.aliases, ["old-name"]);
   assertEquals(data.description, "Full description");
+  // No more aliases field
 });
 
 Deno.test("cap:whois - not found error", async () => {
@@ -514,7 +408,7 @@ Deno.test("cap:whois - not found error", async () => {
   // deno-lint-ignore no-explicit-any
   const capModule = new CapModule(mockRegistry as any, mockDb as any);
 
-  const result = await capModule.call("cap:whois", { fqdn: "nonexistent.fqdn" });
+  const result = await capModule.call("cap:whois", { id: "00000000-0000-0000-0000-000000000000" });
   const data = JSON.parse(result.content[0].text);
 
   assertStringIncludes(data.error, "not found");

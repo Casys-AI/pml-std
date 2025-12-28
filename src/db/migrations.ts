@@ -34,6 +34,7 @@ import { createErrorTypeColumnMigration } from "./migrations/024_error_type_colu
 import { createIntentEmbeddingColumnMigration } from "./migrations/025_intent_embedding_column.ts";
 import { createAlgorithmNameColumnMigration } from "./migrations/026_algorithm_name_column.ts";
 import { createSHGATParamsMigration } from "./migrations/027_shgat_params.ts";
+import { createCapabilityUuidPkMigration } from "./migrations/028_capability_uuid_pk.ts";
 
 /**
  * Migration definition
@@ -421,5 +422,6 @@ export function getAllMigrations(): Migration[] {
     createIntentEmbeddingColumnMigration(), // SHGAT v2: intentSimilarSuccessRate feature
     createAlgorithmNameColumnMigration(), // Story 7.6+: Algorithm name for tracing
     createSHGATParamsMigration(), // Story 10.7b: SHGAT weights persistence
+    createCapabilityUuidPkMigration(), // Epic 13 refactor: UUID PK, drop display_name & aliases
   ];
 }

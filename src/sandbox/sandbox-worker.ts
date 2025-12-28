@@ -203,7 +203,8 @@ function generateToolProxies(
 
   // Return a Proxy that:
   // 1. Returns known MCP servers as-is
-  // 2. For unknown servers, returns a Proxy that creates RPC calls on-the-fly
+  // 2. For $cap:<uuid> references, returns a direct callable function
+  // 3. For unknown servers, returns a Proxy that creates RPC calls on-the-fly
   //    This allows capability calls like mcp.fs.ls() to be routed to WorkerBridge
   return new Proxy(knownServers, {
     get(target, serverName: string) {
@@ -211,6 +212,15 @@ function generateToolProxies(
       if (target[serverName]) {
         return target[serverName];
       }
+
+      // Handle $cap:<uuid> capability references (from code-transformer)
+      // Format: mcp["$cap:<uuid>"](args) → direct RPC call with server="$cap", tool=uuid
+      if (serverName.startsWith("$cap:")) {
+        const uuid = serverName.substring(5); // Remove "$cap:" prefix
+        return (args: Record<string, unknown> = {}) =>
+          __rpcCall("$cap", uuid, args);
+      }
+
       // For unknown servers, return a Proxy that creates RPC functions on-the-fly
       // These will be routed to capabilities by WorkerBridge if capabilityRegistry is set
       return new Proxy({}, {

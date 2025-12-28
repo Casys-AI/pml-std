@@ -1,10 +1,13 @@
 /**
- * Tests for CapabilityListerService
+ * Tests for CapabilityListerService (Migration 028)
  *
  * Story 13.3: CapabilityMCPServer + Gateway
  * AC1: Tool Listing - returns tools with mcp__namespace__action format
  * AC4: InputSchema from parameters_schema
  * AC7: Immediate Visibility - fresh query
+ *
+ * Note: displayName was removed in migration 028.
+ * Display name is now computed as namespace:action.
  */
 
 import { assertEquals, assertExists } from "@std/assert";
@@ -41,19 +44,17 @@ Deno.test("CapabilityListerService - AC1: returns tools with mcp__namespace__act
   const mockStore = new MockCapabilityStore();
   mockStore.setCapabilities([
     {
-      id: "cap-1",
+      id: "550e8400-e29b-41d4-a716-446655440001",
       namespace: "code",
       action: "analyze",
-      displayName: "code:analyze",
       description: "Analyze code structure",
       parametersSchema: { type: "object", properties: { file: { type: "string" } } },
       usageCount: 10,
     },
     {
-      id: "cap-2",
+      id: "550e8400-e29b-41d4-a716-446655440002",
       namespace: "data",
       action: "transform",
-      displayName: "data:transform",
       description: "Transform data",
       parametersSchema: null,
       usageCount: 5,
@@ -82,10 +83,9 @@ Deno.test("CapabilityListerService - AC4: inputSchema from parameters_schema", a
 
   mockStore.setCapabilities([
     {
-      id: "cap-1",
+      id: "550e8400-e29b-41d4-a716-446655440001",
       namespace: "code",
       action: "analyze",
-      displayName: "code:analyze",
       description: "Analyze code",
       parametersSchema: schema,
       usageCount: 10,
@@ -104,10 +104,9 @@ Deno.test("CapabilityListerService - default schema when parameters_schema is nu
   const mockStore = new MockCapabilityStore();
   mockStore.setCapabilities([
     {
-      id: "cap-1",
+      id: "550e8400-e29b-41d4-a716-446655440001",
       namespace: "test",
       action: "run",
-      displayName: "test:run",
       description: "Run tests",
       parametersSchema: null,
       usageCount: 1,
@@ -124,14 +123,13 @@ Deno.test("CapabilityListerService - default schema when parameters_schema is nu
   assertEquals(tools[0].inputSchema.properties, {});
 });
 
-Deno.test("CapabilityListerService - description falls back to displayName", async () => {
+Deno.test("CapabilityListerService - description falls back to namespace:action", async () => {
   const mockStore = new MockCapabilityStore();
   mockStore.setCapabilities([
     {
-      id: "cap-1",
+      id: "550e8400-e29b-41d4-a716-446655440001",
       namespace: "my_namespace",
       action: "my_action",
-      displayName: "My Cool Capability",
       description: null, // No description
       parametersSchema: null,
       usageCount: 1,
@@ -143,17 +141,17 @@ Deno.test("CapabilityListerService - description falls back to displayName", asy
   const tools = await lister.listTools();
 
   assertEquals(tools.length, 1);
-  assertEquals(tools[0].description, "Capability: My Cool Capability");
+  // Falls back to "Capability: namespace:action"
+  assertEquals(tools[0].description, "Capability: my_namespace:my_action");
 });
 
 Deno.test("CapabilityListerService - uses description when available", async () => {
   const mockStore = new MockCapabilityStore();
   mockStore.setCapabilities([
     {
-      id: "cap-1",
+      id: "550e8400-e29b-41d4-a716-446655440001",
       namespace: "api",
       action: "fetch",
-      displayName: "api:fetch",
       description: "Fetch data from API endpoint",
       parametersSchema: null,
       usageCount: 1,
@@ -172,28 +170,25 @@ Deno.test("CapabilityListerService - handles multiple capabilities", async () =>
   const mockStore = new MockCapabilityStore();
   mockStore.setCapabilities([
     {
-      id: "cap-1",
+      id: "550e8400-e29b-41d4-a716-446655440001",
       namespace: "code",
       action: "analyze",
-      displayName: "code:analyze",
       description: "Analyze code",
       parametersSchema: { type: "object" },
       usageCount: 100,
     },
     {
-      id: "cap-2",
+      id: "550e8400-e29b-41d4-a716-446655440002",
       namespace: "code",
       action: "refactor",
-      displayName: "code:refactor",
       description: "Refactor code",
       parametersSchema: { type: "object" },
       usageCount: 50,
     },
     {
-      id: "cap-3",
+      id: "550e8400-e29b-41d4-a716-446655440003",
       namespace: "data",
       action: "transform",
-      displayName: "data:transform",
       description: "Transform data",
       parametersSchema: { type: "object" },
       usageCount: 25,

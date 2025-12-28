@@ -31,7 +31,12 @@ import type { JsonValue, LogicalOperation, TraceTaskResult } from "../../capabil
 import type { DagScoringConfig } from "../../graphrag/dag-scoring-config.ts";
 import type { EmbeddingModelInterface } from "../../vector/embeddings.ts";
 import type { ExecutionTraceStore } from "../../capabilities/execution-trace-store.ts";
-import type { CapabilityRegistry, Scope } from "../../capabilities/capability-registry.ts";
+import {
+  type CapabilityRegistry,
+  type Scope,
+  getCapabilityDisplayName,
+  getCapabilityFqdn,
+} from "../../capabilities/capability-registry.ts";
 import type { AlgorithmTracer } from "../../telemetry/algorithm-tracer.ts";
 
 import { formatMCPToolError } from "../server/responses.ts";
@@ -863,8 +868,8 @@ async function executeByNameMode(
   }
 
   log.debug("[pml:execute] Capability resolved", {
-    displayName: record.displayName,
-    fqdn: record.id,
+    displayName: getCapabilityDisplayName(record),
+    fqdn: getCapabilityFqdn(record),
     workflowPatternId: record.workflowPatternId,
     hasParametersSchema: !!parametersSchema,
   });
@@ -910,8 +915,8 @@ async function executeByNameMode(
         const optimizedDAG = optimizeDAG(logicalDAG);
 
         log.info("[pml:execute] Executing capability via ControlledExecutor (DAG mode)", {
-          capabilityName: record.displayName,
-          fqdn: record.id,
+          capabilityName: getCapabilityDisplayName(record),
+          fqdn: getCapabilityFqdn(record),
           logicalTasksCount: logicalDAG.tasks.length,
           physicalTasksCount: optimizedDAG.tasks.length,
           fusionRate: Math.round((1 - optimizedDAG.tasks.length / logicalDAG.tasks.length) * 100),
@@ -967,8 +972,8 @@ async function executeByNameMode(
           return formatMCPToolError(
             `Capability execution failed: ${firstError?.error ?? "Unknown error"}`,
             {
-              capabilityName: record.displayName,
-              fqdn: record.id,
+              capabilityName: getCapabilityDisplayName(record),
+              fqdn: getCapabilityFqdn(record),
               failedTasks: physicalResults.failedTasks,
               errors: physicalResults.errors,
               executionTimeMs,
@@ -988,8 +993,8 @@ async function executeByNameMode(
           status: "success",
           result: (successOutputs.length === 1 ? successOutputs[0] : successOutputs) as JsonValue,
           capabilityId: record.id,
-          capabilityName: record.displayName,
-          capabilityFqdn: record.id,
+          capabilityName: getCapabilityDisplayName(record),
+          capabilityFqdn: getCapabilityFqdn(record),
           mode: "call_by_name",
           executionTimeMs,
           dag: {
@@ -1010,8 +1015,8 @@ async function executeByNameMode(
         }
 
         log.info("[pml:execute] Mode Call-by-Name completed", {
-          capabilityName: record.displayName,
-          fqdn: record.id,
+          capabilityName: getCapabilityDisplayName(record),
+          fqdn: getCapabilityFqdn(record),
           executionTimeMs: executionTimeMs.toFixed(2),
           toolsCalled: toolsCalled.length,
         });
@@ -1029,7 +1034,7 @@ async function executeByNameMode(
     return formatMCPToolError(
       `Capability '${capabilityName}' code cannot be executed - no MCP tools found.`,
       {
-        fqdn: record.id,
+        fqdn: getCapabilityFqdn(record),
         hint: "The capability may have been created with code that doesn't use MCP tools.",
       },
     );

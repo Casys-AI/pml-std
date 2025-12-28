@@ -1,8 +1,12 @@
 /**
- * Tests for CapabilityMCPServer
+ * Tests for CapabilityMCPServer (Migration 028)
  *
  * Story 13.3: CapabilityMCPServer + Gateway
  * AC5: Usage Tracking - records usage metrics after execution
+ *
+ * Note: displayName was removed in migration 028.
+ * Display name is now computed as namespace:action.
+ * ID is now a UUID, not FQDN.
  */
 
 import { assertEquals, assertExists } from "@std/assert";
@@ -37,21 +41,21 @@ class MockCapabilityStore {
   }
 }
 
-// Mock CapabilityRegistry with usage tracking
+// Mock CapabilityRegistry with usage tracking (Migration 028: UUID id, no displayName)
 class MockCapabilityRegistry {
   private records: Map<string, CapabilityRecord> = new Map();
-  public recordedUsages: Array<{ fqdn: string; success: boolean; latencyMs: number }> = [];
+  public recordedUsages: Array<{ id: string; success: boolean; latencyMs: number }> = [];
 
-  setRecord(displayName: string, record: Partial<CapabilityRecord>): void {
-    this.records.set(displayName, record as CapabilityRecord);
+  setRecord(nameKey: string, record: Partial<CapabilityRecord>): void {
+    this.records.set(nameKey, record as CapabilityRecord);
   }
 
   async resolveByName(name: string, _scope: Scope): Promise<CapabilityRecord | null> {
     return this.records.get(name) || null;
   }
 
-  async recordUsage(fqdn: string, success: boolean, latencyMs: number): Promise<void> {
-    this.recordedUsages.push({ fqdn, success, latencyMs });
+  async recordUsage(id: string, success: boolean, latencyMs: number): Promise<void> {
+    this.recordedUsages.push({ id, success, latencyMs });
   }
 }
 
@@ -92,23 +96,23 @@ function createTestSetup() {
   const mockRegistry = new MockCapabilityRegistry();
   const mockBridge = new MockWorkerBridge();
 
-  // Setup capability in store listing
+  const capabilityUuid = "550e8400-e29b-41d4-a716-446655440001";
+
+  // Setup capability in store listing (no displayName)
   mockStore.setCapabilities([
     {
       id: "pattern-123",
       namespace: "code",
       action: "analyze",
-      displayName: "code:analyze",
       description: "Analyze code structure",
       parametersSchema: { type: "object", properties: { file: { type: "string" } } },
       usageCount: 10,
     },
   ]);
 
-  // Setup registry record
+  // Setup registry record (UUID id, no displayName)
   mockRegistry.setRecord("code:analyze", {
-    id: "local.default.code.analyze.a1b2",
-    displayName: "code:analyze",
+    id: capabilityUuid, // UUID now
     org: "local",
     project: "default",
     namespace: "code",
@@ -145,7 +149,7 @@ function createTestSetup() {
     permissionConfidence: 0.9,
   });
 
-  return { mockStore, mockRegistry, mockBridge };
+  return { mockStore, mockRegistry, mockBridge, capabilityUuid };
 }
 
 Deno.test("CapabilityMCPServer - handleListTools returns capability tools", async () => {
@@ -177,7 +181,7 @@ Deno.test("CapabilityMCPServer - handleCallTool executes and returns result", as
 });
 
 Deno.test("CapabilityMCPServer - AC5: records usage after successful execution", async () => {
-  const { mockStore, mockRegistry, mockBridge } = createTestSetup();
+  const { mockStore, mockRegistry, mockBridge, capabilityUuid } = createTestSetup();
   mockBridge.setSuccess({ result: "ok" });
 
   // @ts-ignore - mocks
@@ -185,9 +189,9 @@ Deno.test("CapabilityMCPServer - AC5: records usage after successful execution",
 
   await server.handleCallTool("mcp__code__analyze", { file: "test.ts" });
 
-  // Verify usage was recorded
+  // Verify usage was recorded with UUID
   assertEquals(mockRegistry.recordedUsages.length, 1);
-  assertEquals(mockRegistry.recordedUsages[0].fqdn, "local.default.code.analyze.a1b2");
+  assertEquals(mockRegistry.recordedUsages[0].id, capabilityUuid);
   assertEquals(mockRegistry.recordedUsages[0].success, true);
   assertEquals(mockRegistry.recordedUsages[0].latencyMs >= 0, true);
 });

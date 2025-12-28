@@ -14,10 +14,15 @@
  * @module lib/std/cap
  */
 
-import type { CapabilityRegistry, Scope } from "../../src/capabilities/capability-registry.ts";
+import {
+  type CapabilityRegistry,
+  type Scope,
+  getCapabilityDisplayName,
+  getCapabilityFqdn,
+} from "../../src/capabilities/capability-registry.ts";
 import type { DbClient } from "../../src/db/mod.ts";
 import type { EmbeddingModelInterface } from "../../src/vector/embeddings.ts";
-import { isValidMCPName } from "../../src/capabilities/fqdn.ts";
+import { isValidMCPName, parseFQDN } from "../../src/capabilities/fqdn.ts";
 import * as log from "@std/log";
 
 // =============================================================================
@@ -63,9 +68,11 @@ export interface CapListOptions {
  * Single capability item in list response
  */
 export interface CapListItem {
-  /** FQDN (immutable identifier) */
+  /** UUID (immutable primary key) */
   id: string;
-  /** Display name (user-chosen) */
+  /** FQDN (computed: org.project.namespace.action.hash) */
+  fqdn: string;
+  /** Display name (namespace:action) */
   name: string;
   /** Capability description (from workflow_pattern) */
   description: string | null;
@@ -131,9 +138,11 @@ export interface CapLookupOptions {
  * Response from cap:lookup tool
  */
 export interface CapLookupResponse {
-  /** FQDN of the capability */
+  /** UUID of the capability */
+  id: string;
+  /** FQDN of the capability (computed) */
   fqdn: string;
-  /** Current display name */
+  /** Display name (namespace:action) */
   displayName: string;
   /** Description from workflow_pattern */
   description: string | null;
@@ -141,27 +150,25 @@ export interface CapLookupResponse {
   usageCount: number;
   /** Success rate (0-1) */
   successRate: number;
-  /** True if resolved via deprecated alias */
-  isAlias?: boolean;
-  /** Warning message if using deprecated alias */
-  warning?: string;
 }
 
 /**
  * Options for cap:whois tool
  */
 export interface CapWhoisOptions {
-  /** FQDN to look up */
-  fqdn: string;
+  /** UUID or FQDN to look up */
+  id: string;
 }
 
 /**
  * Full capability metadata from cap:whois
  */
 export interface CapWhoisResponse {
-  /** FQDN primary key */
+  /** UUID primary key */
   id: string;
-  /** Display name */
+  /** FQDN (computed) */
+  fqdn: string;
+  /** Display name (namespace:action) */
   displayName: string;
   /** Organization */
   org: string;
@@ -203,8 +210,6 @@ export interface CapWhoisResponse {
   visibility: "private" | "project" | "org" | "public";
   /** Execution routing */
   routing: "local" | "cloud";
-  /** Aliases pointing to this capability */
-  aliases?: string[];
   /** Description from workflow_pattern */
   description?: string | null;
 }
@@ -421,16 +426,16 @@ export class CapModule {
     ];
     const params: (string | number | boolean)[] = [DEFAULT_SCOPE.org, DEFAULT_SCOPE.project];
 
-    // AC2: Pattern filter
+    // AC2: Pattern filter (now matches namespace:action)
     if (options.pattern) {
       const sqlPattern = globToSqlLike(options.pattern);
       params.push(sqlPattern);
-      conditions.push(`cr.display_name LIKE $${params.length} ESCAPE '\\'`);
+      conditions.push(`(cr.namespace || ':' || cr.action) LIKE $${params.length} ESCAPE '\\'`);
     }
 
-    // AC3: Unnamed only filter
+    // AC3: Unnamed only filter (now matches action starting with unnamed_)
     if (options.unnamedOnly) {
-      conditions.push(`cr.display_name LIKE 'unnamed\\_%' ESCAPE '\\'`);
+      conditions.push(`cr.action LIKE 'unnamed\\_%' ESCAPE '\\'`);
     }
 
     const whereClause = conditions.join(" AND ");
@@ -439,9 +444,11 @@ export class CapModule {
     const query = `
       SELECT
         cr.id,
-        cr.display_name,
+        cr.org,
+        cr.project,
         cr.namespace,
         cr.action,
+        cr.hash,
         cr.usage_count,
         cr.success_count,
         wp.description,
@@ -449,7 +456,7 @@ export class CapModule {
       FROM capability_records cr
       LEFT JOIN workflow_pattern wp ON cr.workflow_pattern_id = wp.pattern_id
       WHERE ${whereClause}
-      ORDER BY cr.usage_count DESC, cr.display_name ASC
+      ORDER BY cr.usage_count DESC, cr.namespace ASC, cr.action ASC
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `;
 
@@ -457,9 +464,11 @@ export class CapModule {
 
     interface ListRow {
       id: string;
-      display_name: string;
+      org: string;
+      project: string;
       namespace: string;
       action: string;
+      hash: string;
       usage_count: number;
       success_count: number;
       description: string | null;
@@ -474,7 +483,8 @@ export class CapModule {
     // Map to response format
     const items: CapListItem[] = rows.map((row) => ({
       id: row.id,
-      name: row.display_name,
+      fqdn: `${row.org}.${row.project}.${row.namespace}.${row.action}.${row.hash}`,
+      name: `${row.namespace}:${row.action}`,
       description: row.description,
       namespace: row.namespace,
       action: row.action,
@@ -494,107 +504,77 @@ export class CapModule {
   }
 
   /**
-   * Handle cap:rename - rename capability (FQDN immutable, display_name changes)
+   * Handle cap:rename - DEPRECATED: Names are now immutable (namespace:action)
    *
-   * AC5: Basic rename with alias creation
-   * AC6: Rename with description update
-   * AC7: Collision error if newName already exists
-   * AC-NEW: Recalculate embedding with new name + description
+   * This function now only updates the description.
+   * The 'newName' parameter is ignored since names are derived from namespace:action.
    */
   private async handleRename(options: CapRenameOptions): Promise<CapToolResult> {
-    const { name, newName, description } = options;
+    const { name, description } = options;
 
-    // M4 Fix: Validate newName for MCP compatibility
-    if (!isValidMCPName(newName)) {
-      return this.errorResult(
-        `Invalid name: "${newName}". Must be alphanumeric with underscores, hyphens, and colons only.`,
-      );
-    }
-
-    // Resolve the capability by name
+    // Resolve the capability by name (namespace:action format)
     const record = await this.registry.resolveByName(name, DEFAULT_SCOPE);
     if (!record) {
       return this.errorResult(`Capability not found: ${name}`);
     }
 
-    // AC7: Check for collision
-    const existing = await this.existsByName(newName, DEFAULT_SCOPE);
-    if (existing) {
-      return this.errorResult(`Name '${newName}' already exists`);
-    }
+    const fqdn = getCapabilityFqdn(record);
+    const displayName = getCapabilityDisplayName(record);
 
-    const fqdn = record.id;
-    const oldName = record.displayName;
+    // Only update description if provided
+    if (description !== undefined && record.workflowPatternId) {
+      await this.db.query(
+        `UPDATE workflow_pattern
+         SET description = $2
+         WHERE pattern_id = $1`,
+        [record.workflowPatternId, description],
+      );
 
-    // Get current description if not provided
-    let finalDescription = description;
-    if (finalDescription === undefined && record.workflowPatternId) {
-      interface DescRow { description: string | null }
-      const descRows = (await this.db.query(
-        `SELECT description FROM workflow_pattern WHERE pattern_id = $1`,
-        [record.workflowPatternId],
-      )) as unknown as DescRow[];
-      if (descRows.length > 0) {
-        finalDescription = descRows[0].description ?? undefined;
-      }
-    }
+      // Recalculate embedding with updated description
+      if (this.embeddingModel) {
+        try {
+          const embeddingText = buildEmbeddingText(displayName, description);
+          const newEmbedding = await this.embeddingModel.encode(embeddingText);
+          const embeddingStr = `[${newEmbedding.join(",")}]`;
 
-    // Update display_name (FQDN stays immutable!)
-    // Note: No alias creation - old name is simply overwritten (simpler, no collisions)
-    await this.updateDisplayName(fqdn, newName, description);
-
-    // AC-NEW: Recalculate embedding with new name + description
-    let embeddingUpdated = false;
-    if (this.embeddingModel && record.workflowPatternId) {
-      try {
-        const embeddingText = buildEmbeddingText(newName, finalDescription);
-        const newEmbedding = await this.embeddingModel.encode(embeddingText);
-        const embeddingStr = `[${newEmbedding.join(",")}]`;
-
-        await this.db.query(
-          `UPDATE workflow_pattern
-           SET intent_embedding = $1::vector
-           WHERE pattern_id = $2`,
-          [embeddingStr, record.workflowPatternId],
-        );
-        embeddingUpdated = true;
-        log.info(`[CapModule] Embedding updated for ${newName}`);
-      } catch (error) {
-        // Log but don't fail the rename
-        const msg = error instanceof Error ? error.message : String(error);
-        log.warn(`[CapModule] Failed to update embedding: ${msg}`);
+          await this.db.query(
+            `UPDATE workflow_pattern
+             SET intent_embedding = $1::vector
+             WHERE pattern_id = $2`,
+            [embeddingStr, record.workflowPatternId],
+          );
+          log.info(`[CapModule] Embedding updated for ${displayName}`);
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          log.warn(`[CapModule] Failed to update embedding: ${msg}`);
+        }
       }
     }
 
     const response: CapRenameResponse = {
       success: true,
       fqdn,
-      aliasCreated: false, // No longer creating aliases
+      aliasCreated: false,
     };
 
-    log.info(`[CapModule] Renamed ${oldName} -> ${newName} (FQDN: ${fqdn}, embeddingUpdated: ${embeddingUpdated})`);
+    log.info(`[CapModule] Updated description for ${displayName} (FQDN: ${fqdn})`);
     return this.successResult(response);
   }
 
   /**
    * Handle cap:lookup - resolve name to capability details
    *
-   * AC8: Returns fqdn, displayName, description, usageCount, successRate
-   * AC9: Warns if resolved via deprecated alias
+   * Resolves namespace:action to capability record with metadata.
    */
   private async handleLookup(options: CapLookupOptions): Promise<CapToolResult> {
     const { name } = options;
 
-    // Resolve by name (internally checks display_name, then aliases, then public)
+    // Resolve by name (namespace:action format)
     const record = await this.registry.resolveByName(name, DEFAULT_SCOPE);
 
     if (!record) {
       return this.errorResult(`Capability not found: ${name}`);
     }
-
-    // Detect alias resolution: if queried name differs from current displayName,
-    // it was resolved via alias (no extra DB call needed)
-    const isAlias = record.displayName !== name;
 
     // Get description from workflow_pattern
     interface DescRow {
@@ -612,38 +592,48 @@ export class CapModule {
     }
 
     const response: CapLookupResponse = {
-      fqdn: record.id,
-      displayName: record.displayName,
+      id: record.id,
+      fqdn: getCapabilityFqdn(record),
+      displayName: getCapabilityDisplayName(record),
       description,
       usageCount: record.usageCount,
       successRate: record.usageCount > 0 ? record.successCount / record.usageCount : 0,
     };
 
-    // AC9: Add warning if resolved via alias
-    if (isAlias) {
-      response.isAlias = true;
-      response.warning = `Using deprecated alias '${name}'. Update to use '${record.displayName}'.`;
-    }
-
-    log.info(`[CapModule] cap:lookup '${name}' -> ${record.id}${isAlias ? " (via alias)" : ""}`);
+    log.info(`[CapModule] cap:lookup '${name}' -> ${record.id}`);
     return this.successResult(response);
   }
 
   /**
-   * Handle cap:whois - get full metadata for FQDN
+   * Handle cap:whois - get full metadata for a capability
    *
-   * AC10: Returns complete CapabilityRecord with all metadata
+   * Accepts UUID or FQDN and returns complete metadata.
    */
   private async handleWhois(options: CapWhoisOptions): Promise<CapToolResult> {
-    const { fqdn } = options;
+    const { id } = options;
 
-    const record = await this.registry.getByFqdn(fqdn);
+    // Try to find by UUID first, then parse as FQDN
+    let record = await this.registry.getById(id);
+
     if (!record) {
-      return this.errorResult(`FQDN not found: ${fqdn}`);
+      // Try to parse as FQDN and look up by components
+      try {
+        const components = parseFQDN(id);
+        record = await this.registry.getByFqdnComponents(
+          components.org,
+          components.project,
+          components.namespace,
+          components.action,
+          components.hash,
+        );
+      } catch {
+        // Not a valid FQDN, that's OK - record stays null
+      }
     }
 
-    // Get aliases for this capability
-    const aliases = await this.registry.getAliases(fqdn);
+    if (!record) {
+      return this.errorResult(`Capability not found: ${id}`);
+    }
 
     // Get description from workflow_pattern
     interface DescRow {
@@ -662,7 +652,8 @@ export class CapModule {
 
     const response: CapWhoisResponse = {
       id: record.id,
-      displayName: record.displayName,
+      fqdn: getCapabilityFqdn(record),
+      displayName: getCapabilityDisplayName(record),
       org: record.org,
       project: record.project,
       namespace: record.namespace,
@@ -683,74 +674,16 @@ export class CapModule {
       tags: record.tags,
       visibility: record.visibility,
       routing: record.routing,
-      aliases: aliases.map((a) => a.alias),
       description,
     };
 
-    log.info(`[CapModule] cap:whois ${fqdn}`);
+    log.info(`[CapModule] cap:whois ${id} -> ${record.id}`);
     return this.successResult(response);
   }
 
   // ===========================================================================
   // Helper Methods
   // ===========================================================================
-
-  /**
-   * Check if a name already exists in the scope
-   */
-  private async existsByName(name: string, scope: Scope): Promise<boolean> {
-    interface CountRow {
-      count: string;
-    }
-    const rows = (await this.db.query(
-      `SELECT COUNT(*) as count FROM capability_records
-       WHERE display_name = $1 AND org = $2 AND project = $3`,
-      [name, scope.org, scope.project],
-    )) as unknown as CountRow[];
-    return parseInt(rows[0].count, 10) > 0;
-  }
-
-  /**
-   * Update display_name for a capability (FQDN stays immutable!)
-   */
-  private async updateDisplayName(
-    fqdn: string,
-    newName: string,
-    description?: string,
-  ): Promise<void> {
-    // Parse namespace and action from newName
-    // Format: "namespace:action" or just "action" (defaults to namespace="cap")
-    let namespace: string;
-    let action: string;
-    const colonIndex = newName.indexOf(":");
-    if (colonIndex > 0) {
-      namespace = newName.substring(0, colonIndex);
-      action = newName.substring(colonIndex + 1);
-    } else {
-      // Default namespace for named capabilities
-      namespace = "cap";
-      action = newName;
-    }
-
-    // Update display_name, namespace, and action
-    await this.db.query(
-      `UPDATE capability_records
-       SET display_name = $1, namespace = $3, action = $4, updated_at = NOW()
-       WHERE id = $2`,
-      [newName, fqdn, namespace, action],
-    );
-
-    if (description !== undefined) {
-      await this.db.query(
-        `UPDATE workflow_pattern
-         SET description = $2
-         WHERE pattern_id = (
-           SELECT workflow_pattern_id FROM capability_records WHERE id = $1
-         )`,
-        [fqdn, description],
-      );
-    }
-  }
 
   private successResult(data: unknown): CapToolResult {
     return {

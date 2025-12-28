@@ -1,13 +1,14 @@
 /**
- * Integration tests for capability_records migration (Story 13.1)
+ * Integration tests for capability_records migration (Story 13.1, Migration 028)
  *
  * Tests:
  * - Migration up/down idempotence (AC10)
  * - workflow_pattern data preservation (AC10)
- * - FQDN generation with various inputs
+ * - UUID primary key generation
+ * - FQDN computation from components
  * - Scope resolution
- * - Alias chain prevention
- * - Concurrent alias creation
+ *
+ * Note: capability_aliases table was removed in migration 028.
  *
  * @module tests/integration/capability_records_migration_test
  */
@@ -15,7 +16,8 @@
 import { assert, assertEquals } from "@std/assert";
 import { PGliteClient } from "../../src/db/client.ts";
 import { getAllMigrations, MigrationRunner } from "../../src/db/migrations.ts";
-import { CapabilityRegistry } from "../../src/capabilities/capability-registry.ts";
+import { CapabilityRegistry, getCapabilityFqdn } from "../../src/capabilities/capability-registry.ts";
+import { createTestWorkflowPattern } from "../fixtures/test-helpers.ts";
 
 // Test setup helper
 async function setupTestDb(): Promise<PGliteClient> {
@@ -60,46 +62,61 @@ Deno.test("Migration 021 - idempotent up operation", async () => {
   await db.close();
 });
 
-Deno.test("Migration 021 - up and down cycle", async () => {
+Deno.test("Migration 028 - capability_aliases table dropped", async () => {
   const db = await setupTestDb();
   const runner = new MigrationRunner(db);
   const migrations = getAllMigrations();
 
-  // Run all migrations up
+  // Run all migrations including 028
   await runner.runUp(migrations);
 
-  // Verify tables exist
-  let tableCheck = await db.queryOne(`
-    SELECT
-      (SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'capability_records')) AS records_exists,
-      (SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'capability_aliases')) AS aliases_exists
+  // Verify capability_aliases table does NOT exist (dropped in 028)
+  const tableCheck = await db.queryOne(`
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_name = 'capability_aliases'
+    ) AS table_exists
   `);
-  assertEquals(tableCheck?.records_exists, true);
-  assertEquals(tableCheck?.aliases_exists, true);
+  assertEquals(tableCheck?.table_exists, false);
 
-  // Rollback to before migration 21
-  await runner.rollbackTo(20, migrations);
+  await db.close();
+});
 
-  // Verify tables no longer exist
-  tableCheck = await db.queryOne(`
-    SELECT
-      (SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'capability_records')) AS records_exists,
-      (SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'capability_aliases')) AS aliases_exists
-  `);
-  assertEquals(tableCheck?.records_exists, false);
-  assertEquals(tableCheck?.aliases_exists, false);
+Deno.test("Migration 028 - capability_records has UUID id column", async () => {
+  const db = await setupTestDb();
+  const runner = new MigrationRunner(db);
+  const migrations = getAllMigrations();
 
-  // Run up again - should work
+  // Run all migrations
   await runner.runUp(migrations);
 
-  // Tables should exist again
-  tableCheck = await db.queryOne(`
-    SELECT
-      (SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'capability_records')) AS records_exists,
-      (SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'capability_aliases')) AS aliases_exists
+  // Verify id column is UUID type
+  const columnCheck = await db.queryOne(`
+    SELECT data_type
+    FROM information_schema.columns
+    WHERE table_name = 'capability_records' AND column_name = 'id'
   `);
-  assertEquals(tableCheck?.records_exists, true);
-  assertEquals(tableCheck?.aliases_exists, true);
+  assertEquals(columnCheck?.data_type, "uuid");
+
+  await db.close();
+});
+
+Deno.test("Migration 028 - display_name column dropped", async () => {
+  const db = await setupTestDb();
+  const runner = new MigrationRunner(db);
+  const migrations = getAllMigrations();
+
+  // Run all migrations
+  await runner.runUp(migrations);
+
+  // Verify display_name column does NOT exist
+  const columnCheck = await db.queryOne(`
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'capability_records' AND column_name = 'display_name'
+    ) AS column_exists
+  `);
+  assertEquals(columnCheck?.column_exists, false);
 
   await db.close();
 });
@@ -108,7 +125,7 @@ Deno.test("Migration 021 - up and down cycle", async () => {
 // Workflow Pattern Preservation Tests (AC10)
 // ============================================
 
-Deno.test("Migration 021 - preserves existing workflow_pattern data", async () => {
+Deno.test("Migration - preserves existing workflow_pattern data", async () => {
   const db = await setupTestDb();
   const runner = new MigrationRunner(db);
   const migrations = getAllMigrations();
@@ -143,9 +160,8 @@ Deno.test("Migration 021 - preserves existing workflow_pattern data", async () =
   `);
   assertEquals(beforeMigration?.count, 1);
 
-  // Run migration 021
-  const migration21 = migrations.filter((m) => m.version === 21);
-  await runner.runUp(migration21);
+  // Run all remaining migrations including 028
+  await runner.runUp(migrations);
 
   // Verify workflow_pattern data is preserved
   const afterMigration = await db.queryOne(`
@@ -165,10 +181,44 @@ Deno.test("Migration 021 - preserves existing workflow_pattern data", async () =
 });
 
 // ============================================
-// FQDN Generation Integration Tests
+// UUID Primary Key Tests
 // ============================================
 
-Deno.test("Integration - FQDN generation with various inputs", async () => {
+Deno.test("Integration - UUID generated as primary key", async () => {
+  const db = await setupTestDb();
+  const runner = new MigrationRunner(db);
+  await runner.runUp(getAllMigrations());
+
+  const registry = new CapabilityRegistry(db);
+
+  // Create workflow_pattern first
+  const { patternId, hash } = await createTestWorkflowPattern(db, "test code");
+
+  const record = await registry.create({
+    org: "local",
+    project: "default",
+    namespace: "fs",
+    action: "read_json",
+    workflowPatternId: patternId,
+    hash,
+  });
+
+  // ID should be a valid UUID (36 chars with hyphens)
+  assertEquals(record.id.length, 36);
+  assert(record.id.includes("-"), "ID should be a UUID with hyphens");
+
+  // UUID format validation (8-4-4-4-12)
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  assert(uuidRegex.test(record.id), `ID should match UUID format: ${record.id}`);
+
+  await db.close();
+});
+
+// ============================================
+// FQDN Computation Tests
+// ============================================
+
+Deno.test("Integration - FQDN computed from components", async () => {
   const db = await setupTestDb();
   const runner = new MigrationRunner(db);
   await runner.runUp(getAllMigrations());
@@ -183,17 +233,23 @@ Deno.test("Integration - FQDN generation with various inputs", async () => {
   ];
 
   for (const tc of testCases) {
+    const { patternId, hash } = await createTestWorkflowPattern(db, `// ${tc.org}.${tc.project}`);
+
     const record = await registry.create({
-      displayName: `${tc.namespace}_${tc.action}`,
       org: tc.org,
       project: tc.project,
       namespace: tc.namespace,
       action: tc.action,
-      codeSnippet: `// ${tc.org}.${tc.project}.${tc.namespace}.${tc.action}`,
+      workflowPatternId: patternId,
+      hash,
     });
 
-    // Verify FQDN format
-    assert(record.id.startsWith(`${tc.org}.${tc.project}.${tc.namespace}.${tc.action}.`));
+    // Verify UUID is the id
+    assertEquals(record.id.length, 36);
+
+    // Verify FQDN is computed correctly
+    const fqdn = getCapabilityFqdn(record);
+    assert(fqdn.startsWith(`${tc.org}.${tc.project}.${tc.namespace}.${tc.action}.`));
     assertEquals(record.org, tc.org);
     assertEquals(record.project, tc.project);
     assertEquals(record.namespace, tc.namespace);
@@ -215,36 +271,38 @@ Deno.test("Integration - scope resolution priority", async () => {
 
   const registry = new CapabilityRegistry(db);
 
-  // Create capabilities with same display name in different scopes
+  // Create capabilities with same namespace:action in different scopes
+  const localPattern = await createTestWorkflowPattern(db, "local code");
   const localCap = await registry.create({
-    displayName: "shared_name",
     org: "acme",
     project: "webapp",
     namespace: "ns",
-    action: "local_action",
-    codeSnippet: "local code",
+    action: "shared_action",
+    workflowPatternId: localPattern.patternId,
+    hash: localPattern.hash,
   });
 
+  const publicPattern = await createTestWorkflowPattern(db, "public code");
   const publicCap = await registry.create({
-    displayName: "shared_name",
     org: "marketplace",
     project: "public",
     namespace: "ns",
-    action: "public_action",
-    codeSnippet: "public code",
+    action: "shared_action",
+    workflowPatternId: publicPattern.patternId,
+    hash: publicPattern.hash,
     visibility: "public",
   });
 
   // Resolution in acme.webapp should find local first
   const resolved1 = await registry.resolveByName(
-    "shared_name",
+    "ns:shared_action",
     { org: "acme", project: "webapp" },
   );
   assertEquals(resolved1?.id, localCap.id);
 
   // Resolution in other scope should find public
   const resolved2 = await registry.resolveByName(
-    "shared_name",
+    "ns:shared_action",
     { org: "other", project: "other" },
   );
   assertEquals(resolved2?.id, publicCap.id);
@@ -253,161 +311,47 @@ Deno.test("Integration - scope resolution priority", async () => {
 });
 
 // ============================================
-// Alias Chain Prevention Integration Tests (AC9)
+// Unique Index Tests
 // ============================================
 
-Deno.test("Integration - alias chain prevention scenario A->B->C", async () => {
+Deno.test("Integration - unique index on FQDN components prevents duplicates", async () => {
   const db = await setupTestDb();
   const runner = new MigrationRunner(db);
   await runner.runUp(getAllMigrations());
 
   const registry = new CapabilityRegistry(db);
 
-  // Create capability A (will be renamed to B, then to C)
-  const capA = await registry.create({
-    displayName: "capability_a",
-    org: "local",
-    project: "default",
-    namespace: "ns",
-    action: "original",
-    codeSnippet: "original code",
-  });
+  // Create first capability
+  const { patternId, hash } = await createTestWorkflowPattern(db, "code v1");
 
-  // Create alias "old_name" pointing to A
-  await registry.createAlias("local", "default", "old_name", capA.id);
-
-  // Rename A to B (simulated by creating B and updating aliases)
-  const capB = await registry.create({
-    displayName: "capability_b",
-    org: "local",
-    project: "default",
-    namespace: "ns",
-    action: "renamed",
-    codeSnippet: "renamed code",
-  });
-
-  // Update all aliases from A to point to B
-  await registry.updateAliasChains(capA.id, capB.id);
-
-  // Verify old_name now points to B
-  let result = await registry.resolveByAlias("old_name", { org: "local", project: "default" });
-  assertEquals(result?.record.id, capB.id);
-
-  // Now rename B to C
-  const capC = await registry.create({
-    displayName: "capability_c",
-    org: "local",
-    project: "default",
-    namespace: "ns",
-    action: "final",
-    codeSnippet: "final code",
-  });
-
-  // Update all aliases from B to point to C
-  await registry.updateAliasChains(capB.id, capC.id);
-
-  // Verify old_name now points DIRECTLY to C (no chain A->B->C)
-  result = await registry.resolveByAlias("old_name", { org: "local", project: "default" });
-  assertEquals(result?.record.id, capC.id);
-
-  // Verify no alias chains exist (all aliases point directly to C)
-  const aliases = await db.query(`
-    SELECT alias, target_fqdn FROM capability_aliases
-    WHERE org = 'local' AND project = 'default'
-  `);
-
-  for (const alias of aliases) {
-    assertEquals(alias.target_fqdn, capC.id, `Alias ${alias.alias} should point to C`);
-  }
-
-  await db.close();
-});
-
-// ============================================
-// Concurrent Alias Creation Tests
-// ============================================
-
-Deno.test("Integration - concurrent alias creation (upsert)", async () => {
-  const db = await setupTestDb();
-  const runner = new MigrationRunner(db);
-  await runner.runUp(getAllMigrations());
-
-  const registry = new CapabilityRegistry(db);
-
-  // Create target capability
-  const target = await registry.create({
-    displayName: "target",
-    org: "local",
-    project: "default",
-    namespace: "ns",
-    action: "target",
-    codeSnippet: "target code",
-  });
-
-  // Create another target for update test
-  const target2 = await registry.create({
-    displayName: "target2",
-    org: "local",
-    project: "default",
-    namespace: "ns",
-    action: "target2",
-    codeSnippet: "target2 code",
-  });
-
-  // Create alias
-  await registry.createAlias("local", "default", "my_alias", target.id);
-
-  // Create same alias again (should update via upsert)
-  await registry.createAlias("local", "default", "my_alias", target2.id);
-
-  // Verify alias now points to target2
-  const result = await registry.resolveByAlias("my_alias", { org: "local", project: "default" });
-  assertEquals(result?.record.id, target2.id);
-
-  // Verify only one alias exists
-  const aliasCount = await db.queryOne(`
-    SELECT COUNT(*) as count FROM capability_aliases
-    WHERE org = 'local' AND project = 'default' AND alias = 'my_alias'
-  `);
-  assertEquals(aliasCount?.count, 1);
-
-  await db.close();
-});
-
-Deno.test("Integration - multiple aliases same capability", async () => {
-  const db = await setupTestDb();
-  const runner = new MigrationRunner(db);
-  await runner.runUp(getAllMigrations());
-
-  const registry = new CapabilityRegistry(db);
-
-  // Create capability
-  const cap = await registry.create({
-    displayName: "my_capability",
+  const record1 = await registry.create({
     org: "local",
     project: "default",
     namespace: "ns",
     action: "action",
-    codeSnippet: "code",
+    workflowPatternId: patternId,
+    hash,
   });
 
-  // Create multiple aliases
-  await registry.createAlias("local", "default", "alias1", cap.id);
-  await registry.createAlias("local", "default", "alias2", cap.id);
-  await registry.createAlias("local", "default", "alias3", cap.id);
+  // Create with same FQDN components - should update (ON CONFLICT)
+  const record2 = await registry.create({
+    org: "local",
+    project: "default",
+    namespace: "ns",
+    action: "action",
+    workflowPatternId: patternId,
+    hash, // same hash = same FQDN
+  });
 
-  // Verify all aliases resolve to the same capability
-  const result1 = await registry.resolveByAlias("alias1", { org: "local", project: "default" });
-  const result2 = await registry.resolveByAlias("alias2", { org: "local", project: "default" });
-  const result3 = await registry.resolveByAlias("alias3", { org: "local", project: "default" });
+  // Should be same UUID
+  assertEquals(record1.id, record2.id);
 
-  assertEquals(result1?.record.id, cap.id);
-  assertEquals(result2?.record.id, cap.id);
-  assertEquals(result3?.record.id, cap.id);
-
-  // Verify getAliases returns all
-  const aliases = await registry.getAliases(cap.id);
-  assertEquals(aliases.length, 3);
+  // Only one record should exist
+  const count = await db.queryOne(`
+    SELECT COUNT(*) as count FROM capability_records
+    WHERE org = 'local' AND project = 'default' AND namespace = 'ns' AND action = 'action'
+  `);
+  assertEquals(count?.count, 1);
 
   await db.close();
 });
@@ -416,7 +360,7 @@ Deno.test("Integration - multiple aliases same capability", async () => {
 // Index Verification Tests (AC2)
 // ============================================
 
-Deno.test("Migration 021 - indexes are created correctly", async () => {
+Deno.test("Migration 028 - indexes are created correctly", async () => {
   const db = await setupTestDb();
   const runner = new MigrationRunner(db);
   await runner.runUp(getAllMigrations());
@@ -430,20 +374,16 @@ Deno.test("Migration 021 - indexes are created correctly", async () => {
   const indexNames = indexes.map((r) => r.indexname as string);
 
   assert(indexNames.includes("idx_capability_records_scope"), "Missing scope index");
-  assert(indexNames.includes("idx_capability_records_name"), "Missing name index");
   assert(indexNames.includes("idx_capability_records_namespace"), "Missing namespace index");
   assert(indexNames.includes("idx_capability_records_creator"), "Missing creator index");
   assert(indexNames.includes("idx_capability_records_tags"), "Missing tags GIN index");
   assert(indexNames.includes("idx_capability_records_visibility"), "Missing visibility index");
 
-  // Check indexes on capability_aliases
-  const aliasIndexes = await db.query(`
-    SELECT indexname FROM pg_indexes
-    WHERE tablename = 'capability_aliases'
-  `);
-
-  const aliasIndexNames = aliasIndexes.map((r) => r.indexname as string);
-  assert(aliasIndexNames.includes("idx_capability_aliases_target"), "Missing target index");
+  // Check unique index on FQDN components exists
+  assert(
+    indexNames.some((n) => n.includes("fqdn") || n.includes("org") || n.includes("capability_records_org")),
+    "Missing FQDN unique index"
+  );
 
   await db.close();
 });

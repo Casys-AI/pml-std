@@ -387,21 +387,23 @@ export class CapabilityStore {
       for (const capNode of capabilityNodes) {
         // Try to find the called capability by:
         // 1. workflow_pattern_id starting with the short hash (e.g., "94ae67b3")
-        // 2. display_name containing the name (e.g., "listFiles")
-        // Story 13.2: Names now live in capability_records.display_name
+        // 2. namespace:action containing the name (e.g., "math:array_sum")
+        // Migration 028: display_name removed, use namespace || ':' || action
         try {
-          // Story 10.1: Find called capability by code_hash prefix or display_name
+          // Story 10.1: Find called capability by code_hash prefix or namespace:action
           // The capabilityId can be:
           //   - Short hash (8 chars) = prefix of code_hash in workflow_pattern
-          //   - Display name like "math_stats" or "math_array_sum"
+          //   - Action name like "math_stats" or "array_sum"
+          //   - namespace:action like "math:array_sum"
           // Use text-only comparison to avoid UUID type inference issues
           const searchPattern = `${capNode.capabilityId}%`;
           const calledCapabilities = await this.db.query(
             `SELECT wp.pattern_id
              FROM workflow_pattern wp
-             LEFT JOIN capability_records cr ON cr.workflow_pattern_id = wp.pattern_id
+             LEFT JOIN capability_records cr ON cr.workflow_pattern_id = wp.pattern_id::text
              WHERE wp.code_hash LIKE $1
-                OR cr.display_name ILIKE $2
+                OR cr.action ILIKE $2
+                OR (cr.namespace || ':' || cr.action) ILIKE $2
              LIMIT 1`,
             [searchPattern, `%${capNode.capabilityId}%`],
           );
@@ -1331,10 +1333,11 @@ export class CapabilityStore {
     } = options;
 
     // Build ORDER BY clause
+    // Migration 028: display_name removed, use namespace || ':' || action
     let orderClause: string;
     switch (orderBy) {
       case "displayName":
-        orderClause = "cr.display_name ASC";
+        orderClause = "(cr.namespace || ':' || cr.action) ASC";
         break;
       case "createdAt":
         orderClause = "wp.created_at DESC";
@@ -1345,12 +1348,12 @@ export class CapabilityStore {
     }
 
     // Build query with JOIN
+    // Migration 028: display_name removed, computed as namespace:action
     const query = `
       SELECT
         wp.pattern_id as id,
         cr.namespace,
         cr.action,
-        cr.display_name,
         wp.description,
         wp.parameters_schema,
         wp.usage_count
@@ -1375,11 +1378,13 @@ export class CapabilityStore {
           : row.parameters_schema as Record<string, unknown>;
       }
 
+      // Migration 028: displayName computed as namespace:action
+      const namespace = row.namespace as string;
+      const action = row.action as string;
       return {
         id: row.id as string,
-        namespace: row.namespace as string,
-        action: row.action as string,
-        displayName: row.display_name as string,
+        namespace,
+        action,
         description: row.description as string | null,
         parametersSchema,
         usageCount: row.usage_count as number,

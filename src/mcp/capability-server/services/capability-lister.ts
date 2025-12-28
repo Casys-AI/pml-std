@@ -66,7 +66,7 @@ export class CapabilityListerService implements CapabilityLister {
 
     return capabilities.map((cap) => ({
       name: toMCPToolName(cap.namespace, cap.action),
-      description: cap.description || `Capability: ${cap.displayName}`,
+      description: cap.description || `Capability: ${cap.namespace}:${cap.action}`,
       inputSchema: cap.parametersSchema || DEFAULT_INPUT_SCHEMA,
     }));
   }

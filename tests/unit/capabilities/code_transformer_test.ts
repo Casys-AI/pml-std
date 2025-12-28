@@ -1,11 +1,11 @@
 /**
- * Unit tests for code-transformer.ts (Story 13.2)
+ * Unit tests for code-transformer.ts (Story 13.2, Migration 028)
  *
- * Tests the transformation of capability references from display_name to FQDN.
+ * Tests the transformation of capability references from namespace:action to $cap:<uuid>.
  * Capabilities use the same syntax as MCP tools: mcp.namespace.action()
  *
  * Patterns:
- * - mcp.fs.readJson() → mcp["local.default.fs.read_json.a7f3"]()
+ * - mcp.fs.readJson() → mcp["$cap:<uuid>"]()
  */
 
 import { assertEquals, assertExists } from "jsr:@std/assert@1.0.11";
@@ -15,21 +15,33 @@ import type { CapabilityRecord } from "../../../src/capabilities/types.ts";
 
 /**
  * Mock CapabilityRegistry for testing
+ *
+ * Note: After migration 028, record.id is a UUID (not FQDN).
+ * FQDN is computed from org.project.namespace.action.hash.
+ * Display name is namespace:action.
  */
 class MockCapabilityRegistry implements Partial<CapabilityRegistry> {
   private records = new Map<string, CapabilityRecord>();
 
-  addRecord(displayName: string, fqdn: string): void {
-    this.records.set(displayName, {
-      id: fqdn,
-      displayName,
+  /**
+   * Add a mock record
+   * @param actionName - The action name used for resolution (namespace:action format)
+   * @param uuid - The UUID (now the primary key)
+   */
+  addRecord(actionName: string, uuid: string): void {
+    // Parse namespace:action if provided, otherwise use actionName as action
+    const parts = actionName.includes(":") ? actionName.split(":") : ["test", actionName];
+    const namespace = parts[0];
+    const action = parts[1];
+
+    this.records.set(actionName, {
+      id: uuid, // UUID is now the PK
       org: "local",
       project: "default",
-      namespace: "test",
-      action: displayName,
-      hash: fqdn.split(".").pop() || "xxxx",
+      namespace,
+      action,
+      hash: "xxxx",
       usageCount: 1,
-      successRate: 1.0,
       visibility: "public",
       createdBy: "test",
       createdAt: new Date(),
@@ -38,8 +50,6 @@ class MockCapabilityRegistry implements Partial<CapabilityRegistry> {
       verified: false,
       successCount: 1,
       totalLatencyMs: 100,
-      avgLatencyMs: 100,
-      lastUsedAt: new Date(),
       tags: [],
       routing: "local",
     } as CapabilityRecord);
@@ -58,10 +68,11 @@ class MockCapabilityRegistry implements Partial<CapabilityRegistry> {
 // =============================================================================
 
 Deno.test({
-  name: "CodeTransformer - transforms mcp.namespace.action reference",
+  name: "CodeTransformer - transforms mcp.namespace.action reference to $cap:<uuid>",
   fn: async () => {
     const registry = new MockCapabilityRegistry();
-    registry.addRecord("readJson", "local.default.fs.read_json.a7f3");
+    const uuid = "550e8400-e29b-41d4-a716-446655440001";
+    registry.addRecord("readJson", uuid);
 
     const code = `
       const data = await mcp.fs.readJson({ path: "config.json" });
@@ -75,11 +86,11 @@ Deno.test({
 
     assertExists(result);
     assertEquals(result.replacedCount, 1);
-    assertEquals(result.replacements["readJson"], "local.default.fs.read_json.a7f3");
+    assertEquals(result.replacements["readJson"], uuid);
     assertEquals(result.unresolved.length, 0);
 
-    // Verify the code was transformed
-    const hasTransformed = result.code.includes('mcp["local.default.fs.read_json.a7f3"]');
+    // Verify the code was transformed to $cap:<uuid> format
+    const hasTransformed = result.code.includes(`mcp["$cap:${uuid}"]`);
     assertEquals(hasTransformed, true);
   },
 });
@@ -88,9 +99,12 @@ Deno.test({
   name: "CodeTransformer - handles multiple capability references",
   fn: async () => {
     const registry = new MockCapabilityRegistry();
-    registry.addRecord("readFile", "local.default.fs.read.1111");
-    registry.addRecord("writeFile", "local.default.fs.write.2222");
-    registry.addRecord("deleteFile", "local.default.fs.delete.3333");
+    const uuid1 = "550e8400-e29b-41d4-a716-446655440001";
+    const uuid2 = "550e8400-e29b-41d4-a716-446655440002";
+    const uuid3 = "550e8400-e29b-41d4-a716-446655440003";
+    registry.addRecord("readFile", uuid1);
+    registry.addRecord("writeFile", uuid2);
+    registry.addRecord("deleteFile", uuid3);
 
     const code = `
       const content = await mcp.fs.readFile({ path: "in.txt" });
@@ -107,6 +121,11 @@ Deno.test({
     assertEquals(result.replacedCount, 3);
     assertEquals(Object.keys(result.replacements).length, 3);
     assertEquals(result.unresolved.length, 0);
+
+    // Verify all are transformed to $cap:<uuid> format
+    assertEquals(result.code.includes(`mcp["$cap:${uuid1}"]`), true);
+    assertEquals(result.code.includes(`mcp["$cap:${uuid2}"]`), true);
+    assertEquals(result.code.includes(`mcp["$cap:${uuid3}"]`), true);
   },
 });
 
@@ -114,7 +133,8 @@ Deno.test({
   name: "CodeTransformer - handles duplicate references (same capability multiple times)",
   fn: async () => {
     const registry = new MockCapabilityRegistry();
-    registry.addRecord("logMessage", "local.default.util.log.4444");
+    const uuid = "550e8400-e29b-41d4-a716-446655440004";
+    registry.addRecord("logMessage", uuid);
 
     const code = `
       await mcp.util.logMessage({ msg: "start" });
@@ -131,6 +151,7 @@ Deno.test({
     assertEquals(result.replacedCount, 2);
     // Only one unique replacement
     assertEquals(Object.keys(result.replacements).length, 1);
+    assertEquals(result.replacements["logMessage"], uuid);
   },
 });
 
@@ -142,7 +163,7 @@ Deno.test({
   name: "CodeTransformer - returns original code if no mcp references found",
   fn: async () => {
     const registry = new MockCapabilityRegistry();
-    registry.addRecord("unused", "local.default.test.unused.5555");
+    registry.addRecord("unused", "550e8400-e29b-41d4-a716-446655440005");
 
     const code = `
       const x = 42;
@@ -228,7 +249,8 @@ Deno.test({
   name: "CodeTransformer - transforms only capabilities, leaves tools",
   fn: async () => {
     const registry = new MockCapabilityRegistry();
-    registry.addRecord("processData", "local.default.api.process.aaaa");
+    const uuid = "550e8400-e29b-41d4-a716-446655440006";
+    registry.addRecord("processData", uuid);
     // filesystem.read_file is NOT in registry (it's an MCP tool)
 
     const code = `
@@ -244,10 +266,10 @@ Deno.test({
 
     assertExists(result);
     assertEquals(result.replacedCount, 1);
-    assertEquals(result.replacements["processData"], "local.default.api.process.aaaa");
+    assertEquals(result.replacements["processData"], uuid);
 
-    // processData should be transformed
-    assertEquals(result.code.includes('mcp["local.default.api.process.aaaa"]'), true);
+    // processData should be transformed to $cap:<uuid>
+    assertEquals(result.code.includes(`mcp["$cap:${uuid}"]`), true);
     // read_file should NOT be transformed (it's an MCP tool)
     assertEquals(result.code.includes("mcp.filesystem.read_file"), true);
   },
@@ -257,8 +279,10 @@ Deno.test({
   name: "CodeTransformer - handles nested capability calls",
   fn: async () => {
     const registry = new MockCapabilityRegistry();
-    registry.addRecord("fetchData", "local.default.api.fetch.1111");
-    registry.addRecord("transformData", "local.default.api.transform.2222");
+    const uuid1 = "550e8400-e29b-41d4-a716-446655440007";
+    const uuid2 = "550e8400-e29b-41d4-a716-446655440008";
+    registry.addRecord("fetchData", uuid1);
+    registry.addRecord("transformData", uuid2);
 
     const code = `
       const processed = await mcp.api.transformData({
@@ -273,6 +297,8 @@ Deno.test({
 
     assertExists(result);
     assertEquals(result.replacedCount, 2);
+    assertEquals(result.code.includes(`mcp["$cap:${uuid1}"]`), true);
+    assertEquals(result.code.includes(`mcp["$cap:${uuid2}"]`), true);
   },
 });
 
@@ -301,5 +327,34 @@ Deno.test({
     assertExists(receivedScope);
     assertEquals(receivedScope?.org, "custom-org");
     assertEquals(receivedScope?.project, "custom-project");
+  },
+});
+
+// =============================================================================
+// Unit Tests - $cap: prefix already present (skip transformation)
+// =============================================================================
+
+Deno.test({
+  name: "CodeTransformer - skips already-transformed $cap: references",
+  fn: async () => {
+    const registry = new MockCapabilityRegistry();
+    // Even if we add a record, $cap: references should be skipped
+    registry.addRecord("$cap:existing-uuid", "new-uuid");
+
+    // Code already has $cap: reference (e.g., from previous save)
+    const code = `
+      const data = await mcp["$cap:550e8400-e29b-41d4-a716-446655440001"]({ path: "config.json" });
+      return data;
+    `;
+
+    const result = await transformCapabilityRefs(
+      code,
+      registry as unknown as CapabilityRegistry,
+    );
+
+    assertExists(result);
+    assertEquals(result.replacedCount, 0);
+    // Code should remain unchanged
+    assertEquals(result.code, code);
   },
 });

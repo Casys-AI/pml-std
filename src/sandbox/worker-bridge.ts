@@ -37,6 +37,7 @@ import type {
 } from "./types.ts";
 import type { CapabilityStore } from "../capabilities/capability-store.ts";
 import type { Capability } from "../capabilities/types.ts";
+import { getCapabilityFqdn } from "../capabilities/capability-registry.ts";
 import type { GraphRAGEngine } from "../graphrag/graph-engine.ts";
 import { CapabilityCodeGenerator } from "../capabilities/code-generator.ts";
 import { getLogger } from "../telemetry/logger.ts";
@@ -662,6 +663,59 @@ export class WorkerBridge {
         return;
       }
 
+      // Handle $cap:<uuid> capability references (from code-transformer)
+      // server="$cap", tool=uuid → look up by UUID directly
+      if (server === "$cap" && this.capabilityRegistry && this.capabilityStore) {
+        const uuid = tool; // tool is the UUID
+        const record = await this.capabilityRegistry.getById(uuid);
+        if (record && record.workflowPatternId) {
+          const pattern = await this.capabilityStore.findById(record.workflowPatternId);
+          if (pattern?.codeSnippet) {
+            logger.info("Routing $cap:<uuid> to capability", { uuid, id: record.id });
+
+            // Create NEW WorkerBridge for capability execution
+            const capBridge = new WorkerBridge(this.mcpClients, {
+              timeout: this.config.timeout,
+              capabilityStore: this.capabilityStore,
+              graphRAG: this.graphRAG,
+            });
+
+            try {
+              const capResult = await capBridge.execute(
+                pattern.codeSnippet,
+                [],
+                { ...args, __capability_id: record.id },
+              );
+              const endTime = Date.now();
+              const durationMs = endTime - startTime;
+              this.traces.push({
+                type: "tool_end",
+                tool: toolId,
+                traceId: id,
+                ts: endTime,
+                success: capResult.success,
+                durationMs,
+                parentTraceId,
+                result: capResult.result,
+              });
+              const response: RPCResultMessage = {
+                type: "rpc_result",
+                id,
+                success: capResult.success,
+                result: capResult.result as JsonValue,
+              };
+              this.worker?.postMessage(response);
+              logger.debug("$cap UUID RPC call succeeded", { id, uuid, durationMs });
+              return;
+            } finally {
+              capBridge.cleanup();
+            }
+          }
+        }
+        // UUID not found
+        throw new Error(`Capability UUID not found: ${uuid}`);
+      }
+
       const client = this.mcpClients.get(server);
       if (!client) {
         // Try capability routing if registry available
@@ -675,7 +729,7 @@ export class WorkerBridge {
             // Found capability - execute via NEW WorkerBridge (avoid re-entrance bug)
             const pattern = await this.capabilityStore.findById(record.workflowPatternId);
             if (pattern?.codeSnippet) {
-              logger.info("Routing to capability", { server, tool, fqdn: record.id });
+              logger.info("Routing to capability", { server, tool, fqdn: getCapabilityFqdn(record) });
 
               // Create NEW WorkerBridge for capability execution
               // IMPORTANT: Cannot use this.execute() - it would overwrite this.worker!
@@ -690,7 +744,7 @@ export class WorkerBridge {
                 const capResult = await capBridge.execute(
                   pattern.codeSnippet,
                   [], // toolDefinitions - capability code is self-contained
-                  { ...args, __capability_fqdn: record.id },
+                  { ...args, __capability_id: record.id },
                 );
                 const endTime = Date.now();
                 const durationMs = endTime - startTime;
