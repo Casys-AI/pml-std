@@ -247,6 +247,11 @@ export interface SaveCapabilityInput {
      */
     intentEmbedding?: number[];
   };
+  /**
+   * Story 10.1: Static structure for nested capability detection
+   * Used to create "contains" edges for meta-capabilities
+   */
+  staticStructure?: StaticStructure;
 }
 
 /**

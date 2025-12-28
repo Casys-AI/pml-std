@@ -131,6 +131,7 @@ export class CapabilityStore {
       toolsUsed,
       toolInvocations,
       traceData,
+      staticStructure,
     } = input;
 
     // Transform capability references: display_name → FQDN (makes code robust to renames)
@@ -211,14 +212,15 @@ export class CapabilityStore {
     }
 
     // Build static structure from code (Story 10.1)
-    let staticStructure: StaticStructure | undefined;
-    if (this.staticStructureBuilder) {
+    // Use passed staticStructure if available, otherwise generate from builder
+    let finalStaticStructure: StaticStructure | undefined = staticStructure;
+    if (!finalStaticStructure && this.staticStructureBuilder) {
       try {
-        staticStructure = await this.staticStructureBuilder.buildStaticStructure(code);
+        finalStaticStructure = await this.staticStructureBuilder.buildStaticStructure(code);
         logger.debug("Static structure built for capability", {
           codeHash,
-          nodeCount: staticStructure.nodes.length,
-          edgeCount: staticStructure.edges.length,
+          nodeCount: finalStaticStructure.nodes.length,
+          edgeCount: finalStaticStructure.edges.length,
         });
       } catch (error) {
         logger.warn("Static structure analysis failed, continuing without", {
@@ -236,8 +238,8 @@ export class CapabilityStore {
     };
 
     // Story 10.1: Add static_structure to dag_structure if available
-    if (staticStructure && (staticStructure.nodes.length > 0 || staticStructure.edges.length > 0)) {
-      dagStructure.static_structure = staticStructure;
+    if (finalStaticStructure && (finalStaticStructure.nodes.length > 0 || finalStaticStructure.edges.length > 0)) {
+      dagStructure.static_structure = finalStaticStructure;
     }
 
     // Generate pattern_hash (required by existing schema, distinct from code_hash)
@@ -376,22 +378,32 @@ export class CapabilityStore {
     }
 
     // Story 10.1: Create CapabilityDependency records for nested capability calls
-    if (staticStructure) {
-      const capabilityNodes = staticStructure.nodes.filter(
+    if (finalStaticStructure) {
+      const capabilityNodes = finalStaticStructure.nodes.filter(
         (node): node is { id: string; type: "capability"; capabilityId: string } =>
           node.type === "capability",
       );
 
       for (const capNode of capabilityNodes) {
-        // Try to find the called capability by display_name in capability_records
+        // Try to find the called capability by:
+        // 1. workflow_pattern_id starting with the short hash (e.g., "94ae67b3")
+        // 2. display_name containing the name (e.g., "listFiles")
         // Story 13.2: Names now live in capability_records.display_name
         try {
+          // Story 10.1: Find called capability by code_hash prefix or display_name
+          // The capabilityId can be:
+          //   - Short hash (8 chars) = prefix of code_hash in workflow_pattern
+          //   - Display name like "math_stats" or "math_array_sum"
+          // Use text-only comparison to avoid UUID type inference issues
+          const searchPattern = `${capNode.capabilityId}%`;
           const calledCapabilities = await this.db.query(
-            `SELECT cr.workflow_pattern_id as pattern_id
-             FROM capability_records cr
-             WHERE cr.display_name ILIKE $1
+            `SELECT wp.pattern_id
+             FROM workflow_pattern wp
+             LEFT JOIN capability_records cr ON cr.workflow_pattern_id = wp.pattern_id
+             WHERE wp.code_hash LIKE $1
+                OR cr.display_name ILIKE $2
              LIMIT 1`,
-            [`%${capNode.capabilityId}%`],
+            [searchPattern, `%${capNode.capabilityId}%`],
           );
 
           if (calledCapabilities.length > 0) {

@@ -623,6 +623,8 @@ async function executeDirectMode(
             initialContext: { intent },
             intentEmbedding,
           },
+          // Story 10.1: Pass staticStructure for nested capability detection
+          staticStructure,
         });
 
         // Story 13.2: Register in CapabilityRegistry with auto-generated FQDN

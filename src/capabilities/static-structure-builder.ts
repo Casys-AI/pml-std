@@ -1461,7 +1461,14 @@ export class StaticStructureBuilder {
       if (prop?.type === "Identifier" && typeof prop?.value === "string") {
         parts.unshift(prop.value);
       }
-      // Handle bracket notation: capabilities["name"] → prop.type = "StringLiteral"
+      // Handle bracket notation: capabilities["name"] → prop.type = "Computed" with StringLiteral expression
+      else if (prop?.type === "Computed") {
+        const expr = (prop as Record<string, unknown>).expression as Record<string, unknown>;
+        if (expr?.type === "StringLiteral" && typeof expr?.value === "string") {
+          parts.unshift(expr.value);
+        }
+      }
+      // Handle direct StringLiteral (fallback)
       else if (prop?.type === "StringLiteral" && typeof prop?.value === "string") {
         parts.unshift(prop.value);
       }
