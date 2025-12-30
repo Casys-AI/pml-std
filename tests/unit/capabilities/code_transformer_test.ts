@@ -515,3 +515,94 @@ await mcp.http.get({ url: path });`;
     assertEquals(examples?.includes("/api/users"), true);
   },
 });
+
+// =============================================================================
+// Unit Tests - Inline Literal Parameterization (Story 10.2d)
+// =============================================================================
+
+Deno.test({
+  name: "LiteralTransform - transforms inline string literal in object property",
+  fn: async () => {
+    const code = `await mcp.db.query({ host: "localhost", query: "SELECT 1" });`;
+
+    // These would come from static-structure-builder's inline literal extraction
+    const literalBindings = {
+      host: "localhost",
+      query: "SELECT 1",
+    };
+
+    const result = await transformLiteralsToArgs(code, literalBindings);
+
+    assertExists(result);
+    assertEquals(result.replacedCount, 2);
+    // Inline literals should be replaced with args.xxx
+    assertEquals(result.code.includes("args.host"), true);
+    assertEquals(result.code.includes("args.query"), true);
+    // Original literals should be removed
+    assertEquals(result.code.includes('"localhost"'), false);
+    assertEquals(result.code.includes('"SELECT 1"'), false);
+    // Schema should have both properties
+    assertExists(result.parametersSchema.properties?.host);
+    assertExists(result.parametersSchema.properties?.query);
+  },
+});
+
+Deno.test({
+  name: "LiteralTransform - transforms inline number literal in object property",
+  fn: async () => {
+    const code = `await mcp.db.connect({ port: 5432, timeout: 30 });`;
+
+    const literalBindings = {
+      port: 5432,
+      timeout: 30,
+    };
+
+    const result = await transformLiteralsToArgs(code, literalBindings);
+
+    assertExists(result);
+    assertEquals(result.replacedCount, 2);
+    assertEquals(result.code.includes("args.port"), true);
+    assertEquals(result.code.includes("args.timeout"), true);
+    // Schema should have integer types
+    assertExists(result.parametersSchema.properties?.port);
+    assertEquals(result.parametersSchema.properties?.port?.type, "integer");
+  },
+});
+
+Deno.test({
+  name: "LiteralTransform - transforms mixed inline literals (psql_query example)",
+  fn: async () => {
+    const code = `await mcp.std.psql_query({
+  host: "localhost",
+  port: 5432,
+  database: "casys",
+  user: "casys",
+  password: "changeme",
+  query: "SELECT * FROM users"
+});`;
+
+    const literalBindings = {
+      host: "localhost",
+      port: 5432,
+      database: "casys",
+      user: "casys",
+      password: "changeme",
+      query: "SELECT * FROM users",
+    };
+
+    const result = await transformLiteralsToArgs(code, literalBindings);
+
+    assertExists(result);
+    assertEquals(result.replacedCount, 6);
+    // All inline literals should be replaced
+    assertEquals(result.code.includes("args.host"), true);
+    assertEquals(result.code.includes("args.port"), true);
+    assertEquals(result.code.includes("args.database"), true);
+    assertEquals(result.code.includes("args.password"), true);
+    assertEquals(result.code.includes("args.query"), true);
+    // Sensitive values should be removed
+    assertEquals(result.code.includes("changeme"), false);
+    // Schema should have all properties
+    assertEquals(Object.keys(result.parametersSchema.properties || {}).length, 6);
+  },
+});

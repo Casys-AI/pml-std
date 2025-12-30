@@ -13,6 +13,10 @@ import * as log from "@std/log";
 import { ensureDir } from "@std/fs";
 import { getAgentCardsDatabasePath } from "../cli/utils.ts";
 import type { DbClient, Row, Transaction } from "./types.ts";
+import { eventBus } from "../events/mod.ts";
+
+/** Threshold for slow query warning (ms) */
+const SLOW_QUERY_THRESHOLD_MS = 100;
 
 // Re-export types for backward compatibility
 export type { DbClient, Row, Transaction } from "./types.ts";
@@ -60,7 +64,26 @@ export class PGliteClient implements DbClient {
       await this.db.exec("CREATE EXTENSION IF NOT EXISTS vector;");
 
       log.info(`Database connected: ${this.dbPath}`);
+
+      // Emit db.connection.opened event
+      eventBus.emit({
+        type: "db.connection.opened",
+        source: "db-client",
+        payload: {
+          dbPath: this.dbPath,
+          isMemory: normalizedPath.startsWith("memory://"),
+        },
+      });
     } catch (error) {
+      // Emit db.connection.error event
+      eventBus.emit({
+        type: "db.connection.error",
+        source: "db-client",
+        payload: {
+          dbPath: this.dbPath,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
       log.error(`Failed to connect to database: ${error}`);
       throw error;
     }
@@ -93,10 +116,53 @@ export class PGliteClient implements DbClient {
     if (!this.db) {
       throw new Error("Database not connected");
     }
+
+    const queryId = crypto.randomUUID().slice(0, 8);
+    const startTime = performance.now();
+
+    // Emit db.query.started event
+    eventBus.emit({
+      type: "db.query.started",
+      source: "db-client",
+      payload: {
+        queryId,
+        sql: sql.slice(0, 100), // Truncate for safety
+        hasParams: params ? params.length > 0 : false,
+      },
+    });
+
     try {
       const result = params && params.length > 0
         ? await (this.db as any).query(sql, params)
         : await (this.db as any).query(sql);
+
+      const durationMs = performance.now() - startTime;
+
+      // Emit db.query.completed event
+      eventBus.emit({
+        type: "db.query.completed",
+        source: "db-client",
+        payload: {
+          queryId,
+          durationMs,
+          rowCount: result.rows?.length ?? 0,
+        },
+      });
+
+      // Emit db.query.slow event if threshold exceeded
+      if (durationMs > SLOW_QUERY_THRESHOLD_MS) {
+        eventBus.emit({
+          type: "db.query.slow",
+          source: "db-client",
+          payload: {
+            queryId,
+            sql: sql.slice(0, 200),
+            durationMs,
+            thresholdMs: SLOW_QUERY_THRESHOLD_MS,
+          },
+        });
+      }
+
       return result.rows as Row[];
     } catch (error) {
       log.error(`SQL query failed: ${error}`);
@@ -122,8 +188,17 @@ export class PGliteClient implements DbClient {
       throw new Error("Database not connected");
     }
 
+    const txId = crypto.randomUUID().slice(0, 8);
+
     try {
       await this.exec("BEGIN TRANSACTION;");
+
+      // Emit db.transaction.started event
+      eventBus.emit({
+        type: "db.transaction.started",
+        source: "db-client",
+        payload: { transactionId: txId },
+      });
 
       const tx: Transaction = {
         exec: (sql: string, params?: unknown[]) => this.exec(sql, params),
@@ -132,9 +207,28 @@ export class PGliteClient implements DbClient {
 
       const result = await fn(tx);
       await this.exec("COMMIT;");
+
+      // Emit db.transaction.committed event
+      eventBus.emit({
+        type: "db.transaction.committed",
+        source: "db-client",
+        payload: { transactionId: txId },
+      });
+
       return result;
     } catch (error) {
       await this.exec("ROLLBACK;");
+
+      // Emit db.transaction.rolledback event
+      eventBus.emit({
+        type: "db.transaction.rolledback",
+        source: "db-client",
+        payload: {
+          transactionId: txId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+
       log.error(`Transaction failed: ${error}`);
       throw error;
     }
@@ -147,6 +241,13 @@ export class PGliteClient implements DbClient {
     if (this.db) {
       try {
         await this.db.close();
+
+        // Emit db.connection.closed event
+        eventBus.emit({
+          type: "db.connection.closed",
+          source: "db-client",
+          payload: { dbPath: this.dbPath },
+        });
       } catch (error) {
         log.error(`Error closing database: ${error}`);
       }

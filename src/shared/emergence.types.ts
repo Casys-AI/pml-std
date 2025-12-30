@@ -45,14 +45,21 @@ export interface Recommendation {
 /**
  * Tensor entropy metrics from graph analysis
  * Based on Chen & Rajapakse (2020) and arxiv:2503.18852
+ * Story 6.6: Added semantic and dual entropy
  */
 export interface TensorEntropyMetrics {
   /** Von Neumann entropy from Laplacian spectrum (0-1) */
   vonNeumann: number;
-  /** Structural entropy from degree distribution (0-1) */
+  /** Structural entropy from degree distribution (0-1, normalized by log2(n)) */
   structural: number;
-  /** Weighted combination of all entropy measures (0-1) */
+  /** Weighted combination of structural + hyperedge entropy (0-1) - PRIMARY metric */
   normalized: number;
+  /** Semantic entropy from embedding diversity (0-1), undefined if no embeddings */
+  semantic?: number;
+  /** Semantic diversity score (0-1), undefined if no embeddings */
+  semanticDiversity?: number;
+  /** Dual entropy: α*structural + (1-α)*semantic, α=0.6 (0-1) */
+  dual?: number;
   /** Health classification based on size-adjusted thresholds */
   health: "rigid" | "healthy" | "chaotic";
   /** Size-adjusted thresholds used for health classification */
@@ -66,6 +73,8 @@ export interface TensorEntropyMetrics {
     edges: number;
     hyperedges: number;
   };
+  /** Number of embeddings used for semantic entropy (tools + capabilities) */
+  embeddingCount?: number;
 }
 
 /**
@@ -113,10 +122,18 @@ export interface TimeseriesPoint {
 
 /**
  * Timeseries data for charts
+ * Story 6.6: Added semantic and dual entropy series
  */
 export interface EmergenceTimeseries {
+  /** Normalized structural entropy over time */
   entropy: TimeseriesPoint[];
+  /** Semantic entropy from embeddings (may have gaps if no embeddings) */
+  semanticEntropy?: TimeseriesPoint[];
+  /** Dual entropy (structural + semantic combined) */
+  dualEntropy?: TimeseriesPoint[];
+  /** Cluster stability over time */
   stability: TimeseriesPoint[];
+  /** Execution velocity over time */
   velocity: TimeseriesPoint[];
 }
 

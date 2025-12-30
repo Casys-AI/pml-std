@@ -77,6 +77,17 @@ class MockDb {
     return Promise.resolve(this.mockRows);
   }
 
+  exec(sql: string, params: unknown[] = []): Promise<void> {
+    this.queries.push({ sql, params });
+    return Promise.resolve();
+  }
+
+  // Transaction support for cap:merge tests
+  async transaction<T>(fn: (tx: MockDb) => Promise<T>): Promise<T> {
+    // In mock, just execute the function with self as transaction context
+    return await fn(this);
+  }
+
   setMockRows(rows: MockRow[]): void {
     this.mockRows = rows;
   }
@@ -173,7 +184,7 @@ function createMockCapability(overrides: Partial<MockCapRecord> = {}): MockCapRe
 // CapModule.listTools Tests
 // =============================================================================
 
-Deno.test("CapModule.listTools - returns 4 tools", () => {
+Deno.test("CapModule.listTools - returns 5 tools", () => {
   const mockDb = new MockDb();
   const mockRegistry = new MockRegistry();
   // deno-lint-ignore no-explicit-any
@@ -181,10 +192,11 @@ Deno.test("CapModule.listTools - returns 4 tools", () => {
 
   const tools = capModule.listTools();
 
-  assertEquals(tools.length, 4);
+  assertEquals(tools.length, 5);
   assertEquals(tools.map((t) => t.name).sort(), [
     "cap:list",
     "cap:lookup",
+    "cap:merge",
     "cap:rename",
     "cap:whois",
   ]);
@@ -427,7 +439,7 @@ Deno.test("PmlStdServer - handleListTools returns cap tools", () => {
   const server = new PmlStdServer(mockRegistry as any, mockDb as any);
 
   const tools = server.handleListTools();
-  assertEquals(tools.length, 4);
+  assertEquals(tools.length, 5);
   assertEquals(tools[0].name, "cap:list");
 });
 
@@ -456,4 +468,351 @@ Deno.test("PmlStdServer - rejects non-cap tools", async () => {
 
   assertStringIncludes(data.error, "Unknown tool");
   assertEquals(result.isError, true);
+});
+
+// =============================================================================
+// cap:merge Tests (AC1-6)
+// =============================================================================
+
+Deno.test("cap:merge - merges usage stats correctly (AC1)", async () => {
+  const mockDb = new MockDb();
+  const mockRegistry = new MockRegistry();
+
+  const sourceCap = createMockCapability({
+    id: "source-uuid-1234",
+    namespace: "fs",
+    action: "read_old",
+    usageCount: 50,
+    successCount: 40,
+    totalLatencyMs: 5000,
+    createdAt: new Date("2025-01-01"),
+  });
+  const targetCap = createMockCapability({
+    id: "target-uuid-5678",
+    namespace: "fs",
+    action: "read_new",
+    usageCount: 30,
+    successCount: 25,
+    totalLatencyMs: 3000,
+    createdAt: new Date("2025-01-15"),
+  });
+  mockRegistry.addCapability(sourceCap);
+  mockRegistry.addCapability(targetCap);
+
+  // Mock DB responses for tools_used queries
+  mockDb.setMockRows([
+    { tools_used: ["mcp__fs__read"], code_snippet: "// old code", updated_at: new Date("2025-01-05") },
+  ]);
+
+  // deno-lint-ignore no-explicit-any
+  const capModule = new CapModule(mockRegistry as any, mockDb as any);
+
+  const result = await capModule.call("cap:merge", {
+    source: "fs:read_old",
+    target: "fs:read_new",
+  });
+  const data = JSON.parse(result.content[0].text);
+
+  assertEquals(data.success, true);
+  assertEquals(data.mergedStats.usageCount, 80); // 50 + 30
+  assertEquals(data.mergedStats.successCount, 65); // 40 + 25
+  assertEquals(data.mergedStats.totalLatencyMs, 8000); // 5000 + 3000
+});
+
+Deno.test("cap:merge - rejects different tools_used (AC3)", async () => {
+  const mockDb = new MockDb();
+  const mockRegistry = new MockRegistry();
+
+  const sourceCap = createMockCapability({
+    id: "source-uuid-1234",
+    namespace: "fs",
+    action: "read_old",
+  });
+  const targetCap = createMockCapability({
+    id: "target-uuid-5678",
+    namespace: "fs",
+    action: "read_new",
+  });
+  mockRegistry.addCapability(sourceCap);
+  mockRegistry.addCapability(targetCap);
+
+  // First call returns source tools_used, second returns target tools_used
+  let callCount = 0;
+  mockDb.query = (sql: string, params: unknown[] = []) => {
+    mockDb.queries.push({ sql, params });
+    callCount++;
+    if (callCount === 1) {
+      return Promise.resolve([{ tools_used: ["mcp__fs__read"], code_snippet: null, updated_at: null }]);
+    }
+    return Promise.resolve([{ tools_used: ["mcp__github__create"], code_snippet: null, updated_at: null }]);
+  };
+
+  // deno-lint-ignore no-explicit-any
+  const capModule = new CapModule(mockRegistry as any, mockDb as any);
+
+  const result = await capModule.call("cap:merge", {
+    source: "fs:read_old",
+    target: "fs:read_new",
+  });
+  const data = JSON.parse(result.content[0].text);
+
+  assertStringIncludes(data.error, "tools_used mismatch");
+  assertEquals(result.isError, true);
+});
+
+Deno.test("cap:merge - self-merge rejected", async () => {
+  const mockDb = new MockDb();
+  const mockRegistry = new MockRegistry();
+
+  // deno-lint-ignore no-explicit-any
+  const capModule = new CapModule(mockRegistry as any, mockDb as any);
+
+  const result = await capModule.call("cap:merge", {
+    source: "fs:read",
+    target: "fs:read",
+  });
+  const data = JSON.parse(result.content[0].text);
+
+  assertStringIncludes(data.error, "Cannot merge capability into itself");
+  assertEquals(result.isError, true);
+});
+
+Deno.test("cap:merge - source not found error", async () => {
+  const mockDb = new MockDb();
+  const mockRegistry = new MockRegistry();
+
+  // deno-lint-ignore no-explicit-any
+  const capModule = new CapModule(mockRegistry as any, mockDb as any);
+
+  const result = await capModule.call("cap:merge", {
+    source: "nonexistent:cap",
+    target: "fs:read",
+  });
+  const data = JSON.parse(result.content[0].text);
+
+  assertStringIncludes(data.error, "Source capability not found");
+  assertEquals(result.isError, true);
+});
+
+Deno.test("cap:merge - validates with Zod (missing source)", async () => {
+  const mockDb = new MockDb();
+  const mockRegistry = new MockRegistry();
+
+  // deno-lint-ignore no-explicit-any
+  const capModule = new CapModule(mockRegistry as any, mockDb as any);
+
+  const result = await capModule.call("cap:merge", {
+    target: "fs:read",
+  });
+  const data = JSON.parse(result.content[0].text);
+
+  assertStringIncludes(data.error, "Invalid arguments");
+  assertEquals(result.isError, true);
+});
+
+Deno.test("cap:merge - validates with Zod (empty source)", async () => {
+  const mockDb = new MockDb();
+  const mockRegistry = new MockRegistry();
+
+  // deno-lint-ignore no-explicit-any
+  const capModule = new CapModule(mockRegistry as any, mockDb as any);
+
+  const result = await capModule.call("cap:merge", {
+    source: "",
+    target: "fs:read",
+  });
+  const data = JSON.parse(result.content[0].text);
+
+  assertStringIncludes(data.error, "Invalid arguments");
+  assertEquals(result.isError, true);
+});
+
+Deno.test("cap:merge - uses MIN created_at (AC2)", async () => {
+  const mockDb = new MockDb();
+  const mockRegistry = new MockRegistry();
+
+  // Source has OLDER created_at
+  const sourceCap = createMockCapability({
+    id: "source-uuid-ac2",
+    namespace: "fs",
+    action: "read_old",
+    createdAt: new Date("2024-06-01"), // OLDER
+  });
+  // Target has NEWER created_at
+  const targetCap = createMockCapability({
+    id: "target-uuid-ac2",
+    namespace: "fs",
+    action: "read_new",
+    createdAt: new Date("2025-01-15"), // NEWER
+  });
+  mockRegistry.addCapability(sourceCap);
+  mockRegistry.addCapability(targetCap);
+
+  // Mock DB to return same tools_used
+  mockDb.setMockRows([
+    { tools_used: ["mcp__fs__read"], code_snippet: "// code", updated_at: new Date("2025-01-01") },
+  ]);
+
+  // deno-lint-ignore no-explicit-any
+  const capModule = new CapModule(mockRegistry as any, mockDb as any);
+
+  await capModule.call("cap:merge", {
+    source: "fs:read_old",
+    target: "fs:read_new",
+  });
+
+  // Verify UPDATE query uses the OLDER date (source's created_at)
+  const updateQuery = mockDb.queries.find((q) => q.sql.includes("UPDATE capability_records"));
+  assertEquals(updateQuery !== undefined, true);
+  // The 4th param ($4) is created_at = MIN of the two
+  const createdAtParam = updateQuery!.params[3] as Date;
+  assertEquals(createdAtParam.toISOString(), "2024-06-01T00:00:00.000Z");
+});
+
+Deno.test("cap:merge - uses newest code_snippet by default (AC4)", async () => {
+  const mockDb = new MockDb();
+  const mockRegistry = new MockRegistry();
+
+  const sourceCap = createMockCapability({
+    id: "source-uuid-ac4",
+    namespace: "fs",
+    action: "read_old",
+  });
+  const targetCap = createMockCapability({
+    id: "target-uuid-ac4",
+    namespace: "fs",
+    action: "read_new",
+  });
+  mockRegistry.addCapability(sourceCap);
+  mockRegistry.addCapability(targetCap);
+
+  // Source has NEWER updated_at, so its code should be used by default
+  let callCount = 0;
+  mockDb.query = (sql: string, params: unknown[] = []) => {
+    mockDb.queries.push({ sql, params });
+    callCount++;
+    if (callCount === 1) {
+      // Source: newer updated_at
+      return Promise.resolve([{
+        tools_used: ["mcp__fs__read"],
+        code_snippet: "// SOURCE CODE - NEWER",
+        updated_at: new Date("2025-01-20"), // NEWER
+      }]);
+    }
+    if (callCount === 2) {
+      // Target: older updated_at
+      return Promise.resolve([{
+        tools_used: ["mcp__fs__read"],
+        code_snippet: "// TARGET CODE - OLDER",
+        updated_at: new Date("2025-01-01"), // OLDER
+      }]);
+    }
+    return Promise.resolve([]);
+  };
+
+  // deno-lint-ignore no-explicit-any
+  const capModule = new CapModule(mockRegistry as any, mockDb as any);
+
+  const result = await capModule.call("cap:merge", {
+    source: "fs:read_old",
+    target: "fs:read_new",
+  });
+  const data = JSON.parse(result.content[0].text);
+
+  assertEquals(data.success, true);
+  assertEquals(data.codeSource, "source"); // Source code used because newer
+});
+
+Deno.test("cap:merge - preferSourceCode override forces source code (AC5)", async () => {
+  const mockDb = new MockDb();
+  const mockRegistry = new MockRegistry();
+
+  const sourceCap = createMockCapability({
+    id: "source-uuid-ac5",
+    namespace: "fs",
+    action: "read_old",
+  });
+  const targetCap = createMockCapability({
+    id: "target-uuid-ac5",
+    namespace: "fs",
+    action: "read_new",
+  });
+  mockRegistry.addCapability(sourceCap);
+  mockRegistry.addCapability(targetCap);
+
+  // Target has NEWER updated_at, but we force source via preferSourceCode
+  let callCount = 0;
+  mockDb.query = (sql: string, params: unknown[] = []) => {
+    mockDb.queries.push({ sql, params });
+    callCount++;
+    if (callCount === 1) {
+      // Source: OLDER updated_at
+      return Promise.resolve([{
+        tools_used: ["mcp__fs__read"],
+        code_snippet: "// SOURCE CODE - OLDER",
+        updated_at: new Date("2025-01-01"), // OLDER
+      }]);
+    }
+    if (callCount === 2) {
+      // Target: NEWER updated_at
+      return Promise.resolve([{
+        tools_used: ["mcp__fs__read"],
+        code_snippet: "// TARGET CODE - NEWER",
+        updated_at: new Date("2025-01-20"), // NEWER
+      }]);
+    }
+    return Promise.resolve([]);
+  };
+
+  // deno-lint-ignore no-explicit-any
+  const capModule = new CapModule(mockRegistry as any, mockDb as any);
+
+  const result = await capModule.call("cap:merge", {
+    source: "fs:read_old",
+    target: "fs:read_new",
+    preferSourceCode: true, // FORCE source code despite being older
+  });
+  const data = JSON.parse(result.content[0].text);
+
+  assertEquals(data.success, true);
+  assertEquals(data.codeSource, "source"); // Source forced via preferSourceCode
+});
+
+Deno.test("cap:merge - deletes source capability (AC6)", async () => {
+  const mockDb = new MockDb();
+  const mockRegistry = new MockRegistry();
+
+  const sourceCap = createMockCapability({
+    id: "source-uuid-ac6",
+    namespace: "fs",
+    action: "read_old",
+  });
+  const targetCap = createMockCapability({
+    id: "target-uuid-ac6",
+    namespace: "fs",
+    action: "read_new",
+  });
+  mockRegistry.addCapability(sourceCap);
+  mockRegistry.addCapability(targetCap);
+
+  mockDb.setMockRows([
+    { tools_used: ["mcp__fs__read"], code_snippet: "// code", updated_at: new Date("2025-01-01") },
+  ]);
+
+  // deno-lint-ignore no-explicit-any
+  const capModule = new CapModule(mockRegistry as any, mockDb as any);
+
+  const result = await capModule.call("cap:merge", {
+    source: "fs:read_old",
+    target: "fs:read_new",
+  });
+  const data = JSON.parse(result.content[0].text);
+
+  assertEquals(data.success, true);
+  assertEquals(data.deletedSourceId, "source-uuid-ac6");
+
+  // Verify DELETE query was executed with correct source ID
+  const deleteQuery = mockDb.queries.find((q) => q.sql.includes("DELETE FROM capability_records"));
+  assertEquals(deleteQuery !== undefined, true, "DELETE query must be executed");
+  assertEquals(deleteQuery!.params[0], "source-uuid-ac6");
 });

@@ -132,7 +132,7 @@ export class HypergraphBuilder {
           id: capId,
           type: "capability",
           label: cap.name || cap.intentPreview.substring(0, 50),
-          description: cap.description || cap.intentPreview,
+          description: cap.intentPreview || cap.description || undefined,
           codeSnippet: cap.codeSnippet,
           successRate: cap.successRate,
           usageCount: cap.usageCount,

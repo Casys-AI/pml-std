@@ -286,6 +286,17 @@ export class WorkerBridge {
         deno: { permissions: WORKER_PERMISSIONS },
       });
 
+      // Emit sandbox.worker.spawned event
+      eventBus.emit({
+        type: "sandbox.worker.spawned",
+        source: "worker-bridge",
+        payload: {
+          permissions: WORKER_PERMISSIONS,
+          timeout: this.config.timeout,
+          toolCount: toolDefinitions.length,
+        },
+      });
+
       // 2. Setup message handler
       this.worker.onmessage = (e: MessageEvent<WorkerToBridgeMessage>) => {
         this.handleWorkerMessage(e.data);
@@ -304,6 +315,16 @@ export class WorkerBridge {
 
         // Setup overall timeout
         const timeoutId = setTimeout(() => {
+          // Emit sandbox.execution.timeout event
+          eventBus.emit({
+            type: "sandbox.execution.timeout",
+            source: "worker-bridge",
+            payload: {
+              timeoutMs: this.config.timeout,
+              tracesCount: this.traces.length,
+            },
+          });
+
           this.terminate();
           reject(new Error("TIMEOUT"));
         }, this.config.timeout);
@@ -1018,6 +1039,15 @@ export class WorkerBridge {
     if (this.worker) {
       this.worker.terminate();
       this.worker = null;
+
+      // Emit sandbox.worker.terminated event
+      eventBus.emit({
+        type: "sandbox.worker.terminated",
+        source: "worker-bridge",
+        payload: {
+          tracesCount: this.traces.length,
+        },
+      });
     }
 
     // Note: Don't close traceChannel here - it may be reused for next execution

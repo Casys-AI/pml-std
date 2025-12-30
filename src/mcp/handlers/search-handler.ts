@@ -18,6 +18,7 @@ import type {
 } from "../server/types.ts";
 import { formatMCPSuccess, formatMCPToolError } from "../server/responses.ts";
 import { addBreadcrumb, captureError, startTransaction } from "../../telemetry/sentry.ts";
+import { SearchCapabilitiesUseCase } from "../../application/use-cases/capabilities/search-capabilities.ts";
 
 /**
  * Handle search_tools request (Story 5.2 / ADR-022)
@@ -131,8 +132,8 @@ export async function handleSearchTools(
 /**
  * Handle search_capabilities request (Story 7.3a)
  *
- * Delegates to DAGSuggester.searchCapabilities() for capability matching.
- * Matches capabilities using semantic similarity * reliability score.
+ * Thin handler that delegates to SearchCapabilitiesUseCase.
+ * Handles MCP protocol concerns (validation, formatting, telemetry).
  *
  * @param args - Search arguments (intent, include_suggestions)
  * @param dagSuggester - DAG suggester for capability search
@@ -151,6 +152,7 @@ export async function handleSearchCapabilities(
   try {
     const params = args as SearchCapabilitiesArgs;
 
+    // MCP-level validation (intent param name specific to this endpoint)
     if (!params.intent || typeof params.intent !== "string") {
       transaction.finish();
       return {
@@ -169,27 +171,32 @@ export async function handleSearchCapabilities(
 
     log.info(`search_capabilities: "${intent}"`);
 
-    // Search for capability match via DAGSuggester
-    const match = await dagSuggester.searchCapabilities(intent);
+    // Delegate to use case
+    const useCase = new SearchCapabilitiesUseCase(dagSuggester);
+    const result = await useCase.execute({ query: intent });
 
-    // Format response (AC5)
+    if (!result.success || !result.data) {
+      transaction.finish();
+      return formatMCPToolError(result.error?.message ?? "Search failed");
+    }
+
+    // Map use case result to MCP response format (snake_case for API)
+    const data = result.data;
     const response = {
-      capabilities: match
-        ? [{
-          id: match.capability.id,
-          name: match.capability.name,
-          description: match.capability.description,
-          code_snippet: match.capability.codeSnippet,
-          parameters_schema: match.parametersSchema,
-          success_rate: match.capability.successRate,
-          usage_count: match.capability.usageCount,
-          score: match.score, // Final score (Semantic * Reliability)
-          semantic_score: match.semanticScore,
-        }]
-        : [],
+      capabilities: data.capabilities.map((cap) => ({
+        id: cap.id,
+        name: cap.name,
+        description: cap.description,
+        code_snippet: cap.codeSnippet,
+        parameters_schema: cap.parametersSchema,
+        success_rate: cap.successRate,
+        usage_count: cap.usageCount,
+        score: cap.score,
+        semantic_score: cap.semanticScore,
+      })),
       suggestions: [], // To be implemented in Story 7.4 (Strategic Discovery)
-      threshold_used: match?.thresholdUsed ?? 0,
-      total_found: match ? 1 : 0,
+      threshold_used: data.thresholdUsed ?? 0,
+      total_found: data.totalFound,
     };
 
     transaction.finish();

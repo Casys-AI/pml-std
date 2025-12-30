@@ -15,15 +15,24 @@ export type { UseCaseError, UseCaseResult } from "../shared/types.ts";
 
 /**
  * Capability summary for search results
+ *
+ * Contains all fields needed by MCP handlers for API responses.
  */
 export interface CapabilitySummary {
   id: string;
   name: string;
   displayName: string;
   description: string;
+  /** Final score (semantic * reliability) */
   score: number;
+  /** Raw semantic similarity score (0-1) */
+  semanticScore: number;
   usageCount: number;
   successRate: number;
+  /** TypeScript code snippet */
+  codeSnippet?: string;
+  /** JSON Schema for parameters (unknown for Clean Architecture compatibility) */
+  parametersSchema?: unknown;
 }
 
 // ============================================================================
@@ -51,6 +60,8 @@ export interface SearchCapabilitiesResult {
   capabilities: CapabilitySummary[];
   query: string;
   totalFound: number;
+  /** Threshold used for matching (from DAGSuggester) */
+  thresholdUsed?: number;
 }
 
 // ============================================================================

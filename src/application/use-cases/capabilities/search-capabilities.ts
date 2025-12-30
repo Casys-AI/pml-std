@@ -1,15 +1,13 @@
 /**
  * Search Capabilities Use Case
  *
- * Searches for capabilities by semantic similarity.
+ * Searches for capabilities using DAGSuggester's semantic matching.
+ * Thin wrapper that adds validation and consistent error handling.
  *
  * @example
  * ```typescript
- * const useCase = new SearchCapabilitiesUseCase(vectorSearch, capabilityRepo);
- * const result = await useCase.execute({
- *   query: "parse JSON data",
- *   limit: 10
- * });
+ * const useCase = new SearchCapabilitiesUseCase(dagSuggester);
+ * const result = await useCase.execute({ intent: "parse JSON data" });
  * ```
  *
  * @module application/use-cases/capabilities/search-capabilities
@@ -18,58 +16,50 @@
 import * as log from "@std/log";
 import type { UseCaseResult } from "../shared/types.ts";
 import type {
-  CapabilitySummary,
   SearchCapabilitiesRequest,
   SearchCapabilitiesResult,
 } from "./types.ts";
 
 /**
- * Vector search interface
+ * DAG Suggester interface (matches actual DAGSuggester)
  */
-export interface IVectorSearch {
-  searchCapabilities(
-    query: string,
-    options?: { limit?: number; minScore?: number },
-  ): Promise<VectorSearchResult[]>;
+export interface IDAGSuggester {
+  searchCapabilities(intent: string): Promise<CapabilityMatch | null>;
 }
 
 /**
- * Vector search result
+ * Capability match result (matches actual CapabilityMatch from capabilities/types)
+ *
+ * Uses looser types to accept the actual DAGSuggester implementation
+ * without importing concrete types (Clean Architecture).
  */
-export interface VectorSearchResult {
-  id: string;
+export interface CapabilityMatch {
+  capability: {
+    id: string;
+    name?: string;
+    description?: string;
+    codeSnippet?: string;
+    successRate: number;
+    usageCount: number;
+  };
+  /** JSONSchema | null from actual type - use unknown for structural compatibility */
+  parametersSchema: unknown;
   score: number;
-  metadata?: Record<string, unknown>;
-}
-
-/**
- * Capability repository interface
- */
-export interface ICapabilityRepository {
-  getById(id: string): Promise<CapabilityRecord | null>;
-  getByIds(ids: string[]): Promise<CapabilityRecord[]>;
-}
-
-/**
- * Capability record from repository
- */
-export interface CapabilityRecord {
-  id: string;
-  name: string;
-  displayName: string;
-  description: string;
-  usageCount: number;
-  successRate: number;
-  visibility: "public" | "private";
+  semanticScore: number;
+  thresholdUsed: number;
 }
 
 /**
  * Use case for searching capabilities
+ *
+ * Wraps DAGSuggester.searchCapabilities with:
+ * - Input validation
+ * - Consistent error handling
+ * - Structured result format
  */
 export class SearchCapabilitiesUseCase {
   constructor(
-    private readonly vectorSearch: IVectorSearch,
-    private readonly capabilityRepo: ICapabilityRepository,
+    private readonly dagSuggester: IDAGSuggester,
   ) {}
 
   /**
@@ -78,7 +68,7 @@ export class SearchCapabilitiesUseCase {
   async execute(
     request: SearchCapabilitiesRequest,
   ): Promise<UseCaseResult<SearchCapabilitiesResult>> {
-    const { query, limit = 10, minScore = 0.5, visibility = "all" } = request;
+    const { query } = request;
 
     // Validate request
     if (!query || query.trim().length === 0) {
@@ -86,23 +76,18 @@ export class SearchCapabilitiesUseCase {
         success: false,
         error: {
           code: "MISSING_QUERY",
-          message: "Missing required parameter: query",
+          message: "Missing required parameter: query (intent)",
         },
       };
     }
 
-    log.debug(
-      `SearchCapabilitiesUseCase: query="${query}", limit=${limit}, minScore=${minScore}`,
-    );
+    log.debug(`SearchCapabilitiesUseCase: intent="${query}"`);
 
     try {
-      // Search by vector similarity
-      const searchResults = await this.vectorSearch.searchCapabilities(query, {
-        limit: limit * 2, // Fetch more to filter by visibility
-        minScore,
-      });
+      // Search via DAGSuggester
+      const match = await this.dagSuggester.searchCapabilities(query);
 
-      if (searchResults.length === 0) {
+      if (!match) {
         return {
           success: true,
           data: {
@@ -113,36 +98,29 @@ export class SearchCapabilitiesUseCase {
         };
       }
 
-      // Fetch full capability records
-      const ids = searchResults.map((r) => r.id);
-      const capabilities = await this.capabilityRepo.getByIds(ids);
+      // Map to use case result format (all fields needed by handlers)
+      const capabilities = [{
+        id: match.capability.id,
+        name: match.capability.name ?? match.capability.id,
+        displayName: match.capability.name ?? match.capability.id,
+        description: match.capability.description ?? "",
+        score: match.score,
+        semanticScore: match.semanticScore,
+        usageCount: match.capability.usageCount,
+        successRate: match.capability.successRate,
+        codeSnippet: match.capability.codeSnippet,
+        parametersSchema: match.parametersSchema ?? undefined,
+      }];
 
-      // Create score map for sorting
-      const scoreMap = new Map(searchResults.map((r) => [r.id, r.score]));
-
-      // Filter by visibility and build summaries
-      const summaries: CapabilitySummary[] = capabilities
-        .filter((cap) => visibility === "all" || cap.visibility === visibility)
-        .map((cap) => ({
-          id: cap.id,
-          name: cap.name,
-          displayName: cap.displayName,
-          description: cap.description,
-          score: scoreMap.get(cap.id) ?? 0,
-          usageCount: cap.usageCount,
-          successRate: cap.successRate,
-        }))
-        .sort((a, b) => b.score - a.score)
-        .slice(0, limit);
-
-      log.debug(`Found ${summaries.length} capabilities matching query`);
+      log.debug(`Found capability match: ${match.capability.id} (score: ${match.score})`);
 
       return {
         success: true,
         data: {
-          capabilities: summaries,
+          capabilities,
           query,
-          totalFound: summaries.length,
+          totalFound: 1,
+          thresholdUsed: match.thresholdUsed,
         },
       };
     } catch (error) {

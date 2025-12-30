@@ -14,6 +14,7 @@ import type { CapabilityDataService } from "../../capabilities/mod.ts";
 import type { EventsStreamManager } from "../../server/events-stream.ts";
 import type { HealthChecker } from "../../health/health-checker.ts";
 import type { MCPClientBase } from "../types.ts";
+import type { DbClient } from "../../db/types.ts";
 
 /**
  * Context passed to all route handlers
@@ -30,6 +31,8 @@ export interface RouteContext {
   userId?: string;
   /** Path parameters extracted from URL */
   params?: Record<string, string>;
+  /** Database client for scope filtering (Story 9.8) */
+  db?: DbClient;
 }
 
 /**

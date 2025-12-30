@@ -38,6 +38,7 @@ import { createCapabilityUuidPkMigration } from "./migrations/028_capability_uui
 import { createCapabilityHierarchyLevelMigration } from "./migrations/029_capability_hierarchy_level.ts";
 import { createRemoveTraceIntentDuplicationMigration } from "./migrations/030_remove_trace_intent_duplication.ts";
 import { createPmlRegistryViewMigration } from "./migrations/031_pml_registry_view.ts";
+import { createWorkflowPatternCreatedByMigration } from "./migrations/033_workflow_pattern_created_by.ts";
 
 /**
  * Migration definition
@@ -429,5 +430,6 @@ export function getAllMigrations(): Migration[] {
     createCapabilityHierarchyLevelMigration(), // Story 10.1: Capability hierarchy level for compound nodes
     createRemoveTraceIntentDuplicationMigration(), // Story 11.x: Remove intent duplication, use JOIN
     createPmlRegistryViewMigration(), // Story 13.8: Unified pml_registry VIEW (tool_schema + capability_records)
+    createWorkflowPatternCreatedByMigration(), // Story 9.8: Add created_by for user filtering
   ];
 }

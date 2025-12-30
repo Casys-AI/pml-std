@@ -207,6 +207,21 @@ interface IdentifierPosition {
 }
 
 /**
+ * Position of an inline literal in object property
+ * e.g., { host: "localhost" } → "localhost" at position
+ */
+interface InlineLiteralPosition {
+  /** Property name (will become args.propertyName) */
+  propertyName: string;
+  /** The literal value */
+  value: JsonValue;
+  /** Start position of the value in source */
+  start: number;
+  /** End position of the value in source */
+  end: number;
+}
+
+/**
  * Transform literal bindings to args.xxx references
  *
  * Makes capabilities shareable in cloud mode by:
@@ -275,7 +290,12 @@ export async function transformLiteralsToArgs(
 
   findIdentifierPositions(ast, literalNames, identifierPositions);
 
-  if (identifierPositions.length === 0) {
+  // Story 10.2d: Also find inline literals in object properties
+  // e.g., mcp.tool({ host: "localhost" }) → mcp.tool({ host: args.host })
+  const inlineLiteralPositions: InlineLiteralPosition[] = [];
+  findInlineLiteralPositions(ast, literalBindings, inlineLiteralPositions);
+
+  if (identifierPositions.length === 0 && inlineLiteralPositions.length === 0) {
     return {
       code,
       replacedCount: 0,
@@ -284,8 +304,9 @@ export async function transformLiteralsToArgs(
     };
   }
 
-  logger.debug("Found identifier positions for literals", {
-    count: identifierPositions.length,
+  logger.debug("Found positions for literal transformation", {
+    identifierCount: identifierPositions.length,
+    inlineLiteralCount: inlineLiteralPositions.length,
     literals: Array.from(literalNames),
   });
 
@@ -330,6 +351,23 @@ export async function transformLiteralsToArgs(
     const before = transformedCode.substring(0, decl.start);
     const after = transformedCode.substring(decl.end);
     transformedCode = before + after;
+  }
+
+  // Story 10.2d: Replace inline literals with args.xxx
+  // Sort by position descending to replace from end to start
+  const sortedInlineLiterals = [...inlineLiteralPositions].sort((a, b) => b.start - a.start);
+  for (const pos of sortedInlineLiterals) {
+    const start = pos.start - baseOffset;
+    const end = pos.end - baseOffset;
+
+    // Skip if positions are invalid
+    if (start < 0 || end > transformedCode.length) continue;
+
+    // Replace inline literal value with args.propertyName
+    const before = transformedCode.substring(0, start);
+    const after = transformedCode.substring(end);
+    transformedCode = before + `args.${pos.propertyName}` + after;
+    replacedCount++;
   }
 
   // Clean up: remove empty lines and extra whitespace
@@ -467,6 +505,13 @@ function findAllUsages(
   // Recurse through all properties
   for (const key of Object.keys(node)) {
     if (key === "span") continue;
+    // Skip property keys in KeyValueProperty - they are not variable usages
+    // e.g., in { host: "localhost" }, "host" is a property key, not a variable
+    if (node.type === "KeyValueProperty" && key === "key") continue;
+    // Skip property names in MemberExpression - they are method/property access
+    // e.g., in mcp.db.query(), "query" is a method name, not a variable
+    if (node.type === "MemberExpression" && key === "property") continue;
+
     const value = node[key];
     if (Array.isArray(value)) {
       for (const item of value) {
@@ -478,6 +523,87 @@ function findAllUsages(
   }
 
   return results;
+}
+
+/**
+ * Story 10.2d: Find inline literal positions in object properties
+ *
+ * Searches for ObjectExpression KeyValueProperty where:
+ * - The key matches a property name in literalBindings
+ * - The value is a literal matching the expected value
+ *
+ * @param node AST node to search
+ * @param literalBindings Map of property names to their literal values
+ * @param results Array to collect found positions
+ */
+function findInlineLiteralPositions(
+  // deno-lint-ignore no-explicit-any
+  node: any,
+  literalBindings: Record<string, JsonValue>,
+  results: InlineLiteralPosition[],
+  processedSpans: Set<string> = new Set(),
+): void {
+  if (!node || typeof node !== "object") return;
+
+  // Check for KeyValueProperty in ObjectExpression
+  if (node.type === "KeyValueProperty") {
+    const keyNode = node.key;
+    const valueNode = node.value;
+
+    // Extract key name
+    let keyName: string | undefined;
+    if (keyNode?.type === "Identifier") {
+      keyName = keyNode.value as string;
+    } else if (keyNode?.type === "StringLiteral") {
+      keyName = keyNode.value as string;
+    }
+
+    // Check if this property is in literalBindings and value is a literal
+    if (keyName && keyName in literalBindings && valueNode) {
+      const expectedValue = literalBindings[keyName];
+
+      // Check if value node is a matching literal
+      let literalValue: JsonValue | undefined;
+      if (valueNode.type === "StringLiteral") {
+        literalValue = valueNode.value as string;
+      } else if (valueNode.type === "NumericLiteral") {
+        literalValue = valueNode.value as number;
+      } else if (valueNode.type === "BooleanLiteral") {
+        literalValue = valueNode.value as boolean;
+      }
+
+      // Only add if the literal matches the expected value
+      if (literalValue !== undefined && literalValue === expectedValue) {
+        const start = valueNode.span?.start ?? 0;
+        const end = valueNode.span?.end ?? 0;
+        const spanKey = `${start}-${end}`;
+
+        // Skip if already processed (avoid duplicates from AST traversal)
+        if (!processedSpans.has(spanKey)) {
+          processedSpans.add(spanKey);
+          results.push({
+            propertyName: keyName,
+            value: literalValue,
+            start,
+            end,
+          });
+        }
+      }
+    }
+  }
+
+  // Recurse through all properties
+  for (const key of Object.keys(node)) {
+    if (key === "span") continue;
+    const value = node[key];
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        findInlineLiteralPositions(item, literalBindings, results, processedSpans);
+      }
+    } else if (value && typeof value === "object") {
+      findInlineLiteralPositions(value, literalBindings, results, processedSpans);
+    }
+  }
 }
 
 /**

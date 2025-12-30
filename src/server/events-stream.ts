@@ -118,6 +118,18 @@ export class EventsStreamManager {
       }`,
     );
 
+    // Emit sse.client.connected event
+    eventBus.emit({
+      type: "sse.client.connected",
+      source: "events-stream",
+      payload: {
+        clientId,
+        connectedClients: this.clients.size,
+        maxClients: this.config.maxClients,
+        filters: filters.length > 0 ? filters : ["*"],
+      },
+    });
+
     // Remove client on connection close/abort
     request.signal.addEventListener("abort", () => {
       this.clients.delete(clientId);
@@ -125,6 +137,17 @@ export class EventsStreamManager {
       log.info(
         `SSE client disconnected (${this.clients.size}/${this.config.maxClients})`,
       );
+
+      // Emit sse.client.disconnected event
+      eventBus.emit({
+        type: "sse.client.disconnected",
+        source: "events-stream",
+        payload: {
+          clientId,
+          connectedClients: this.clients.size,
+          reason: "client_abort",
+        },
+      });
     });
 
     // Send initial connected event
@@ -188,8 +211,8 @@ export class EventsStreamManager {
    * @param event - Event to broadcast
    */
   private async broadcastEvent(event: PmlEvent): Promise<void> {
-    // Debug logging for algorithm events (Story 7.6)
-    if (event.type.startsWith("algorithm.")) {
+    // Debug logging for algorithm and capability events
+    if (event.type.startsWith("algorithm.") || event.type.startsWith("capability.")) {
       log.info(
         `[SSE-DEBUG] Received ${event.type} from eventBus, clients: ${this.clients.size}`,
       );
@@ -201,7 +224,7 @@ export class EventsStreamManager {
     for (const [clientId, client] of this.clients) {
       // Story 6.5 AC#12: Check if event matches client filters
       if (!this.matchesFilters(event.type, client.filters)) {
-        if (event.type.startsWith("algorithm.")) {
+        if (event.type.startsWith("algorithm.") || event.type.startsWith("capability.")) {
           log.debug(
             `[SSE-DEBUG] ${event.type} skipped for client ${clientId.substring(0, 8)} (filters: ${
               client.filters.join(",")
@@ -212,7 +235,7 @@ export class EventsStreamManager {
       }
 
       // Debug: event passed filter
-      if (event.type.startsWith("algorithm.")) {
+      if (event.type.startsWith("algorithm.") || event.type.startsWith("capability.")) {
         log.info(
           `[SSE-DEBUG] Sending ${event.type} to client ${clientId.substring(0, 8)}`,
         );

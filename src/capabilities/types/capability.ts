@@ -257,6 +257,12 @@ export interface CapabilityFilters {
   sort?: "usageCount" | "successRate" | "lastUsed" | "createdAt";
   /** Sort order */
   order?: "asc" | "desc";
+  /**
+   * Story 9.8: Filter by user who created or used the capability
+   * When set, only returns capabilities where created_by = userId
+   * OR the capability has been executed by this user
+   */
+  userId?: string;
 }
 
 /**

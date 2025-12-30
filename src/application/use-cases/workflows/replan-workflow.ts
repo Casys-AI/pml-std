@@ -35,17 +35,15 @@ export interface IWorkflowRepository {
 
 /**
  * Active workflow state
+ *
+ * Uses looser types for compatibility with actual implementations.
  */
 export interface ActiveWorkflowState {
   workflowId: string;
   dag: DAGStructure;
-  layerResults: Array<{ taskId: string; status: string; output: unknown }>;
+  layerResults: Array<{ taskId: string; status: string; output?: unknown }>;
   executor?: {
-    enqueueCommand(cmd: {
-      type: string;
-      newRequirement: string;
-      availableContext: Record<string, unknown>;
-    }): void;
+    enqueueCommand(cmd: unknown): void;
   };
 }
 

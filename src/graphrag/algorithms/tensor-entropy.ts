@@ -416,10 +416,16 @@ export function computeTensorEntropy(
     totalEdgeWeight += edge.weight ?? 1;
   }
 
-  // Compute structural entropy (fast, O(n))
-  const structuralEntropy = computeStructuralEntropy(degrees);
+  // Compute structural entropy (fast, O(n)) - Li Angsheng approximation
+  const structuralEntropyRaw = computeStructuralEntropy(degrees);
+
+  // Normalize structural entropy to [0, 1] by dividing by max entropy log2(n)
+  // This is the PRIMARY metric for sparse graphs (Story 6.6)
+  const maxStructuralEntropy = n > 1 ? Math.log2(n) : 1;
+  const structuralEntropy = structuralEntropyRaw / maxStructuralEntropy;
 
   // Compute Von Neumann entropy approximation (fast, O(n))
+  // Note: VN entropy is less meaningful for sparse graphs
   const vonNeumannEntropy = computeVonNeumannEntropyApprox(degrees, totalEdgeWeight);
 
   // Extract and analyze hyperedges
@@ -442,18 +448,20 @@ export function computeTensorEntropy(
   const maxEntropy = n > 1 ? Math.log2(n) : 0;
   const bounds = { lower: 0, upper: maxEntropy };
 
-  // Normalized entropy: weighted average across orders
-  // Higher-order interactions get more weight as they're more complex
-  let weightedSum = 0;
-  let totalWeight = 0;
+  // Normalized entropy: use structural entropy as primary metric (Story 6.6)
+  // Structural entropy is more meaningful for sparse graphs than Von Neumann
+  // For hyperedge-aware normalization, we average with hyperedge entropy if available
+  let normalized = structuralEntropy;
 
-  for (const [order, entropy] of entropyByOrder) {
-    const weight = order; // Higher order = more weight
-    weightedSum += entropy * weight;
-    totalWeight += weight;
+  // If we have higher-order hyperedges, blend with their entropy
+  const higherOrderEntropies = Array.from(entropyByOrder.entries())
+    .filter(([order]) => order > 2);
+
+  if (higherOrderEntropies.length > 0) {
+    const hyperedgeAvg = higherOrderEntropies.reduce((sum, [, e]) => sum + e, 0) / higherOrderEntropies.length;
+    // Blend: 70% structural, 30% hyperedge
+    normalized = 0.7 * structuralEntropy + 0.3 * hyperedgeAvg;
   }
-
-  const normalized = totalWeight > 0 ? weightedSum / totalWeight : vonNeumannEntropy;
 
   // Compute size-adjusted thresholds
   const adjustedThresholds = computeSizeAdjustedThresholds(adj.size, graph.edges.length);
@@ -462,8 +470,8 @@ export function computeTensorEntropy(
 
   log.debug(
     `[TensorEntropy] n=${n}, edges=${graph.edges.length}, hyperedges=${hyperedges.length}, ` +
-      `H_VN=${vonNeumannEntropy.toFixed(3)}, H_struct=${structuralEntropy.toFixed(3)}, ` +
-      `normalized=${normalized.toFixed(3)}, time=${computeTimeMs.toFixed(1)}ms`,
+      `H_struct=${structuralEntropy.toFixed(3)} (raw=${structuralEntropyRaw.toFixed(2)}bits), ` +
+      `H_VN=${vonNeumannEntropy.toFixed(3)}, normalized=${normalized.toFixed(3)}, time=${computeTimeMs.toFixed(1)}ms`,
   );
 
   return {

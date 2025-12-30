@@ -24,6 +24,7 @@ import type { DbClient } from "../../src/db/mod.ts";
 import type { EmbeddingModelInterface } from "../../src/vector/embeddings.ts";
 import { parseFQDN } from "../../src/capabilities/fqdn.ts";
 import * as log from "@std/log";
+import { z } from "zod";
 
 // =============================================================================
 // Embedding Text Builder
@@ -232,6 +233,54 @@ export interface CapWhoisResponse {
 }
 
 /**
+ * Options for cap:merge tool
+ *
+ * Merges duplicate capabilities into a canonical one.
+ * Requires identical tools_used arrays.
+ */
+export interface CapMergeOptions {
+  /** Source capability to merge FROM (name, UUID, or FQDN) - will be deleted */
+  source: string;
+  /** Target capability to merge INTO (name, UUID, or FQDN) - will be updated */
+  target: string;
+  /** If true, use source's code_snippet even if older. Default: use newest. */
+  preferSourceCode?: boolean;
+}
+
+/**
+ * Zod schema for cap:merge validation
+ */
+export const CapMergeOptionsSchema = z.object({
+  source: z.string().min(1, "source is required"),
+  target: z.string().min(1, "target is required"),
+  preferSourceCode: z.boolean().optional(),
+});
+
+/**
+ * Response from cap:merge tool
+ */
+export interface CapMergeResponse {
+  /** Whether merge succeeded */
+  success: boolean;
+  /** UUID of target capability */
+  targetId: string;
+  /** FQDN of target capability */
+  targetFqdn: string;
+  /** Display name of target */
+  targetDisplayName: string;
+  /** UUID of deleted source */
+  deletedSourceId: string;
+  /** Merged statistics summary */
+  mergedStats: {
+    usageCount: number;
+    successCount: number;
+    totalLatencyMs: number;
+  };
+  /** Which code_snippet was kept */
+  codeSource: "source" | "target";
+}
+
+/**
  * MCP Tool definition for cap:* tools
  */
 export interface CapTool {
@@ -411,6 +460,29 @@ export class CapModule {
           required: ["id"],
         },
       },
+      {
+        name: "cap:merge",
+        description:
+          "Merge duplicate capabilities into a canonical one. Combines usage stats, keeps newest code. Requires identical tools_used.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            source: {
+              type: "string",
+              description: "Source capability to merge FROM (name, UUID, or FQDN) - will be deleted",
+            },
+            target: {
+              type: "string",
+              description: "Target capability to merge INTO (name, UUID, or FQDN) - will be updated",
+            },
+            preferSourceCode: {
+              type: "boolean",
+              description: "If true, use source's code_snippet even if older. Default: use newest.",
+            },
+          },
+          required: ["source", "target"],
+        },
+      },
     ];
   }
 
@@ -428,6 +500,8 @@ export class CapModule {
           return await this.handleLookup(args as CapLookupOptions);
         case "cap:whois":
           return await this.handleWhois(args as CapWhoisOptions);
+        case "cap:merge":
+          return await this.handleMerge(args);
         default:
           return this.errorResult(`Unknown cap tool: ${name}`);
       }
@@ -780,6 +854,174 @@ export class CapModule {
     return this.successResult(response);
   }
 
+  /**
+   * Handle cap:merge - merge duplicate capabilities
+   *
+   * AC1: usage_count = source + target
+   * AC2: created_at = MIN(source, target)
+   * AC3: Reject if tools_used differ
+   * AC4: Use newest code_snippet by default
+   * AC5: preferSourceCode overrides code selection
+   * AC6: Delete source after merge
+   */
+  private async handleMerge(args: unknown): Promise<CapToolResult> {
+    // Validate with Zod
+    const parsed = CapMergeOptionsSchema.safeParse(args);
+    if (!parsed.success) {
+      return this.errorResult(`Invalid arguments: ${parsed.error.message}`);
+    }
+    const { source, target, preferSourceCode } = parsed.data;
+
+    // Prevent self-merge
+    if (source === target) {
+      return this.errorResult("Cannot merge capability into itself");
+    }
+
+    // Resolve source capability
+    let sourceRecord = await this.registry.resolveByName(source, DEFAULT_SCOPE);
+    if (!sourceRecord) {
+      sourceRecord = await this.registry.getById(source);
+    }
+    if (!sourceRecord) {
+      return this.errorResult(`Source capability not found: ${source}`);
+    }
+
+    // Resolve target capability
+    let targetRecord = await this.registry.resolveByName(target, DEFAULT_SCOPE);
+    if (!targetRecord) {
+      targetRecord = await this.registry.getById(target);
+    }
+    if (!targetRecord) {
+      return this.errorResult(`Target capability not found: ${target}`);
+    }
+
+    // Get tools_used from workflow_pattern.dag_structure and code_snippet
+    // Migration 023 moved these columns from capability_records to workflow_pattern
+    interface CapRow {
+      tools_used: string[] | null;
+      code_snippet: string | null;
+      updated_at: Date | null;
+    }
+    const sourceRows = (await this.db.query(
+      `SELECT
+         wp.dag_structure->'tools_used' as tools_used,
+         wp.code_snippet,
+         cr.updated_at
+       FROM capability_records cr
+       LEFT JOIN workflow_pattern wp ON cr.workflow_pattern_id = wp.pattern_id
+       WHERE cr.id = $1`,
+      [sourceRecord.id],
+    )) as unknown as CapRow[];
+    const targetRows = (await this.db.query(
+      `SELECT
+         wp.dag_structure->'tools_used' as tools_used,
+         wp.code_snippet,
+         cr.updated_at
+       FROM capability_records cr
+       LEFT JOIN workflow_pattern wp ON cr.workflow_pattern_id = wp.pattern_id
+       WHERE cr.id = $1`,
+      [targetRecord.id],
+    )) as unknown as CapRow[];
+
+    if (sourceRows.length === 0 || targetRows.length === 0) {
+      return this.errorResult("Failed to fetch capability details");
+    }
+
+    const sourceData = sourceRows[0];
+    const targetData = targetRows[0];
+
+    // AC3: Validate tools_used match (set comparison)
+    const sourceTools = new Set(sourceData.tools_used || []);
+    const targetTools = new Set(targetData.tools_used || []);
+    const toolsMatch =
+      sourceTools.size === targetTools.size &&
+      [...sourceTools].every((t) => targetTools.has(t));
+
+    if (!toolsMatch) {
+      return this.errorResult(
+        `Cannot merge: tools_used mismatch. Source: [${[...sourceTools].join(", ")}], Target: [${[...targetTools].join(", ")}]`,
+      );
+    }
+
+    // Calculate merged stats
+    const mergedUsageCount = sourceRecord.usageCount + targetRecord.usageCount;
+    const mergedSuccessCount = sourceRecord.successCount + targetRecord.successCount;
+    const mergedLatencyMs = sourceRecord.totalLatencyMs + targetRecord.totalLatencyMs;
+    const mergedCreatedAt =
+      sourceRecord.createdAt < targetRecord.createdAt
+        ? sourceRecord.createdAt
+        : targetRecord.createdAt;
+
+    // AC4/AC5: Determine code_snippet winner
+    let useSourceCode = preferSourceCode ?? false;
+    if (preferSourceCode === undefined) {
+      // Default: use newest (by updated_at, fallback to created_at)
+      const sourceTime = sourceData.updated_at ?? sourceRecord.createdAt;
+      const targetTime = targetData.updated_at ?? targetRecord.createdAt;
+      useSourceCode = sourceTime > targetTime;
+    }
+    const finalCodeSnippet = useSourceCode
+      ? sourceData.code_snippet
+      : targetData.code_snippet;
+
+    // Execute merge in a real transaction for atomicity
+    // If DELETE fails, UPDATE is rolled back
+    await this.db.transaction(async (tx) => {
+      // Update target capability_records with merged stats
+      await tx.exec(
+        `UPDATE capability_records SET
+          usage_count = $1,
+          success_count = $2,
+          total_latency_ms = $3,
+          created_at = $4,
+          updated_at = NOW(),
+          updated_by = 'cap:merge'
+        WHERE id = $5`,
+        [
+          mergedUsageCount,
+          mergedSuccessCount,
+          mergedLatencyMs,
+          mergedCreatedAt,
+          targetRecord.id,
+        ],
+      );
+
+      // Update workflow_pattern code_snippet if target has one and we chose source code
+      if (targetRecord.workflowPatternId && finalCodeSnippet !== null) {
+        await tx.exec(
+          `UPDATE workflow_pattern SET
+            code_snippet = $1
+          WHERE pattern_id = $2`,
+          [finalCodeSnippet, targetRecord.workflowPatternId],
+        );
+      }
+
+      // AC6: Delete source
+      await tx.exec(`DELETE FROM capability_records WHERE id = $1`, [
+        sourceRecord.id,
+      ]);
+    });
+
+    const response: CapMergeResponse = {
+      success: true,
+      targetId: targetRecord.id,
+      targetFqdn: getCapabilityFqdn(targetRecord),
+      targetDisplayName: getCapabilityDisplayName(targetRecord),
+      deletedSourceId: sourceRecord.id,
+      mergedStats: {
+        usageCount: mergedUsageCount,
+        successCount: mergedSuccessCount,
+        totalLatencyMs: mergedLatencyMs,
+      },
+      codeSource: useSourceCode ? "source" : "target",
+    };
+
+    log.info(
+      `[CapModule] cap:merge ${getCapabilityDisplayName(sourceRecord)} -> ${getCapabilityDisplayName(targetRecord)} (usage: ${mergedUsageCount})`,
+    );
+    return this.successResult(response);
+  }
+
   // ===========================================================================
   // Helper Methods
   // ===========================================================================
@@ -954,6 +1196,34 @@ export const pmlTools: MiniTool[] = [
       }
       // Fall back to whois directly (UUID or FQDN)
       const result = await getCapModule().call("cap:whois", { id: name });
+      return JSON.parse(result.content[0].text);
+    },
+  },
+  {
+    name: "cap_merge",
+    description:
+      "Merge duplicate capabilities into one. Combines usage stats, keeps newest code. Requires identical tools_used.",
+    category: "pml",
+    inputSchema: {
+      type: "object",
+      properties: {
+        source: {
+          type: "string",
+          description: "Source capability to merge FROM (name, UUID, or FQDN) - will be deleted",
+        },
+        target: {
+          type: "string",
+          description: "Target capability to merge INTO (name, UUID, or FQDN) - will be updated",
+        },
+        preferSourceCode: {
+          type: "boolean",
+          description: "If true, use source's code_snippet even if older. Default: use newest.",
+        },
+      },
+      required: ["source", "target"],
+    },
+    handler: async (args) => {
+      const result = await getCapModule().call("cap:merge", args);
       return JSON.parse(result.content[0].text);
     },
   },

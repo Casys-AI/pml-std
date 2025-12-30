@@ -34,14 +34,16 @@ export interface IWorkflowRepository {
 
 /**
  * Active workflow state from repository
+ *
+ * Uses looser types for compatibility with actual implementations.
  */
 export interface ActiveWorkflowState {
   workflowId: string;
   status: string;
   currentLayer: number;
-  layerResults: Array<{ taskId: string; status: string; output: unknown }>;
+  layerResults: Array<{ taskId: string; status: string; output?: unknown }>;
   executor?: {
-    enqueueCommand(cmd: { type: string; reason: string }): void;
+    enqueueCommand(cmd: unknown): void;
   };
 }
 

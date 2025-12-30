@@ -46,11 +46,15 @@ export const databaseTools: MiniTool[] = [
   {
     name: "psql_query",
     description:
-      "Execute SQL queries on PostgreSQL databases. Connect to remote or local Postgres servers, run queries, manage data. Use for production database operations, data analysis, schema management, or database administration. Keywords: postgresql query, psql, postgres SQL, database query, pg connection, SQL execute.",
+      "Execute SQL queries on PostgreSQL databases. Connect via DATABASE_URL env var, explicit url parameter, or individual connection params. Use for production database operations, data analysis, schema management, or database administration. Keywords: postgresql query, psql, postgres SQL, database query, pg connection, SQL execute, DATABASE_URL.",
     category: "system",
     inputSchema: {
       type: "object",
       properties: {
+        url: {
+          type: "string",
+          description: "Connection URL (postgres://user:pass@host:port/db). Overrides other params.",
+        },
         host: { type: "string", description: "Database host" },
         port: { type: "number", description: "Port (default: 5432)" },
         database: { type: "string", description: "Database name" },
@@ -58,16 +62,26 @@ export const databaseTools: MiniTool[] = [
         password: { type: "string", description: "Password" },
         query: { type: "string", description: "SQL query" },
       },
-      required: ["database", "query"],
+      required: ["query"],
     },
     handler: async (
-      { host = "localhost", port = 5432, database, user = "postgres", password, query },
+      { url, host = "localhost", port = 5432, database, user = "postgres", password, query },
     ) => {
-      // Use npm:postgres library instead of CLI
       const postgres = (await import("postgres")).default;
-      const connectionString = password
-        ? `postgres://${user}:${password}@${host}:${port}/${database}`
-        : `postgres://${user}@${host}:${port}/${database}`;
+
+      // Priority: explicit url > DATABASE_URL env > individual params
+      let connectionString = url as string | undefined;
+      if (!connectionString) {
+        connectionString = Deno.env.get("DATABASE_URL");
+      }
+      if (!connectionString) {
+        if (!database) {
+          throw new Error("Either url, DATABASE_URL env, or database param is required");
+        }
+        connectionString = password
+          ? `postgres://${user}:${password}@${host}:${port}/${database}`
+          : `postgres://${user}@${host}:${port}/${database}`;
+      }
 
       const sql = postgres(connectionString);
       try {
@@ -222,11 +236,15 @@ export const databaseTools: MiniTool[] = [
   {
     name: "psql_tables",
     description:
-      "List all tables in a PostgreSQL database. Get table names, schemas, and types. Use for database exploration, documentation, or migration planning. Keywords: postgres tables, list tables, pg_tables, postgresql schema, table list.",
+      "List all tables in a PostgreSQL database. Connect via DATABASE_URL env var, explicit url parameter, or individual connection params. Use for database exploration, documentation, or migration planning. Keywords: postgres tables, list tables, pg_tables, postgresql schema, table list, DATABASE_URL.",
     category: "system",
     inputSchema: {
       type: "object",
       properties: {
+        url: {
+          type: "string",
+          description: "Connection URL (postgres://user:pass@host:port/db). Overrides other params.",
+        },
         host: { type: "string", description: "Database host" },
         port: { type: "number", description: "Port (default: 5432)" },
         database: { type: "string", description: "Database name" },
@@ -234,15 +252,25 @@ export const databaseTools: MiniTool[] = [
         password: { type: "string", description: "Password" },
         schema: { type: "string", description: "Schema filter (default: public)" },
       },
-      required: ["database"],
     },
     handler: async (
-      { host = "localhost", port = 5432, database, user = "postgres", password, schema = "public" },
+      { url, host = "localhost", port = 5432, database, user = "postgres", password, schema = "public" },
     ) => {
       const postgres = (await import("postgres")).default;
-      const connectionString = password
-        ? `postgres://${user}:${password}@${host}:${port}/${database}`
-        : `postgres://${user}@${host}:${port}/${database}`;
+
+      // Priority: explicit url > DATABASE_URL env > individual params
+      let connectionString = url as string | undefined;
+      if (!connectionString) {
+        connectionString = Deno.env.get("DATABASE_URL");
+      }
+      if (!connectionString) {
+        if (!database) {
+          throw new Error("Either url, DATABASE_URL env, or database param is required");
+        }
+        connectionString = password
+          ? `postgres://${user}:${password}@${host}:${port}/${database}`
+          : `postgres://${user}@${host}:${port}/${database}`;
+      }
 
       const sql = postgres(connectionString);
       try {
@@ -265,11 +293,15 @@ export const databaseTools: MiniTool[] = [
   {
     name: "psql_schema",
     description:
-      "Get detailed schema information for a PostgreSQL table. View columns, types, constraints, and defaults. Use for documentation, migration, or data modeling. Keywords: postgres schema, table columns, pg describe, column types, table definition.",
+      "Get detailed schema information for a PostgreSQL table. Connect via DATABASE_URL env var, explicit url parameter, or individual connection params. View columns, types, constraints, and defaults. Use for documentation, migration, or data modeling. Keywords: postgres schema, table columns, pg describe, column types, table definition, DATABASE_URL.",
     category: "system",
     inputSchema: {
       type: "object",
       properties: {
+        url: {
+          type: "string",
+          description: "Connection URL (postgres://user:pass@host:port/db). Overrides other params.",
+        },
         host: { type: "string", description: "Database host" },
         port: { type: "number", description: "Port (default: 5432)" },
         database: { type: "string", description: "Database name" },
@@ -277,15 +309,26 @@ export const databaseTools: MiniTool[] = [
         password: { type: "string", description: "Password" },
         table: { type: "string", description: "Table name" },
       },
-      required: ["database", "table"],
+      required: ["table"],
     },
     handler: async (
-      { host = "localhost", port = 5432, database, user = "postgres", password, table },
+      { url, host = "localhost", port = 5432, database, user = "postgres", password, table },
     ) => {
       const postgres = (await import("postgres")).default;
-      const connectionString = password
-        ? `postgres://${user}:${password}@${host}:${port}/${database}`
-        : `postgres://${user}@${host}:${port}/${database}`;
+
+      // Priority: explicit url > DATABASE_URL env > individual params
+      let connectionString = url as string | undefined;
+      if (!connectionString) {
+        connectionString = Deno.env.get("DATABASE_URL");
+      }
+      if (!connectionString) {
+        if (!database) {
+          throw new Error("Either url, DATABASE_URL env, or database param is required");
+        }
+        connectionString = password
+          ? `postgres://${user}:${password}@${host}:${port}/${database}`
+          : `postgres://${user}@${host}:${port}/${database}`;
+      }
 
       const sql = postgres(connectionString);
       try {

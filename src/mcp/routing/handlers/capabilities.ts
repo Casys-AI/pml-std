@@ -120,6 +120,7 @@ function parseCapabilityFilters(
  * GET /api/capabilities
  *
  * List capabilities with optional filtering (Story 8.1)
+ * Story 9.8: Always filters by current user (AC #5)
  */
 export async function handleListCapabilities(
   _req: Request,
@@ -134,6 +135,12 @@ export async function handleListCapabilities(
 
     const { filters, error } = parseCapabilityFilters(url, corsHeaders);
     if (error) return error;
+
+    // Story 9.8 AC #5: Capabilities always filtered by current user
+    // No scope toggle - always show only user's capabilities
+    if (ctx.userId) {
+      filters.userId = ctx.userId;
+    }
 
     const result = await ctx.capabilityDataService.listCapabilities(filters);
 

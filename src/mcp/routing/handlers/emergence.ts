@@ -27,11 +27,15 @@ import {
 } from "../../../graphrag/user-usage.ts";
 import type { DbClient } from "../../../db/types.ts";
 import {
+  computeDualEntropy,
+  computeSemanticEntropy,
   computeTensorEntropy,
+  getEntropyHistory,
   saveEntropySnapshot,
   snapshotToEntropyInput,
   type TensorEntropyResult,
   type EntropyGraphInput,
+  type SemanticEntropyResult,
 } from "../../../graphrag/algorithms/tensor-entropy.ts";
 import type { TensorEntropyMetrics } from "../../../shared/emergence.types.ts";
 import { getCachedHyperedges } from "../../../cache/hyperedge-cache.ts";
@@ -112,14 +116,40 @@ function computeGraphEntropy(edgeWeights: number[]): number {
 }
 
 /**
- * Convert TensorEntropyResult to API-friendly TensorEntropyMetrics
+ * Determine health classification from dual entropy
+ * Story 6.6: Uses dual entropy (structural + semantic) for health
  */
-function toTensorEntropyMetrics(result: TensorEntropyResult): TensorEntropyMetrics {
+function determineHealthFromDualEntropy(
+  dualEntropy: number,
+  thresholds: { low: number; high: number },
+): "rigid" | "healthy" | "chaotic" {
+  if (dualEntropy < thresholds.low) return "rigid";
+  if (dualEntropy > thresholds.high) return "chaotic";
+  return "healthy";
+}
+
+/**
+ * Convert TensorEntropyResult to API-friendly TensorEntropyMetrics
+ * Story 6.6: Now includes semantic and dual entropy
+ */
+function toTensorEntropyMetrics(
+  result: TensorEntropyResult,
+  semanticResult?: SemanticEntropyResult,
+  dualEntropy?: number,
+): TensorEntropyMetrics {
+  // Story 6.6: Use dual entropy for health classification when available
+  const health = (dualEntropy !== undefined)
+    ? determineHealthFromDualEntropy(dualEntropy, result.adjustedThresholds)
+    : result.health;
+
   return {
     vonNeumann: result.vonNeumannEntropy,
     structural: result.structuralEntropy,
     normalized: result.normalized,
-    health: result.health,
+    semantic: semanticResult?.semanticEntropy,
+    semanticDiversity: semanticResult?.semanticDiversity,
+    dual: dualEntropy,
+    health,
     thresholds: {
       low: result.adjustedThresholds.low,
       high: result.adjustedThresholds.high,
@@ -129,6 +159,7 @@ function toTensorEntropyMetrics(result: TensorEntropyResult): TensorEntropyMetri
       edges: result.meta.edgeCount,
       hyperedges: result.meta.hyperedgeCount,
     },
+    embeddingCount: semanticResult?.stats.nodeCount,
   };
 }
 
@@ -299,13 +330,64 @@ async function fetchRealTimeseries(
       value: Number(row.acceptance_rate) || 0,
     }));
 
-    // Entropy: we don't have historical data, use current value as reference
-    // Fill with same timestamps as velocity for consistency
-    const entropy = velocity.length > 0
-      ? velocity.map((v) => ({ timestamp: v.timestamp, value: currentEntropy }))
-      : [{ timestamp: new Date().toISOString(), value: currentEntropy }];
+    // Entropy: fetch from entropy_history table
+    // Story 9.8: Filter by user if scope is "user"
+    // Story 6.6: Now includes semantic and dual entropy timeseries
+    const entropyHistory = await getEntropyHistory(db, {
+      limit: 100,
+      userId: scope === "user" ? userId : undefined,
+      since: startDate,
+    });
 
-    return { entropy, stability, velocity };
+    // Convert to timeseries format (reverse to chronological order)
+    let entropy: Array<{ timestamp: string; value: number }>;
+    let semanticEntropy: Array<{ timestamp: string; value: number }> | undefined;
+    let dualEntropy: Array<{ timestamp: string; value: number }> | undefined;
+
+    if (entropyHistory.length > 0) {
+      const chronological = entropyHistory.reverse(); // oldest first
+
+      // Primary entropy: use normalized (structural) entropy
+      entropy = chronological.map((record) => ({
+        timestamp: record.recordedAt.toISOString(),
+        value: record.normalizedEntropy,
+      }));
+
+      // Story 6.6: Semantic entropy (filter out undefined values)
+      const semanticPoints = chronological
+        .filter((record) => record.semanticEntropy !== undefined && record.semanticEntropy !== null)
+        .map((record) => ({
+          timestamp: record.recordedAt.toISOString(),
+          value: record.semanticEntropy!,
+        }));
+      if (semanticPoints.length > 0) {
+        semanticEntropy = semanticPoints;
+      }
+
+      // Story 6.6: Dual entropy (filter out undefined values)
+      const dualPoints = chronological
+        .filter((record) => record.dualEntropy !== undefined && record.dualEntropy !== null)
+        .map((record) => ({
+          timestamp: record.recordedAt.toISOString(),
+          value: record.dualEntropy!,
+        }));
+      if (dualPoints.length > 0) {
+        dualEntropy = dualPoints;
+      }
+
+      log.debug(
+        `[fetchRealTimeseries] Found ${entropyHistory.length} entropy records ` +
+        `(semantic: ${semanticPoints.length}, dual: ${dualPoints.length})`,
+      );
+    } else {
+      // Fallback to current value if no history
+      entropy = velocity.length > 0
+        ? velocity.map((v) => ({ timestamp: v.timestamp, value: currentEntropy }))
+        : [{ timestamp: new Date().toISOString(), value: currentEntropy }];
+      log.debug(`[fetchRealTimeseries] No entropy history, using current value`);
+    }
+
+    return { entropy, semanticEntropy, dualEntropy, stability, velocity };
   } catch (error) {
     log.warn(`[fetchRealTimeseries] Query failed: ${error}`);
     return generateFlatTimeseries(range, currentEntropy, currentStability, 0);
@@ -426,17 +508,88 @@ export async function handleEmergenceMetrics(
     };
     const tensorEntropyResult = computeTensorEntropy(entropyInput);
 
-    // Use Von Neumann entropy approximation as the primary metric
-    const graphEntropy = tensorEntropyResult.vonNeumannEntropy;
+    // Story 6.6: Compute semantic entropy from tool + capability embeddings
+    let semanticEntropyResult: SemanticEntropyResult | undefined;
+    if (ctx.db && snapshot.nodes.length > 0) {
+      try {
+        const embeddings = new Map<string, number[]>();
+        const nodeIds = snapshot.nodes.map((n) => n.id);
 
-    // Log comparison with old Shannon entropy for debugging
-    const edgeWeights = snapshot.edges.map((e) => e.confidence || 1);
-    const oldShannonEntropy = computeGraphEntropy(edgeWeights);
+        // 1. Fetch tool embeddings
+        const toolEmbeddings = await ctx.db.query(
+          `SELECT tool_id, embedding
+           FROM tool_embedding
+           WHERE tool_id = ANY($1)
+           AND embedding IS NOT NULL`,
+          [nodeIds],
+        );
+
+        for (const row of toolEmbeddings) {
+          const toolId = row.tool_id as string;
+          let embedding = row.embedding;
+          if (typeof embedding === "string") {
+            try { embedding = JSON.parse(embedding); } catch { continue; }
+          }
+          if (Array.isArray(embedding)) {
+            embeddings.set(toolId, embedding);
+          }
+        }
+
+        // 2. Fetch capability embeddings (from workflow_pattern)
+        // Capability IDs in graph are prefixed with "capability:"
+        const capabilityIds = nodeIds
+          .filter((id) => id.startsWith("capability:"))
+          .map((id) => id.replace("capability:", ""));
+
+        if (capabilityIds.length > 0) {
+          const capEmbeddings = await ctx.db.query(
+            `SELECT pattern_id, intent_embedding
+             FROM workflow_pattern
+             WHERE pattern_id = ANY($1)
+             AND intent_embedding IS NOT NULL`,
+            [capabilityIds],
+          );
+
+          for (const row of capEmbeddings) {
+            const capId = `capability:${row.pattern_id as string}`;
+            let embedding = row.intent_embedding;
+            if (typeof embedding === "string") {
+              try { embedding = JSON.parse(embedding); } catch { continue; }
+            }
+            if (Array.isArray(embedding)) {
+              embeddings.set(capId, embedding);
+            }
+          }
+        }
+
+        if (embeddings.size >= 2) {
+          semanticEntropyResult = computeSemanticEntropy(embeddings);
+          log.debug(
+            `[emergence] Semantic entropy: ${semanticEntropyResult.semanticEntropy.toFixed(3)}, ` +
+            `diversity=${semanticEntropyResult.semanticDiversity.toFixed(3)}, ` +
+            `embeddings=${embeddings.size}/${snapshot.nodes.length} (tools+caps)`,
+          );
+        }
+      } catch (err) {
+        log.warn(`[emergence] Failed to compute semantic entropy: ${err}`);
+      }
+    }
+
+    // Use normalized structural entropy as primary metric (Story 6.6)
+    // This is more meaningful for sparse graphs than Von Neumann
+    const graphEntropy = tensorEntropyResult.normalized;
+
+    // Compute dual entropy if semantic is available
+    const dualEntropy = semanticEntropyResult
+      ? computeDualEntropy(tensorEntropyResult.normalized, semanticEntropyResult.semanticEntropy)
+      : tensorEntropyResult.normalized;
+
     log.debug(
-      `[emergence] Entropy comparison: VonNeumann=${graphEntropy.toFixed(3)}, ` +
-        `Structural=${tensorEntropyResult.structuralEntropy.toFixed(3)}, ` +
-        `Shannon(old)=${oldShannonEntropy.toFixed(3)}, ` +
-        `health=${tensorEntropyResult.health}, hyperedges=${tensorEntropyResult.meta.hyperedgeCount}`,
+      `[emergence] Entropy: structural=${tensorEntropyResult.structuralEntropy.toFixed(3)}, ` +
+        `VN=${tensorEntropyResult.vonNeumannEntropy.toFixed(3)}, ` +
+        `normalized=${tensorEntropyResult.normalized.toFixed(3)}, ` +
+        `semantic=${semanticEntropyResult?.semanticEntropy.toFixed(3) ?? "N/A"}, ` +
+        `dual=${dualEntropy.toFixed(3)}, health=${tensorEntropyResult.health}`,
     );
 
     // CR-1: Real cluster stability using Jaccard similarity
@@ -507,8 +660,12 @@ export async function handleEmergenceMetrics(
     // Currently using default value until parallel workflow tracking is implemented
     const parallelizationRate = 0.3;
 
-    // Build tensor entropy metrics for API response
-    const tensorEntropyMetrics = toTensorEntropyMetrics(tensorEntropyResult);
+    // Build tensor entropy metrics for API response (Story 6.6: includes semantic/dual)
+    const tensorEntropyMetrics = toTensorEntropyMetrics(
+      tensorEntropyResult,
+      semanticEntropyResult,
+      dualEntropy,
+    );
 
     const currentMetrics = {
       graphEntropy,
@@ -578,8 +735,9 @@ export async function handleEmergenceMetrics(
     };
 
     // Save entropy snapshot to history (fire-and-forget, don't block response)
+    // Story 6.6: Now saves semantic entropy result for timeseries
     if (ctx.db) {
-      saveEntropySnapshot(ctx.db, tensorEntropyResult, undefined, userId).catch((err) => {
+      saveEntropySnapshot(ctx.db, tensorEntropyResult, semanticEntropyResult, userId).catch((err) => {
         log.warn(`[emergence] Failed to save entropy snapshot: ${err}`);
       });
     }

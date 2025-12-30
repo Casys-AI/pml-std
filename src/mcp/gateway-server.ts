@@ -43,8 +43,15 @@ import { CheckpointManager } from "../dag/checkpoint-manager.ts";
 import { EventsStreamManager } from "../server/events-stream.ts";
 import { PmlStdServer } from "../../lib/std/cap.ts";
 import type { AlgorithmTracer } from "../telemetry/algorithm-tracer.ts";
-import { buildHyperedgesFromSHGAT, cacheHyperedges, updateHyperedge } from "../cache/hyperedge-cache.ts";
+import { buildHyperedgesFromSHGAT, cacheHyperedges, getCachedHyperedges, updateHyperedge } from "../cache/hyperedge-cache.ts";
 import { eventBus } from "../events/mod.ts";
+import {
+  computeTensorEntropy,
+  saveEntropySnapshot,
+  snapshotToEntropyInput,
+  type EntropyGraphInput,
+} from "../graphrag/algorithms/tensor-entropy.ts";
+import { filterSnapshotByExecution, getExecutedToolIds } from "../graphrag/user-usage.ts";
 
 // Server types, constants, lifecycle, and HTTP server
 import {
@@ -179,6 +186,9 @@ class GraphSyncController {
     if (shgat) {
       await this.registerInSHGAT(shgat, capabilityId, toolIds);
     }
+
+    // 4. Compute and save entropy after graph change
+    await this.saveEntropyAfterChange();
   }
 
   private async handleCapabilityUpdated(payload: {
@@ -196,6 +206,58 @@ class GraphSyncController {
 
     // 2. Update hyperedge cache
     await updateHyperedge(capabilityId, toolIds);
+
+    // 3. Compute and save entropy after graph change
+    await this.saveEntropyAfterChange();
+  }
+
+  /**
+   * Compute and save entropy snapshot after graph structure changes.
+   * Uses scope=system filtering (all executed tools, not full graph).
+   * This ensures historical entropy data captures actual structural changes.
+   */
+  private async saveEntropyAfterChange(): Promise<void> {
+    if (!this.graphEngine) return;
+
+    try {
+      // Get full graph snapshot
+      const fullSnapshot = this.graphEngine.getGraphSnapshot();
+
+      // Filter by scope=system (all executed tools by any user)
+      const executedToolIds = await getExecutedToolIds(this.db, "system");
+      let snapshot = fullSnapshot;
+      if (executedToolIds.size > 0) {
+        snapshot = filterSnapshotByExecution(fullSnapshot, executedToolIds);
+      }
+
+      const baseInput = snapshotToEntropyInput(snapshot);
+
+      // Inject hyperedges from cache
+      const cachedHyperedges = await getCachedHyperedges();
+      const entropyInput: EntropyGraphInput = {
+        ...baseInput,
+        hyperedges: cachedHyperedges.length > 0
+          ? cachedHyperedges.map((he) => ({
+              id: he.capabilityId,
+              members: he.members,
+              weight: 1,
+            }))
+          : undefined,
+      };
+
+      // Compute entropy
+      const result = computeTensorEntropy(entropyInput);
+
+      // Save to history (system-level scope)
+      await saveEntropySnapshot(this.db, result, undefined, undefined);
+
+      log.debug(
+        `[GraphSyncController] Saved entropy snapshot (scope=system): VN=${result.vonNeumannEntropy.toFixed(3)}, ` +
+        `nodes=${result.meta.nodeCount}, edges=${result.meta.edgeCount}, hyperedges=${result.meta.hyperedgeCount}`
+      );
+    } catch (err) {
+      log.warn(`[GraphSyncController] Failed to save entropy: ${err}`);
+    }
   }
 
   private async registerInSHGAT(

@@ -35,6 +35,7 @@ import { AdaptiveThresholdManager } from "../../mcp/adaptive-threshold.ts";
 import { AlgorithmTracer } from "../../telemetry/algorithm-tracer.ts";
 import { ensureStdBundle } from "../../lib/std-loader.ts";
 import { bootstrapDI } from "../../infrastructure/di/mod.ts";
+import { GatewayBuilder } from "../../infrastructure/patterns/mod.ts";
 
 /**
  * Find and validate config file
@@ -383,33 +384,41 @@ export function createServeCommand() {
           );
         }
 
-        // 5. Create gateway server
+        // 5. Create gateway server using Builder pattern (Phase 2.5)
         log.info("Step 5/6: Starting MCP gateway...");
+        const gatewayDeps = new GatewayBuilder()
+          .withDatabase(db)
+          .withVectorSearch(vectorSearch)
+          .withGraphEngine(graphEngine)
+          .withDAGSuggester(dagSuggester)
+          .withExecutor(executor)
+          .withMCPClients(mcpClients)
+          .withCapabilityStore(capabilityStore)
+          .withAdaptiveThresholdManager(adaptiveThresholdManager)
+          .withEmbeddingModel(embeddingModel)
+          .withServerInfo("pml", "1.0.0")
+          .withSpeculation(options.speculative ?? false)
+          .withDefaultToolLimit(10)
+          .withPIIProtection({ enabled: piiProtectionEnabled })
+          .withCaching({
+            enabled: cacheEnabled,
+            maxEntries: 100,
+            ttlSeconds: 300,
+            persistence: false,
+          })
+          .build();
+
         const gateway = new PMLGatewayServer(
-          db,
-          vectorSearch,
-          graphEngine,
-          dagSuggester,
-          executor,
-          mcpClients,
-          capabilityStore,
-          adaptiveThresholdManager,
-          {
-            name: "pml",
-            version: "1.0.0",
-            enableSpeculative: options.speculative,
-            defaultToolLimit: 10,
-            piiProtection: {
-              enabled: piiProtectionEnabled,
-            },
-            cacheConfig: {
-              enabled: cacheEnabled,
-              maxEntries: 100,
-              ttlSeconds: 300,
-              persistence: false,
-            },
-          },
-          embeddingModel, // Story 10.7: Pass for SHGAT scoring
+          gatewayDeps.db,
+          gatewayDeps.vectorSearch,
+          gatewayDeps.graphEngine,
+          gatewayDeps.dagSuggester,
+          gatewayDeps.executor,
+          gatewayDeps.mcpClients,
+          gatewayDeps.capabilityStore,
+          gatewayDeps.adaptiveThresholdManager,
+          gatewayDeps.config,
+          gatewayDeps.embeddingModel,
         );
 
         // Story 7.6: Wire AlgorithmTracer to gateway for execute observability

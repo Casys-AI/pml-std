@@ -12,8 +12,6 @@ export * from "./types.ts";
 // Use Cases
 export { SearchCapabilitiesUseCase } from "./search-capabilities.ts";
 export type {
-  CapabilityRecord,
-  ICapabilityRepository,
-  IVectorSearch,
-  VectorSearchResult,
+  CapabilityMatch,
+  IDAGSuggester,
 } from "./search-capabilities.ts";

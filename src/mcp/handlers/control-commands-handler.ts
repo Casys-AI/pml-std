@@ -32,6 +32,19 @@ import {
 } from "../workflow-dag-store.ts";
 import { processGeneratorUntilPause } from "./workflow-execution-handler.ts";
 import type { WorkflowHandlerDependencies } from "./workflow-handler-types.ts";
+// Use case imports
+import {
+  AbortWorkflowUseCase,
+  type IWorkflowRepository as IAbortWorkflowRepository,
+  type ActiveWorkflowState as AbortActiveWorkflowState,
+} from "../../application/use-cases/workflows/abort-workflow.ts";
+import {
+  ReplanWorkflowUseCase,
+  type IWorkflowRepository as IReplanWorkflowRepository,
+  type IDAGSuggester as IReplanDAGSuggester,
+  type ActiveWorkflowState as ReplanActiveWorkflowState,
+} from "../../application/use-cases/workflows/replan-workflow.ts";
+import { eventBus } from "../../events/mod.ts";
 // Story 10.5 AC10: WorkerBridge-based executor for 100% traceability
 import {
   createToolExecutorViaWorker,
@@ -166,7 +179,74 @@ async function continueFromActiveWorkflow(
 }
 
 /**
- * Handle abort command (Story 2.5-4)
+ * Create workflow repository adapter for AbortWorkflowUseCase
+ */
+function createAbortWorkflowRepoAdapter(deps: WorkflowHandlerDependencies): IAbortWorkflowRepository {
+  return {
+    async getActiveWorkflow(workflowId: string): Promise<AbortActiveWorkflowState | null> {
+      const active = deps.activeWorkflows.get(workflowId);
+      if (!active) return null;
+      return {
+        workflowId,
+        status: active.status,
+        currentLayer: active.currentLayer,
+        layerResults: active.layerResults,
+        executor: active.executor,
+      };
+    },
+    async deleteWorkflow(workflowId: string): Promise<void> {
+      deps.activeWorkflows.delete(workflowId);
+      await deleteWorkflowDAG(deps.db, workflowId);
+    },
+    async getStoredDAG(workflowId: string): Promise<unknown | null> {
+      return await getWorkflowDAG(deps.db, workflowId);
+    },
+  };
+}
+
+/**
+ * Create workflow repository adapter for ReplanWorkflowUseCase
+ */
+function createReplanWorkflowRepoAdapter(deps: WorkflowHandlerDependencies): IReplanWorkflowRepository {
+  return {
+    async getActiveWorkflow(workflowId: string): Promise<ReplanActiveWorkflowState | null> {
+      const active = deps.activeWorkflows.get(workflowId);
+      if (!active) return null;
+      return {
+        workflowId,
+        dag: active.dag,
+        layerResults: active.layerResults,
+        executor: active.executor,
+      };
+    },
+    async getStoredDAG(workflowId: string) {
+      return await getWorkflowDAG(deps.db, workflowId);
+    },
+    async updateDAG(workflowId: string, dag) {
+      await updateWorkflowDAG(deps.db, workflowId, dag);
+      // Also update active workflow if exists
+      const active = deps.activeWorkflows.get(workflowId);
+      if (active) {
+        active.dag = dag;
+        active.lastActivityAt = new Date();
+      }
+    },
+  };
+}
+
+/**
+ * Create DAGSuggester adapter for ReplanWorkflowUseCase
+ */
+function createReplanDAGSuggesterAdapter(deps: WorkflowHandlerDependencies): IReplanDAGSuggester {
+  return {
+    replanDAG: (currentDag, context) => deps.dagSuggester.replanDAG(currentDag, context),
+  };
+}
+
+/**
+ * Handle abort command (Story 2.5-2)
+ *
+ * Thin handler that delegates to AbortWorkflowUseCase.
  */
 export async function handleAbort(
   args: unknown,
@@ -174,6 +254,7 @@ export async function handleAbort(
 ): Promise<MCPToolResponse | MCPErrorResponse> {
   const params = args as AbortArgs;
 
+  // MCP-level validation (snake_case param names)
   if (!params.workflow_id) {
     return formatMCPToolError("Missing required parameter: 'workflow_id'");
   }
@@ -184,46 +265,36 @@ export async function handleAbort(
 
   log.info(`handleAbort: workflow_id=${params.workflow_id}, reason=${params.reason}`);
 
-  // Check if workflow exists
-  const activeWorkflow = deps.activeWorkflows.get(params.workflow_id);
-  const dag = await getWorkflowDAG(deps.db, params.workflow_id);
+  // Create adapter and use case
+  const workflowRepo = createAbortWorkflowRepoAdapter(deps);
+  const useCase = new AbortWorkflowUseCase(workflowRepo, eventBus);
 
-  if (!activeWorkflow && !dag) {
+  // Execute use case (camelCase params)
+  const result = await useCase.execute({
+    workflowId: params.workflow_id,
+    reason: params.reason,
+  });
+
+  if (!result.success || !result.data) {
     return formatMCPToolError(
-      `Workflow ${params.workflow_id} not found or expired`,
-      { workflow_id: params.workflow_id },
+      result.error?.message ?? "Abort failed",
+      result.error?.details as Record<string, unknown> | undefined,
     );
   }
 
-  // Send abort command if workflow is active
-  if (activeWorkflow) {
-    activeWorkflow.executor.enqueueCommand({
-      type: "abort",
-      reason: params.reason,
-    });
-    activeWorkflow.status = "aborted";
-  }
-
-  // Collect partial results
-  const partialResults = activeWorkflow?.layerResults ?? [];
-  const completedLayers = activeWorkflow?.currentLayer ?? 0;
-
-  // Clean up resources
-  deps.activeWorkflows.delete(params.workflow_id);
-  await deleteWorkflowDAG(deps.db, params.workflow_id);
-
-  log.info(`Workflow ${params.workflow_id} aborted: ${params.reason}`);
-
+  // Map to MCP response format
   return formatAbortConfirmation(
-    params.workflow_id,
-    params.reason,
-    completedLayers,
-    partialResults,
+    result.data.workflowId,
+    result.data.reason,
+    result.data.completedLayers,
+    result.data.partialResults,
   );
 }
 
 /**
  * Handle replan command (Story 2.5-4)
+ *
+ * Thin handler that delegates to ReplanWorkflowUseCase.
  */
 export async function handleReplan(
   args: unknown,
@@ -231,6 +302,7 @@ export async function handleReplan(
 ): Promise<MCPToolResponse | MCPErrorResponse> {
   const params = args as ReplanArgs;
 
+  // MCP-level validation (snake_case param names)
   if (!params.workflow_id) {
     return formatMCPToolError("Missing required parameter: 'workflow_id'");
   }
@@ -243,69 +315,33 @@ export async function handleReplan(
     `handleReplan: workflow_id=${params.workflow_id}, new_requirement=${params.new_requirement}`,
   );
 
-  // Get current DAG
-  const currentDag = await getWorkflowDAG(deps.db, params.workflow_id);
-  if (!currentDag) {
+  // Create adapters and use case
+  const workflowRepo = createReplanWorkflowRepoAdapter(deps);
+  const dagSuggester = createReplanDAGSuggesterAdapter(deps);
+  const useCase = new ReplanWorkflowUseCase(workflowRepo, dagSuggester, eventBus);
+
+  // Execute use case (camelCase params)
+  const result = await useCase.execute({
+    workflowId: params.workflow_id,
+    newRequirement: params.new_requirement,
+    availableContext: params.available_context,
+  });
+
+  if (!result.success || !result.data) {
     return formatMCPToolError(
-      `Workflow ${params.workflow_id} not found or expired`,
-      { workflow_id: params.workflow_id },
+      result.error?.message ?? "Replan failed",
+      result.error?.details as Record<string, unknown> | undefined,
     );
   }
 
-  // Get active workflow state
-  const activeWorkflow = deps.activeWorkflows.get(params.workflow_id);
-  const completedTasks = activeWorkflow?.layerResults ?? [];
-
-  // Replan via DAGSuggester/GraphRAG
-  try {
-    const augmentedDAG = await deps.dagSuggester.replanDAG(currentDag, {
-      completedTasks: completedTasks.map((t) => ({
-        taskId: t.taskId,
-        status: t.status,
-        output: t.output,
-      })),
-      newRequirement: params.new_requirement,
-      availableContext: params.available_context ?? {},
-    });
-
-    // Calculate new tasks added
-    const newTasksCount = augmentedDAG.tasks.length - currentDag.tasks.length;
-    const newTaskIds = augmentedDAG.tasks
-      .filter((t) => !currentDag.tasks.some((ct) => ct.id === t.id))
-      .map((t) => t.id);
-
-    // Update DAG in database
-    await updateWorkflowDAG(deps.db, params.workflow_id, augmentedDAG);
-
-    // Update active workflow if exists
-    if (activeWorkflow) {
-      activeWorkflow.dag = augmentedDAG;
-      activeWorkflow.lastActivityAt = new Date();
-
-      // Send replan command to executor
-      activeWorkflow.executor.enqueueCommand({
-        type: "replan_dag",
-        newRequirement: params.new_requirement,
-        availableContext: params.available_context ?? {},
-      });
-    }
-
-    log.info(`Workflow ${params.workflow_id} replanned: ${newTasksCount} new tasks`);
-
-    return formatReplanConfirmation(
-      params.workflow_id,
-      params.new_requirement,
-      newTasksCount,
-      newTaskIds,
-      augmentedDAG.tasks.length,
-    );
-  } catch (error) {
-    log.error(`Replan failed: ${error}`);
-    return formatMCPToolError(
-      `Replanning failed: ${error instanceof Error ? error.message : String(error)}`,
-      { workflow_id: params.workflow_id },
-    );
-  }
+  // Map to MCP response format
+  return formatReplanConfirmation(
+    result.data.workflowId,
+    result.data.newRequirement,
+    result.data.newTasksAdded,
+    result.data.newTaskIds,
+    result.data.totalTasks,
+  );
 }
 
 /**

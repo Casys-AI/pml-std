@@ -12,6 +12,7 @@ import type { DbClient } from "../db/types.ts";
 import type { EmbeddingModelInterface } from "./embeddings.ts";
 import type { MCPTool } from "../mcp/types.ts";
 import { VectorSearchError } from "../errors/error-types.ts";
+import { eventBus } from "../events/mod.ts";
 
 /**
  * Search result from semantic vector search
@@ -74,6 +75,20 @@ export class VectorSearch {
       minScore = 0.7;
     }
 
+    const searchId = crypto.randomUUID().slice(0, 8);
+
+    // Emit vector.search.started event
+    eventBus.emit({
+      type: "vector.search.started",
+      source: "vector-search",
+      payload: {
+        searchId,
+        query: query.slice(0, 100),
+        topK,
+        minScore,
+      },
+    });
+
     try {
       log.info(`Searching for tools with query: "${query}" (topK=${topK}, minScore=${minScore})`);
 
@@ -82,6 +97,17 @@ export class VectorSearch {
       const queryEmbedding = await this.embeddingModel.encode(query);
       const embeddingTime = performance.now() - startEmbedding;
       log.debug(`Query embedding generated in ${embeddingTime.toFixed(2)}ms`);
+
+      // Emit vector.embedding.generated event
+      eventBus.emit({
+        type: "vector.embedding.generated",
+        source: "vector-search",
+        payload: {
+          searchId,
+          dimensions: queryEmbedding.length,
+          durationMs: embeddingTime,
+        },
+      });
 
       // AC2: Perform cosine similarity search with pgvector
       // AC4: Results sorted by relevance score (ORDER BY distance ASC = highest similarity first)
@@ -130,6 +156,18 @@ export class VectorSearch {
           ? JSON.parse(row.schema_json)
           : row.schema_json) as MCPTool,
       }));
+
+      // Emit vector.search.completed event
+      eventBus.emit({
+        type: "vector.search.completed",
+        source: "vector-search",
+        payload: {
+          searchId,
+          resultCount: searchResults.length,
+          topScore: searchResults[0]?.score ?? 0,
+          durationMs: searchTime,
+        },
+      });
 
       return searchResults;
     } catch (error) {
