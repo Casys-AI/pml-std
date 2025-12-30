@@ -41,6 +41,7 @@ export interface JSONSchema {
   items?: JSONSchema;
   description?: string;
   default?: JsonValue;
+  examples?: JsonValue[];
 }
 
 /**

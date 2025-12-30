@@ -62,7 +62,7 @@ export function createMigrateConfigCommand() {
       let yamlConfig: Record<string, unknown>;
       try {
         const yamlContent = await Deno.readTextFile(yamlPath);
-        yamlConfig = parseYAML(yamlContent);
+        yamlConfig = parseYAML(yamlContent) as Record<string, unknown>;
       } catch (error) {
         console.error(`❌ Failed to parse YAML config: ${error}`);
         Deno.exit(1);
@@ -78,10 +78,11 @@ export function createMigrateConfigCommand() {
         jsonConfig = {
           mcpServers: (yamlConfig.servers as Array<Record<string, unknown>>).reduce(
             (acc: Record<string, unknown>, server: Record<string, unknown>) => {
-              acc[server.id] = {
+              const serverId = server.id as string;
+              acc[serverId] = {
                 command: server.command,
-                ...(server.args && { args: server.args }),
-                ...(server.env && { env: server.env }),
+                ...(server.args ? { args: server.args } : {}),
+                ...(server.env ? { env: server.env } : {}),
               };
               return acc;
             },

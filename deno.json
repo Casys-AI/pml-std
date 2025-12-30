@@ -47,7 +47,7 @@
     "rebuild:all": "cd src/web && vite build && sudo systemctl restart casys-dashboard casys-api",
     "test": "deno test --allow-all --unstable-worker-options --unstable-broadcast-channel --unstable-kv --no-check --ignore=tests/benchmarks/",
     "test:unit": "deno task test:unit:fast && deno task test:unit:slow",
-    "test:unit:fast": "deno test --allow-all --unstable-worker-options --unstable-broadcast-channel --unstable-kv --no-check --parallel tests/unit/vector/ tests/unit/graphrag/ tests/unit/context/ tests/unit/telemetry/ tests/unit/db/ tests/unit/cli/ tests/unit/events/ tests/unit/health/ tests/unit/learning/ tests/unit/errors/ tests/unit/utils/ tests/unit/lib/ tests/unit/mcp/ tests/unit/web/",
+    "test:unit:fast": "deno test --allow-all --unstable-worker-options --unstable-broadcast-channel --unstable-kv --no-check --parallel tests/unit/vector/ tests/unit/graphrag/ tests/unit/context/ tests/unit/telemetry/ tests/unit/db/ tests/unit/cli/ tests/unit/events/ tests/unit/health/ tests/unit/learning/ tests/unit/errors/ tests/unit/utils/ tests/unit/lib/ tests/unit/mcp/ tests/unit/web/ tests/unit/cloud/",
     "test:unit:slow": "deno test --allow-all --unstable-worker-options --unstable-broadcast-channel --unstable-kv --no-check tests/unit/sandbox/ tests/unit/server/ tests/unit/capabilities/",
     "test:unit:legacy": "deno test --allow-all --unstable-worker-options --unstable-broadcast-channel --unstable-kv --no-check tests/unit/",
     "test:integration": "deno test --allow-all --unstable-worker-options --unstable-broadcast-channel --unstable-kv --no-check tests/integration/ --ignore=tests/integration/e2e_migration_test.ts",
@@ -87,6 +87,7 @@
     ]
   },
   "imports": {
+    "echarts": "npm:echarts@^6.0.0",
     "fresh": "jsr:@fresh/core@^2.0.0",
     "fresh/": "jsr:/@fresh/core@^2.0.0/",
     "@fresh/plugin-vite": "jsr:@fresh/plugin-vite@^1.0.0",
@@ -104,6 +105,7 @@
     "@std/fs": "jsr:@std/fs@1.0.19",
     "@std/log": "jsr:@std/log@0.224.14",
     "@std/yaml": "jsr:@std/yaml@1.0.10",
+    "@std/fmt/colors": "jsr:@std/fmt@1.0.8/colors",
     "@cliffy/command": "jsr:@cliffy/command@1.0.0-rc.8",
     "@electric-sql/pglite": "npm:@electric-sql/pglite@0.3.14",
     "@electric-sql/pglite/vector": "npm:@electric-sql/pglite@0.3.14/vector",

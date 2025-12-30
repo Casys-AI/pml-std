@@ -7,8 +7,8 @@
  * @module graphrag/algorithms/shgat-features
  */
 
-import { type AdamicAdarGraph, computeAdamicAdar } from "./adamic-adar.ts";
-import type { HypergraphFeatures, ToolGraphFeatures } from "./shgat.ts";
+import { type AdamicAdarGraph, type AdamicAdarResult, computeAdamicAdar } from "../adamic-adar.ts";
+import type { HypergraphFeatures, ToolGraphFeatures } from "./types.ts";
 
 // ============================================================================
 // Types
@@ -16,6 +16,7 @@ import type { HypergraphFeatures, ToolGraphFeatures } from "./shgat.ts";
 
 /**
  * Graph interface for feature computation
+ * Extends AdamicAdarGraph but all methods are required
  */
 export interface FeatureGraph extends AdamicAdarGraph {
   nodes(): IterableIterator<string>;
@@ -79,7 +80,7 @@ export function computeToolAdamicAdarScores(graph: FeatureGraph): Map<string, nu
     const aaResults = computeAdamicAdar(graph, nodeId, nodeIds.length);
     // Average score across all similar nodes
     const avgScore = aaResults.length > 0
-      ? aaResults.reduce((sum, r) => sum + r.score, 0) / aaResults.length
+      ? aaResults.reduce((sum: number, r: AdamicAdarResult) => sum + r.score, 0) / aaResults.length
       : 0;
     scores.set(nodeId, avgScore);
   }
@@ -187,7 +188,7 @@ export function computeToolHeatDiffusion(
   for (const nodeId of nodeIds) {
     const neighbors = graph.neighbors(nodeId);
     const neighborHeat = neighbors.length > 0
-      ? neighbors.reduce((sum, n) => sum + (intrinsicHeat.get(n) || 0), 0) / neighbors.length
+      ? neighbors.reduce((sum: number, n: string) => sum + (intrinsicHeat.get(n) || 0), 0) / neighbors.length
       : 0;
 
     const heat = config.intrinsicWeight * (intrinsicHeat.get(nodeId) || 0) +

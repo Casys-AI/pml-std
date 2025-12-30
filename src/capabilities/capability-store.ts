@@ -34,7 +34,7 @@ import type { SchemaInferrer } from "./schema-inferrer.ts";
 import type { PermissionInferrer } from "./permission-inferrer.ts";
 import type { StaticStructureBuilder } from "./static-structure-builder.ts";
 import type { CapabilityRegistry } from "./capability-registry.ts";
-import { transformCapabilityRefs } from "./code-transformer.ts";
+import { transformCapabilityRefs, transformLiteralsToArgs } from "./code-transformer.ts";
 // Story 6.5: EventBus integration (ADR-036)
 import { eventBus } from "../events/mod.ts";
 // Story 10.7c: Thompson Sampling risk classification
@@ -157,6 +157,32 @@ export class CapabilityStore {
       }
     }
 
+    // Transform literals to args.xxx for reusable capabilities
+    // Always parameterize - never store hardcoded values (tokens, paths, secrets, etc.)
+    let literalTransformSchema: Capability["parametersSchema"] | undefined;
+    if (staticStructure?.literalBindings) {
+      const literalBindings = staticStructure.literalBindings;
+      if (Object.keys(literalBindings).length > 0) {
+        try {
+          const literalResult = await transformLiteralsToArgs(code, literalBindings);
+          if (literalResult.replacedCount > 0) {
+            code = literalResult.code;
+            literalTransformSchema = literalResult.parametersSchema;
+            logger.info("Transformed literals to args for reusable capability", {
+              replacedCount: literalResult.replacedCount,
+              parameters: Object.keys(literalBindings),
+            });
+          }
+        } catch (error) {
+          // Non-critical: log warning and continue with original code
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          logger.warn("Literal transformation failed, continuing with original code", {
+            error: errorMsg,
+          });
+        }
+      }
+    }
+
     // Generate code hash for deduplication (after transformation)
     const codeHash = await hashCode(code);
 
@@ -175,10 +201,30 @@ export class CapabilityStore {
     const embeddingStr = `[${embedding.join(",")}]`;
 
     // Infer parameters schema from code (Story 7.2b)
-    let parametersSchema: Capability["parametersSchema"] | undefined;
+    // Start with schema from literal transformation (if any), then merge with inferred
+    let parametersSchema: Capability["parametersSchema"] | undefined = literalTransformSchema;
     if (this.schemaInferrer) {
       try {
-        parametersSchema = await this.schemaInferrer.inferSchema(code);
+        const inferredSchema = await this.schemaInferrer.inferSchema(code);
+        if (parametersSchema) {
+          // Merge: literal schema takes precedence, but add any additional inferred properties
+          parametersSchema = {
+            ...inferredSchema,
+            ...parametersSchema,
+            properties: {
+              ...inferredSchema.properties,
+              ...parametersSchema.properties,
+            },
+            required: [
+              ...new Set([
+                ...(inferredSchema.required || []),
+                ...(parametersSchema.required || []),
+              ]),
+            ],
+          };
+        } else {
+          parametersSchema = inferredSchema;
+        }
         logger.debug("Schema inferred for capability", {
           codeHash,
           properties: Object.keys(parametersSchema.properties || {}),

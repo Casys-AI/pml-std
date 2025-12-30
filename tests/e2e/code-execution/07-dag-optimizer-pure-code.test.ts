@@ -14,7 +14,7 @@ import { StaticStructureBuilder } from "../../../src/capabilities/static-structu
 import { staticStructureToDag } from "../../../src/dag/static-to-dag-converter.ts";
 import { optimizeDAG } from "../../../src/dag/dag-optimizer.ts";
 import { generateLogicalTrace } from "../../../src/dag/trace-generator.ts";
-import { setupTestDb, type TestDatabase } from "../../helpers/test-db.ts";
+import { initializeTestDatabase } from "../../fixtures/test-helpers.ts";
 
 // =============================================================================
 // E2E: Pure Code with Literals → Fusion → Execution → Traces
@@ -25,7 +25,7 @@ Deno.test({
   sanitizeOps: false,
   sanitizeResources: false,
   async fn() {
-    const db = await setupTestDb();
+    const db = await initializeTestDatabase();
 
     try {
       const builder = new StaticStructureBuilder(db);
@@ -105,7 +105,7 @@ Deno.test({
   sanitizeOps: false,
   sanitizeResources: false,
   async fn() {
-    const db = await setupTestDb();
+    const db = await initializeTestDatabase();
 
     try {
       const builder = new StaticStructureBuilder(db);
@@ -182,7 +182,7 @@ Deno.test({
   sanitizeOps: false,
   sanitizeResources: false,
   async fn() {
-    const db = await setupTestDb();
+    const db = await initializeTestDatabase();
 
     try {
       const builder = new StaticStructureBuilder(db);
@@ -253,7 +253,7 @@ Deno.test({
   sanitizeOps: false,
   sanitizeResources: false,
   async fn() {
-    const db = await setupTestDb();
+    const db = await initializeTestDatabase();
 
     try {
       const builder = new StaticStructureBuilder(db);

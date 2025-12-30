@@ -13,7 +13,7 @@ dist/
 build/
 _fresh/
 *.exe
-pml
+/pml
 lib/std/bundle.js
 
 # Logs

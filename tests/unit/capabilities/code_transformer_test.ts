@@ -9,7 +9,7 @@
  */
 
 import { assertEquals, assertExists } from "jsr:@std/assert@1.0.11";
-import { transformCapabilityRefs } from "../../../src/capabilities/code-transformer.ts";
+import { transformCapabilityRefs, transformLiteralsToArgs } from "../../../src/capabilities/code-transformer.ts";
 import type { CapabilityRegistry, Scope } from "../../../src/capabilities/capability-registry.ts";
 import type { CapabilityRecord } from "../../../src/capabilities/types.ts";
 
@@ -356,5 +356,162 @@ Deno.test({
     assertEquals(result.replacedCount, 0);
     // Code should remain unchanged
     assertEquals(result.code, code);
+  },
+});
+
+// =============================================================================
+// Unit Tests - Literal Parameterization (transformLiteralsToArgs)
+// =============================================================================
+
+Deno.test({
+  name: "LiteralTransform - transforms simple string literal to args.xxx",
+  fn: async () => {
+    const code = `const token = "sk-secret-123";
+await mcp.api.call({ auth: token });`;
+
+    const literalBindings = { token: "sk-secret-123" };
+
+    const result = await transformLiteralsToArgs(code, literalBindings);
+
+    assertExists(result);
+    assertEquals(result.replacedCount, 1);
+    // Token usage should be replaced with args.token
+    assertEquals(result.code.includes("args.token"), true);
+    // Declaration should be removed
+    assertEquals(result.code.includes('const token = "sk-secret-123"'), false);
+    // Schema should have token property
+    assertExists(result.parametersSchema.properties?.token);
+    assertEquals(result.parametersSchema.properties?.token?.type, "string");
+  },
+});
+
+Deno.test({
+  name: "LiteralTransform - transforms multiple literals",
+  fn: async () => {
+    const code = `const apiKey = "key-123";
+const limit = 100;
+await mcp.api.search({ key: apiKey, max: limit });`;
+
+    const literalBindings = {
+      apiKey: "key-123",
+      limit: 100,
+    };
+
+    const result = await transformLiteralsToArgs(code, literalBindings);
+
+    assertExists(result);
+    assertEquals(result.replacedCount, 2);
+    assertEquals(result.code.includes("args.apiKey"), true);
+    assertEquals(result.code.includes("args.limit"), true);
+    // Schema should have both properties
+    assertExists(result.parametersSchema.properties?.apiKey);
+    assertExists(result.parametersSchema.properties?.limit);
+    assertEquals(result.parametersSchema.properties?.apiKey?.type, "string");
+    assertEquals(result.parametersSchema.properties?.limit?.type, "integer");
+  },
+});
+
+Deno.test({
+  name: "LiteralTransform - transforms array literal",
+  fn: async () => {
+    const code = `const numbers = [1, 2, 3];
+const result = numbers.filter(n => n > 1);`;
+
+    const literalBindings = { numbers: [1, 2, 3] };
+
+    const result = await transformLiteralsToArgs(code, literalBindings);
+
+    assertExists(result);
+    assertEquals(result.code.includes("args.numbers"), true);
+    assertExists(result.parametersSchema.properties?.numbers);
+    assertEquals(result.parametersSchema.properties?.numbers?.type, "array");
+  },
+});
+
+Deno.test({
+  name: "LiteralTransform - handles empty literalBindings",
+  fn: async () => {
+    const code = `await mcp.api.call({ data: args.existing });`;
+
+    const result = await transformLiteralsToArgs(code, {});
+
+    assertExists(result);
+    assertEquals(result.replacedCount, 0);
+    assertEquals(result.code, code);
+    assertEquals(Object.keys(result.parametersSchema.properties || {}).length, 0);
+  },
+});
+
+Deno.test({
+  name: "LiteralTransform - preserves existing args.xxx references",
+  fn: async () => {
+    const code = `const extra = "value";
+await mcp.api.call({ existing: args.param, new: extra });`;
+
+    const literalBindings = { extra: "value" };
+
+    const result = await transformLiteralsToArgs(code, literalBindings);
+
+    assertExists(result);
+    // Should transform extra to args.extra
+    assertEquals(result.code.includes("args.extra"), true);
+    // Should preserve existing args.param
+    assertEquals(result.code.includes("args.param"), true);
+  },
+});
+
+Deno.test({
+  name: "LiteralTransform - generates correct schema with required fields",
+  fn: async () => {
+    const code = `const token = "abc";
+const debug = true;
+await mcp.api.call({ auth: token, verbose: debug });`;
+
+    const literalBindings = {
+      token: "abc",
+      debug: true,
+    };
+
+    const result = await transformLiteralsToArgs(code, literalBindings);
+
+    assertExists(result);
+    // All literals should be in required array
+    assertEquals(result.parametersSchema.required?.includes("token"), true);
+    assertEquals(result.parametersSchema.required?.includes("debug"), true);
+    // Boolean should have default value
+    assertEquals(result.parametersSchema.properties?.debug?.default, true);
+  },
+});
+
+Deno.test({
+  name: "LiteralTransform - handles parse errors gracefully",
+  fn: async () => {
+    const invalidCode = `const x = {{{ // invalid`;
+    const literalBindings = { x: 123 };
+
+    const result = await transformLiteralsToArgs(invalidCode, literalBindings);
+
+    assertExists(result);
+    assertEquals(result.replacedCount, 0);
+    assertEquals(result.code, invalidCode);
+  },
+});
+
+Deno.test({
+  name: "LiteralTransform - extracts literals for documentation",
+  fn: async () => {
+    const code = `const path = "/api/users";
+await mcp.http.get({ url: path });`;
+
+    const literalBindings = { path: "/api/users" };
+
+    const result = await transformLiteralsToArgs(code, literalBindings);
+
+    assertExists(result);
+    // Should preserve original value in extractedLiterals
+    assertEquals(result.extractedLiterals.path, "/api/users");
+    // Should have example in schema
+    const examples = result.parametersSchema.properties?.path?.examples as string[];
+    assertEquals(examples?.includes("/api/users"), true);
   },
 });

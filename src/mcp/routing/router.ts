@@ -12,6 +12,7 @@ import type { RouteContext } from "./types.ts";
 // Import route handlers from handlers/
 import {
   handleCapabilitiesRoutes,
+  handleEmergenceRoutes,
   handleGraphRoutes,
   handleHealthRoutes,
   handleMetricsRoutes,
@@ -45,6 +46,10 @@ export async function routeRequest(
   const metricsResponse = await handleMetricsRoutes(req, url, ctx, corsHeaders);
   if (metricsResponse) return metricsResponse;
 
+  // Emergence metrics API route (CAS/SYMBIOSIS)
+  const emergenceResponse = await handleEmergenceRoutes(req, url, ctx, corsHeaders);
+  if (emergenceResponse) return emergenceResponse;
+
   // Tools API routes
   const toolsResponse = handleToolsRoutes(req, url, ctx, corsHeaders);
   if (toolsResponse) return toolsResponse;
@@ -70,6 +75,7 @@ export function logRoutes(): void {
   log.info("    - POST /api/capabilities/:id/dependencies");
   log.info("    - DELETE /api/capabilities/:from/dependencies/:to");
   log.info("    - GET /api/metrics");
+  log.info("    - GET /api/metrics/emergence");
   log.info("    - GET /api/tools/search");
   log.info("    - POST /mcp (JSON-RPC)");
   log.info("    - GET /mcp (SSE)");

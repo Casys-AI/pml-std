@@ -44,3 +44,28 @@ export async function closeDb(): Promise<void> {
     db = null;
   }
 }
+
+/**
+ * Get raw database client for SQL queries
+ * Used by admin analytics which needs complex aggregations.
+ * Works with both PGlite (local) and PostgreSQL (cloud).
+ *
+ * @returns DbClient interface (query, queryOne)
+ */
+export async function getRawDb(): Promise<{
+  query: <T>(sql: string, params?: unknown[]) => Promise<T[]>;
+  queryOne: <T>(sql: string, params?: unknown[]) => Promise<T | null>;
+}> {
+  // Use the dual-mode database client from db/mod.ts
+  const { getDb: getDbClient } = await import("../../db/mod.ts");
+  const client = await getDbClient();
+
+  return {
+    async query<T>(sql: string, params?: unknown[]): Promise<T[]> {
+      return client.query(sql, params) as Promise<T[]>;
+    },
+    async queryOne<T>(sql: string, params?: unknown[]): Promise<T | null> {
+      return client.queryOne(sql, params) as Promise<T | null>;
+    },
+  };
+}
