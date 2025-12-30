@@ -10,6 +10,7 @@ import { Command } from "@cliffy/command";
 import * as log from "@std/log";
 import { createClient } from "../../db/mod.ts";
 import { getAllMigrations, MigrationRunner } from "../../db/migrations.ts";
+import { runDrizzleMigrationsAuto } from "../../db/drizzle.ts";
 import { MCPServerDiscovery } from "../../mcp/discovery.ts";
 import { MCPClient } from "../../mcp/client.ts";
 import { SmitheryMCPClient } from "../../mcp/smithery-client.ts";
@@ -245,9 +246,12 @@ export function createServeCommand() {
         const db = createClient();
         await db.connect();
 
-        // Run migrations
+        // Run migrations (custom .ts migrations)
         const runner = new MigrationRunner(db);
         await runner.runUp(getAllMigrations());
+
+        // Run Drizzle migrations (users table, etc.)
+        await runDrizzleMigrationsAuto();
 
         // 2.5 Auto-init if config changed (discovers tools & generates embeddings)
         const autoInitResult = await autoInitIfConfigChanged(configPath, db, {

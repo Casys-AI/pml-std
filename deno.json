@@ -155,7 +155,8 @@
     "@resvg/resvg-wasm": "npm:@resvg/resvg-wasm@^2.6.2",
     "hono": "jsr:@hono/hono@^4",
     "hono/": "jsr:@hono/hono@^4/",
-    "diod": "npm:diod@^3.0.0"
+    "diod": "npm:diod@^3.0.0",
+    "fastmcp": "npm:fastmcp@^3.26.7"
   },
   "compilerOptions": {
     "strict": true,

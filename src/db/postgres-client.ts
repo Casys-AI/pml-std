@@ -108,6 +108,32 @@ export class PostgresClient implements DbClient {
   }
 
   /**
+   * Try to execute query, returns null on error (no logging)
+   * Use for optional tables that may not exist
+   */
+  async tryQuery(sql: string, params?: unknown[]): Promise<Row[] | null> {
+    if (!this.sql) {
+      return null;
+    }
+    try {
+      const result = params && params.length > 0
+        ? await this.sql.unsafe(sql, params as any[])
+        : await this.sql.unsafe(sql);
+      return result as unknown as Row[];
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Try to execute single row query, returns null on error (no logging)
+   */
+  async tryQueryOne(sql: string, params?: unknown[]): Promise<Row | null> {
+    const rows = await this.tryQuery(sql, params);
+    return rows && rows.length > 0 ? rows[0] : null;
+  }
+
+  /**
    * Run a transaction
    */
   async transaction<T>(
