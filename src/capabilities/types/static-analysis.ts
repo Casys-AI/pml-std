@@ -100,6 +100,9 @@ export type LoopType = "for" | "while" | "forOf" | "forIn" | "doWhile";
  * Loop Abstraction: Loops are represented as a single node with their
  * body analyzed once. SHGAT learns the iteration pattern rather than
  * seeing repeated operations (which don't generalize well).
+ *
+ * Bug 2 Fix: Added `parentScope` to all node types for loop membership tracking.
+ * Nodes inside a loop have `parentScope` set to the loop's ID.
  */
 export type StaticStructureNode =
   | {
@@ -122,11 +125,13 @@ export type StaticStructureNode =
      * JavaScript code to execute, preserving callbacks and variable references.
      */
     code?: string;
+    /** Parent scope ID for containment tracking (loop membership, conditional branches) */
+    parentScope?: string;
   }
-  | { id: string; type: "decision"; condition: string }
-  | { id: string; type: "capability"; capabilityId: string }
-  | { id: string; type: "fork" }
-  | { id: string; type: "join" }
+  | { id: string; type: "decision"; condition: string; parentScope?: string }
+  | { id: string; type: "capability"; capabilityId: string; parentScope?: string }
+  | { id: string; type: "fork"; parentScope?: string }
+  | { id: string; type: "join"; parentScope?: string }
   | {
     id: string;
     type: "loop";
@@ -134,6 +139,8 @@ export type StaticStructureNode =
     condition: string;
     /** Type of loop for semantic understanding */
     loopType: LoopType;
+    /** Parent scope ID for nested loops */
+    parentScope?: string;
   };
 
 /**

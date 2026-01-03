@@ -1,17 +1,8 @@
 /**
  * Discover Handler (Story 10.6)
  *
- * Unified discovery API for tools and capabilities.
+ * Thin handler that delegates to DiscoverToolsUseCase and DiscoverCapabilitiesUseCase.
  * Implements Active Search mode from ADR-038.
- *
- * Algorithm (AC12-13 Unified Scoring Formula):
- * score = semanticScore × reliabilityFactor
- *
- * This simplifies the formula for pml_discover (search without context)
- * where graph relatedness (Adamic-Adar) returns 0 anyway.
- *
- * For tools: successRate defaults to 1.0 (cold start favorable)
- * For capabilities: successRate from capability.successRate
  *
  * @module mcp/handlers/discover-handler
  */
@@ -23,16 +14,17 @@ import type { DAGSuggester } from "../../graphrag/dag-suggester.ts";
 import type { MCPErrorResponse, MCPToolResponse } from "../server/types.ts";
 import { formatMCPSuccess } from "../server/responses.ts";
 import { addBreadcrumb, captureError, startTransaction } from "../../telemetry/sentry.ts";
-import type { HybridSearchResult } from "../../graphrag/types.ts";
-import type { CapabilityMatch } from "../../capabilities/types.ts";
 import type { CapabilityRegistry } from "../../capabilities/capability-registry.ts";
-import {
-  calculateReliabilityFactor,
-  DEFAULT_RELIABILITY_CONFIG,
-  GLOBAL_SCORE_CAP,
-  type ReliabilityConfig,
-} from "../../graphrag/algorithms/unified-search.ts";
 import type { IDecisionLogger } from "../../telemetry/decision-logger.ts";
+import type { SHGAT } from "../../graphrag/algorithms/shgat.ts";
+import type { EmbeddingModel } from "../../embeddings/types.ts";
+import type { IToolStore } from "../../tools/types.ts";
+import {
+  DiscoverToolsUseCase,
+  DiscoverCapabilitiesUseCase,
+  type DiscoveredTool,
+  type DiscoveredCapability,
+} from "../../application/use-cases/discover/mod.ts";
 
 /**
  * Discover request arguments
@@ -48,47 +40,9 @@ export interface DiscoverArgs {
 }
 
 /**
- * Related tool in discover response
+ * Unified discover result item (tool or capability)
  */
-interface RelatedToolResponse {
-  tool_id: string;
-  relation: string;
-  score: number;
-}
-
-/**
- * Unified discover result item
- *
- * Story 13.8: Added record_type field for pml_registry VIEW compatibility.
- * - type: Original field for backward compatibility ('tool' | 'capability')
- * - record_type: New field matching pml_registry VIEW ('mcp-tool' | 'capability')
- */
-interface DiscoverResultItem {
-  type: "tool" | "capability";
-  /** Record type matching pml_registry VIEW (Story 13.8) */
-  record_type: "mcp-tool" | "capability";
-  id: string;
-  name: string;
-  description: string;
-  score: number;
-  // Tool-specific fields
-  server_id?: string;
-  input_schema?: Record<string, unknown>;
-  related_tools?: RelatedToolResponse[];
-  // Capability-specific fields
-  code_snippet?: string;
-  success_rate?: number;
-  usage_count?: number;
-  semantic_score?: number;
-  /** How to call this capability: "namespace:action" format */
-  call_name?: string;
-  /** Inner capabilities called by this meta-capability */
-  called_capabilities?: Array<{
-    id: string;
-    call_name?: string;
-    input_schema?: Record<string, unknown>;
-  }>;
-}
+type DiscoverResultItem = DiscoveredTool | DiscoveredCapability;
 
 /**
  * Discover response format
@@ -98,54 +52,39 @@ interface DiscoverResponse {
   meta: {
     query: string;
     filter_type: string;
-    total_found: number; // Total matches before limit
-    returned_count: number; // Actual results returned after limit
+    total_found: number;
+    returned_count: number;
     tools_count: number;
     capabilities_count: number;
   };
 }
 
 /**
- * Compute unified discover score (AC12-13)
- *
- * Formula: score = semanticScore × reliabilityFactor
- *
- * This is the simplified formula for pml_discover (Active Search without context).
- * Graph relatedness (Adamic-Adar) is not used because contextNodes is empty.
- *
- * @param semanticScore - Vector similarity score (0-1)
- * @param successRate - Success rate (0-1), defaults to 1.0 for tools
- * @param config - Reliability thresholds configuration
- * @returns Final score capped at 0.95
+ * Dependencies for handleDiscover
  */
-export function computeDiscoverScore(
-  semanticScore: number,
-  successRate: number = 1.0,
-  config: ReliabilityConfig = DEFAULT_RELIABILITY_CONFIG,
-): number {
-  const reliabilityFactor = calculateReliabilityFactor(successRate, config);
-  const rawScore = semanticScore * reliabilityFactor;
-  return Math.min(rawScore, GLOBAL_SCORE_CAP);
+export interface DiscoverHandlerDeps {
+  vectorSearch: VectorSearch;
+  graphEngine: GraphRAGEngine;
+  dagSuggester: DAGSuggester;
+  toolStore: IToolStore;
+  capabilityRegistry?: CapabilityRegistry;
+  decisionLogger?: IDecisionLogger;
+  shgat?: SHGAT;
+  embeddingModel?: EmbeddingModel;
 }
 
 /**
  * Handle pml:discover request (Story 10.6)
  *
- * Unified search across tools and capabilities with merged, sorted results.
+ * Thin handler that delegates to use cases for tool and capability discovery.
  *
  * @param args - Discover arguments (intent, filter, limit, include_related)
- * @param vectorSearch - Vector search for semantic matching
- * @param graphEngine - GraphRAG engine for hybrid tool search
- * @param dagSuggester - DAG suggester for capability search
+ * @param deps - Handler dependencies
  * @returns Unified discover results
  */
 export async function handleDiscover(
   args: unknown,
-  vectorSearch: VectorSearch,
-  graphEngine: GraphRAGEngine,
-  dagSuggester: DAGSuggester,
-  capabilityRegistry?: CapabilityRegistry,
-  decisionLogger?: IDecisionLogger,
+  deps: DiscoverHandlerDeps,
 ): Promise<MCPToolResponse | MCPErrorResponse> {
   const transaction = startTransaction("mcp.discover", "mcp");
   const startTime = performance.now();
@@ -154,15 +93,13 @@ export async function handleDiscover(
   try {
     const params = args as DiscoverArgs;
 
-    // Validate required intent parameter (must be non-empty string)
+    // Validate required intent parameter
     if (!params.intent || typeof params.intent !== "string" || !params.intent.trim()) {
       transaction.finish();
       return {
         content: [{
           type: "text",
-          text: JSON.stringify({
-            error: "Missing or empty required parameter: 'intent'",
-          }),
+          text: JSON.stringify({ error: "Missing or empty required parameter: 'intent'" }),
         }],
       };
     }
@@ -170,8 +107,7 @@ export async function handleDiscover(
     const intent = params.intent;
     const filterType = params.filter?.type ?? "all";
     const minScore = params.filter?.minScore ?? 0.0;
-    const limit = Math.min(params.limit ?? 1, 50); // Default 1, Max 50
-    const includeRelated = params.include_related ?? false;
+    const limit = Math.min(params.limit ?? 1, 50);
 
     transaction.setData("intent", intent);
     transaction.setData("filter_type", filterType);
@@ -186,44 +122,61 @@ export async function handleDiscover(
 
     // Search tools if filter allows
     if (filterType === "all" || filterType === "tool") {
-      const toolResults = await searchTools(
+      const toolsUseCase = new DiscoverToolsUseCase({
+        toolStore: deps.toolStore,
+        shgat: deps.shgat,
+        embeddingModel: deps.embeddingModel,
+        graphEngine: deps.graphEngine,
+        vectorSearch: deps.vectorSearch,
+        decisionLogger: deps.decisionLogger,
+      });
+
+      const toolsResult = await toolsUseCase.execute({
         intent,
-        vectorSearch,
-        graphEngine,
         limit,
-        includeRelated,
         minScore,
         correlationId,
-        decisionLogger,
-      );
-      for (const tool of toolResults) {
-        if (tool.score >= minScore) {
-          results.push(tool);
-          toolsCount++;
+      });
+
+      if (toolsResult.success && toolsResult.data) {
+        for (const tool of toolsResult.data.tools) {
+          if (tool.score >= minScore) {
+            results.push(tool);
+            toolsCount++;
+          }
         }
       }
     }
 
     // Search capabilities if filter allows
     if (filterType === "all" || filterType === "capability") {
-      const capabilityResult = await searchCapability(
+      const capsUseCase = new DiscoverCapabilitiesUseCase({
+        capabilityMatcher: deps.dagSuggester,
+        capabilityRegistry: deps.capabilityRegistry,
+        shgat: deps.shgat,
+        embeddingModel: deps.embeddingModel,
+        decisionLogger: deps.decisionLogger,
+      });
+
+      const capsResult = await capsUseCase.execute({
         intent,
-        dagSuggester,
-        capabilityRegistry,
+        limit,
         minScore,
         correlationId,
-        decisionLogger,
-      );
-      if (capabilityResult && capabilityResult.score >= minScore) {
-        results.push(capabilityResult);
-        capabilitiesCount++;
+      });
+
+      if (capsResult.success && capsResult.data) {
+        for (const cap of capsResult.data.capabilities) {
+          if (cap.score >= minScore) {
+            results.push(cap);
+            capabilitiesCount++;
+          }
+        }
       }
     }
 
-    // Sort by score descending
+    // Sort by score descending and apply limit
     results.sort((a, b) => b.score - a.score);
-
-    // Apply limit after merge and sort
     const limitedResults = results.slice(0, limit);
 
     const response: DiscoverResponse = {
@@ -231,8 +184,8 @@ export async function handleDiscover(
       meta: {
         query: intent,
         filter_type: filterType,
-        total_found: results.length, // Before limit
-        returned_count: limitedResults.length, // After limit
+        total_found: results.length,
+        returned_count: limitedResults.length,
         tools_count: toolsCount,
         capabilities_count: capabilitiesCount,
       },
@@ -240,245 +193,55 @@ export async function handleDiscover(
 
     const elapsedMs = performance.now() - startTime;
     log.info(
-      `discover: found ${limitedResults.length} results (${toolsCount} tools, ${capabilitiesCount} capabilities) in ${
-        elapsedMs.toFixed(1)
-      }ms`,
+      `discover: found ${limitedResults.length} results (${toolsCount} tools, ${capabilitiesCount} caps) in ${elapsedMs.toFixed(1)}ms`,
     );
 
     transaction.finish();
     return formatMCPSuccess(response);
   } catch (error) {
     log.error(`discover error: ${error}`);
-    captureError(error as Error, {
-      operation: "discover",
-      handler: "handleDiscover",
-    });
+    captureError(error as Error, { operation: "discover", handler: "handleDiscover" });
     transaction.finish();
     return {
       content: [{
         type: "text",
-        text: JSON.stringify({
-          error: `Discover failed: ${(error as Error).message}`,
-        }),
+        text: JSON.stringify({ error: `Discover failed: ${(error as Error).message}` }),
       }],
     };
   }
 }
 
 /**
- * Search tools using unified scoring (AC12-13)
+ * Legacy signature adapter for backward compatibility
  *
- * For pml_discover (Active Search without context), we use simplified formula:
- * score = semanticScore × reliabilityFactor
- *
- * Tools default to successRate=1.0 (cold start favorable).
- * Graph relatedness is not used since contextNodes is empty.
+ * Wraps the new deps-based handleDiscover for code that still uses positional args.
+ * @deprecated Use handleDiscover(args, deps) instead
  */
-async function searchTools(
-  intent: string,
+export async function handleDiscoverLegacy(
+  args: unknown,
   vectorSearch: VectorSearch,
   graphEngine: GraphRAGEngine,
-  limit: number,
-  includeRelated: boolean,
-  minScore: number,
-  correlationId?: string,
-  decisionLogger?: IDecisionLogger,
-): Promise<DiscoverResultItem[]> {
-  const hybridResults: HybridSearchResult[] = await graphEngine.searchToolsHybrid(
-    vectorSearch,
-    intent,
-    limit,
-    [], // contextTools - empty for pml_discover
-    includeRelated,
-    undefined, // minScore
-    correlationId,
-  );
-
-  return hybridResults.map((result) => {
-    // AC12: Apply unified formula: score = semantic × reliability
-    // Tools don't have successRate yet, default to 1.0 (cold start favorable)
-    const toolSuccessRate = 1.0;
-    const unifiedScore = computeDiscoverScore(result.semanticScore, toolSuccessRate);
-
-    // Trace tool scoring decision
-    decisionLogger?.logDecision({
-      algorithm: "HybridSearch",
-      mode: "active_search",
-      targetType: "tool",
-      intent,
-      finalScore: unifiedScore,
-      threshold: minScore,
-      decision: unifiedScore >= minScore ? "accepted" : "rejected",
-      targetId: result.toolId,
-      correlationId,
-      signals: {
-        semanticScore: result.semanticScore,
-        successRate: toolSuccessRate,
-      },
-      params: {
-        reliabilityFactor: 1.0,
-      },
-    });
-
-    const item: DiscoverResultItem = {
-      type: "tool",
-      record_type: "mcp-tool", // Story 13.8: pml_registry VIEW compatibility
-      id: result.toolId,
-      name: extractToolName(result.toolId),
-      description: result.description,
-      score: unifiedScore, // Use unified score instead of finalScore
-      server_id: result.serverId,
-      input_schema: result.schema?.inputSchema as Record<string, unknown> | undefined,
-    };
-
-    // Add related tools if present
-    if (result.relatedTools && result.relatedTools.length > 0) {
-      item.related_tools = result.relatedTools.map((rt) => ({
-        tool_id: rt.toolId,
-        relation: rt.relation,
-        score: rt.score,
-      }));
-    }
-
-    return item;
-  });
-}
-
-/**
- * Search capabilities using CapabilityMatcher (AC12-13)
- *
- * The CapabilityMatcher already applies the unified formula:
- * score = semanticScore × reliabilityFactor × transitiveReliability
- *
- * Transitive reliability (ADR-042 §3) propagates through dependencies:
- * if A depends on B, A's reliability = min(A.successRate, B.successRate)
- *
- * We use match.score directly which includes all reliability factors.
- */
-async function searchCapability(
-  intent: string,
   dagSuggester: DAGSuggester,
   capabilityRegistry?: CapabilityRegistry,
-  minScore: number = 0,
-  correlationId?: string,
   decisionLogger?: IDecisionLogger,
-): Promise<DiscoverResultItem | null> {
-  const match: CapabilityMatch | null = await dagSuggester.searchCapabilities(
-    intent,
-    correlationId,
-  );
-
-  if (!match) {
-    // Trace no match found
-    decisionLogger?.logDecision({
-      algorithm: "CapabilityMatcher",
-      mode: "active_search",
-      targetType: "capability",
-      intent,
-      finalScore: 0,
-      threshold: minScore,
-      decision: "rejected",
-      correlationId,
-    });
-    return null;
-  }
-
-  // Trace capability match decision
-  decisionLogger?.logDecision({
-    algorithm: "CapabilityMatcher",
-    mode: "active_search",
-    targetType: "capability",
-    intent,
-    finalScore: match.score,
-    threshold: minScore,
-    decision: match.score >= minScore ? "accepted" : "rejected",
-    targetId: match.capability.id,
-    correlationId,
-    signals: {
-      semanticScore: match.semanticScore,
-      successRate: match.capability.successRate,
-    },
-    params: {
-      reliabilityFactor: match.capability.successRate ?? 1.0,
-    },
-  });
-
-  // AC12-13: CapabilityMatcher.findMatch() already computes:
-  // score = semanticScore × reliabilityFactor × transitiveReliability
-  // See matcher.ts:187-188 and computeTransitiveReliability() for implementation
-
-  // Get namespace:action from capability_records via registry (preferred)
-  // Note: match.capability.id is workflow_pattern.pattern_id, not capability_records.id
-  // Fallback to parsing FQDN if registry not available
-  let callName: string | undefined;
-  if (capabilityRegistry) {
-    const record = await capabilityRegistry.getByWorkflowPatternId(match.capability.id);
-    if (record) {
-      callName = `${record.namespace}:${record.action}`;
-    }
-  } else if (match.capability.fqdn) {
-    // Fallback: Extract from FQDN (format: org.project.namespace.action.hash)
-    const parts = match.capability.fqdn.split(".");
-    if (parts.length >= 5) {
-      callName = `${parts[2]}:${parts[3]}`;
-    }
-  }
-
-  // Parse $cap:uuid references from code to find called capabilities
-  const calledCapabilities: Array<{
-    id: string;
-    call_name?: string;
-    input_schema?: Record<string, unknown>;
-  }> = [];
-
-  if (match.capability.codeSnippet && capabilityRegistry) {
-    // Find all $cap:uuid patterns in the code
-    const capRefPattern = /\$cap:([a-f0-9-]{36})/g;
-    let capMatch;
-    const seenIds = new Set<string>();
-
-    while ((capMatch = capRefPattern.exec(match.capability.codeSnippet)) !== null) {
-      const capUuid = capMatch[1];
-      if (seenIds.has(capUuid)) continue;
-      seenIds.add(capUuid);
-
-      // Look up the inner capability by its workflow_pattern_id
-      const innerRecord = await capabilityRegistry.getByWorkflowPatternId(capUuid);
-      if (innerRecord) {
-        // Get the capability's schema from the store
-        const innerCap = await dagSuggester.getCapabilityStore()?.findById(capUuid);
-        calledCapabilities.push({
-          id: capUuid,
-          call_name: `${innerRecord.namespace}:${innerRecord.action}`,
-          input_schema: innerCap?.parametersSchema as Record<string, unknown> | undefined,
-        });
-      }
-    }
-  }
-
-  return {
-    type: "capability",
-    record_type: "capability", // Story 13.8: pml_registry VIEW compatibility
-    id: match.capability.id,
-    name: match.capability.name ?? match.capability.id.substring(0, 8),
-    description: match.capability.description ?? "Learned capability",
-    score: match.score, // Already includes reliability + transitive
-    code_snippet: match.capability.codeSnippet,
-    success_rate: match.capability.successRate,
-    usage_count: match.capability.usageCount,
-    semantic_score: match.semanticScore,
-    call_name: callName,
-    input_schema: match.parametersSchema as Record<string, unknown> | undefined,
-    called_capabilities: calledCapabilities.length > 0 ? calledCapabilities : undefined,
+  shgat?: SHGAT,
+  embeddingModel?: EmbeddingModel,
+  toolStore?: IToolStore,
+): Promise<MCPToolResponse | MCPErrorResponse> {
+  // If no toolStore provided, create a minimal stub that returns empty
+  const store: IToolStore = toolStore ?? {
+    findById: async () => undefined,
+    findByIds: async () => new Map(),
   };
-}
 
-/**
- * Extract tool name from tool ID
- *
- * @example "filesystem:read_file" → "read_file"
- */
-function extractToolName(toolId: string): string {
-  const parts = toolId.split(":");
-  return parts.length > 1 ? parts.slice(1).join(":") : toolId;
+  return handleDiscover(args, {
+    vectorSearch,
+    graphEngine,
+    dagSuggester,
+    toolStore: store,
+    capabilityRegistry,
+    decisionLogger,
+    shgat,
+    embeddingModel,
+  });
 }

@@ -31,6 +31,7 @@ import {
 import {
   countParameters,
   exportParams as exportParamsHelper,
+  getAdaptiveHeadsByGraphSize,
   importParams as importParamsHelper,
   initializeLevelParameters,
   initializeParameters,
@@ -1433,9 +1434,26 @@ export function createSHGATFromCapabilities(
     actualConfig = configOrToolEmbeddings;
   }
 
-  const shgat = new SHGAT(actualConfig);
+  // Collect all unique tools
   const allTools = new Set<string>();
   for (const cap of capabilities) for (const toolId of cap.toolsUsed) allTools.add(toolId);
+
+  // Compute max hierarchy level from children relationships
+  const hasChildren = capabilities.some((c) => c.children && c.children.length > 0);
+  const maxLevel = hasChildren ? 1 : 0; // Simple heuristic, actual level computed in rebuildHierarchy
+
+  // Adaptive K based on graph size (ADR-053)
+  const adaptiveConfig = getAdaptiveHeadsByGraphSize(allTools.size, capabilities.length, maxLevel);
+
+  // Merge: user config overrides adaptive, adaptive overrides defaults
+  const mergedConfig: Partial<SHGATConfig> = {
+    numHeads: adaptiveConfig.numHeads,
+    hiddenDim: adaptiveConfig.hiddenDim,
+    headDim: adaptiveConfig.headDim,
+    ...actualConfig, // User config takes precedence
+  };
+
+  const shgat = new SHGAT(mergedConfig);
 
   const embeddingDim = capabilities[0]?.embedding.length || 1024;
   for (const toolId of allTools) {

@@ -26,3 +26,4 @@ export * from "./dag-executor.ts";
 export * from "./event-bus.ts";
 export * from "./graph-engine.ts";
 export * from "./mcp-client-registry.ts";
+export * from "./tool-repository.ts";

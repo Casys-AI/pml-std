@@ -118,10 +118,13 @@ function buildSuggestionDeps(deps: ExecuteDependencies) {
 /**
  * Execute request arguments
  *
- * Three execution modes:
+ * Two primary execution modes:
  * 1. **Direct** (intent + code): Execute code → Create capability with trace
- * 2. **Call-by-Name** (intent + capability): Execute existing named capability
- * 3. **Suggestion** (intent only): DR-DSP search → Execute or return suggestions
+ * 2. **Suggestion** (intent only): DR-DSP search → Return suggestions
+ *
+ * Two response patterns (to previous execute responses):
+ * 3. **Accept Suggestion**: Execute a capability/tool from suggestedDag
+ * 4. **Continue Workflow**: Resume a paused workflow (approval_required)
  *
  * @example Direct mode (create new capability)
  * ```typescript
@@ -129,67 +132,93 @@ function buildSuggestionDeps(deps: ExecuteDependencies) {
  *   intent: "read JSON config",
  *   code: "const config = await mcp.filesystem.read_file({ path: 'config.json' });"
  * })
- * // Capability deduplicated by code_hash - same code = same capability
- * // Naming done separately via cap:name API
  * ```
  *
- * @example Call-by-Name mode (reuse existing)
+ * @example Suggestion mode → Accept flow
  * ```typescript
+ * // Step 1: Get suggestions
+ * pml_execute({ intent: "read JSON config" })
+ * // Response: { status: "suggestions", suggestions: { suggestedDag: { tasks: [{ callName: "fs:read_json", inputSchema: {...} }] } } }
+ *
+ * // Step 2: Accept the suggestion
  * pml_execute({
- *   intent: "read JSON config",
- *   capability: "my-config-reader",
- *   args: { path: "other-config.json" }
+ *   accept_suggestion: { callName: "fs:read_json", args: { path: "config.json" } }
+ * })
+ * ```
+ *
+ * @example Continue paused workflow
+ * ```typescript
+ * // Response with status="approval_required" includes workflow_id
+ * pml_execute({
+ *   continue_workflow: { workflow_id: "abc-123", approved: true }
  * })
  * ```
  */
 export interface ExecuteArgs {
-  /** Natural language description of the intent (REQUIRED) */
-  intent: string;
+  /**
+   * Natural language description of the intent
+   *
+   * REQUIRED for Direct and Suggestion modes.
+   * OPTIONAL for response patterns (accept_suggestion, continue_workflow).
+   */
+  intent?: string;
   /** TypeScript code to execute (OPTIONAL - triggers Mode Direct) */
   code?: string;
-  /**
-   * Name of existing capability to execute (triggers Mode Call-by-Name)
-   *
-   * When provided, looks up the capability by name and executes its code.
-   * Mutually exclusive with `code` parameter.
-   *
-   * Name format: MCP-compatible with double underscores
-   * @example "mcp__filesystem__read_json", "mcp__github__create_issue"
-   */
-  capability?: string;
-  /**
-   * Arguments for capability execution (Mode Call-by-Name only)
-   *
-   * These args are merged with the capability's default parameters.
-   * Args override defaults when both are present.
-   */
-  args?: Record<string, JsonValue>;
   /** Execution options */
   options?: {
     timeout?: number;
     per_layer_validation?: boolean;
   };
+
+  // =========================================================================
+  // Response Patterns (to previous execute responses)
+  // =========================================================================
+
   /**
-   * Resume a paused workflow (Mode Resume)
+   * Accept a suggestion from a previous Suggestion mode response
    *
-   * Workflow ID from a previous execution that returned status="approval_required"
-   * Use with `approved` to continue or abort the workflow.
+   * Used to execute a capability/tool that was suggested by the system.
+   * The callName comes from suggestedDag.tasks[n].callName in the previous response.
    *
-   * @example Resume with approval
+   * @example
    * ```typescript
-   * pml_execute({ intent: "continue workflow", resume: "abc-123", approved: true })
+   * pml_execute({
+   *   accept_suggestion: {
+   *     callName: "fs:read_json",  // From suggestedDag.tasks[0].callName
+   *     args: { path: "config.json" }  // Built according to inputSchema
+   *   }
+   * })
    * ```
    */
-  resume?: string;
+  accept_suggestion?: {
+    /** Call name from suggestedDag (e.g., "fs:read_json", "namespace:action") */
+    callName: string;
+    /** Arguments for execution, built according to the inputSchema */
+    args?: Record<string, JsonValue>;
+  };
+
   /**
-   * Approval decision for resume mode
+   * Continue a paused workflow
    *
-   * - `true`: Continue workflow execution
-   * - `false`: Abort workflow
+   * Used to respond to a previous execution that returned status="approval_required".
+   * The workflow_id comes from the previous response's workflowId field.
    *
-   * Required when `resume` is provided.
+   * @example
+   * ```typescript
+   * pml_execute({
+   *   continue_workflow: {
+   *     workflow_id: "abc-123",  // From previous response
+   *     approved: true  // true = continue, false = abort
+   *   }
+   * })
+   * ```
    */
-  approved?: boolean;
+  continue_workflow?: {
+    /** Workflow ID from the previous response */
+    workflow_id: string;
+    /** Approval decision: true to continue, false to abort */
+    approved: boolean;
+  };
 }
 
 /**
@@ -213,8 +242,8 @@ export interface ExecuteResponse {
    * Example: "local.default.fs.read_json.a7f3"
    */
   capabilityFqdn?: string;
-  /** "direct" = code provided, "speculation" = capability reused (Epic-12, disabled) */
-  mode?: "direct" | "speculation" | "call_by_name";
+  /** "direct" = code provided, "speculation" = capability reused (Epic-12, disabled), "accept_suggestion" = executed from suggestion */
+  mode?: "direct" | "speculation" | "accept_suggestion";
   executionTimeMs?: number;
 
   // Mode approval_required (per-layer validation)
@@ -253,12 +282,17 @@ const DEFAULT_SCOPE: Scope = {
 /**
  * Handle pml:execute request (Story 10.7 + Story 13.2)
  *
- * Unified execution API with three modes:
- * - **Direct** (intent + code): Execute → Create capability with trace
- * - **Call-by-Name** (intent + capability): Execute existing named capability
- * - **Suggestion** (intent only): DR-DSP → Execute or return suggestions
+ * Unified execution API with two primary modes and two response patterns:
  *
- * @param args - Execute arguments (intent required, code/capability optional)
+ * Primary modes:
+ * - **Direct** (intent + code): Execute → Create capability with trace
+ * - **Suggestion** (intent only): DR-DSP → Return suggestions
+ *
+ * Response patterns (to previous execute responses):
+ * - **Accept Suggestion**: Execute a capability/tool from suggestedDag
+ * - **Continue Workflow**: Resume a paused workflow (approval_required)
+ *
+ * @param args - Execute arguments
  * @param deps - Handler dependencies
  * @returns Execution result or suggestions
  */
@@ -272,67 +306,40 @@ export async function handleExecute(
   try {
     const params = args as ExecuteArgs;
 
-    // Validate required intent parameter
-    if (!params.intent || typeof params.intent !== "string" || !params.intent.trim()) {
-      transaction.finish();
-      return formatMCPToolError(
-        "Missing or empty required parameter: 'intent' must be a non-empty string",
-      );
-    }
+    // =========================================================================
+    // Response Pattern: Continue Workflow (approval_required response)
+    // =========================================================================
+    if (params.continue_workflow) {
+      const { workflow_id, approved } = params.continue_workflow;
 
-    const intent = params.intent.trim();
-    const code = params.code?.trim();
-    const capabilityName = params.capability?.trim();
-    const providedArgs = params.args ?? {};
-    const options = params.options ?? {};
-
-    // Determine execution mode
-    const mode = capabilityName ? "call_by_name" : code ? "direct" : "suggestion";
-
-    transaction.setData("intent", intent.substring(0, 100));
-    transaction.setData("mode", mode);
-    addBreadcrumb("mcp", "Processing execute request", {
-      intent: intent.substring(0, 50),
-      hasCode: !!code,
-      hasCapability: !!capabilityName,
-    });
-
-    log.info(
-      `pml:execute: intent="${intent.substring(0, 50)}...", mode=${mode}`,
-    );
-
-    // Validate mutual exclusivity (capability and code cannot both be present)
-    if (capabilityName && code) {
-      transaction.finish();
-      return formatMCPToolError(
-        "Cannot use both 'code' and 'capability' parameters. " +
-          "Use 'code' for new execution or 'capability' to call existing.",
-      );
-    }
-
-    // Mode Resume: Continue a paused workflow
-    if (params.resume) {
-      if (params.approved === undefined) {
+      if (!workflow_id || typeof workflow_id !== "string") {
         transaction.finish();
         return formatMCPToolError(
-          "Missing 'approved' parameter. When using 'resume', you must specify approved: true or false.",
+          "Invalid continue_workflow: 'workflow_id' must be a non-empty string.",
+        );
+      }
+
+      if (approved === undefined || typeof approved !== "boolean") {
+        transaction.finish();
+        return formatMCPToolError(
+          "Invalid continue_workflow: 'approved' must be a boolean (true or false).",
         );
       }
 
       if (!deps.workflowDeps) {
         transaction.finish();
-        return formatMCPToolError("Resume mode requires workflowDeps configuration.");
+        return formatMCPToolError("Continue workflow requires workflowDeps configuration.");
       }
 
-      log.info(`pml:execute: resuming workflow ${params.resume}, approved=${params.approved}`);
-      transaction.setData("mode", "resume");
+      log.info(`pml:execute: continue_workflow ${workflow_id}, approved=${approved}`);
+      transaction.setData("mode", "continue_workflow");
 
       // Delegate to existing approval handler
       const result = await handleApprovalResponse(
         {
-          workflow_id: params.resume,
-          checkpoint_id: deps.workflowDeps.activeWorkflows.get(params.resume)?.latestCheckpointId,
-          approved: params.approved,
+          workflow_id,
+          checkpoint_id: deps.workflowDeps.activeWorkflows.get(workflow_id)?.latestCheckpointId,
+          approved,
         },
         deps.workflowDeps,
       );
@@ -340,20 +347,66 @@ export async function handleExecute(
       return result;
     }
 
-    // Route to appropriate mode
-    if (capabilityName) {
-      // Mode Call-by-Name: Execute existing capability by name
-      const result = await executeByNameMode(
-        intent,
-        capabilityName,
-        providedArgs,
-        options,
+    // =========================================================================
+    // Response Pattern: Accept Suggestion (suggestions response)
+    // =========================================================================
+    if (params.accept_suggestion) {
+      const { callName, args: providedArgs } = params.accept_suggestion;
+
+      if (!callName || typeof callName !== "string") {
+        transaction.finish();
+        return formatMCPToolError(
+          "Invalid accept_suggestion: 'callName' must be a non-empty string.",
+        );
+      }
+
+      log.info(`pml:execute: accept_suggestion callName="${callName}"`);
+      transaction.setData("mode", "accept_suggestion");
+
+      const result = await executeAcceptedSuggestion(
+        callName,
+        providedArgs ?? {},
+        params.options ?? {},
         deps,
         startTime,
       );
       transaction.finish();
       return result;
-    } else if (code) {
+    }
+
+    // =========================================================================
+    // Primary Modes: Direct and Suggestion (require intent)
+    // =========================================================================
+
+    // Validate required intent parameter for primary modes
+    if (!params.intent || typeof params.intent !== "string" || !params.intent.trim()) {
+      transaction.finish();
+      return formatMCPToolError(
+        "Missing or empty required parameter: 'intent' must be a non-empty string. " +
+          "Use 'accept_suggestion' or 'continue_workflow' for response patterns.",
+      );
+    }
+
+    const intent = params.intent.trim();
+    const code = params.code?.trim();
+    const options = params.options ?? {};
+
+    // Determine execution mode
+    const mode = code ? "direct" : "suggestion";
+
+    transaction.setData("intent", intent.substring(0, 100));
+    transaction.setData("mode", mode);
+    addBreadcrumb("mcp", "Processing execute request", {
+      intent: intent.substring(0, 50),
+      hasCode: !!code,
+    });
+
+    log.info(
+      `pml:execute: intent="${intent.substring(0, 50)}...", mode=${mode}`,
+    );
+
+    // Route to appropriate mode
+    if (code) {
       // Mode Direct: Execute code → Create capability (deduplicated by code_hash)
       const result = await executeDirectMode(
         intent,
@@ -365,7 +418,7 @@ export async function handleExecute(
       transaction.finish();
       return result;
     } else {
-      // Mode Suggestion: DR-DSP → Execute or suggestions
+      // Mode Suggestion: DR-DSP → Return suggestions
       const result = await executeSuggestionMode(intent, options, deps, startTime);
       transaction.finish();
       return result;
@@ -884,56 +937,54 @@ async function executeDirectMode(
 }
 
 /**
- * Mode Call-by-Name: Execute existing capability by name (Story 13.2)
+ * Execute accepted suggestion: Execute a capability/tool from suggestedDag
  *
  * Flow:
- * 1. Resolve capability name via CapabilityRegistry
+ * 1. Resolve callName via CapabilityRegistry (namespace:action format)
  * 2. Merge provided args with capability defaults
  * 3. Execute capability code via WorkerBridge
  * 4. Record usage metrics
  *
- * @param intent - Natural language description
- * @param capabilityName - Name of capability to execute
+ * @param callName - Call name from suggestedDag (e.g., "fs:read_json", "namespace:action")
  * @param args - Arguments to pass to capability
  * @param options - Execution options
  * @param deps - Dependencies
  * @param startTime - Start timestamp for metrics
  */
-async function executeByNameMode(
-  intent: string,
-  capabilityName: string,
+async function executeAcceptedSuggestion(
+  callName: string,
   args: Record<string, JsonValue>,
   options: ExecuteArgs["options"],
   deps: ExecuteDependencies,
   startTime: number,
 ): Promise<MCPToolResponse | MCPErrorResponse> {
-  // AC6, AC9: Check if registry is available
+  // Check if registry is available
   if (!deps.capabilityRegistry) {
     return formatMCPToolError(
-      "Call-by-name mode requires CapabilityRegistry. " +
+      "Accept suggestion requires CapabilityRegistry. " +
         "Ensure gateway is properly configured with capabilityRegistry dependency.",
     );
   }
 
-  log.info("[pml:execute] Mode Call-by-Name - resolving capability", {
-    capabilityName,
+  log.info("[pml:execute] Accept Suggestion - resolving callName", {
+    callName,
     argsKeys: Object.keys(args),
   });
 
-  // AC7: Resolve name to capability record
-  const record = await deps.capabilityRegistry.resolveByName(capabilityName, DEFAULT_SCOPE);
+  // Resolve callName to capability record
+  const record = await deps.capabilityRegistry.resolveByName(callName, DEFAULT_SCOPE);
 
   if (!record) {
-    // AC9: Not found error
     return formatMCPToolError(
-      `Capability not found: ${capabilityName}`,
+      `Capability not found for callName: ${callName}. ` +
+        "Ensure the callName matches a capability from the suggestedDag.",
     );
   }
 
   // Migration 023: Fetch code from workflow_pattern via FK
   if (!record.workflowPatternId) {
     return formatMCPToolError(
-      `Capability '${capabilityName}' has no linked workflow_pattern. Cannot execute.`,
+      `Capability '${callName}' has no linked workflow_pattern. Cannot execute.`,
     );
   }
 
@@ -945,7 +996,7 @@ async function executeByNameMode(
 
   if (wpResult.length === 0) {
     return formatMCPToolError(
-      `Capability '${capabilityName}' linked workflow_pattern not found. Cannot execute.`,
+      `Capability '${callName}' linked workflow_pattern not found. Cannot execute.`,
     );
   }
 
@@ -958,7 +1009,7 @@ async function executeByNameMode(
 
   if (!codeSnippet) {
     return formatMCPToolError(
-      `Capability '${capabilityName}' has no code snippet stored. Cannot execute.`,
+      `Capability '${callName}' has no code snippet stored. Cannot execute.`,
     );
   }
 
@@ -1026,12 +1077,19 @@ async function executeByNameMode(
         // Set WorkerBridge for code execution tracing (Story 10.5)
         controlledExecutor.setWorkerBridge(executorContext.bridge);
 
+        // Bug 3 fix: Inject merged args for parameterized capabilities
+        // When capability code has been transformed to use args.xxx references,
+        // the args need to be available in the execution context
+        if (Object.keys(mergedArgs).length > 0) {
+          controlledExecutor.setExecutionArgs(mergedArgs);
+        }
+
         // Per-layer validation check
         if (perLayerValidation && deps.workflowDeps) {
           return await handleWorkflowExecution(
             {
               workflow: { tasks: optimizedDAG.tasks },
-              intent,
+              intent: `Execute capability: ${callName}`,
               config: { per_layer_validation: true },
             },
             deps.workflowDeps,
@@ -1090,7 +1148,7 @@ async function executeByNameMode(
           capabilityId: record.id,
           capabilityName: getCapabilityDisplayName(record),
           capabilityFqdn: getCapabilityFqdn(record),
-          mode: "call_by_name",
+          mode: "accept_suggestion",
           executionTimeMs,
           dag: {
             mode: "dag",
@@ -1109,7 +1167,8 @@ async function executeByNameMode(
           }));
         }
 
-        log.info("[pml:execute] Mode Call-by-Name completed", {
+        log.info("[pml:execute] Accept Suggestion completed", {
+          callName,
           capabilityName: getCapabilityDisplayName(record),
           fqdn: getCapabilityFqdn(record),
           executionTimeMs: executionTimeMs.toFixed(2),
@@ -1127,7 +1186,7 @@ async function executeByNameMode(
 
     // No valid DAG - fail
     return formatMCPToolError(
-      `Capability '${capabilityName}' code cannot be executed - no MCP tools found.`,
+      `Capability '${callName}' code cannot be executed - no MCP tools found.`,
       {
         fqdn: getCapabilityFqdn(record),
         hint: "The capability may have been created with code that doesn't use MCP tools.",

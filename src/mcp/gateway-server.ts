@@ -34,6 +34,7 @@ import { ContextBuilder } from "../sandbox/context-builder.ts";
 import { WorkerBridge } from "../sandbox/worker-bridge.ts";
 import { addBreadcrumb, captureError, startTransaction } from "../telemetry/sentry.ts";
 import type { CapabilityStore } from "../capabilities/capability-store.ts";
+import { ToolStore } from "../tools/tool-store.ts";
 import type { AdaptiveThresholdManager } from "./adaptive-threshold.ts";
 import { CapabilityDataService, initMcpPermissions } from "../capabilities/mod.ts";
 import { CapabilityRegistry } from "../capabilities/capability-registry.ts";
@@ -736,15 +737,18 @@ export class PMLGatewayServer {
     }
 
     // Unified discover (Story 10.6)
+    // Uses SHGAT K-head for capability scoring (unified with pml:execute)
     if (name === "pml:discover") {
-      return await handleDiscover(
-        args,
-        this.vectorSearch,
-        this.graphEngine,
-        this.dagSuggester,
-        this.capabilityRegistry ?? undefined,
-        new TelemetryAdapter(),
-      );
+      return await handleDiscover(args, {
+        vectorSearch: this.vectorSearch,
+        graphEngine: this.graphEngine,
+        dagSuggester: this.dagSuggester,
+        toolStore: new ToolStore(this.db),
+        capabilityRegistry: this.capabilityRegistry ?? undefined,
+        decisionLogger: new TelemetryAdapter(),
+        shgat: this.shgat ?? undefined,
+        embeddingModel: this.embeddingModel ?? undefined,
+      });
     }
 
     // Unified execute (Story 10.7)

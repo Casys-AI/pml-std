@@ -116,48 +116,46 @@ export function staticStructureToDag(
     variableBindingsCount: Object.keys(structure.variableBindings ?? {}).length,
   });
 
-  // Phase 0: Build loop membership map from loop_body edges
+  // Phase 0: Build loop membership map from parentScope (Bug 2 Fix)
   // Maps node ID -> { loopId, loopType, loopCondition }
+  // Using parentScope is more accurate than traversing loop_body edges
   const loopMembership = new Map<string, {
     loopId: string;
     loopType: "for" | "while" | "forOf" | "forIn" | "doWhile";
     loopCondition?: string;
   }>();
 
-  // Find all loop nodes and their body members
+  // Build a map of loop nodes for quick lookup
   const loopNodes = structure.nodes.filter((n) => n.type === "loop");
-  for (const loop of loopNodes) {
-    // Find all nodes connected via loop_body edges (direct children)
-    const bodyEdges = structure.edges.filter(
-      (e) => e.type === "loop_body" && e.from === loop.id,
-    );
-    for (const edge of bodyEdges) {
-      loopMembership.set(edge.to, {
+  const loopById = new Map(loopNodes.map((l) => [l.id, l]));
+
+  // For each node, check if its parentScope (or ancestor scope) is a loop
+  for (const node of structure.nodes) {
+    // Skip loop nodes themselves - they're not "in" the loop
+    if (node.type === "loop") continue;
+
+    // Check parentScope - Bug 2 Fix: parentScope is now preserved
+    const parentScope = (node as { parentScope?: string }).parentScope;
+    if (!parentScope) continue;
+
+    // Find the innermost loop this node belongs to
+    // parentScope could be: "loopId" (direct child) or "loopId:something" (nested)
+    const loopId = parentScope.split(":")[0]; // Get base scope
+    const loop = loopById.get(loopId);
+
+    if (loop && loop.type === "loop") {
+      loopMembership.set(node.id, {
         loopId: loop.id,
         loopType: loop.loopType,
         loopCondition: loop.condition,
       });
     }
-    // Also check for nodes that have sequence edges from loop body nodes
-    // (transitive membership within the loop)
-    const directChildren = new Set(bodyEdges.map((e) => e.to));
-    for (const childId of directChildren) {
-      // Find sequence edges from this child
-      const sequenceEdges = structure.edges.filter(
-        (e) => e.type === "sequence" && e.from === childId,
-      );
-      for (const seqEdge of sequenceEdges) {
-        // If the target isn't already mapped, add it to the loop
-        if (!loopMembership.has(seqEdge.to)) {
-          loopMembership.set(seqEdge.to, {
-            loopId: loop.id,
-            loopType: loop.loopType,
-            loopCondition: loop.condition,
-          });
-        }
-      }
-    }
   }
+
+  logger.debug("Loop membership built from parentScope", {
+    loopCount: loopNodes.length,
+    membershipCount: loopMembership.size,
+  });
 
   // Phase 1: Create task map from nodes
   const tasks: ConditionalTask[] = [];

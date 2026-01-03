@@ -141,6 +141,8 @@ export class ControlledExecutor extends ParallelExecutor {
   private permissionEscalationHandler: PermissionEscalationHandler | null = null;
   private _permissionAuditStore: PermissionAuditStore | null = null;
   private workerBridge: import("../sandbox/worker-bridge.ts").WorkerBridge | null = null;
+  /** Execution args for parameterized capabilities (Bug 3 fix: args.xxx injection) */
+  private executionArgs: Record<string, unknown> = {};
 
   constructor(toolExecutor: ToolExecutor, config: ExecutorConfig = {}) {
     super(toolExecutor, config);
@@ -186,6 +188,30 @@ export class ControlledExecutor extends ParallelExecutor {
   setWorkerBridge(workerBridge: import("../sandbox/worker-bridge.ts").WorkerBridge): void {
     this.workerBridge = workerBridge;
     log.debug("WorkerBridge set for code execution tracing");
+  }
+
+  /**
+   * Set execution args for parameterized capabilities (Bug 3 fix)
+   *
+   * When a capability has been transformed with `args.xxx` references,
+   * these args need to be injected into the execution context. This method
+   * sets the args that will be available as `args` in code task execution.
+   *
+   * @param args - Merged args from capability defaults and provided args
+   *
+   * @example
+   * ```typescript
+   * const mergedArgs = mergeArgsWithDefaults(providedArgs, parametersSchema);
+   * controlledExecutor.setExecutionArgs(mergedArgs);
+   * const results = await controlledExecutor.execute({ tasks });
+   * // Code tasks can now access args.files, args.results, etc.
+   * ```
+   */
+  setExecutionArgs(args: Record<string, unknown>): void {
+    this.executionArgs = args;
+    log.debug("Execution args set for parameterized capability", {
+      argsKeys: Object.keys(args),
+    });
   }
 
   setPermissionEscalationDependencies(auditStore: PermissionAuditStore): void {
@@ -911,6 +937,15 @@ export class ControlledExecutor extends ParallelExecutor {
     const executionContext: Record<string, unknown> = {
       ...task.arguments,
     };
+
+    // Bug 3 fix: Inject capability args (args.files, args.results, etc.)
+    // These are the extracted literals from transformLiteralsToArgs()
+    if (Object.keys(this.executionArgs).length > 0) {
+      executionContext.args = this.executionArgs;
+      log.debug("Injected execution args into context", {
+        argsKeys: Object.keys(this.executionArgs),
+      });
+    }
 
     // Resolve dependencies: $OUTPUT[dep_id] → actual results
     executionContext.deps = resolveDependencies(task.dependsOn, previousResults);

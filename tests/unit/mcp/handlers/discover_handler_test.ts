@@ -13,16 +13,23 @@
 
 import { assertAlmostEquals, assertEquals, assertExists } from "@std/assert";
 import {
-  computeDiscoverScore,
   handleDiscover,
+  type DiscoverHandlerDeps,
 } from "../../../../src/mcp/handlers/discover-handler.ts";
-import { GLOBAL_SCORE_CAP } from "../../../../src/graphrag/algorithms/unified-search.ts";
+import { GLOBAL_SCORE_CAP, calculateReliabilityFactor, DEFAULT_RELIABILITY_CONFIG } from "../../../../src/graphrag/algorithms/unified-search.ts";
 import type { GraphRAGEngine } from "../../../../src/graphrag/graph-engine.ts";
 import type { VectorSearch } from "../../../../src/vector/search.ts";
 import type { DAGSuggester } from "../../../../src/graphrag/dag-suggester.ts";
 import type { HybridSearchResult } from "../../../../src/graphrag/types.ts";
 import type { Capability, CapabilityMatch } from "../../../../src/capabilities/types.ts";
 import type { MCPToolResponse } from "../../../../src/mcp/server/types.ts";
+import type { IToolStore, ToolMetadata } from "../../../../src/tools/types.ts";
+
+// Compute discover score helper (unified formula)
+function computeDiscoverScore(semanticScore: number, successRate: number = 1.0): number {
+  const reliabilityFactor = calculateReliabilityFactor(successRate, DEFAULT_RELIABILITY_CONFIG);
+  return Math.min(semanticScore * reliabilityFactor, GLOBAL_SCORE_CAP);
+}
 
 // Mock GraphRAGEngine
 class MockGraphEngine {
@@ -50,6 +57,31 @@ class MockVectorSearch {
   }
 }
 
+// Mock ToolStore
+class MockToolStore implements IToolStore {
+  private tools = new Map<string, ToolMetadata>();
+
+  setTools(tools: ToolMetadata[]) {
+    this.tools.clear();
+    for (const tool of tools) {
+      this.tools.set(tool.toolId, tool);
+    }
+  }
+
+  async findById(toolId: string): Promise<ToolMetadata | undefined> {
+    return this.tools.get(toolId);
+  }
+
+  async findByIds(toolIds: string[]): Promise<Map<string, ToolMetadata>> {
+    const result = new Map<string, ToolMetadata>();
+    for (const id of toolIds) {
+      const tool = this.tools.get(id);
+      if (tool) result.set(id, tool);
+    }
+    return result;
+  }
+}
+
 // Mock DAGSuggester
 class MockDAGSuggester {
   private match: CapabilityMatch | null = null;
@@ -60,6 +92,10 @@ class MockDAGSuggester {
 
   async searchCapabilities(_intent: string): Promise<CapabilityMatch | null> {
     return this.match;
+  }
+
+  getCapabilityStore() {
+    return undefined;
   }
 }
 
@@ -104,17 +140,21 @@ function parseResponse(result: MCPToolResponse): Record<string, unknown> {
   return JSON.parse(result.content[0].text);
 }
 
-Deno.test("handleDiscover - returns error when intent is missing", async () => {
-  const graphEngine = new MockGraphEngine();
-  const vectorSearch = new MockVectorSearch();
-  const dagSuggester = new MockDAGSuggester();
+// Helper to create deps
+function createDeps(overrides: Partial<DiscoverHandlerDeps> = {}): DiscoverHandlerDeps {
+  return {
+    vectorSearch: new MockVectorSearch() as unknown as VectorSearch,
+    graphEngine: new MockGraphEngine() as unknown as GraphRAGEngine,
+    dagSuggester: new MockDAGSuggester() as unknown as DAGSuggester,
+    toolStore: new MockToolStore(),
+    ...overrides,
+  };
+}
 
-  const result = await handleDiscover(
-    {},
-    vectorSearch as unknown as VectorSearch,
-    graphEngine as unknown as GraphRAGEngine,
-    dagSuggester as unknown as DAGSuggester,
-  ) as MCPToolResponse;
+Deno.test("handleDiscover - returns error when intent is missing", async () => {
+  const deps = createDeps();
+
+  const result = await handleDiscover({}, deps) as MCPToolResponse;
 
   assertExists(result.content);
   assertEquals(result.content.length, 1);
@@ -124,17 +164,10 @@ Deno.test("handleDiscover - returns error when intent is missing", async () => {
 });
 
 Deno.test("handleDiscover - returns error when intent is empty string", async () => {
-  const graphEngine = new MockGraphEngine();
-  const vectorSearch = new MockVectorSearch();
-  const dagSuggester = new MockDAGSuggester();
+  const deps = createDeps();
 
   // Test empty string
-  const result1 = await handleDiscover(
-    { intent: "" },
-    vectorSearch as unknown as VectorSearch,
-    graphEngine as unknown as GraphRAGEngine,
-    dagSuggester as unknown as DAGSuggester,
-  ) as MCPToolResponse;
+  const result1 = await handleDiscover({ intent: "" }, deps) as MCPToolResponse;
 
   assertExists(result1.content);
   const response1 = parseResponse(result1);
@@ -142,12 +175,7 @@ Deno.test("handleDiscover - returns error when intent is empty string", async ()
   assertEquals(response1.error, "Missing or empty required parameter: 'intent'");
 
   // Test whitespace-only string
-  const result2 = await handleDiscover(
-    { intent: "   " },
-    vectorSearch as unknown as VectorSearch,
-    graphEngine as unknown as GraphRAGEngine,
-    dagSuggester as unknown as DAGSuggester,
-  ) as MCPToolResponse;
+  const result2 = await handleDiscover({ intent: "   " }, deps) as MCPToolResponse;
 
   assertExists(result2.content);
   const response2 = parseResponse(result2);
@@ -157,22 +185,22 @@ Deno.test("handleDiscover - returns error when intent is empty string", async ()
 
 Deno.test("handleDiscover - returns tools from hybrid search", async () => {
   const graphEngine = new MockGraphEngine();
-  const vectorSearch = new MockVectorSearch();
-  const dagSuggester = new MockDAGSuggester();
+  const toolStore = new MockToolStore();
 
   // Setup mock tool results
-  // AC12: Unified formula applies: score = semantic × reliability (default 1.2 for successRate=1.0)
-  // Score 0.9 × 1.2 = 1.08 → capped at 0.95
   graphEngine.setHybridResults([
     createToolResult("filesystem:read_file", 0.9),
     createToolResult("filesystem:write_file", 0.8),
   ]);
 
+  const deps = createDeps({
+    graphEngine: graphEngine as unknown as GraphRAGEngine,
+    toolStore,
+  });
+
   const result = await handleDiscover(
     { intent: "read a file", limit: 2 },
-    vectorSearch as unknown as VectorSearch,
-    graphEngine as unknown as GraphRAGEngine,
-    dagSuggester as unknown as DAGSuggester,
+    deps,
   ) as MCPToolResponse;
 
   assertExists(result.content);
@@ -191,8 +219,6 @@ Deno.test("handleDiscover - returns tools from hybrid search", async () => {
 });
 
 Deno.test("handleDiscover - returns capabilities from matcher", async () => {
-  const graphEngine = new MockGraphEngine();
-  const vectorSearch = new MockVectorSearch();
   const dagSuggester = new MockDAGSuggester();
 
   // Setup mock capability result
@@ -205,11 +231,13 @@ Deno.test("handleDiscover - returns capabilities from matcher", async () => {
     parametersSchema: null,
   });
 
+  const deps = createDeps({
+    dagSuggester: dagSuggester as unknown as DAGSuggester,
+  });
+
   const result = await handleDiscover(
     { intent: "create an issue", filter: { type: "capability" } },
-    vectorSearch as unknown as VectorSearch,
-    graphEngine as unknown as GraphRAGEngine,
-    dagSuggester as unknown as DAGSuggester,
+    deps,
   ) as MCPToolResponse;
 
   assertExists(result.content);
@@ -228,19 +256,15 @@ Deno.test("handleDiscover - returns capabilities from matcher", async () => {
 
 Deno.test("handleDiscover - merges and sorts tools and capabilities by score", async () => {
   const graphEngine = new MockGraphEngine();
-  const vectorSearch = new MockVectorSearch();
   const dagSuggester = new MockDAGSuggester();
 
   // Setup tools with various semantic scores
-  // AC12: Unified formula applies: score = semantic × 1.2 (boost for successRate=1.0)
-  // 0.85 × 1.2 = 1.02 → capped at 0.95
-  // 0.75 × 1.2 = 0.90
   graphEngine.setHybridResults([
     createToolResult("filesystem:read_file", 0.85),
     createToolResult("github:create_issue", 0.75),
   ]);
 
-  // Setup capability with score 0.80 (from CapabilityMatcher)
+  // Setup capability with score 0.80
   const capability = createCapability("cap-create-issue", 0.92);
   dagSuggester.setCapabilityMatch({
     capability,
@@ -250,11 +274,14 @@ Deno.test("handleDiscover - merges and sorts tools and capabilities by score", a
     parametersSchema: null,
   });
 
+  const deps = createDeps({
+    graphEngine: graphEngine as unknown as GraphRAGEngine,
+    dagSuggester: dagSuggester as unknown as DAGSuggester,
+  });
+
   const result = await handleDiscover(
     { intent: "create an issue", limit: 3 },
-    vectorSearch as unknown as VectorSearch,
-    graphEngine as unknown as GraphRAGEngine,
-    dagSuggester as unknown as DAGSuggester,
+    deps,
   ) as MCPToolResponse;
 
   const response = parseResponse(result) as {
@@ -262,7 +289,6 @@ Deno.test("handleDiscover - merges and sorts tools and capabilities by score", a
     meta: { tools_count: number; capabilities_count: number };
   };
 
-  // AC12: Tools now get boost → capped, 0.90; Capability stays at 0.80
   // Sorted by score descending
   assertEquals(response.results.length, 3);
   assertAlmostEquals(response.results[0].score, GLOBAL_SCORE_CAP, 0.01); // filesystem:read_file (0.85 × 1.2 → capped)
@@ -278,7 +304,6 @@ Deno.test("handleDiscover - merges and sorts tools and capabilities by score", a
 
 Deno.test("handleDiscover - filters by type 'tool' only", async () => {
   const graphEngine = new MockGraphEngine();
-  const vectorSearch = new MockVectorSearch();
   const dagSuggester = new MockDAGSuggester();
 
   graphEngine.setHybridResults([
@@ -294,11 +319,14 @@ Deno.test("handleDiscover - filters by type 'tool' only", async () => {
     parametersSchema: null,
   });
 
+  const deps = createDeps({
+    graphEngine: graphEngine as unknown as GraphRAGEngine,
+    dagSuggester: dagSuggester as unknown as DAGSuggester,
+  });
+
   const result = await handleDiscover(
     { intent: "read file", filter: { type: "tool" } },
-    vectorSearch as unknown as VectorSearch,
-    graphEngine as unknown as GraphRAGEngine,
-    dagSuggester as unknown as DAGSuggester,
+    deps,
   ) as MCPToolResponse;
 
   const response = parseResponse(result) as {
@@ -314,22 +342,19 @@ Deno.test("handleDiscover - filters by type 'tool' only", async () => {
 
 Deno.test("handleDiscover - filters by minScore", async () => {
   const graphEngine = new MockGraphEngine();
-  const vectorSearch = new MockVectorSearch();
-  const dagSuggester = new MockDAGSuggester();
 
-  // AC12: Unified formula applies: score = semantic × 1.2 (boost)
-  // 0.9 × 1.2 = 1.08 → capped at 0.95
-  // 0.5 × 1.2 = 0.60
   graphEngine.setHybridResults([
     createToolResult("filesystem:read_file", 0.9),
     createToolResult("filesystem:list", 0.5),
   ]);
 
+  const deps = createDeps({
+    graphEngine: graphEngine as unknown as GraphRAGEngine,
+  });
+
   const result = await handleDiscover(
     { intent: "read file", filter: { minScore: 0.7 } },
-    vectorSearch as unknown as VectorSearch,
-    graphEngine as unknown as GraphRAGEngine,
-    dagSuggester as unknown as DAGSuggester,
+    deps,
   ) as MCPToolResponse;
 
   const response = parseResponse(result) as {
@@ -338,13 +363,11 @@ Deno.test("handleDiscover - filters by minScore", async () => {
 
   // Only the first tool passes minScore=0.7 (capped score > 0.7, 0.60 < 0.7)
   assertEquals(response.results.length, 1);
-  assertEquals(response.results[0].score, computeDiscoverScore(0.9, 1.0)); // AC12: 0.9 × 1.2 → capped
+  assertEquals(response.results[0].score, computeDiscoverScore(0.9, 1.0));
 });
 
 Deno.test("handleDiscover - respects limit parameter", async () => {
   const graphEngine = new MockGraphEngine();
-  const vectorSearch = new MockVectorSearch();
-  const dagSuggester = new MockDAGSuggester();
 
   graphEngine.setHybridResults([
     createToolResult("filesystem:read_file", 0.9),
@@ -353,11 +376,13 @@ Deno.test("handleDiscover - respects limit parameter", async () => {
     createToolResult("filesystem:delete", 0.75),
   ]);
 
+  const deps = createDeps({
+    graphEngine: graphEngine as unknown as GraphRAGEngine,
+  });
+
   const result = await handleDiscover(
     { intent: "file operations", limit: 2 },
-    vectorSearch as unknown as VectorSearch,
-    graphEngine as unknown as GraphRAGEngine,
-    dagSuggester as unknown as DAGSuggester,
+    deps,
   ) as MCPToolResponse;
 
   const response = parseResponse(result) as {
@@ -371,8 +396,6 @@ Deno.test("handleDiscover - respects limit parameter", async () => {
 
 Deno.test("handleDiscover - includes related tools when requested", async () => {
   const graphEngine = new MockGraphEngine();
-  const vectorSearch = new MockVectorSearch();
-  const dagSuggester = new MockDAGSuggester();
 
   // Tool with related tools
   const toolWithRelated: HybridSearchResult = {
@@ -384,11 +407,13 @@ Deno.test("handleDiscover - includes related tools when requested", async () => 
 
   graphEngine.setHybridResults([toolWithRelated]);
 
+  const deps = createDeps({
+    graphEngine: graphEngine as unknown as GraphRAGEngine,
+  });
+
   const result = await handleDiscover(
     { intent: "read file", include_related: true },
-    vectorSearch as unknown as VectorSearch,
-    graphEngine as unknown as GraphRAGEngine,
-    dagSuggester as unknown as DAGSuggester,
+    deps,
   ) as MCPToolResponse;
 
   const response = parseResponse(result) as {
@@ -403,18 +428,20 @@ Deno.test("handleDiscover - includes related tools when requested", async () => 
 
 Deno.test("handleDiscover - handles empty results gracefully", async () => {
   const graphEngine = new MockGraphEngine();
-  const vectorSearch = new MockVectorSearch();
   const dagSuggester = new MockDAGSuggester();
 
   // No results from either source
   graphEngine.setHybridResults([]);
   dagSuggester.setCapabilityMatch(null);
 
+  const deps = createDeps({
+    graphEngine: graphEngine as unknown as GraphRAGEngine,
+    dagSuggester: dagSuggester as unknown as DAGSuggester,
+  });
+
   const result = await handleDiscover(
     { intent: "nonexistent operation" },
-    vectorSearch as unknown as VectorSearch,
-    graphEngine as unknown as GraphRAGEngine,
-    dagSuggester as unknown as DAGSuggester,
+    deps,
   ) as MCPToolResponse;
 
   const response = parseResponse(result) as {
@@ -429,18 +456,18 @@ Deno.test("handleDiscover - handles empty results gracefully", async () => {
 
 Deno.test("handleDiscover - response includes correct metadata", async () => {
   const graphEngine = new MockGraphEngine();
-  const vectorSearch = new MockVectorSearch();
-  const dagSuggester = new MockDAGSuggester();
 
   graphEngine.setHybridResults([
     createToolResult("filesystem:read_file", 0.9),
   ]);
 
+  const deps = createDeps({
+    graphEngine: graphEngine as unknown as GraphRAGEngine,
+  });
+
   const result = await handleDiscover(
     { intent: "read a file", filter: { type: "all" } },
-    vectorSearch as unknown as VectorSearch,
-    graphEngine as unknown as GraphRAGEngine,
-    dagSuggester as unknown as DAGSuggester,
+    deps,
   ) as MCPToolResponse;
 
   const response = parseResponse(result) as {
@@ -465,24 +492,20 @@ Deno.test("handleDiscover - response includes correct metadata", async () => {
 // AC12-13: Unified Scoring Formula Tests
 // =============================================================================
 
-Deno.test("handleDiscover - AC12: tools use unified scoring formula (semantic × reliability)", async () => {
+Deno.test("handleDiscover - AC12: tools use unified scoring formula", async () => {
   const graphEngine = new MockGraphEngine();
-  const vectorSearch = new MockVectorSearch();
-  const dagSuggester = new MockDAGSuggester();
 
-  // Setup tool with high semantic score
-  // The unified formula applies: score = semantic × reliability
-  // For tools with no successRate, we default to 1.0 (cold start favorable)
-  // So score = 0.9 × 1.0 = 0.9 (but capped at 0.95)
   graphEngine.setHybridResults([
     createToolResult("filesystem:read_file", 0.9),
   ]);
 
+  const deps = createDeps({
+    graphEngine: graphEngine as unknown as GraphRAGEngine,
+  });
+
   const result = await handleDiscover(
     { intent: "read a file" },
-    vectorSearch as unknown as VectorSearch,
-    graphEngine as unknown as GraphRAGEngine,
-    dagSuggester as unknown as DAGSuggester,
+    deps,
   ) as MCPToolResponse;
 
   const response = parseResponse(result) as {
@@ -491,27 +514,23 @@ Deno.test("handleDiscover - AC12: tools use unified scoring formula (semantic ×
 
   assertEquals(response.results.length, 1);
   assertEquals(response.results[0].type, "tool");
-  // Unified formula: semantic × reliabilityFactor (with boost for high successRate)
-  // successRate=1.0 → boostThreshold=0.9, so boostFactor=1.2 applied
-  // score = min(0.9 × 1.2, GLOBAL_SCORE_CAP) - calculated dynamically
   assertEquals(response.results[0].score, computeDiscoverScore(0.9, 1.0));
 });
 
 Deno.test("handleDiscover - AC12: scores are normalized between 0 and 1", async () => {
   const graphEngine = new MockGraphEngine();
-  const vectorSearch = new MockVectorSearch();
-  const dagSuggester = new MockDAGSuggester();
 
-  // Even with very high semantic scores, final score is capped at GLOBAL_SCORE_CAP
   graphEngine.setHybridResults([
-    createToolResult("filesystem:read_file", 1.0), // Max semantic score
+    createToolResult("filesystem:read_file", 1.0),
   ]);
+
+  const deps = createDeps({
+    graphEngine: graphEngine as unknown as GraphRAGEngine,
+  });
 
   const result = await handleDiscover(
     { intent: "read file" },
-    vectorSearch as unknown as VectorSearch,
-    graphEngine as unknown as GraphRAGEngine,
-    dagSuggester as unknown as DAGSuggester,
+    deps,
   ) as MCPToolResponse;
 
   const response = parseResponse(result) as {
@@ -519,32 +538,28 @@ Deno.test("handleDiscover - AC12: scores are normalized between 0 and 1", async 
   };
 
   assertEquals(response.results.length, 1);
-  // score = 1.0 × 1.2 (boost) = 1.2 → capped at GLOBAL_SCORE_CAP
   assertEquals(response.results[0].score, computeDiscoverScore(1.0, 1.0));
 });
 
 Deno.test("handleDiscover - AC13: capabilities use same formula with successRate", async () => {
-  const graphEngine = new MockGraphEngine();
-  const vectorSearch = new MockVectorSearch();
   const dagSuggester = new MockDAGSuggester();
 
-  // Capability with high success rate gets boost
-  // semanticScore=0.85, successRate=0.95 → boost factor 1.2
-  // score = 0.85 × 1.2 = 1.02 → capped at 0.95
   const capability = createCapability("cap-high-success", 0.95);
   dagSuggester.setCapabilityMatch({
     capability,
-    score: 0.95, // CapabilityMatcher already computes this
+    score: 0.95,
     semanticScore: 0.85,
     thresholdUsed: 0.7,
     parametersSchema: null,
   });
 
+  const deps = createDeps({
+    dagSuggester: dagSuggester as unknown as DAGSuggester,
+  });
+
   const result = await handleDiscover(
     { intent: "create issue", filter: { type: "capability" } },
-    vectorSearch as unknown as VectorSearch,
-    graphEngine as unknown as GraphRAGEngine,
-    dagSuggester as unknown as DAGSuggester,
+    deps,
   ) as MCPToolResponse;
 
   const response = parseResponse(result) as {
@@ -554,32 +569,28 @@ Deno.test("handleDiscover - AC13: capabilities use same formula with successRate
   assertEquals(response.results.length, 1);
   assertEquals(response.results[0].type, "capability");
   assertEquals(response.results[0].success_rate, 0.95);
-  // Score comes from CapabilityMatcher which includes transitive reliability
   assertEquals(response.results[0].score, 0.95);
 });
 
 Deno.test("handleDiscover - AC13: low successRate capability gets penalty", async () => {
-  const graphEngine = new MockGraphEngine();
-  const vectorSearch = new MockVectorSearch();
   const dagSuggester = new MockDAGSuggester();
 
-  // Capability with low success rate (0.4 < 0.5 threshold) gets penalty factor 0.1
-  // semanticScore=0.8, successRate=0.4 → penalty factor 0.1
-  // score = 0.8 × 0.1 = 0.08
   const capability = createCapability("cap-low-success", 0.4);
   dagSuggester.setCapabilityMatch({
     capability,
-    score: 0.08, // CapabilityMatcher computes: 0.8 × 0.1 = 0.08
+    score: 0.08,
     semanticScore: 0.8,
     thresholdUsed: 0.7,
     parametersSchema: null,
   });
 
+  const deps = createDeps({
+    dagSuggester: dagSuggester as unknown as DAGSuggester,
+  });
+
   const result = await handleDiscover(
     { intent: "risky operation", filter: { type: "capability" } },
-    vectorSearch as unknown as VectorSearch,
-    graphEngine as unknown as GraphRAGEngine,
-    dagSuggester as unknown as DAGSuggester,
+    deps,
   ) as MCPToolResponse;
 
   const response = parseResponse(result) as {
@@ -588,7 +599,6 @@ Deno.test("handleDiscover - AC13: low successRate capability gets penalty", asyn
 
   assertEquals(response.results.length, 1);
   assertEquals(response.results[0].success_rate, 0.4);
-  // Low success rate results in penalized score
   assertEquals(response.results[0].score, 0.08);
 });
 
@@ -598,18 +608,18 @@ Deno.test("handleDiscover - AC13: low successRate capability gets penalty", asyn
 
 Deno.test("handleDiscover - Story 13.8: record_type 'mcp-tool' for tools", async () => {
   const graphEngine = new MockGraphEngine();
-  const vectorSearch = new MockVectorSearch();
-  const dagSuggester = new MockDAGSuggester();
 
   graphEngine.setHybridResults([
     createToolResult("filesystem:read_file", 0.9),
   ]);
 
+  const deps = createDeps({
+    graphEngine: graphEngine as unknown as GraphRAGEngine,
+  });
+
   const result = await handleDiscover(
     { intent: "read a file" },
-    vectorSearch as unknown as VectorSearch,
-    graphEngine as unknown as GraphRAGEngine,
-    dagSuggester as unknown as DAGSuggester,
+    deps,
   ) as MCPToolResponse;
 
   const response = parseResponse(result) as {
@@ -623,8 +633,6 @@ Deno.test("handleDiscover - Story 13.8: record_type 'mcp-tool' for tools", async
 });
 
 Deno.test("handleDiscover - Story 13.8: record_type 'capability' for capabilities", async () => {
-  const graphEngine = new MockGraphEngine();
-  const vectorSearch = new MockVectorSearch();
   const dagSuggester = new MockDAGSuggester();
 
   const capability = createCapability("cap-123", 0.95);
@@ -636,11 +644,13 @@ Deno.test("handleDiscover - Story 13.8: record_type 'capability' for capabilitie
     parametersSchema: null,
   });
 
+  const deps = createDeps({
+    dagSuggester: dagSuggester as unknown as DAGSuggester,
+  });
+
   const result = await handleDiscover(
     { intent: "create an issue", filter: { type: "capability" } },
-    vectorSearch as unknown as VectorSearch,
-    graphEngine as unknown as GraphRAGEngine,
-    dagSuggester as unknown as DAGSuggester,
+    deps,
   ) as MCPToolResponse;
 
   const response = parseResponse(result) as {
@@ -655,15 +665,12 @@ Deno.test("handleDiscover - Story 13.8: record_type 'capability' for capabilitie
 
 Deno.test("handleDiscover - Story 13.8: mixed results have correct record_type", async () => {
   const graphEngine = new MockGraphEngine();
-  const vectorSearch = new MockVectorSearch();
   const dagSuggester = new MockDAGSuggester();
 
-  // Setup tool
   graphEngine.setHybridResults([
     createToolResult("github:create_issue", 0.85),
   ]);
 
-  // Setup capability
   const capability = createCapability("cap-create-issue", 0.92);
   dagSuggester.setCapabilityMatch({
     capability,
@@ -673,11 +680,14 @@ Deno.test("handleDiscover - Story 13.8: mixed results have correct record_type",
     parametersSchema: null,
   });
 
+  const deps = createDeps({
+    graphEngine: graphEngine as unknown as GraphRAGEngine,
+    dagSuggester: dagSuggester as unknown as DAGSuggester,
+  });
+
   const result = await handleDiscover(
     { intent: "create an issue", limit: 5 },
-    vectorSearch as unknown as VectorSearch,
-    graphEngine as unknown as GraphRAGEngine,
-    dagSuggester as unknown as DAGSuggester,
+    deps,
   ) as MCPToolResponse;
 
   const response = parseResponse(result) as {
@@ -686,12 +696,10 @@ Deno.test("handleDiscover - Story 13.8: mixed results have correct record_type",
 
   assertEquals(response.results.length, 2);
 
-  // Find tool result
   const toolResult = response.results.find((r) => r.type === "tool");
   assertExists(toolResult);
   assertEquals(toolResult.record_type, "mcp-tool");
 
-  // Find capability result
   const capResult = response.results.find((r) => r.type === "capability");
   assertExists(capResult);
   assertEquals(capResult.record_type, "capability");

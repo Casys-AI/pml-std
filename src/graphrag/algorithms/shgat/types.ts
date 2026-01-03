@@ -224,12 +224,13 @@ export interface SHGATConfig {
 /**
  * Default configuration for SHGAT v2
  *
- * Conservative defaults (K=4) for cold start.
- * Use getAdaptiveConfig() for scaling based on trace volume.
+ * Conservative defaults (K=4) for cold start / empty graph.
+ * createSHGATFromCapabilities() automatically uses getAdaptiveHeadsByGraphSize()
+ * to scale numHeads based on graph size (4-16 heads for 20-2000+ nodes).
  */
 export const DEFAULT_SHGAT_CONFIG: SHGATConfig = {
-  // Architecture
-  numHeads: 4, // Conservative default, scales up with data
+  // Architecture (overridden by adaptive config in createSHGATFromCapabilities)
+  numHeads: 4, // Fallback for empty graph, scales up automatically
   hiddenDim: 64,
   headDim: 16, // 64 / 4
   embeddingDim: 1024,
@@ -253,29 +254,16 @@ export const DEFAULT_SHGAT_CONFIG: SHGATConfig = {
 };
 
 /**
- * Get adaptive config based on trace volume
+ * @deprecated Use getAdaptiveHeadsByGraphSize() from initialization/parameters.ts instead.
+ * That function is now called automatically in createSHGATFromCapabilities().
  *
- * More data = more heads can learn useful patterns.
- * Scales architecture to match available training data.
- *
- * @param traceCount Number of available execution traces
- * @returns Partial config to merge with defaults
+ * This function was based on trace count, but graph size is available at init time
+ * while trace count requires async DB query and changes over time.
  */
-export function getAdaptiveConfig(traceCount: number): Partial<SHGATConfig> {
-  if (traceCount < 1_000) {
-    // Conservative - few traces, simple model
-    return { numHeads: 4, hiddenDim: 64, headDim: 16, mlpHiddenDim: 32 };
-  }
-  if (traceCount < 10_000) {
-    // Default - moderate traces
-    return { numHeads: 8, hiddenDim: 128, headDim: 16, mlpHiddenDim: 64 };
-  }
-  if (traceCount < 100_000) {
-    // Scale up - many traces
-    return { numHeads: 12, hiddenDim: 192, headDim: 16, mlpHiddenDim: 96 };
-  }
-  // Full capacity - very large dataset
-  return { numHeads: 16, hiddenDim: 256, headDim: 16, mlpHiddenDim: 128 };
+export function getAdaptiveConfig(_traceCount: number): Partial<SHGATConfig> {
+  // Deprecated - kept for backward compatibility with tests
+  // Use getAdaptiveHeadsByGraphSize() instead
+  return { numHeads: 4, hiddenDim: 64, headDim: 16, mlpHiddenDim: 32 };
 }
 
 // ============================================================================

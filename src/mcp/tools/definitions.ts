@@ -231,7 +231,7 @@ export const replanTool: MCPTool = {
 export const approvalResponseTool: MCPTool = {
   name: "pml:approval_response",
   description:
-    "[DEPRECATED] Use pml:execute with resume+approved parameters. Approve or reject a Human-in-the-Loop checkpoint.",
+    "[DEPRECATED] Use pml:execute with continue_workflow parameter. Approve or reject a Human-in-the-Loop checkpoint.",
   inputSchema: {
     type: "object",
     properties: {
@@ -302,28 +302,34 @@ export const discoverTool: MCPTool = {
 };
 
 /**
- * Execute tool (pml:execute) - Story 10.7
+ * Execute tool (pml:execute) - Story 10.7 + Story 13.2
  *
- * Unified execution API with two modes:
+ * Unified execution API with two primary modes and two response patterns:
+ *
+ * Primary modes:
  * - Direct: intent + code → Execute → Create capability
- * - Suggestion: intent only → Search → Execute if confident, else suggestions
+ * - Suggestion: intent only → Search → Return suggestions
+ *
+ * Response patterns (to previous execute responses):
+ * - Accept Suggestion: Execute a capability/tool from suggestedDag
+ * - Continue Workflow: Resume a paused workflow (approval_required)
  */
 export const executeTool: MCPTool = {
   name: "pml:execute",
   description:
-    "Execute intent with optional code. With code: runs and learns capability. Without: finds matching capability or suggests tools.",
+    "Execute intent with optional code. With code: runs and learns capability. Without: returns suggestions. Use accept_suggestion to execute a suggested capability, or continue_workflow to resume a paused workflow.",
   inputSchema: {
     type: "object",
     properties: {
       intent: {
         type: "string",
         description:
-          "REQUIRED: Natural language description of what you want to accomplish. Example: 'Read a file and create a GitHub issue with its contents'",
+          "Natural language description of what you want to accomplish. REQUIRED for Direct and Suggestion modes. Example: 'Read a file and create a GitHub issue with its contents'",
       },
       code: {
         type: "string",
         description:
-          "OPTIONAL: TypeScript code to execute. If provided, triggers Direct Mode (execute + learn). MCP tools available as mcp.server.tool(). Example: 'const content = await mcp.fs.read({path: \"x.json\"}); return JSON.parse(content);'",
+          "TypeScript code to execute. If provided, triggers Direct Mode (execute + learn). MCP tools available as mcp.server.tool(). Example: 'const content = await mcp.fs.read({path: \"x.json\"}); return JSON.parse(content);'",
       },
       options: {
         type: "object",
@@ -339,18 +345,39 @@ export const executeTool: MCPTool = {
           },
         },
       },
-      resume: {
-        type: "string",
+      accept_suggestion: {
+        type: "object",
         description:
-          "Resume a paused workflow. Provide the workflow_id from a previous execution that returned status='approval_required'.",
+          "Accept and execute a suggestion from a previous Suggestion mode response. The callName comes from suggestedDag.tasks[n].callName.",
+        properties: {
+          callName: {
+            type: "string",
+            description: "Call name from suggestedDag (e.g., 'fs:read_json', 'namespace:action')",
+          },
+          args: {
+            type: "object",
+            description: "Arguments for execution, built according to the inputSchema from the suggestion",
+          },
+        },
+        required: ["callName"],
       },
-      approved: {
-        type: "boolean",
+      continue_workflow: {
+        type: "object",
         description:
-          "Approval decision when resuming. true = continue execution, false = abort workflow. Required when 'resume' is provided.",
+          "Continue a paused workflow from a previous execution that returned status='approval_required'.",
+        properties: {
+          workflow_id: {
+            type: "string",
+            description: "Workflow ID from the previous response's workflowId field",
+          },
+          approved: {
+            type: "boolean",
+            description: "Approval decision: true to continue, false to abort",
+          },
+        },
+        required: ["workflow_id", "approved"],
       },
     },
-    required: ["intent"],
   },
 };
 

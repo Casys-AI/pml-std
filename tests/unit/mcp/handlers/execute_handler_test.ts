@@ -500,36 +500,19 @@ Deno.test("Execute Handler - should NOT create suggestedDag without SHGAT bestCa
 });
 
 // ============================================================================
-// Story 13.2 Naming Support Tests
+// Story 13.2 Accept Suggestion Tests (formerly Call-by-Name)
 // ============================================================================
 
-Deno.test("Execute Handler - should reject 'code' and 'capability' used together", async () => {
-  const deps = createMockDependencies();
-  const result = await handleExecute(
-    {
-      intent: "test mutual exclusivity",
-      code: "return 42;",
-      capability: "my-cap",
-    },
-    deps,
-  );
-
-  assertExists(result);
-  if ("content" in result) {
-    const text = result.content[0].text;
-    assertStringIncludes(text, "Cannot use both 'code' and 'capability' parameters");
-  }
-});
-
-Deno.test("Execute Handler - Call-by-Name requires capabilityRegistry", async () => {
+Deno.test("Execute Handler - accept_suggestion requires capabilityRegistry", async () => {
   const deps = createMockDependencies();
   // Ensure no capabilityRegistry
   deps.capabilityRegistry = undefined;
 
   const result = await handleExecute(
     {
-      intent: "call existing capability",
-      capability: "my-existing-cap",
+      accept_suggestion: {
+        callName: "fs:read_json",
+      },
     },
     deps,
   );
@@ -541,7 +524,7 @@ Deno.test("Execute Handler - Call-by-Name requires capabilityRegistry", async ()
   }
 });
 
-Deno.test("Execute Handler - Call-by-Name returns not found for unknown capability", async () => {
+Deno.test("Execute Handler - accept_suggestion returns not found for unknown callName", async () => {
   const deps = createMockDependencies();
 
   // Mock capabilityRegistry that returns null (not found)
@@ -552,8 +535,9 @@ Deno.test("Execute Handler - Call-by-Name returns not found for unknown capabili
 
   const result = await handleExecute(
     {
-      intent: "call unknown capability",
-      capability: "unknown-cap",
+      accept_suggestion: {
+        callName: "unknown:capability",
+      },
     },
     deps,
   );
@@ -565,21 +549,14 @@ Deno.test("Execute Handler - Call-by-Name returns not found for unknown capabili
   }
 });
 
-Deno.test("Execute Handler - mode detection prefers Call-by-Name over Direct", async () => {
+Deno.test("Execute Handler - accept_suggestion requires callName", async () => {
   const deps = createMockDependencies();
-
-  // Even though this test uses a mock that will fail,
-  // we verify the mode detection prioritizes capability over code
-  deps.capabilityRegistry = {
-    resolveByName: async () => null,
-    recordUsage: async () => {},
-  } as unknown as ExecuteDependencies["capabilityRegistry"];
 
   const result = await handleExecute(
     {
-      intent: "test mode priority",
-      capability: "test-cap",
-      // Note: code is NOT provided, capability triggers call-by-name
+      accept_suggestion: {
+        callName: "", // Empty callName
+      },
     },
     deps,
   );
@@ -587,9 +564,7 @@ Deno.test("Execute Handler - mode detection prefers Call-by-Name over Direct", a
   assertExists(result);
   if ("content" in result) {
     const text = result.content[0].text;
-    // Should attempt call-by-name (not direct mode)
-    // Call-by-name fails with "not found" since mock returns null
-    assertStringIncludes(text, "not found");
+    assertStringIncludes(text, "callName");
   }
 });
 
@@ -648,9 +623,10 @@ Deno.test("Execute Handler - mergeArgsWithDefaults merges provided args with sch
 
   const result = await handleExecute(
     {
-      intent: "read config file",
-      capability: "json-reader",
-      args: { path: "config.json" }, // Only path provided, encoding/verbose should use defaults
+      accept_suggestion: {
+        callName: "fs:read_json",
+        args: { path: "config.json" }, // Only path provided, encoding/verbose should use defaults
+      },
     },
     deps,
   );
@@ -661,7 +637,7 @@ Deno.test("Execute Handler - mergeArgsWithDefaults merges provided args with sch
   if ("content" in result) {
     const text = result.content[0].text;
     // Should NOT fail on "not found" - capability was resolved
-    assertEquals(text.includes("not found: json-reader"), false);
+    assertEquals(text.includes("not found for callName"), false);
   }
 });
 
@@ -669,7 +645,7 @@ Deno.test("Execute Handler - mergeArgsWithDefaults merges provided args with sch
 // Story 13.2 AC10: Usage Tracking Tests
 // ============================================================================
 
-Deno.test("Execute Handler - Call-by-Name records usage on capability not found", async () => {
+Deno.test("Execute Handler - accept_suggestion does not record usage on capability not found", async () => {
   const deps = createMockDependencies();
 
   // Track recordUsage calls
@@ -684,8 +660,9 @@ Deno.test("Execute Handler - Call-by-Name records usage on capability not found"
 
   await handleExecute(
     {
-      intent: "call missing capability",
-      capability: "non-existent",
+      accept_suggestion: {
+        callName: "non-existent:capability",
+      },
     },
     deps,
   );

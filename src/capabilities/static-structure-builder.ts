@@ -264,9 +264,10 @@ export class StaticStructureBuilder {
       const internalNodes: InternalNode[] = [];
       this.findNodes(ast, internalNodes, 0);
 
-      // Convert to external nodes (strip internal fields)
+      // Convert to external nodes (strip position, keep parentScope for loop membership)
+      // Bug 2 Fix: parentScope is now preserved for downstream loop tracking
       const nodes: StaticStructureNode[] = internalNodes.map((n) => {
-        const { position: _pos, parentScope: _scope, ...node } = n;
+        const { position: _pos, ...node } = n;
         return node as StaticStructureNode;
       });
 
