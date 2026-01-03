@@ -180,11 +180,13 @@ export class CapabilityStore {
       }
     }
 
-    // Build static structure from code FIRST (Story 10.1)
-    // Needed for semantic hashing (Story 7.2c) which normalizes variable names
-    let finalStaticStructure: StaticStructure | undefined = staticStructure;
-    if (!finalStaticStructure && this.staticStructureBuilder) {
+    // Build static structure from TRANSFORMED code (after literal extraction)
+    // This ensures semantic hash is based on parameterized code (args.xxx)
+    // not the original literals (actual query strings, paths, etc.)
+    let finalStaticStructure: StaticStructure | undefined;
+    if (this.staticStructureBuilder) {
       try {
+        // Always rebuild from current code (which may have literals transformed)
         finalStaticStructure = await this.staticStructureBuilder.buildStaticStructure(code);
         logger.debug("Static structure built for capability", {
           nodeCount: finalStaticStructure.nodes.length,

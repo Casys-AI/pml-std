@@ -1,0 +1,19 @@
+[package]
+name = "casys_pyo3"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "casys_pyo3"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+casys_engine = { path = "../casys_engine" }
+casys_storage_fs = { path = "../casys_storage_fs", optional = true }
+pyo3 = { version = "0.20", features = ["extension-module"] }
+serde_json = "1.0"
+
+[features]
+default = ["fs"]
+fs = ["casys_engine/fs", "casys_storage_fs"]
+mem = ["casys_engine/mem"]

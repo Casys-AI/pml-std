@@ -1,0 +1,22 @@
+[package]
+name = "casys_engine"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "casys_engine"
+crate-type = ["rlib"]
+
+[dependencies]
+casys_core = { path = "../casys_core" }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+crc32fast = "1"
+casys_storage_fs = { path = "../casys_storage_fs", optional = true }
+
+[features]
+# Default to in-memory only; fs can be enabled by dependents (e.g. casys_pyo3)
+default = ["mem"]
+mem = []
+fs = ["casys_storage_fs"]

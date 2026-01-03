@@ -9,18 +9,38 @@
  * Usage:
  *   deno task cleanup-db          # Dry run (shows what will be deleted)
  *   deno task cleanup-db --execute # Actually delete
+ *
+ * By default uses DATABASE_URL (PostgreSQL) if set, otherwise PGlite.
+ * Use --pglite to force PGlite even when DATABASE_URL is set.
  */
 
+import "@std/dotenv/load";
 import { getDb } from "../src/db/client.ts";
+import { createPostgresClient, isCloudDatabase } from "../src/db/postgres-client.ts";
+import type { DbClient } from "../src/db/types.ts";
 
 const EXECUTE = Deno.args.includes("--execute");
+const FORCE_PGLITE = Deno.args.includes("--pglite");
 
 async function main() {
-  const db = await getDb();
+  let db: DbClient;
+  let dbType: string;
+
+  // Use PostgreSQL if DATABASE_URL is set (unless --pglite is specified)
+  if (isCloudDatabase() && !FORCE_PGLITE) {
+    const pgClient = createPostgresClient();
+    await pgClient.connect();
+    db = pgClient;
+    dbType = "PostgreSQL";
+  } else {
+    db = await getDb();
+    dbType = "PGlite";
+  }
 
   console.log("╔════════════════════════════════════════╗");
   console.log("║     Database Cleanup Script            ║");
   console.log("╚════════════════════════════════════════╝\n");
+  console.log(`📦 Target: ${dbType}\n`);
 
   // Tables to clean (order matters for FK constraints)
   const tablesToClean = [
@@ -63,9 +83,16 @@ async function main() {
 
   console.log("\n🧹 Cleaning tables...\n");
 
+  // Use TRUNCATE CASCADE for PostgreSQL (faster, handles FK), DELETE for PGlite
+  const usesTruncate = dbType === "PostgreSQL";
+
   for (const table of tablesToClean) {
     try {
-      await db.query(`DELETE FROM ${table}`);
+      if (usesTruncate) {
+        await db.query(`TRUNCATE TABLE ${table} CASCADE`);
+      } else {
+        await db.query(`DELETE FROM ${table}`);
+      }
       console.log(`   ✓ ${table} cleaned`);
     } catch (e) {
       console.log(`   ⚠ ${table}: ${e instanceof Error ? e.message : String(e)}`);

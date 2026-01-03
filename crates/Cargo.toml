@@ -1,0 +1,21 @@
+[workspace]
+resolver = "2"
+members = [
+    "casys_core",
+    "casys_engine",
+    "casys_storage_fs",
+    "casys_storage_mem",
+]
+# Exclude crates with incomplete Cargo.toml (to be fixed in separate stories)
+exclude = [
+    "casys_napi",
+    "casys_pyo3",
+    "casys_storage_pg",
+    "casys_storage_redis",
+    "casys_storage_s3",
+]
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"

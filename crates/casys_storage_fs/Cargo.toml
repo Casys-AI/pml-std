@@ -1,0 +1,15 @@
+[package]
+name = "casys_storage_fs"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "casys_storage_fs"
+crate-type = ["rlib"]
+
+[dependencies]
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+crc32fast = "1"
+casys_core = { path = "../casys_core" }

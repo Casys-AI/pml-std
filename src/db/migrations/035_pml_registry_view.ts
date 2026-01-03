@@ -1,5 +1,5 @@
 /**
- * Migration 031: PML Registry VIEW (Story 13.8)
+ * Migration 035: PML Registry VIEW (Story 13.8)
  *
  * Creates a unified registry VIEW that combines tool_schema and capability_records.
  * This enables pml:discover to search both MCP tools and capabilities uniformly.
@@ -18,7 +18,7 @@
  * - routing defaults to 'local' because stdio MCPs have system access
  * - Cloud execution would access server filesystem (dangerous)
  *
- * @module db/migrations/031_pml_registry_view
+ * @module db/migrations/035_pml_registry_view
  */
 
 import type { Migration } from "../migrations.ts";
@@ -27,10 +27,10 @@ import * as log from "@std/log";
 
 export function createPmlRegistryViewMigration(): Migration {
   return {
-    version: 31,
+    version: 35,
     name: "pml_registry_view",
     up: async (db: DbClient) => {
-      log.info("Migration 031: Creating pml_registry VIEW...");
+      log.info("Migration 035: Creating pml_registry VIEW...");
 
       // ============================================
       // 1. Add code_url column to tool_schema (AC1)
@@ -130,10 +130,10 @@ export function createPmlRegistryViewMigration(): Migration {
         log.debug("  ○ Could not add comments (PGlite limitation)");
       }
 
-      log.info("✓ Migration 031 complete: pml_registry VIEW created");
+      log.info("✓ Migration 035 complete: pml_registry VIEW created");
     },
     down: async (db: DbClient) => {
-      log.info("Migration 031 rollback: Dropping pml_registry VIEW and columns...");
+      log.info("Migration 035 rollback: Dropping pml_registry VIEW and columns...");
 
       // 1. Drop the VIEW first
       await db.exec("DROP VIEW IF EXISTS pml_registry");
@@ -164,7 +164,7 @@ export function createPmlRegistryViewMigration(): Migration {
       `);
       log.info("  ✓ Dropped code_url column");
 
-      log.info("Migration 031 rollback complete");
+      log.info("Migration 035 rollback complete");
     },
   };
 }

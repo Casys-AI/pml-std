@@ -1,0 +1,14 @@
+[package]
+name = "casys_storage_redis"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+casys_core = { path = "../casys_core" }
+redis = { version = "0.24", optional = true }
+tokio = { version = "1", features = ["full"], optional = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
+redis = ["redis", "tokio"]

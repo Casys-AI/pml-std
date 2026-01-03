@@ -37,7 +37,7 @@ import { createSHGATParamsMigration } from "./migrations/027_shgat_params.ts";
 import { createCapabilityUuidPkMigration } from "./migrations/028_capability_uuid_pk.ts";
 import { createCapabilityHierarchyLevelMigration } from "./migrations/029_capability_hierarchy_level.ts";
 import { createRemoveTraceIntentDuplicationMigration } from "./migrations/030_remove_trace_intent_duplication.ts";
-import { createPmlRegistryViewMigration } from "./migrations/031_pml_registry_view.ts";
+import { createPmlRegistryViewMigration } from "./migrations/035_pml_registry_view.ts";
 import { up as entropyHistory032Up, down as entropyHistory032Down } from "./migrations/032_entropy_history.ts";
 import { createWorkflowPatternCreatedByMigration } from "./migrations/033_workflow_pattern_created_by.ts";
 import { up as dropCapUsageCols034Up, down as dropCapUsageCols034Down } from "./migrations/034_drop_capability_records_usage_columns.ts";
@@ -431,9 +431,9 @@ export function getAllMigrations(): Migration[] {
     createCapabilityUuidPkMigration(), // Epic 13 refactor: UUID PK, drop display_name & aliases
     createCapabilityHierarchyLevelMigration(), // Story 10.1: Capability hierarchy level for compound nodes
     createRemoveTraceIntentDuplicationMigration(), // Story 11.x: Remove intent duplication, use JOIN
-    createPmlRegistryViewMigration(), // Story 13.8: Unified pml_registry VIEW (tool_schema + capability_records)
     { version: 32, name: "entropy_history", up: entropyHistory032Up, down: entropyHistory032Down }, // Entropy trend tracking
     createWorkflowPatternCreatedByMigration(), // Story 9.8: Add created_by for user filtering
     { version: 34, name: "drop_capability_records_usage_columns", up: dropCapUsageCols034Up, down: dropCapUsageCols034Down }, // Drop unused cols from capability_records
+    createPmlRegistryViewMigration(), // Story 13.8: Unified pml_registry VIEW (version 35)
   ];
 }

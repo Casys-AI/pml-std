@@ -1,0 +1,5 @@
+# Rust build artifacts
+target/
+
+# Note: Cargo.lock IS committed for workspaces (reproducible builds)
+# See: https://doc.rust-lang.org/cargo/faq.html#why-have-cargolock-in-version-control

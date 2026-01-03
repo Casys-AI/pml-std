@@ -1,0 +1,14 @@
+[package]
+name = "casys_storage_pg"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+casys_core = { path = "../casys_core" }
+sqlx = { version = "0.7", features = ["postgres", "runtime-tokio-native-tls"], optional = true }
+tokio = { version = "1", features = ["full"], optional = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
+postgres = ["sqlx", "tokio"]

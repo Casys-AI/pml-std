@@ -1,0 +1,13 @@
+[package]
+name = "casys_core"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "casys_core"
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
