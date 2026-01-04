@@ -12,7 +12,7 @@ import type { UseCaseResult } from "../shared/types.ts";
 import type { DiscoverRequest, DiscoveredTool, DiscoverToolsResult } from "./types.ts";
 import type { IToolStore } from "../../../tools/types.ts";
 import type { SHGAT } from "../../../graphrag/algorithms/shgat.ts";
-import type { EmbeddingModel } from "../../../embeddings/types.ts";
+import type { EmbeddingModelInterface } from "../../../vector/embeddings.ts";
 import type { IDecisionLogger } from "../../../telemetry/decision-logger.ts";
 import type { GraphRAGEngine } from "../../../graphrag/graph-engine.ts";
 import type { VectorSearch } from "../../../vector/search.ts";
@@ -29,7 +29,7 @@ import {
 export interface DiscoverToolsDeps {
   toolStore: IToolStore;
   shgat?: SHGAT;
-  embeddingModel?: EmbeddingModel;
+  embeddingModel?: EmbeddingModelInterface;
   graphEngine?: GraphRAGEngine;
   vectorSearch?: VectorSearch;
   decisionLogger?: IDecisionLogger;
@@ -115,7 +115,10 @@ export class DiscoverToolsUseCase {
     // Build results
     const tools: DiscoveredTool[] = [];
     for (const shgatResult of shgatResults.slice(0, limit)) {
-      // Log decision
+      const metadata = toolsMetadata.get(shgatResult.toolId);
+      const toolName = extractToolName(shgatResult.toolId);
+
+      // Log decision with name for TracingPanel display
       decisionLogger?.logDecision({
         algorithm: "SHGAT",
         mode: "active_search",
@@ -125,6 +128,7 @@ export class DiscoverToolsUseCase {
         threshold: minScore,
         decision: shgatResult.score >= minScore ? "accepted" : "rejected",
         targetId: shgatResult.toolId,
+        targetName: toolName,
         correlationId,
         signals: {
           numHeads: shgatResult.headScores?.length ?? 0,
@@ -133,8 +137,6 @@ export class DiscoverToolsUseCase {
             : 0,
         },
       });
-
-      const metadata = toolsMetadata.get(shgatResult.toolId);
       tools.push({
         type: "tool",
         record_type: "mcp-tool",
@@ -182,6 +184,7 @@ export class DiscoverToolsUseCase {
       const toolSuccessRate = 1.0; // Cold start favorable
       const reliabilityFactor = calculateReliabilityFactor(toolSuccessRate, DEFAULT_RELIABILITY_CONFIG);
       const unifiedScore = Math.min(result.semanticScore * reliabilityFactor, GLOBAL_SCORE_CAP);
+      const toolName = extractToolName(result.toolId);
 
       decisionLogger?.logDecision({
         algorithm: "HybridSearch",
@@ -192,8 +195,9 @@ export class DiscoverToolsUseCase {
         threshold: minScore,
         decision: unifiedScore >= minScore ? "accepted" : "rejected",
         targetId: result.toolId,
+        targetName: toolName,
         correlationId,
-        signals: { semanticScore: result.semanticScore, successRate: toolSuccessRate },
+        signals: { semanticScore: result.semanticScore, targetSuccessRate: toolSuccessRate },
         params: { reliabilityFactor },
       });
 

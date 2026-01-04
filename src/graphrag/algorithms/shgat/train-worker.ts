@@ -22,6 +22,7 @@
  */
 
 import { createSHGATFromCapabilities, type TrainingExample } from "../shgat.ts";
+import { random } from "./initialization/parameters.ts";
 
 interface WorkerInput {
   capabilities: Array<{
@@ -58,7 +59,15 @@ async function main() {
     chunks.push(chunk);
   }
 
-  const inputJson = decoder.decode(new Uint8Array(chunks.flatMap((c) => [...c])));
+  // Concatenate chunks efficiently without intermediate array explosion
+  const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
+  const combined = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    combined.set(chunk, offset);
+    offset += chunk.length;
+  }
+  const inputJson = decoder.decode(combined);
   const input: WorkerInput = JSON.parse(inputJson);
 
   try {
@@ -78,7 +87,7 @@ async function main() {
 
     for (let epoch = 0; epoch < epochs; epoch++) {
       // Shuffle examples each epoch
-      const shuffled = [...input.examples].sort(() => Math.random() - 0.5);
+      const shuffled = [...input.examples].sort(() => random() - 0.5);
 
       let epochLoss = 0;
       let epochAccuracy = 0;

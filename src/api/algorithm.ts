@@ -206,6 +206,7 @@ export async function getRecentTraces(
       path_found: t.signals.pathFound,
       path_length: t.signals.pathLength,
       path_weight: t.signals.pathWeight,
+      pure: t.signals.pure,
     },
     params: {
       alpha: t.params.alpha,

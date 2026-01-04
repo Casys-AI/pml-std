@@ -98,6 +98,7 @@ import {
   SHGAT,
   type TrainingExample,
 } from "../graphrag/algorithms/shgat.ts";
+import { loadCooccurrenceData } from "../graphrag/algorithms/shgat/message-passing/index.ts";
 import { spawnSHGATTraining } from "../graphrag/algorithms/shgat/spawn-training.ts";
 import { buildDRDSPFromCapabilities, DRDSP } from "../graphrag/algorithms/dr-dsp.ts";
 import type { EmbeddingModelInterface } from "../vector/embeddings.ts";
@@ -836,6 +837,7 @@ export class PMLGatewayServer {
       graphEngine: this.graphEngine,
       dagSuggester: this.dagSuggester,
       capabilityStore: this.capabilityStore,
+      capabilityRegistry: this.capabilityRegistry ?? undefined,
       mcpClients: this.mcpClients,
       gatewayHandler: this.gatewayHandler,
       checkpointManager: this.checkpointManager,
@@ -853,6 +855,7 @@ export class PMLGatewayServer {
       graphEngine: this.graphEngine,
       mcpClients: this.mcpClients,
       capabilityStore: this.capabilityStore,
+      capabilityRegistry: this.capabilityRegistry ?? undefined,
       adaptiveThresholdManager: this.adaptiveThresholdManager,
       config: this.config,
       contextBuilder: this.contextBuilder,
@@ -1037,6 +1040,20 @@ export class PMLGatewayServer {
       log.info(
         `[Gateway] SHGAT initialized with ${capabilitiesWithEmbeddings.length} capabilities`,
       );
+
+      // Load V→V co-occurrence patterns from scraped n8n workflows
+      try {
+        const toolIndex = this.shgat.getToolIndexMap();
+        const coocData = await loadCooccurrenceData(toolIndex);
+        if (coocData.entries.length > 0) {
+          this.shgat.setCooccurrenceData(coocData.entries);
+          log.info(
+            `[Gateway] V→V co-occurrence loaded: ${coocData.stats.edges} edges from ${coocData.stats.patternsLoaded} patterns`,
+          );
+        }
+      } catch (e) {
+        log.debug(`[Gateway] No V→V co-occurrence data: ${e}`);
+      }
 
       // Cache hyperedges in KV for tensor-entropy and other consumers
       const hyperedges = buildHyperedgesFromSHGAT(capabilitiesWithEmbeddings);

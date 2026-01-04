@@ -18,5 +18,13 @@ export {
   type OrchestratorConfig,
 } from "./multi-level-orchestrator.ts";
 
+// V→V co-occurrence phase
+export { VertexToVertexPhase, buildCooccurrenceMatrix } from "./vertex-to-vertex-phase.ts";
+export type { CooccurrenceEntry, VertexToVertexConfig } from "./vertex-to-vertex-phase.ts";
+
+// Co-occurrence loader utilities
+export { loadCooccurrenceData, getToolEmbeddings, mergeEmbeddings } from "./cooccurrence-loader.ts";
+export type { CooccurrenceData, LoaderOptions } from "./cooccurrence-loader.ts";
+
 // Re-export multi-level types from main types for convenience
 export type { LevelParams, MultiLevelEmbeddings, MultiLevelForwardCache } from "../types.ts";

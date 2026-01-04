@@ -213,8 +213,8 @@ export class EventsStreamManager {
   private async broadcastEvent(event: PmlEvent): Promise<void> {
     // Debug logging for algorithm and capability events
     if (event.type.startsWith("algorithm.") || event.type.startsWith("capability.")) {
-      log.info(
-        `[SSE-DEBUG] Received ${event.type} from eventBus, clients: ${this.clients.size}`,
+      log.debug(
+        `[SSE] Received ${event.type} from eventBus, clients: ${this.clients.size}`,
       );
     }
 
@@ -236,8 +236,8 @@ export class EventsStreamManager {
 
       // Debug: event passed filter
       if (event.type.startsWith("algorithm.") || event.type.startsWith("capability.")) {
-        log.info(
-          `[SSE-DEBUG] Sending ${event.type} to client ${clientId.substring(0, 8)}`,
+        log.debug(
+          `[SSE] Sending ${event.type} to client ${clientId.substring(0, 8)}`,
         );
       }
 

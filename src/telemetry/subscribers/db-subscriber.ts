@@ -154,6 +154,23 @@ export class AlgorithmDBSubscriber {
         count: traces.length,
         durationMs: elapsedMs.toFixed(1),
       });
+
+      // Emit algorithm.scored events for SSE real-time updates (TracingPanel)
+      for (const t of traces) {
+        eventBus.emit({
+          type: "algorithm.scored",
+          source: "algorithm-db-subscriber",
+          payload: {
+            traceId: t.traceId,
+            algorithmName: t.algorithmName,
+            algorithmMode: t.algorithmMode,
+            targetType: t.targetType,
+            finalScore: t.finalScore,
+            decision: t.decision,
+            correlationId: t.correlationId,
+          },
+        });
+      }
     } catch (error) {
       logger.error("Failed to flush algorithm traces to DB", { error, count: traces.length });
       // Re-add traces to buffer for retry (up to buffer limit)

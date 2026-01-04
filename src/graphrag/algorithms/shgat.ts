@@ -40,7 +40,7 @@ import {
   type SHGATParams,
   type V2GradientAccumulators,
 } from "./shgat/initialization/index.ts";
-import { MultiLevelOrchestrator } from "./shgat/message-passing/index.ts";
+import { MultiLevelOrchestrator, type CooccurrenceEntry } from "./shgat/message-passing/index.ts";
 import * as math from "./shgat/utils/math.ts";
 import {
   accumulateW_intentGradients,
@@ -97,6 +97,9 @@ export {
   type TrainingExample,
 } from "./shgat/types.ts";
 
+// Export seeded RNG for reproducibility
+export { seedRng } from "./shgat/initialization/parameters.ts";
+
 import {
   type AttentionResult,
   type CapabilityNode,
@@ -147,6 +150,11 @@ export class SHGAT {
 
   constructor(config: Partial<SHGATConfig> = {}) {
     this.config = { ...DEFAULT_SHGAT_CONFIG, ...config };
+
+    // Note: preserveDim affects levelParams (message passing keeps 1024-dim)
+    // but hiddenDim stays at 64 for K-head scoring (projects 1024→64)
+    // This gives sqrt(64)=8 scaling, not sqrt(1024)=32
+
     this.graphBuilder = new GraphBuilder();
     this.orchestrator = new MultiLevelOrchestrator(this.trainingMode);
     this.params = initializeParameters(this.config);
@@ -165,6 +173,32 @@ export class SHGAT {
   registerCapability(node: CapabilityNode): void {
     this.graphBuilder.registerCapability(node);
     this.hierarchyDirty = true;
+  }
+
+  /**
+   * Set co-occurrence data for V→V enrichment
+   *
+   * Enables tool embedding enrichment based on scraped n8n workflow patterns.
+   * Tools that frequently co-occur in workflows become more similar.
+   *
+   * @param data - Sparse co-occurrence entries from PatternStore
+   *
+   * @example
+   * ```typescript
+   * const coocData = await loadCooccurrenceData(shgat.getToolIndex());
+   * shgat.setCooccurrenceData(coocData.entries);
+   * ```
+   */
+  setCooccurrenceData(data: CooccurrenceEntry[]): void {
+    this.orchestrator.setCooccurrenceData(data);
+    log.info(`[SHGAT] V→V co-occurrence enabled with ${data.length} edges`);
+  }
+
+  /**
+   * Get tool ID to index mapping for co-occurrence loader
+   */
+  getToolIndexMap(): Map<string, number> {
+    return this.graphBuilder.getToolIndexMap();
   }
 
   /**
@@ -371,7 +405,27 @@ export class SHGAT {
 
     // Flatten E for backward compatibility with scoring
     // Order: level 0, then level 1, etc. (matches capabilityIndex order from graphBuilder)
-    const E_flat = this.flattenEmbeddingsByCapabilityOrder(result.E);
+    let E_flat = this.flattenEmbeddingsByCapabilityOrder(result.E);
+
+    // PreserveDim: add residual connection to ORIGINAL embeddings
+    // This preserves semantic similarity structure while injecting graph info
+    // Benchmark showed residual≥0.2 gives MRR=1.000
+    if (this.config.preserveDim) {
+      const E_original = this.graphBuilder.getCapabilityEmbeddings();
+      const residual = this.config.preserveDimResidual ?? 0.3;
+
+      E_flat = E_flat.map((e, idx) => {
+        const orig = E_original[idx];
+        if (!orig || orig.length !== e.length) return e;
+
+        // Mix: E_final = (1-r)*E_propagated + r*E_original
+        const mixed = e.map((v, i) => (1 - residual) * v + residual * orig[i]);
+
+        // Normalize to unit vector
+        const norm = Math.sqrt(mixed.reduce((s, x) => s + x * x, 0));
+        return norm > 0 ? mixed.map(x => x / norm) : mixed;
+      });
+    }
 
     // Convert cache format for backward compatibility with training
     // Training backward pass expects cache.E[numLayers] and cache.attentionVE[l]
@@ -886,21 +940,24 @@ export class SHGAT {
     const hp = this.params.headParams[headIdx];
     const { hiddenDim } = this.config;
 
-    // Handle dimension mismatch: W_q/W_k are [hiddenDim][hiddenDim]
-    // but capEmbedding might have different dim after message passing
-    const inputDim = Math.min(intentProjected.length, capEmbedding.length, hiddenDim);
+    // W_q/W_k are [hiddenDim][embeddingDim] = [64][1024]
+    // With preserveDim: intent(1024) and cap(1024) → Q(64), K(64)
+    // Standard: intent(64) and cap(64) → Q(64), K(64)
+    const outputDim = hp.W_q.length; // = hiddenDim = 64
+    const wqCols = hp.W_q[0]?.length || hiddenDim;
+    const inputDim = Math.min(intentProjected.length, capEmbedding.length, wqCols);
 
-    const Q = new Array(hiddenDim).fill(0);
-    const K = new Array(hiddenDim).fill(0);
+    const Q = new Array(outputDim).fill(0);
+    const K = new Array(outputDim).fill(0);
 
-    for (let i = 0; i < hiddenDim; i++) {
+    for (let i = 0; i < outputDim; i++) {
       for (let j = 0; j < inputDim; j++) {
         Q[i] += hp.W_q[i][j] * intentProjected[j];
         K[i] += hp.W_k[i][j] * capEmbedding[j];
       }
     }
 
-    const scale = Math.sqrt(hiddenDim);
+    const scale = Math.sqrt(outputDim);
     return math.sigmoid(math.dot(Q, K) / scale);
   }
 
@@ -935,14 +992,18 @@ export class SHGAT {
     const { numHeads } = this.config;
     const capabilityNodes = this.graphBuilder.getCapabilityNodes();
 
-    // Project intent to match propagated embedding dimension (1024 → hiddenDim)
-    const intentProjected = this.projectIntent(intentEmbedding);
+    // PreserveDim mode: use raw intent (1024-dim) directly with W_q: [64][1024]
+    // Standard mode: project intent via W_intent (1024 → hiddenDim)
+    const intentForScoring = this.config.preserveDim
+      ? intentEmbedding
+      : this.projectIntent(intentEmbedding);
 
     for (const [capId, cap] of capabilityNodes) {
       const cIdx = this.graphBuilder.getCapabilityIndex(capId)!;
 
       // K-head attention scoring
-      const headScores = this.computeMultiHeadScoresV1(intentProjected, E[cIdx]);
+      // PreserveDim: W_q @ intent(1024) → Q(64), W_k @ E(1024) → K(64)
+      const headScores = this.computeMultiHeadScoresV1(intentForScoring, E[cIdx]);
 
       // Fusion: simple average of head scores (already in [0,1] from sigmoid)
       const avgScore = headScores.reduce((a, b) => a + b, 0) / numHeads;
@@ -1346,13 +1407,28 @@ export class SHGAT {
   // ==========================================================================
 
   exportParams(): Record<string, unknown> {
-    return exportParamsHelper(this.config, this.params);
+    const base = exportParamsHelper(this.config, this.params);
+    // ADR-055: Also export levelParams for multi-level message passing
+    const levelParamsObj: Record<string, LevelParams> = {};
+    for (const [level, params] of this.levelParams) {
+      levelParamsObj[level.toString()] = params;
+    }
+    return { ...base, levelParams: levelParamsObj };
   }
 
   importParams(params: Record<string, unknown>): void {
     const result = importParamsHelper(params, this.params);
     if (result.config) this.config = result.config;
     this.params = result.params;
+
+    // ADR-055: Import levelParams for multi-level message passing
+    if (params.levelParams && typeof params.levelParams === 'object') {
+      const levelParamsObj = params.levelParams as Record<string, LevelParams>;
+      this.levelParams = new Map();
+      for (const [levelStr, lp] of Object.entries(levelParamsObj)) {
+        this.levelParams.set(parseInt(levelStr), lp);
+      }
+    }
   }
 
   getFusionWeights(): { semantic: number; structure: number; temporal: number } {
@@ -1363,6 +1439,14 @@ export class SHGAT {
     if (weights.semantic !== undefined) this.params.fusionWeights.semantic = weights.semantic;
     if (weights.structure !== undefined) this.params.fusionWeights.structure = weights.structure;
     if (weights.temporal !== undefined) this.params.fusionWeights.temporal = weights.temporal;
+  }
+
+  getLearningRate(): number {
+    return this.config.learningRate;
+  }
+
+  setLearningRate(lr: number): void {
+    this.config.learningRate = lr;
   }
 
   getRegisteredToolIds(): string[] {
@@ -1442,8 +1526,20 @@ export function createSHGATFromCapabilities(
   const hasChildren = capabilities.some((c) => c.children && c.children.length > 0);
   const maxLevel = hasChildren ? 1 : 0; // Simple heuristic, actual level computed in rebuildHierarchy
 
+  // Get embeddingDim and preserveDim from config
+  // ADR-055: preserveDim=true keeps d=1024 throughout message passing for discriminability
+  const embeddingDim = capabilities[0]?.embedding.length || 1024;
+  const preserveDim = actualConfig?.preserveDim ?? true;
+
   // Adaptive K based on graph size (ADR-053)
-  const adaptiveConfig = getAdaptiveHeadsByGraphSize(allTools.size, capabilities.length, maxLevel);
+  // Pass preserveDim to get correct hiddenDim (= embeddingDim when preserveDim=true)
+  const adaptiveConfig = getAdaptiveHeadsByGraphSize(
+    allTools.size,
+    capabilities.length,
+    maxLevel,
+    preserveDim,
+    embeddingDim,
+  );
 
   // Merge: user config overrides adaptive, adaptive overrides defaults
   const mergedConfig: Partial<SHGATConfig> = {
@@ -1455,7 +1551,6 @@ export function createSHGATFromCapabilities(
 
   const shgat = new SHGAT(mergedConfig);
 
-  const embeddingDim = capabilities[0]?.embedding.length || 1024;
   for (const toolId of allTools) {
     shgat.registerTool({
       id: toolId,
@@ -1498,6 +1593,14 @@ export async function trainSHGATOnEpisodes(
  *
  * Unlike trainSHGATOnEpisodes which trains the fusion weights,
  * this trains the K-head attention mechanism used in scoreAllCapabilities().
+ *
+ * @param shgat SHGAT instance
+ * @param episodes Training examples
+ * @param _getEmbedding Embedding lookup (unused, for API compatibility)
+ * @param options Training options
+ * @param options.epochs Number of training epochs (default: 1)
+ * @param options.learningRate Learning rate (default: 0.001)
+ * @param options.batchSize Batch size (default: 32)
  */
 export async function trainSHGATOnEpisodesKHead(
   shgat: SHGAT,
@@ -1505,11 +1608,23 @@ export async function trainSHGATOnEpisodesKHead(
   _getEmbedding: (id: string) => number[] | null,
   options: {
     epochs?: number;
+    learningRate?: number;
     batchSize?: number;
     onEpoch?: (epoch: number, loss: number, accuracy: number) => void;
   } = {},
 ): Promise<{ finalLoss: number; finalAccuracy: number }> {
-  return trainOnEpisodes((batch) => shgat.trainBatchV1KHead(batch), episodes, options);
+  // Apply learning rate if provided
+  const originalLr = shgat.getLearningRate();
+  if (options.learningRate !== undefined) {
+    shgat.setLearningRate(options.learningRate);
+  }
+
+  try {
+    return await trainOnEpisodes((batch) => shgat.trainBatchV1KHead(batch), episodes, options);
+  } finally {
+    // Restore original learning rate
+    shgat.setLearningRate(originalLr);
+  }
 }
 
 /**

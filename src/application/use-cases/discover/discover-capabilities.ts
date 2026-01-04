@@ -11,7 +11,7 @@ import * as log from "@std/log";
 import type { UseCaseResult } from "../shared/types.ts";
 import type { DiscoverRequest, DiscoveredCapability, DiscoverCapabilitiesResult } from "./types.ts";
 import type { SHGAT } from "../../../graphrag/algorithms/shgat.ts";
-import type { EmbeddingModel } from "../../../embeddings/types.ts";
+import type { EmbeddingModelInterface } from "../../../vector/embeddings.ts";
 import type { IDecisionLogger } from "../../../telemetry/decision-logger.ts";
 import type { CapabilityRegistry } from "../../../capabilities/capability-registry.ts";
 
@@ -19,21 +19,25 @@ import type { CapabilityRegistry } from "../../../capabilities/capability-regist
  * Capability store interface (matches DAGSuggester.getCapabilityStore())
  */
 export interface ICapabilityStore {
-  findById(id: string): Promise<CapabilityData | undefined>;
+  findById(id: string): Promise<CapabilityData | null>;
 }
 
 /**
  * Capability data from store
+ * Compatible with Capability type from capability-store
  */
 export interface CapabilityData {
   id: string;
   name?: string;
   description?: string;
   codeSnippet?: string;
-  successRate: number;
-  usageCount: number;
+  successRate?: number;
+  usageCount?: number;
   fqdn?: string;
   parametersSchema?: unknown;
+  // Additional fields from Capability type
+  codeHash?: string;
+  intentEmbedding?: Float32Array;
 }
 
 /**
@@ -41,7 +45,7 @@ export interface CapabilityData {
  */
 export interface ICapabilityMatcher {
   searchCapabilities(intent: string, correlationId?: string): Promise<CapabilityMatch | null>;
-  getCapabilityStore(): ICapabilityStore | undefined;
+  getCapabilityStore(): ICapabilityStore | null | undefined;
 }
 
 /**
@@ -61,7 +65,7 @@ export interface DiscoverCapabilitiesDeps {
   capabilityMatcher: ICapabilityMatcher;
   capabilityRegistry?: CapabilityRegistry;
   shgat?: SHGAT;
-  embeddingModel?: EmbeddingModel;
+  embeddingModel?: EmbeddingModelInterface;
   decisionLogger?: IDecisionLogger;
 }
 
@@ -114,7 +118,7 @@ export class DiscoverCapabilitiesUseCase {
     minScore: number,
     correlationId?: string,
   ): Promise<DiscoverCapabilitiesResult | null> {
-    const { shgat, embeddingModel, capabilityMatcher, capabilityRegistry, decisionLogger } = this.deps;
+    const { shgat, embeddingModel, capabilityMatcher, decisionLogger } = this.deps;
     if (!shgat || !embeddingModel) return null;
 
     const intentEmbedding = await embeddingModel.encode(intent);
@@ -135,7 +139,13 @@ export class DiscoverCapabilitiesUseCase {
     // Build results
     const capabilities: DiscoveredCapability[] = [];
     for (const shgatResult of shgatResults.slice(0, limit)) {
-      // Log decision
+      // Get capability details first (need name for logging)
+      const capability = await capStore?.findById(shgatResult.capabilityId);
+      if (!capability) continue;
+
+      const capabilityName = capability.name ?? shgatResult.capabilityId.substring(0, 8);
+
+      // Log decision with name for TracingPanel display
       decisionLogger?.logDecision({
         algorithm: "SHGAT",
         mode: "active_search",
@@ -145,18 +155,17 @@ export class DiscoverCapabilitiesUseCase {
         threshold: minScore,
         decision: shgatResult.score >= minScore ? "accepted" : "rejected",
         targetId: shgatResult.capabilityId,
+        targetName: capabilityName,
         correlationId,
         signals: {
           numHeads: shgatResult.headScores?.length ?? 0,
           avgHeadScore: shgatResult.headScores
             ? shgatResult.headScores.reduce((a, b) => a + b, 0) / shgatResult.headScores.length
             : 0,
+          targetSuccessRate: capability.successRate,
+          targetUsageCount: capability.usageCount,
         },
       });
-
-      // Get capability details
-      const capability = await capStore?.findById(shgatResult.capabilityId);
-      if (!capability) continue;
 
       // Resolve call name
       const callName = await this.resolveCallName(shgatResult.capabilityId, capability.fqdn);
@@ -212,6 +221,8 @@ export class DiscoverCapabilitiesUseCase {
       return { capabilities: [], totalFound: 0 };
     }
 
+    const capabilityName = match.capability.name ?? match.capability.id.substring(0, 8);
+
     decisionLogger?.logDecision({
       algorithm: "CapabilityMatcher",
       mode: "active_search",
@@ -221,8 +232,13 @@ export class DiscoverCapabilitiesUseCase {
       threshold: minScore,
       decision: match.score >= minScore ? "accepted" : "rejected",
       targetId: match.capability.id,
+      targetName: capabilityName,
       correlationId,
-      signals: { semanticScore: match.semanticScore, successRate: match.capability.successRate },
+      signals: {
+        semanticScore: match.semanticScore,
+        targetSuccessRate: match.capability.successRate,
+        targetUsageCount: match.capability.usageCount,
+      },
     });
 
     const callName = await this.resolveCallName(match.capability.id, match.capability.fqdn);
@@ -271,7 +287,7 @@ export class DiscoverCapabilitiesUseCase {
    */
   private async parseCalledCapabilities(
     codeSnippet?: string,
-    capStore?: ICapabilityStore,
+    capStore?: ICapabilityStore | null,
   ): Promise<Array<{ id: string; call_name?: string; input_schema?: Record<string, unknown> }>> {
     const { capabilityRegistry } = this.deps;
     if (!codeSnippet || !capabilityRegistry) return [];

@@ -145,6 +145,13 @@ export class GraphBuilder {
   }
 
   /**
+   * Get full tool index map (for V→V co-occurrence)
+   */
+  getToolIndexMap(): Map<string, number> {
+    return new Map(this.toolIndex);
+  }
+
+  /**
    * Get capability index (for incidence matrix)
    */
   getCapabilityIndex(capabilityId: string): number | undefined {

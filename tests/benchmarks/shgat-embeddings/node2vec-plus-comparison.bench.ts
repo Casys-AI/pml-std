@@ -14,7 +14,7 @@
 import { loadScenario } from "../fixtures/scenario-loader.ts";
 import {
   createSHGATFromCapabilities,
-  trainSHGATOnEpisodes,
+  trainSHGATOnEpisodesKHead,
 } from "../../../src/graphrag/algorithms/shgat.ts";
 import Graph from "npm:graphology";
 import { Matrix, SingularValueDecomposition } from "npm:ml-matrix";
@@ -468,6 +468,8 @@ function evaluate(
   const shgat = createSHGATFromCapabilities(shgatCaps, new Map(), {
     numHeads: 4,
     hiddenDim: 64,
+    // Note: preserveDim tested 2025-01-04 - Node2Vec still degrades MRR vs pure BGE
+    // See docs/investigations/shgat-khead-dimension-mismatch.md
   });
 
   const trainingExamples = events
@@ -479,9 +481,10 @@ function evaluate(
       outcome: e.outcome === "success" ? 1 : 0,
     }));
 
-  trainSHGATOnEpisodes(shgat, trainingExamples, {
-    epochs: 10,
-    learningRate: 0.01,
+  // Use K-head training with optimal params (epochs=1, lr=0.001)
+  trainSHGATOnEpisodesKHead(shgat, trainingExamples, () => null, {
+    epochs: 1,
+    learningRate: 0.001,
   });
 
   let hits1 = 0,

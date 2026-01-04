@@ -214,6 +214,19 @@ export interface SHGATConfig {
   /** Decay factor for recursive depth */
   depthDecay: number;
 
+  // === Dimension Preservation ===
+  /**
+   * Keep embedding dimension (1024) throughout message passing.
+   * Fixes discriminability loss from 1024→64 compression.
+   * @default false
+   */
+  preserveDim?: boolean;
+  /**
+   * Residual weight: final = (1-r)*propagated + r*original
+   * @default 0.3
+   */
+  preserveDimResidual?: number;
+
   // === Legacy (kept for backward compatibility) ===
   /** @deprecated Which heads are active - all heads active in v2 */
   activeHeads?: number[];
@@ -236,6 +249,10 @@ export const DEFAULT_SHGAT_CONFIG: SHGATConfig = {
   embeddingDim: 1024,
   numLayers: 2,
   mlpHiddenDim: 32,
+
+  // ADR-055: Keep d=1024 throughout message passing for discriminability
+  preserveDim: true,
+  preserveDimResidual: 0.3, // 30% original + 70% propagated
 
   // Training
   learningRate: 0.001,

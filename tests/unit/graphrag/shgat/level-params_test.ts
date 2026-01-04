@@ -36,12 +36,13 @@ Deno.test("initializeLevelParameters - creates params for all levels", () => {
   }
 });
 
-Deno.test("initializeLevelParameters - dimensions are correct", () => {
+Deno.test("initializeLevelParameters - dimensions are correct (standard mode)", () => {
   const config: SHGATConfig = {
     ...DEFAULT_SHGAT_CONFIG,
     numHeads: 4,
     hiddenDim: 64,
     embeddingDim: 1024,
+    preserveDim: false, // Test standard mode dimensions
   };
   const maxLevel = 1;
   const headDim = Math.floor(config.hiddenDim / config.numHeads); // 16

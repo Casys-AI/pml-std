@@ -187,6 +187,7 @@ export class GetSuggestionUseCase {
         threshold: 0,
         decision: "accepted",
         targetId: bestCapability.id,
+        targetName: bestCapability.id.split(":").pop() ?? bestCapability.id.substring(0, 12),
         correlationId,
         signals: {
           pathFound: true,
