@@ -23,12 +23,28 @@ const WORKFLOW_TTL_MS = 3600_000;
 const WORKFLOW_KEY_PREFIX = ["workflow"] as const;
 
 /**
+ * Learning context for capability saving after HIL approval
+ */
+export interface LearningContext {
+  /** Original TypeScript code */
+  code: string;
+  /** Original intent text */
+  intent: string;
+  /** Static structure from SWC analysis */
+  staticStructure: import("../capabilities/types.ts").StaticStructure;
+  /** Pre-computed intent embedding for similarity search */
+  intentEmbedding?: number[];
+}
+
+/**
  * Workflow state record stored in KV
  */
 export interface WorkflowStateRecord {
   dag: DAGStructure;
   intent: string | null;
   createdAt: number;
+  /** Learning context for capability saving (from pml:execute HIL path) */
+  learningContext?: LearningContext;
 }
 
 /**
@@ -40,6 +56,8 @@ export interface WorkflowDAGRecord {
   intent: string | null;
   created_at: Date;
   expires_at: Date;
+  /** Learning context for capability saving (from pml:execute HIL path) */
+  learningContext?: LearningContext;
 }
 
 /**
@@ -51,11 +69,13 @@ export interface WorkflowDAGRecord {
  * @param workflowId - Unique workflow identifier
  * @param dag - DAG structure to persist
  * @param intent - Original intent text (for observability)
+ * @param learningContext - Optional learning context for capability saving after HIL
  */
 export async function saveWorkflowState(
   workflowId: string,
   dag: DAGStructure,
   intent: string = "",
+  learningContext?: LearningContext,
 ): Promise<void> {
   const kv = await getKv();
   const key = [...WORKFLOW_KEY_PREFIX, workflowId];
@@ -64,10 +84,11 @@ export async function saveWorkflowState(
     dag,
     intent: intent || null,
     createdAt: Date.now(),
+    learningContext,
   };
 
   await kv.set(key, record, { expireIn: WORKFLOW_TTL_MS });
-  log.debug(`Saved DAG for workflow ${workflowId} (${dag.tasks.length} tasks)`);
+  log.debug(`Saved DAG for workflow ${workflowId} (${dag.tasks.length} tasks, learningContext: ${!!learningContext})`);
 }
 
 /**
@@ -123,6 +144,7 @@ export async function getWorkflowStateRecord(
     intent: result.value.intent,
     created_at: createdAt,
     expires_at: expiresAt,
+    learningContext: result.value.learningContext,
   };
 }
 
@@ -194,8 +216,9 @@ export async function saveWorkflowDAG(
   workflowId: string,
   dag: DAGStructure,
   intent: string = "",
+  learningContext?: LearningContext,
 ): Promise<void> {
-  await saveWorkflowState(workflowId, dag, intent);
+  await saveWorkflowState(workflowId, dag, intent, learningContext);
 }
 
 /**

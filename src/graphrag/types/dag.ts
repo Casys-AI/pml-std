@@ -162,6 +162,11 @@ export interface Task {
      * Loop condition for UI display (Loop Abstraction)
      */
     loopCondition?: string;
+    /**
+     * Unique tools inside this loop for executedPath deduplication (SHGAT learning)
+     * Only present on loop tasks, contains the tools that are called inside the loop body.
+     */
+    bodyTools?: string[];
   };
 }
 

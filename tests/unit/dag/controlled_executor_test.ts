@@ -48,8 +48,9 @@ Deno.test("ControlledExecutor - executeStream", async (t) => {
 
     const dag: DAGStructure = {
       tasks: [
-        { id: "task1", tool: "tool1", arguments: {}, dependsOn: [] },
-        { id: "task2", tool: "tool2", arguments: {}, dependsOn: ["task1"] },
+        // Mark as pure to skip HIL approval check (test tools are not in allow list)
+        { id: "task1", tool: "tool1", arguments: {}, dependsOn: [], metadata: { pure: true } },
+        { id: "task2", tool: "tool2", arguments: {}, dependsOn: ["task1"], metadata: { pure: true } },
       ],
     };
 
@@ -81,7 +82,7 @@ Deno.test("ControlledExecutor - executeStream", async (t) => {
 
     const dag: DAGStructure = {
       tasks: [
-        { id: "task1", tool: "tool1", arguments: {}, dependsOn: [] },
+        { id: "task1", tool: "tool1", arguments: {}, dependsOn: [], metadata: { pure: true } },
       ],
     };
 
@@ -103,8 +104,8 @@ Deno.test("ControlledExecutor - executeStream", async (t) => {
 
     const dag: DAGStructure = {
       tasks: [
-        { id: "task1", tool: "tool1", arguments: {}, dependsOn: [] },
-        { id: "task2", tool: "tool2", arguments: {}, dependsOn: [] },
+        { id: "task1", tool: "tool1", arguments: {}, dependsOn: [], metadata: { pure: true } },
+        { id: "task2", tool: "tool2", arguments: {}, dependsOn: [], metadata: { pure: true } },
       ],
     };
 
@@ -129,9 +130,9 @@ Deno.test("ControlledExecutor - executeStream", async (t) => {
 
     const dag: DAGStructure = {
       tasks: [
-        { id: "task1", tool: "tool1", arguments: {}, dependsOn: [] },
-        { id: "task2", tool: "tool2", arguments: {}, dependsOn: ["task1"] },
-        { id: "task3", tool: "tool3", arguments: {}, dependsOn: ["task2"] },
+        { id: "task1", tool: "tool1", arguments: {}, dependsOn: [], metadata: { pure: true } },
+        { id: "task2", tool: "tool2", arguments: {}, dependsOn: ["task1"], metadata: { pure: true } },
+        { id: "task3", tool: "tool3", arguments: {}, dependsOn: ["task2"], metadata: { pure: true } },
       ],
     };
 
@@ -167,8 +168,8 @@ Deno.test("ControlledExecutor - Command Queue", async (t) => {
 
     const dag: DAGStructure = {
       tasks: [
-        { id: "task1", tool: "tool1", arguments: {}, dependsOn: [] },
-        { id: "task2", tool: "tool2", arguments: {}, dependsOn: ["task1"] },
+        { id: "task1", tool: "tool1", arguments: {}, dependsOn: [], metadata: { pure: true } },
+        { id: "task2", tool: "tool2", arguments: {}, dependsOn: ["task1"], metadata: { pure: true } },
       ],
     };
 
@@ -201,7 +202,7 @@ Deno.test("ControlledExecutor - Backward Compatibility", async (t) => {
 
     const dag: DAGStructure = {
       tasks: [
-        { id: "task1", tool: "tool1", arguments: {}, dependsOn: [] },
+        { id: "task1", tool: "tool1", arguments: {}, dependsOn: [], metadata: { pure: true } },
       ],
     };
 
@@ -219,7 +220,7 @@ Deno.test("ControlledExecutor - Backward Compatibility", async (t) => {
 
     const dag: DAGStructure = {
       tasks: [
-        { id: "task1", tool: "tool1", arguments: {}, dependsOn: [] },
+        { id: "task1", tool: "tool1", arguments: {}, dependsOn: [], metadata: { pure: true } },
       ],
     };
 
@@ -243,11 +244,11 @@ Deno.test("ControlledExecutor - Performance", async (t) => {
     // Sequential: 500ms, Parallel: ~100ms, Speedup: ~5x
     const dag: DAGStructure = {
       tasks: [
-        { id: "task1", tool: "tool1", arguments: {}, dependsOn: [] },
-        { id: "task2", tool: "tool2", arguments: {}, dependsOn: [] },
-        { id: "task3", tool: "tool3", arguments: {}, dependsOn: [] },
-        { id: "task4", tool: "tool4", arguments: {}, dependsOn: [] },
-        { id: "task5", tool: "tool5", arguments: {}, dependsOn: [] },
+        { id: "task1", tool: "tool1", arguments: {}, dependsOn: [], metadata: { pure: true } },
+        { id: "task2", tool: "tool2", arguments: {}, dependsOn: [], metadata: { pure: true } },
+        { id: "task3", tool: "tool3", arguments: {}, dependsOn: [], metadata: { pure: true } },
+        { id: "task4", tool: "tool4", arguments: {}, dependsOn: [], metadata: { pure: true } },
+        { id: "task5", tool: "tool5", arguments: {}, dependsOn: [], metadata: { pure: true } },
       ],
     };
 
@@ -279,9 +280,9 @@ Deno.test("ControlledExecutor - Performance", async (t) => {
 
     const dag: DAGStructure = {
       tasks: [
-        { id: "task1", tool: "tool1", arguments: {}, dependsOn: [] },
-        { id: "task2", tool: "tool2", arguments: {}, dependsOn: [] },
-        { id: "task3", tool: "tool3", arguments: {}, dependsOn: [] },
+        { id: "task1", tool: "tool1", arguments: {}, dependsOn: [], metadata: { pure: true } },
+        { id: "task2", tool: "tool2", arguments: {}, dependsOn: [], metadata: { pure: true } },
+        { id: "task3", tool: "tool3", arguments: {}, dependsOn: [], metadata: { pure: true } },
       ],
     };
 
@@ -318,7 +319,7 @@ Deno.test("ControlledExecutor - State Management", async (t) => {
 
     const dag: DAGStructure = {
       tasks: [
-        { id: "task1", tool: "tool1", arguments: {}, dependsOn: [] },
+        { id: "task1", tool: "tool1", arguments: {}, dependsOn: [], metadata: { pure: true } },
       ],
     };
 
@@ -337,7 +338,7 @@ Deno.test("ControlledExecutor - State Management", async (t) => {
 
     const dag: DAGStructure = {
       tasks: [
-        { id: "task1", tool: "tool1", arguments: {}, dependsOn: [] },
+        { id: "task1", tool: "tool1", arguments: {}, dependsOn: [], metadata: { pure: true } },
       ],
     };
 
@@ -357,5 +358,43 @@ Deno.test("ControlledExecutor - State Management", async (t) => {
 
     assertEquals(stats.totalCommands, 0);
     assertEquals(stats.processedCommands, 0);
+  });
+});
+
+// =============================================================================
+// Bug 3 Fix: setExecutionArgs for parameterized capabilities
+// =============================================================================
+
+Deno.test("ControlledExecutor - setExecutionArgs (Bug 3 Fix)", async (t) => {
+  await t.step("setExecutionArgs stores args for capability execution", () => {
+    const executor = new ControlledExecutor(mockToolExecutor);
+
+    const args = {
+      files: ["a.txt", "b.txt"],
+      results: [],
+      threshold: 0.5,
+    };
+
+    // Should not throw
+    executor.setExecutionArgs(args);
+
+    // The args are stored internally for injection into execution context
+    // We can't directly access executionArgs (private), but the method should work
+  });
+
+  await t.step("setExecutionArgs with empty object is valid", () => {
+    const executor = new ControlledExecutor(mockToolExecutor);
+
+    // Empty args should be valid (no parameters needed)
+    executor.setExecutionArgs({});
+  });
+
+  await t.step("setExecutionArgs can be called multiple times (overwrites)", () => {
+    const executor = new ControlledExecutor(mockToolExecutor);
+
+    executor.setExecutionArgs({ first: "value" });
+    executor.setExecutionArgs({ second: "value" });
+
+    // Should not throw - last call wins
   });
 });

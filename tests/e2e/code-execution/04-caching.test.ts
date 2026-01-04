@@ -15,11 +15,12 @@
 import { assertEquals, assertExists } from "@std/assert";
 import { CodeExecutionCache, generateCacheKey } from "../../../src/sandbox/cache.ts";
 import type { ExecutionResult } from "../../../src/sandbox/types.ts";
+import type { JsonValue } from "../../../src/capabilities/types.ts";
 
 /**
  * Create a mock execution result
  */
-function createMockResult(value: unknown): ExecutionResult {
+function createMockResult(value: JsonValue): ExecutionResult {
   return {
     success: true,
     result: value,

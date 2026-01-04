@@ -1,5 +1,5 @@
 /**
- * Unit tests for Migration 031: pml_registry VIEW (Story 13.8)
+ * Unit tests for Migration 035: pml_registry VIEW (Story 13.8)
  *
  * Tests cover:
  * - AC1: code_url and routing columns added to tool_schema
@@ -8,7 +8,7 @@
  */
 
 import { assertEquals, assertExists } from "@std/assert";
-import { createPmlRegistryViewMigration } from "../../../../src/db/migrations/031_pml_registry_view.ts";
+import { createPmlRegistryViewMigration } from "../../../../src/db/migrations/035_pml_registry_view.ts";
 import { PGliteClient } from "../../../../src/db/client.ts";
 import { getAllMigrations, MigrationRunner } from "../../../../src/db/migrations.ts";
 

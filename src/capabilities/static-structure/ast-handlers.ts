@@ -319,6 +319,10 @@ export function handleForStatement(
   const updateText = update ? ctx.extractConditionText(update) : "";
   const condition = `for(${initText}; ${testText}; ${updateText})`;
 
+  // Extract full loop code from span for native execution
+  const span = n.span as { start: number; end: number } | undefined;
+  const code = ctx.extractCodeFromSpan(span);
+
   // Create loop node
   const loopId = ctx.generateNodeId("loop");
   ctx.nodes.push({
@@ -326,6 +330,7 @@ export function handleForStatement(
     type: "loop",
     condition,
     loopType: "for",
+    code, // Full loop code for WorkerBridge execution
     position: ctx.position,
     parentScope: ctx.parentScope,
   });
@@ -359,12 +364,17 @@ export function handleWhileStatement(
   const test = n.test as Record<string, unknown> | undefined;
   const condition = `while(${ctx.extractConditionText(test)})`;
 
+  // Extract full loop code from span for native execution
+  const span = n.span as { start: number; end: number } | undefined;
+  const code = ctx.extractCodeFromSpan(span);
+
   const loopId = ctx.generateNodeId("loop");
   ctx.nodes.push({
     id: loopId,
     type: "loop",
     condition,
     loopType: "while",
+    code, // Full loop code for WorkerBridge execution
     position: ctx.position,
     parentScope: ctx.parentScope,
   });
@@ -397,12 +407,17 @@ export function handleDoWhileStatement(
   const test = n.test as Record<string, unknown> | undefined;
   const condition = `do...while(${ctx.extractConditionText(test)})`;
 
+  // Extract full loop code from span for native execution
+  const span = n.span as { start: number; end: number } | undefined;
+  const code = ctx.extractCodeFromSpan(span);
+
   const loopId = ctx.generateNodeId("loop");
   ctx.nodes.push({
     id: loopId,
     type: "loop",
     condition,
     loopType: "doWhile",
+    code, // Full loop code for WorkerBridge execution
     position: ctx.position,
     parentScope: ctx.parentScope,
   });
@@ -439,12 +454,17 @@ export function handleForOfStatement(
   const rightText = right ? ctx.extractConditionText(right) : "items";
   const condition = `for(${leftText} of ${rightText})`;
 
+  // Extract full loop code from span for native execution
+  const span = n.span as { start: number; end: number } | undefined;
+  const code = ctx.extractCodeFromSpan(span);
+
   const loopId = ctx.generateNodeId("loop");
   ctx.nodes.push({
     id: loopId,
     type: "loop",
     condition,
     loopType: "forOf",
+    code, // Full loop code for WorkerBridge execution
     position: ctx.position,
     parentScope: ctx.parentScope,
   });
@@ -481,12 +501,17 @@ export function handleForInStatement(
   const rightText = right ? ctx.extractConditionText(right) : "obj";
   const condition = `for(${leftText} in ${rightText})`;
 
+  // Extract full loop code from span for native execution
+  const span = n.span as { start: number; end: number } | undefined;
+  const code = ctx.extractCodeFromSpan(span);
+
   const loopId = ctx.generateNodeId("loop");
   ctx.nodes.push({
     id: loopId,
     type: "loop",
     condition,
     loopType: "forIn",
+    code, // Full loop code for WorkerBridge execution
     position: ctx.position,
     parentScope: ctx.parentScope,
   });

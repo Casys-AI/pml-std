@@ -1246,12 +1246,19 @@ export class PMLGatewayServer {
 
       for (const toolId of graphToolIds) {
         if (!this.shgat.hasToolNode(toolId)) {
-          // Generate embedding from tool description
           const toolNode = this.graphEngine.getToolNode(toolId);
-          const description = toolNode?.description ?? toolId.replace(":", " ");
-          const embedding = this.embeddingModel
-            ? await this.embeddingModel.encode(description)
-            : new Array(1024).fill(0).map(() => Math.random() - 0.5);
+
+          // Use pre-computed embedding from DB if available, otherwise generate
+          let embedding: number[];
+          if (toolNode?.embedding && toolNode.embedding.length > 0) {
+            embedding = toolNode.embedding;
+          } else {
+            // Fallback: generate embedding from description
+            const description = toolNode?.description ?? toolId.replace(":", " ");
+            embedding = this.embeddingModel
+              ? await this.embeddingModel.encode(description)
+              : new Array(1024).fill(0).map(() => Math.random() - 0.5);
+          }
 
           this.shgat.registerTool({ id: toolId, embedding });
           registeredCount++;

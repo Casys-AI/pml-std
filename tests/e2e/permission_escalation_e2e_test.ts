@@ -56,7 +56,7 @@ Deno.test({
 
     try {
       // Step 1: Create a capability that will need network access
-      const cap = await capStore.saveCapability({
+      const { capability: cap } = await capStore.saveCapability({
         code: `
           const response = await fetch("https://api.example.com/data");
           return await response.json();
@@ -133,7 +133,7 @@ Deno.test({
 
     try {
       // Create capability
-      const cap = await capStore.saveCapability({
+      const { capability: cap } = await capStore.saveCapability({
         code: `await Deno.writeTextFile("/etc/config.json", "{}");`,
         intent: "Write system configuration",
         durationMs: 50,
@@ -188,7 +188,7 @@ Deno.test({
 
     try {
       // Create capability that tries to run shell commands
-      const cap = await capStore.saveCapability({
+      const { capability: cap } = await capStore.saveCapability({
         code: `const proc = Deno.run({ cmd: ["ls", "-la"] });`,
         intent: "List directory contents via shell",
         durationMs: 100,
@@ -241,7 +241,7 @@ Deno.test({
 
     try {
       // Create capability
-      const cap = await capStore.saveCapability({
+      const { capability: cap } = await capStore.saveCapability({
         code:
           `const data = await Deno.readTextFile("/config.json"); await Deno.writeTextFile("/config.json", data);`,
         intent: "Read and update configuration",
@@ -375,7 +375,7 @@ Deno.test({
     const auditStore = new PermissionAuditStore(db);
 
     // Create a simple capability
-    const cap = await capStore.saveCapability({
+    const { capability: cap } = await capStore.saveCapability({
       code: "return 42;", // Simple code that doesn't need permissions
       intent: "Return the answer to everything",
       durationMs: 10,

@@ -130,10 +130,14 @@ Deno.test("AlgorithmOTELSubscriber - handles algorithm.decision events", async (
     subscriber.start();
 
     // Emit an event - should not throw
-    eventBus.emit("algorithm.decision", createTestPayload({
-      algorithmName: "SHGAT",
-      decision: "accepted",
-    }));
+    eventBus.emit({
+      type: "algorithm.decision",
+      source: "test",
+      payload: createTestPayload({
+        algorithmName: "SHGAT",
+        decision: "accepted",
+      }),
+    });
 
     // Give the event handler time to process
     await new Promise((resolve) => setTimeout(resolve, 10));
@@ -158,11 +162,15 @@ Deno.test("AlgorithmOTELSubscriber - handles rejected decisions", async () => {
     subscriber.start();
 
     // Emit rejected decision
-    eventBus.emit("algorithm.decision", createTestPayload({
-      algorithmName: "HybridSearch",
-      decision: "rejected_by_threshold",
-      finalScore: 0.45,
-    }));
+    eventBus.emit({
+      type: "algorithm.decision",
+      source: "test",
+      payload: createTestPayload({
+        algorithmName: "HybridSearch",
+        decision: "rejected_by_threshold",
+        finalScore: 0.45,
+      }),
+    });
 
     await new Promise((resolve) => setTimeout(resolve, 10));
 
@@ -186,11 +194,15 @@ Deno.test("AlgorithmOTELSubscriber - handles filtered decisions", async () => {
     subscriber.start();
 
     // Emit filtered decision
-    eventBus.emit("algorithm.decision", createTestPayload({
-      algorithmName: "CapabilityMatcher",
-      decision: "filtered_by_reliability",
-      finalScore: 0.3,
-    }));
+    eventBus.emit({
+      type: "algorithm.decision",
+      source: "test",
+      payload: createTestPayload({
+        algorithmName: "CapabilityMatcher",
+        decision: "filtered_by_reliability",
+        finalScore: 0.3,
+      }),
+    });
 
     await new Promise((resolve) => setTimeout(resolve, 10));
 
@@ -214,10 +226,14 @@ Deno.test("AlgorithmOTELSubscriber - handles missing algorithmName", async () =>
     subscriber.start();
 
     // Emit with undefined algorithmName
-    const payload = createTestPayload();
-    payload.algorithmName = undefined;
+    const testPayload = createTestPayload();
+    testPayload.algorithmName = undefined;
 
-    eventBus.emit("algorithm.decision", payload);
+    eventBus.emit({
+      type: "algorithm.decision",
+      source: "test",
+      payload: testPayload,
+    });
 
     await new Promise((resolve) => setTimeout(resolve, 10));
 
@@ -241,10 +257,14 @@ Deno.test("AlgorithmOTELSubscriber - handles missing intent", async () => {
     subscriber.start();
 
     // Emit with undefined intent
-    const payload = createTestPayload();
-    payload.intent = undefined;
+    const testPayload = createTestPayload();
+    testPayload.intent = undefined;
 
-    eventBus.emit("algorithm.decision", payload);
+    eventBus.emit({
+      type: "algorithm.decision",
+      source: "test",
+      payload: testPayload,
+    });
 
     await new Promise((resolve) => setTimeout(resolve, 10));
 
@@ -269,11 +289,15 @@ Deno.test("AlgorithmOTELSubscriber - handles rapid event burst", async () => {
 
     // Rapid fire 10 events
     for (let i = 0; i < 10; i++) {
-      eventBus.emit("algorithm.decision", createTestPayload({
-        algorithmName: `Algorithm${i}`,
-        finalScore: Math.random(),
-        decision: Math.random() > 0.5 ? "accepted" : "rejected",
-      }));
+      eventBus.emit({
+        type: "algorithm.decision",
+        source: "test",
+        payload: createTestPayload({
+          algorithmName: `Algorithm${i}`,
+          finalScore: Math.random(),
+          decision: Math.random() > 0.5 ? "accepted" : "rejected",
+        }),
+      });
     }
 
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -332,16 +356,24 @@ Deno.test("AlgorithmOTELSubscriber - different target types handled", async () =
     subscriber.start();
 
     // Tool target
-    eventBus.emit("algorithm.decision", createTestPayload({
-      targetType: "tool",
-      algorithmName: "HybridSearch",
-    }));
+    eventBus.emit({
+      type: "algorithm.decision",
+      source: "test",
+      payload: createTestPayload({
+        targetType: "tool",
+        algorithmName: "HybridSearch",
+      }),
+    });
 
     // Capability target
-    eventBus.emit("algorithm.decision", createTestPayload({
-      targetType: "capability",
-      algorithmName: "CapabilityMatcher",
-    }));
+    eventBus.emit({
+      type: "algorithm.decision",
+      source: "test",
+      payload: createTestPayload({
+        targetType: "capability",
+        algorithmName: "CapabilityMatcher",
+      }),
+    });
 
     await new Promise((resolve) => setTimeout(resolve, 20));
 
@@ -365,14 +397,22 @@ Deno.test("AlgorithmOTELSubscriber - different algorithm modes handled", async (
     subscriber.start();
 
     // Active search
-    eventBus.emit("algorithm.decision", createTestPayload({
-      algorithmMode: "active_search",
-    }));
+    eventBus.emit({
+      type: "algorithm.decision",
+      source: "test",
+      payload: createTestPayload({
+        algorithmMode: "active_search",
+      }),
+    });
 
     // Passive suggestion
-    eventBus.emit("algorithm.decision", createTestPayload({
-      algorithmMode: "passive_suggestion",
-    }));
+    eventBus.emit({
+      type: "algorithm.decision",
+      source: "test",
+      payload: createTestPayload({
+        algorithmMode: "passive_suggestion",
+      }),
+    });
 
     await new Promise((resolve) => setTimeout(resolve, 20));
 

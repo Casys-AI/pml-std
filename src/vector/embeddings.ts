@@ -302,7 +302,7 @@ class ProgressTracker {
  */
 export async function generateEmbeddings(
   db: DbClient,
-  model: EmbeddingModel,
+  model: EmbeddingModelInterface,
 ): Promise<EmbeddingStats> {
   log.info("🔄 Starting embedding generation...");
 

@@ -365,6 +365,8 @@ function mapNodeData(node: GraphNode): Record<string, unknown> {
         community_id: capNode.data.communityId,
         fqdn: capNode.data.fqdn,
         tools_used: capNode.data.toolsUsed,
+        // Story 10.1: Meta-capability hierarchy (0=leaf, 1+=meta)
+        hierarchy_level: capNode.data.hierarchyLevel ?? 0,
         tool_invocations: capNode.data.toolInvocations?.map((inv) => ({
           id: inv.id,
           tool: inv.tool,
@@ -391,6 +393,11 @@ function mapNodeData(node: GraphNode): Record<string, unknown> {
             success: r.success,
             duration_ms: r.durationMs,
             layer_index: r.layerIndex,
+            // Loop Abstraction metadata (camelCase → snake_case)
+            loop_id: r.loopId,
+            loop_type: r.loopType,
+            loop_condition: r.loopCondition,
+            body_tools: r.bodyTools,
           })),
         })),
       },

@@ -253,12 +253,18 @@ export class GraphRAGEngine {
   // === Tool Metadata ===
 
   /**
-   * Get tool node metadata (name, serverId, metadata including schema)
+   * Get tool node metadata (name, serverId, metadata including schema, embedding)
    */
   getToolNode(
     toolId: string,
   ):
-    | { name: string; serverId: string; description: string; schema?: { inputSchema?: unknown } }
+    | {
+      name: string;
+      serverId: string;
+      description: string;
+      schema?: { inputSchema?: unknown };
+      embedding?: number[];
+    }
     | null {
     if (!this.graph.hasNode(toolId)) return null;
     const attrs = this.graph.getNodeAttributes(toolId);
@@ -269,6 +275,7 @@ export class GraphRAGEngine {
       serverId: attrs.serverId as string ?? toolId.split(":")[0] ?? "unknown",
       description: (metadata?.description as string) ?? `Tool: ${attrs.name ?? toolId}`,
       schema: metadata?.schema as { inputSchema?: unknown } | undefined,
+      embedding: attrs.embedding as number[] | undefined,
     };
   }
 

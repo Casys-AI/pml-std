@@ -26,9 +26,10 @@ function createMockCapability(
   toolsUsed: string[],
   overrides: Partial<CapabilityResponseInternal> = {},
 ): CapabilityResponseInternal {
-  return {
+  const base: CapabilityResponseInternal = {
     id,
     name: `Capability ${id}`,
+    fqdn: null,
     description: `Description for ${id}`,
     codeSnippet: `const result = await doSomething();`,
     toolsUsed,
@@ -40,8 +41,9 @@ function createMockCapability(
     createdAt: new Date().toISOString(),
     lastUsed: new Date().toISOString(),
     source: "emergent",
-    ...overrides,
+    hierarchyLevel: 0,
   };
+  return { ...base, ...overrides };
 }
 
 /**

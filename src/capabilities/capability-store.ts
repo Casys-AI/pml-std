@@ -358,7 +358,7 @@ export class CapabilityStore {
         DEFAULT_CACHE_CONFIG, // postgres.js auto-serializes
         description || intent,
         success ? 1.0 : 0.0,
-        durationMs,
+        Math.round(durationMs),
         parametersSchema ?? null, // postgres.js auto-serializes
         permissionSet,
         permissionConfidence,
@@ -441,8 +441,11 @@ export class CapabilityStore {
     let maxChildLevel = -1; // -1 means no children found, final level will be 0
     const childCapabilityIds: string[] = []; // Track children for SHGAT
 
-    if (finalStaticStructure) {
-      const taskNodes = finalStaticStructure.nodes.filter(
+    // Use ORIGINAL staticStructure (with human-readable tool names like "fake:person")
+    // NOT finalStaticStructure (which has $cap:uuid after transformation)
+    const structureForHierarchy = staticStructure ?? finalStaticStructure;
+    if (structureForHierarchy) {
+      const taskNodes = structureForHierarchy.nodes.filter(
         (node): node is { id: string; type: "task"; tool: string } => node.type === "task",
       );
 

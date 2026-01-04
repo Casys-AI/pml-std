@@ -22,8 +22,19 @@ import {
   queryTechnical,
   queryUserActivity,
 } from "../../../../src/cloud/admin/analytics-queries.ts";
+import type { QueryClient } from "../../../../src/cloud/admin/types.ts";
+
+/**
+ * Test database client - extends QueryClient with test lifecycle methods
+ */
+interface TestDbClient extends QueryClient {
+  exec(sql: string, params?: unknown[]): Promise<void>;
+  close(): Promise<void>;
+}
+
 // Test setup helper - creates minimal schema for analytics tests
-async function setupTestDb(): Promise<PGliteClient> {
+// PGliteClient implements all QueryClient methods plus test lifecycle
+async function setupTestDb(): Promise<TestDbClient> {
   const db = new PGliteClient(":memory:");
   await db.connect();
 
@@ -122,11 +133,13 @@ async function setupTestDb(): Promise<PGliteClient> {
     );
   `);
 
-  return db;
+  // Cast is safe: PGliteClient implements all QueryClient methods
+  // The Row type is compatible with any T at runtime
+  return db as unknown as TestDbClient;
 }
 
 // Seed test data
-async function seedTestData(db: PGliteClient): Promise<void> {
+async function seedTestData(db: TestDbClient): Promise<void> {
   // Create test users
   await db.query(`
     INSERT INTO users (id, username, email, role, created_at)
@@ -637,7 +650,7 @@ Deno.test("getAdminAnalytics - cache expires after TTL", async () => {
   clearAnalyticsCache();
 
   // First call - should populate cache
-  const result1 = await getAdminAnalytics(db, "admin_user", { timeRange: "24h" });
+  const result1 = await getAdminAnalytics(db, { timeRange: "24h" });
   const stats1 = getCacheStats();
   assertEquals(stats1.entries, 1);
 
@@ -647,7 +660,7 @@ Deno.test("getAdminAnalytics - cache expires after TTL", async () => {
   assertEquals(statsCleared.entries, 0);
 
   // Second call after clear - should repopulate cache
-  const result2 = await getAdminAnalytics(db, "admin_user", { timeRange: "24h" });
+  const result2 = await getAdminAnalytics(db, { timeRange: "24h" });
   const stats2 = getCacheStats();
   assertEquals(stats2.entries, 1);
 

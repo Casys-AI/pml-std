@@ -12,6 +12,7 @@ import type { ExecutionEvent, TaskResult } from "../../dag/types.ts";
 import type { WorkflowState } from "../../dag/state.ts";
 import type {
   ActiveWorkflow,
+  LearningContext,
   MCPErrorResponse,
   MCPToolResponse,
   WorkflowExecutionArgs,
@@ -243,6 +244,7 @@ function createToolExecutorWithTracing(
     toolDefinitions: toolDefs,
     capabilityStore: deps.capabilityStore,
     graphRAG: deps.graphEngine,
+    capabilityRegistry: deps.capabilityRegistry,
   });
 
   return { executor, context };
@@ -305,6 +307,7 @@ export async function handleWorkflowExecution(
         workflowArgs.intent ?? "explicit_workflow",
         deps,
         userId,
+        workflowArgs.learningContext,
       );
     }
 
@@ -414,6 +417,8 @@ async function executeStandardWorkflow(
     controlledExecutor.setLearningDependencies(deps.capabilityStore, deps.graphEngine);
     // Phase 1: Set WorkerBridge for code execution task tracing
     controlledExecutor.setWorkerBridge(context.bridge);
+    // Loop Fix: Set tool definitions for loop code that contains MCP calls
+    controlledExecutor.setToolDefinitions(toolDefs);
 
     const result = await controlledExecutor.execute(dag);
 
@@ -464,17 +469,21 @@ async function executeStandardWorkflow(
  * Execute workflow with per-layer validation (Story 2.5-4)
  *
  * Story 10.5 AC10: Uses WorkerBridge for 100% RPC traceability.
+ *
+ * @param learningContext - Optional context for capability saving after HIL approval
  */
 async function executeWithPerLayerValidation(
   dag: DAGStructure,
   intent: string,
   deps: WorkflowHandlerDependencies,
   userId?: string,
+  learningContext?: LearningContext,
 ): Promise<MCPToolResponse> {
   const workflowId = crypto.randomUUID();
 
   // Save DAG to database for stateless continuation
-  await saveWorkflowDAG(deps.db, workflowId, dag, intent);
+  // Include learningContext for capability saving after HIL approval
+  await saveWorkflowDAG(deps.db, workflowId, dag, intent, learningContext);
 
   // Build tool definitions for WorkerBridge context
   const toolDefs = await buildToolDefinitionsFromDAG(dag, deps);
@@ -494,6 +503,10 @@ async function executeWithPerLayerValidation(
   controlledExecutor.setCheckpointManager(deps.db, true);
   controlledExecutor.setDAGSuggester(deps.dagSuggester);
   controlledExecutor.setLearningDependencies(deps.capabilityStore, deps.graphEngine);
+  // Loop Execution Fix: Set WorkerBridge for code_execution tasks (loops)
+  controlledExecutor.setWorkerBridge(context.bridge);
+  // Loop Fix: Set tool definitions for loop code that contains MCP calls
+  controlledExecutor.setToolDefinitions(toolDefs);
 
   // Start streaming execution
   const generator = controlledExecutor.executeStream(dag, workflowId);
@@ -502,6 +515,7 @@ async function executeWithPerLayerValidation(
     workflowId,
     tasksCount: dag.tasks.length,
     toolDefsCount: toolDefs.length,
+    hasLearningContext: !!learningContext,
   });
 
   // Process events until first layer completes
@@ -514,6 +528,8 @@ async function executeWithPerLayerValidation(
     0,
     deps,
     context,
+    undefined, // initialResults
+    learningContext,
   );
 }
 
@@ -521,6 +537,7 @@ async function executeWithPerLayerValidation(
  * Process generator events until next pause point or completion
  *
  * @param executorContext - Optional ExecutorContext for WorkerBridge cleanup (Story 10.5)
+ * @param learningContext - Optional context for capability saving after HIL approval
  */
 export async function processGeneratorUntilPause(
   workflowId: string,
@@ -531,6 +548,7 @@ export async function processGeneratorUntilPause(
   deps: WorkflowHandlerDependencies,
   executorContext?: ExecutorContext,
   initialResults?: TaskResult[],
+  learningContext?: LearningContext,
 ): Promise<MCPToolResponse> {
   // Accumulate results from previous layers when resuming
   const layerResults: TaskResult[] = initialResults ? [...initialResults] : [];
@@ -538,7 +556,23 @@ export async function processGeneratorUntilPause(
   let totalLayers = 0;
   let latestCheckpointId: string | null = null;
 
-  for await (const event of generator) {
+  log.debug(`[DEBUG] processGeneratorUntilPause: starting`, {
+    workflowId,
+    expectedLayer,
+    hasInitialResults: !!initialResults,
+    initialResultsCount: initialResults?.length ?? 0,
+  });
+
+  // IMPORTANT: Use manual generator.next() instead of for-await-of
+  // for-await-of calls generator.return() on early return, closing the generator!
+  // We need the generator to stay open so we can resume it later.
+  while (true) {
+    const { value: event, done } = await generator.next();
+    if (done || !event) break;
+
+    log.debug(`[DEBUG] processGeneratorUntilPause: received event`, {
+      type: event.type,
+    });
     if (event.type === "workflow_start") {
       totalLayers = event.totalLayers ?? 0;
     }
@@ -577,6 +611,7 @@ export async function processGeneratorUntilPause(
         event.decisionType,
         event.description,
         event.context,
+        layerResults,
       );
     }
 
@@ -584,30 +619,37 @@ export async function processGeneratorUntilPause(
       latestCheckpointId = event.checkpointId ?? null;
       currentLayer = event.layerIndex ?? currentLayer;
 
-      // Update active workflow state
-      const activeWorkflow: ActiveWorkflow = {
-        workflowId,
-        executor,
-        generator,
-        dag,
-        currentLayer,
-        totalLayers,
-        layerResults: [...layerResults],
-        status: "paused",
-        createdAt: deps.activeWorkflows.get(workflowId)?.createdAt ?? new Date(),
-        lastActivityAt: new Date(),
-        latestCheckpointId,
-      };
-      deps.activeWorkflows.set(workflowId, activeWorkflow);
+      const hasMoreLayers = currentLayer + 1 < totalLayers;
 
-      return formatLayerComplete(
-        workflowId,
-        latestCheckpointId,
-        currentLayer,
-        totalLayers,
-        layerResults,
-        currentLayer + 1 < totalLayers,
-      );
+      // Only pause on checkpoint if there are more layers to process
+      // On the last layer, continue iterating to get workflow_complete
+      if (hasMoreLayers) {
+        // Update active workflow state
+        const activeWorkflow: ActiveWorkflow = {
+          workflowId,
+          executor,
+          generator,
+          dag,
+          currentLayer,
+          totalLayers,
+          layerResults: [...layerResults],
+          status: "paused",
+          createdAt: deps.activeWorkflows.get(workflowId)?.createdAt ?? new Date(),
+          lastActivityAt: new Date(),
+          latestCheckpointId,
+        };
+        deps.activeWorkflows.set(workflowId, activeWorkflow);
+
+        return formatLayerComplete(
+          workflowId,
+          latestCheckpointId,
+          currentLayer,
+          totalLayers,
+          layerResults,
+          hasMoreLayers,
+        );
+      }
+      // Last layer: don't pause, continue to workflow_complete
     }
 
     if (event.type === "workflow_complete") {
@@ -624,6 +666,64 @@ export async function processGeneratorUntilPause(
         });
       }
 
+      // HIL Learning Fix: Save capability after successful HIL approval
+      // Only save if we have learningContext (from pml:execute code path)
+      // and the workflow succeeded (no failed tasks)
+      if (learningContext && deps.capabilityStore && (event.failedTasks ?? 0) === 0) {
+        try {
+          // Extract tools used from layer results
+          const toolsUsed = layerResults
+            .filter((r) => r.status === "success")
+            .map((r) => {
+              // Find the matching task in the DAG to get the tool name
+              const task = dag.tasks.find((t) => t.id === r.taskId);
+              return task?.tool ?? r.taskId;
+            })
+            .filter((tool): tool is string => !!tool);
+
+          // Build task results for trace data (TraceTaskResult format)
+          const taskResults = layerResults.map((r) => {
+            const task = dag.tasks.find((t) => t.id === r.taskId);
+            return {
+              taskId: r.taskId,
+              tool: task?.tool ?? r.taskId,
+              args: (task?.arguments ?? {}) as Record<string, import("../../capabilities/types.ts").JsonValue>,
+              result: (r.output ?? null) as import("../../capabilities/types.ts").JsonValue,
+              success: r.status === "success",
+              durationMs: r.executionTimeMs ?? 0,
+            };
+          });
+
+          const { capability } = await deps.capabilityStore.saveCapability({
+            code: learningContext.code,
+            intent: learningContext.intent,
+            durationMs: Math.round(event.totalTimeMs ?? 0),
+            success: true,
+            toolsUsed,
+            traceData: {
+              executedPath: toolsUsed,
+              taskResults,
+              decisions: [],
+              initialContext: { intent: learningContext.intent },
+              intentEmbedding: learningContext.intentEmbedding,
+            },
+            staticStructure: learningContext.staticStructure,
+          });
+
+          log.info(`[HIL Learning] Capability saved after HIL approval`, {
+            workflowId,
+            capabilityId: capability.id,
+            toolsUsed,
+          });
+        } catch (saveError) {
+          // Log but don't fail the workflow - learning is non-critical
+          log.warn(`[HIL Learning] Failed to save capability after HIL approval`, {
+            workflowId,
+            error: saveError instanceof Error ? saveError.message : String(saveError),
+          });
+        }
+      }
+
       return formatWorkflowComplete(
         workflowId,
         event.totalTimeMs ?? 0,
@@ -634,10 +734,26 @@ export async function processGeneratorUntilPause(
     }
   }
 
-  // Generator exhausted without workflow_complete (unexpected)
+  // Generator exhausted without workflow_complete = BUG
+  // This should never happen - if it does, something is wrong in ControlledExecutor
+  log.error(`[BUG] Generator exhausted without workflow_complete!`, {
+    workflowId,
+    layerResultsCount: layerResults.length,
+    currentLayer,
+  });
+
   // Story 10.5: Still cleanup WorkerBridge
   if (executorContext) {
     cleanupWorkerBridgeExecutor(executorContext);
   }
-  return formatMCPSuccess({ status: "complete", workflow_id: workflowId });
+
+  // Return error with partial results so caller knows something went wrong
+  return formatMCPToolError(
+    "Internal error: workflow completed unexpectedly without results",
+    {
+      workflow_id: workflowId,
+      partial_results: layerResults,
+      layers_completed: currentLayer,
+    },
+  );
 }

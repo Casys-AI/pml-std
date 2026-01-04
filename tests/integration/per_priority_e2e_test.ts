@@ -76,6 +76,8 @@ function createTestSHGAT(): SHGAT {
     successRate: 0.95,
     parents: [],
     children: [],
+    members: [{ type: "tool", id: "filesystem:read" }],
+    hierarchyLevel: 0,
   });
   shgat.registerCapability({
     id: "cap-fetch-api",
@@ -84,6 +86,8 @@ function createTestSHGAT(): SHGAT {
     successRate: 0.80,
     parents: [],
     children: [],
+    members: [{ type: "tool", id: "http:get" }],
+    hierarchyLevel: 0,
   });
 
   return shgat;

@@ -28,6 +28,7 @@ import {
   deleteWorkflowDAG,
   extendWorkflowDAGExpiration,
   getWorkflowDAG,
+  getWorkflowStateRecord,
   updateWorkflowDAG,
 } from "../workflow-dag-store.ts";
 import { processGeneratorUntilPause } from "./workflow-execution-handler.ts";
@@ -67,6 +68,7 @@ function createToolExecutorWithTracing(
     toolDefinitions: toolDefs,
     capabilityStore: deps.capabilityStore,
     graphRAG: deps.graphEngine,
+    capabilityRegistry: deps.capabilityRegistry,
   });
 
   return { executor, context };
@@ -96,14 +98,17 @@ export async function handleContinue(
     return await continueFromActiveWorkflow(activeWorkflow, params.reason, deps);
   }
 
-  // Fallback: Load from database
-  const dag = await getWorkflowDAG(deps.db, params.workflow_id);
-  if (!dag) {
+  // Fallback: Load from database (with learningContext for capability saving)
+  const workflowRecord = await getWorkflowStateRecord(params.workflow_id);
+  if (!workflowRecord) {
     return formatMCPToolError(
       `Workflow ${params.workflow_id} not found or expired`,
       { workflow_id: params.workflow_id },
     );
   }
+
+  const dag = workflowRecord.dag;
+  const learningContext = workflowRecord.learningContext;
 
   // Load latest checkpoint
   if (!deps.checkpointManager) {
@@ -133,6 +138,7 @@ export async function handleContinue(
   log.info(`[Story 10.5] Resuming workflow via WorkerBridge`, {
     workflowId: params.workflow_id,
     layer: latestCheckpoint.layer + 1,
+    hasLearningContext: !!learningContext,
   });
 
   return await processGeneratorUntilPause(
@@ -143,6 +149,8 @@ export async function handleContinue(
     latestCheckpoint.layer + 1,
     deps,
     context,
+    undefined, // initialResults
+    learningContext,
   );
 }
 
@@ -155,6 +163,10 @@ async function continueFromActiveWorkflow(
   deps: WorkflowHandlerDependencies,
 ): Promise<MCPToolResponse> {
   log.debug(`Continuing workflow ${workflow.workflowId} from layer ${workflow.currentLayer}`);
+
+  // Get learningContext from KV storage for capability saving after HIL
+  const workflowRecord = await getWorkflowStateRecord(workflow.workflowId);
+  const learningContext = workflowRecord?.learningContext;
 
   // Enqueue continue command to executor
   workflow.executor.enqueueCommand({
@@ -175,6 +187,9 @@ async function continueFromActiveWorkflow(
     workflow.dag,
     workflow.currentLayer + 1,
     deps,
+    undefined, // executorContext
+    undefined, // initialResults
+    learningContext,
   );
 }
 
@@ -388,12 +403,17 @@ export async function handleApprovalResponse(
   }
 
   // Send approval command to executor
+  log.debug(`[DEBUG] handleApprovalResponse: enqueueing command`, {
+    workflow_id: params.workflow_id,
+    approved: params.approved,
+  });
   activeWorkflow.executor.enqueueCommand({
     type: "approval_response",
     checkpointId: params.checkpoint_id,
     approved: params.approved,
     feedback: params.feedback,
   });
+  log.debug(`[DEBUG] handleApprovalResponse: command enqueued, calling processGeneratorUntilPause`);
 
   if (!params.approved) {
     // Rejected - abort workflow
@@ -424,7 +444,13 @@ export async function handleApprovalResponse(
   // Extend TTL
   await extendWorkflowDAGExpiration(deps.db, params.workflow_id);
 
-  log.info(`Workflow ${params.workflow_id} approved at checkpoint ${params.checkpoint_id}`);
+  // Get learningContext from KV storage for capability saving after HIL approval
+  const workflowRecord = await getWorkflowStateRecord(params.workflow_id);
+  const learningContext = workflowRecord?.learningContext;
+
+  log.info(`Workflow ${params.workflow_id} approved at checkpoint ${params.checkpoint_id}`, {
+    hasLearningContext: !!learningContext,
+  });
 
   return await processGeneratorUntilPause(
     params.workflow_id,
@@ -435,5 +461,6 @@ export async function handleApprovalResponse(
     deps,
     undefined, // executorContext
     activeWorkflow.layerResults, // Pass accumulated results from previous layers
+    learningContext,
   );
 }

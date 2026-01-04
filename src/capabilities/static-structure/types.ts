@@ -75,7 +75,7 @@ export type InternalNode =
     | { type: "capability"; capabilityId: string }
     | { type: "fork" }
     | { type: "join" }
-    | { type: "loop"; condition: string; loopType: LoopType }
+    | { type: "loop"; condition: string; loopType: LoopType; code?: string }
   );
 
 /**

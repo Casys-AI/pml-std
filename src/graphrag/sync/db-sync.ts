@@ -65,9 +65,9 @@ export async function syncGraphFromDatabase(
   // Clear existing graph
   graph.clear();
 
-  // 1. Load nodes (tools) from PGlite
+  // 1. Load nodes (tools) from PGlite - including pre-computed BGE embeddings
   const tools = await db.query(`
-    SELECT tool_id, tool_name, server_id, metadata
+    SELECT tool_id, tool_name, server_id, metadata, embedding
     FROM tool_embedding
   `);
 
@@ -78,11 +78,26 @@ export async function syncGraphFromDatabase(
     const isOperation = isCodeOperation(toolId);
     const nodeType = isOperation ? "operation" : "tool";
 
+    // Parse embedding from PostgreSQL vector format "[0.1,0.2,...]" or array
+    let embedding: number[] | undefined;
+    if (tool.embedding) {
+      if (Array.isArray(tool.embedding)) {
+        embedding = tool.embedding;
+      } else if (typeof tool.embedding === "string") {
+        try {
+          embedding = JSON.parse(tool.embedding);
+        } catch {
+          // Invalid format, skip
+        }
+      }
+    }
+
     const attributes: Record<string, unknown> = {
       type: nodeType,
       name: tool.tool_name as string,
       serverId: tool.server_id as string,
       metadata: tool.metadata,
+      embedding, // Pre-computed BGE embedding from DB
     };
 
     // Add operation-specific attributes

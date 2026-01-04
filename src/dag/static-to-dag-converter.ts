@@ -157,6 +157,31 @@ export function staticStructureToDag(
     membershipCount: loopMembership.size,
   });
 
+  // Phase 0b: Build loop body tools map for executedPath deduplication
+  // Maps loopId -> unique tool names inside this loop (for SHGAT learning)
+  const loopBodyTools = new Map<string, string[]>();
+  for (const [nodeId, loopInfo] of loopMembership) {
+    const node = structure.nodes.find((n) => n.id === nodeId);
+    if (node?.type === "task") {
+      const taskNode = node as { type: "task"; tool: string };
+      if (!loopBodyTools.has(loopInfo.loopId)) {
+        loopBodyTools.set(loopInfo.loopId, []);
+      }
+      const tools = loopBodyTools.get(loopInfo.loopId)!;
+      // Deduplicate: only add if not already present
+      if (!tools.includes(taskNode.tool)) {
+        tools.push(taskNode.tool);
+      }
+    }
+  }
+
+  logger.debug("Loop body tools computed for executedPath", {
+    loops: Array.from(loopBodyTools.entries()).map(([id, tools]) => ({
+      loopId: id,
+      tools,
+    })),
+  });
+
   // Phase 1: Create task map from nodes
   const tasks: ConditionalTask[] = [];
   const nodeToTaskId = new Map<string, string>();
@@ -176,6 +201,18 @@ export function staticStructureToDag(
       continue;
     }
 
+    // Loop Execution Fix: Skip nodes that are INSIDE a loop
+    // These will be executed as part of the loop's code_execution task
+    // The loop node itself will become a code_execution task with the full loop code
+    if (loopMembership.has(node.id)) {
+      logger.debug("Skipping node inside loop (will be executed as part of loop task)", {
+        nodeId: node.id,
+        loopId: loopMembership.get(node.id)?.loopId,
+        nodeType: node.type,
+      });
+      continue;
+    }
+
     const task = nodeToTask(
       node,
       taskIdPrefix,
@@ -183,6 +220,8 @@ export function staticStructureToDag(
       structure.variableBindings,
       structure.literalBindings,
       loopMembership.get(node.id),
+      // For loop nodes, pass their body tools for executedPath deduplication
+      node.type === "loop" ? loopBodyTools.get(node.id) : undefined,
     );
     if (task) {
       tasks.push(task);
@@ -304,6 +343,8 @@ function nodeToTask(
     loopType: "for" | "while" | "forOf" | "forIn" | "doWhile";
     loopCondition?: string;
   },
+  // For loop nodes: the unique tools inside this loop (for executedPath deduplication)
+  bodyTools?: string[],
 ): ConditionalTask | null {
   const taskId = `${prefix}${node.id}`;
 
@@ -398,6 +439,40 @@ function nodeToTask(
         };
       }
       return null; // Decision nodes are not tasks by default
+
+    case "loop":
+      // Loop Execution Fix: Loop nodes become code_execution tasks
+      // The full loop code (including body) is executed natively via WorkerBridge
+      // This allows loop variables (e.g., 'file' in 'for (const file of files)') to work correctly
+      if (!node.code) {
+        logger.warn("Loop node missing code, cannot create executable task", {
+          nodeId: node.id,
+          condition: node.condition,
+        });
+        return null;
+      }
+
+      return {
+        id: taskId,
+        tool: `loop:${node.loopType}`, // Pseudo-tool for tracing (e.g., "loop:forOf")
+        arguments: {},
+        dependsOn: [],
+        type: "code_execution",
+        code: node.code, // Full loop code for native execution
+        sandboxConfig: {
+          permissionSet: "mcp-standard", // Loops may contain MCP calls
+        },
+        metadata: {
+          loopId: node.id,
+          loopType: node.loopType,
+          loopCondition: node.condition,
+          // Unique tools inside this loop for executedPath deduplication (SHGAT learning)
+          bodyTools: bodyTools || [],
+        },
+        // Pass variable and literal bindings for context injection
+        variableBindings,
+        literalBindings,
+      };
 
     case "fork":
       // Fork nodes are structural, not tasks

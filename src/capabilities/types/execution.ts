@@ -99,6 +99,12 @@ export interface TraceTaskResult {
    * Loop Abstraction: Loop condition expression (for display)
    */
   loopCondition?: string;
+
+  /**
+   * Loop Abstraction: Tools inside the loop body
+   * Used by TraceTimeline to display nested tools in LoopTaskCard
+   */
+  bodyTools?: string[];
 }
 
 /**

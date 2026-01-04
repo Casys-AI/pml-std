@@ -528,18 +528,32 @@ function findIdentifierPositions(
 
 /**
  * Pass 1: Find all variable declarations for literals we want to remove
+ *
+ * IMPORTANT: This function must NOT mark loop/function variable declarations as removable.
+ * Loop variables (for...of, for...in, for) and function parameters are shadowing variables,
+ * not literals to be replaced. Only top-level literal declarations should be removed.
+ *
+ * @param inLoopInit - True if we're inside a loop's variable declaration (left/init property)
  */
 function findLiteralDeclarations(
   // deno-lint-ignore no-explicit-any
   node: any,
   literalNames: Set<string>,
   results: IdentifierPosition[] = [],
+  inLoopInit: boolean = false,
 ): IdentifierPosition[] {
   if (!node || typeof node !== "object") return results;
 
+  // Check if this is a loop construct - we need to skip its variable declarations
+  const isForOfOrForIn = node.type === "ForOfStatement" || node.type === "ForInStatement";
+  const isForLoop = node.type === "ForStatement";
+
   if (node.type === "VariableDeclarator") {
     const id = node.id;
-    if (id?.type === "Identifier" && literalNames.has(id.value)) {
+    // Only mark for removal if:
+    // 1. It matches a literal name
+    // 2. It's NOT a loop variable (inLoopInit = false)
+    if (id?.type === "Identifier" && literalNames.has(id.value) && !inLoopInit) {
       results.push({
         name: id.value,
         start: id.span?.start ?? 0,
@@ -553,12 +567,22 @@ function findLiteralDeclarations(
   for (const key of Object.keys(node)) {
     if (key === "span") continue;
     const value = node[key];
+
+    // Determine if we're entering a loop's variable declaration
+    let enteringLoopInit = inLoopInit;
+    if (isForOfOrForIn && key === "left") {
+      enteringLoopInit = true; // ForOfStatement.left / ForInStatement.left
+    }
+    if (isForLoop && key === "init") {
+      enteringLoopInit = true; // ForStatement.init
+    }
+
     if (Array.isArray(value)) {
       for (const item of value) {
-        findLiteralDeclarations(item, literalNames, results);
+        findLiteralDeclarations(item, literalNames, results, enteringLoopInit);
       }
     } else if (value && typeof value === "object") {
-      findLiteralDeclarations(value, literalNames, results);
+      findLiteralDeclarations(value, literalNames, results, enteringLoopInit);
     }
   }
 

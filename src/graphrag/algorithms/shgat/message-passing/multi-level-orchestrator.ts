@@ -17,6 +17,11 @@ import type { LevelParams, MultiLevelEmbeddings, MultiLevelForwardCache } from "
 import { VertexToEdgePhase } from "./vertex-to-edge-phase.ts";
 import { EdgeToVertexPhase } from "./edge-to-vertex-phase.ts";
 import { EdgeToEdgePhase } from "./edge-to-edge-phase.ts";
+import {
+  VertexToVertexPhase,
+  type CooccurrenceEntry,
+  type VertexToVertexConfig,
+} from "./vertex-to-vertex-phase.ts";
 
 /**
  * Layer parameters for all phases
@@ -67,16 +72,52 @@ export interface OrchestratorConfig {
  *
  * Handles both current 2-level (V→E→V) and future multi-level (V→E^0→E^1→...→V)
  * message passing architectures.
+ *
+ * Optionally includes V→V pre-phase for co-occurrence enrichment from scraped patterns.
  */
 export class MultiLevelOrchestrator {
   private readonly vertexToEdgePhase: VertexToEdgePhase;
   private readonly edgeToVertexPhase: EdgeToVertexPhase;
+  private vertexToVertexPhase: VertexToVertexPhase | null;
   private readonly trainingMode: boolean;
+  private cooccurrenceData: CooccurrenceEntry[] | null = null;
 
-  constructor(trainingMode: boolean = false) {
+  constructor(
+    trainingMode: boolean = false,
+    v2vConfig?: Partial<VertexToVertexConfig>,
+  ) {
     this.vertexToEdgePhase = new VertexToEdgePhase();
     this.edgeToVertexPhase = new EdgeToVertexPhase();
+    this.vertexToVertexPhase = v2vConfig ? new VertexToVertexPhase(v2vConfig) : null;
     this.trainingMode = trainingMode;
+  }
+
+  /**
+   * Set co-occurrence data for V→V enrichment
+   *
+   * @param data - Sparse co-occurrence entries from scraped patterns
+   */
+  setCooccurrenceData(data: CooccurrenceEntry[]): void {
+    this.cooccurrenceData = data;
+    // Initialize V→V phase if not already done
+    if (!this.vertexToVertexPhase) {
+      this.vertexToVertexPhase = new VertexToVertexPhase();
+    }
+  }
+
+  /**
+   * Apply V→V enrichment if configured
+   *
+   * @param H - Tool embeddings [numTools][embeddingDim]
+   * @returns Enriched embeddings (or original if no co-occurrence data)
+   */
+  private applyV2VEnrichment(H: number[][]): number[][] {
+    if (!this.vertexToVertexPhase || !this.cooccurrenceData || this.cooccurrenceData.length === 0) {
+      return H;
+    }
+
+    const { embeddings } = this.vertexToVertexPhase.forward(H, this.cooccurrenceData);
+    return embeddings;
   }
 
   /**
@@ -112,7 +153,8 @@ export class MultiLevelOrchestrator {
       attentionEV: [],
     };
 
-    let H = H_init;
+    // Apply V→V co-occurrence enrichment (if configured)
+    let H = this.applyV2VEnrichment(H_init);
     let E = E_init;
 
     cache.H.push(H);
@@ -246,8 +288,11 @@ export class MultiLevelOrchestrator {
       E.set(level, embs.map((row) => [...row]));
     }
 
+    // Apply V→V co-occurrence enrichment (if configured)
+    const H_enriched = this.applyV2VEnrichment(H_init);
+
     // Track current tool embeddings
-    let H = H_init.map((row) => [...row]);
+    let H = H_enriched.map((row) => [...row]);
 
     // ========================================================================
     // UPWARD PASS: V → E^0 → E^1 → ... → E^L_max
@@ -477,4 +522,5 @@ export class MultiLevelOrchestrator {
       (_, j) => Array.from({ length: rows }, (_, i) => matrix[i][j]),
     );
   }
+
 }

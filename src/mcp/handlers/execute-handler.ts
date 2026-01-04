@@ -537,6 +537,9 @@ async function executeDirectMode(
         // Set WorkerBridge for code execution tracing (Story 10.5)
         controlledExecutor.setWorkerBridge(executorContext.bridge);
 
+        // Loop Fix: Set tool definitions for loop code that contains MCP calls
+        controlledExecutor.setToolDefinitions(toolDefs);
+
         // Set up checkpoint manager for per-layer validation
         if (deps.checkpointManager) {
           controlledExecutor.setCheckpointManager(deps.db, true);
@@ -562,11 +565,17 @@ async function executeDirectMode(
           });
 
           // Delegate to handleWorkflowExecution with the physical DAG
+          // Pass learningContext so capability can be saved after HIL approval
           return await handleWorkflowExecution(
             {
               workflow: { tasks: optimizedDAG.tasks },
               intent,
               config: { per_layer_validation: true },
+              learningContext: {
+                code,
+                intent,
+                staticStructure,
+              },
             },
             deps.workflowDeps,
           );
@@ -588,11 +597,17 @@ async function executeDirectMode(
             );
           }
 
+          // Pass learningContext so capability can be saved after HIL approval
           return await handleWorkflowExecution(
             {
               workflow: { tasks: optimizedDAG.tasks },
               intent,
               config: { per_layer_validation: true },
+              learningContext: {
+                code,
+                intent,
+                staticStructure,
+              },
             },
             deps.workflowDeps,
           );
@@ -846,24 +861,9 @@ async function executeDirectMode(
         }
 
         // Build response - unwrap code execution results from {result, state, executionTimeMs} wrapper
-        log.info("[DEBUG] physicalResults.results raw:", {
-          count: physicalResults.results.length,
-          results: physicalResults.results.map((r) => ({
-            taskId: r.taskId,
-            status: r.status,
-            outputType: typeof r.output,
-            outputKeys: r.output && typeof r.output === "object"
-              ? Object.keys(r.output as object)
-              : null,
-            output: r.output,
-          })),
-        });
-
         const successOutputs = physicalResults.results
           .filter((r) => r.status === "success")
           .map((r) => unwrapCodeResult(r.output));
-
-        log.info("[DEBUG] successOutputs after unwrap:", { successOutputs });
 
         const response: ExecuteResponse = {
           status: "success",

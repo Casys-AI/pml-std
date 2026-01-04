@@ -139,6 +139,11 @@ export type StaticStructureNode =
     condition: string;
     /** Type of loop for semantic understanding */
     loopType: LoopType;
+    /**
+     * Full loop code including body, extracted from source span.
+     * Used for native execution via WorkerBridge.
+     */
+    code?: string;
     /** Parent scope ID for nested loops */
     parentScope?: string;
   };

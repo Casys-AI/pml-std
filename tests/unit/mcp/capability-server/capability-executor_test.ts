@@ -114,7 +114,6 @@ Deno.test("CapabilityExecutorService - capability has no workflow pattern", asyn
   // Registry returns record without workflowPatternId
   mockRegistry.setRecord("code:analyze", {
     id: "local.default.code.analyze.a1b2",
-    displayName: "code:analyze",
     org: "local",
     project: "default",
     namespace: "code",
@@ -151,7 +150,6 @@ Deno.test("CapabilityExecutorService - workflow pattern has no code", async () =
   // Registry returns record with FK
   mockRegistry.setRecord("code:analyze", {
     id: "local.default.code.analyze.a1b2",
-    displayName: "code:analyze",
     org: "local",
     project: "default",
     namespace: "code",
@@ -206,7 +204,6 @@ Deno.test("CapabilityExecutorService - AC2: successful execution", async () => {
   // Setup successful execution
   mockRegistry.setRecord("code:analyze", {
     id: "local.default.code.analyze.a1b2",
-    displayName: "code:analyze",
     org: "local",
     project: "default",
     namespace: "code",
@@ -269,7 +266,6 @@ Deno.test("CapabilityExecutorService - execution failure from bridge", async () 
   // Setup execution that fails
   mockRegistry.setRecord("data:transform", {
     id: "local.default.data.transform.b2c3",
-    displayName: "data:transform",
     org: "local",
     project: "default",
     namespace: "data",
@@ -326,7 +322,6 @@ Deno.test("CapabilityExecutorService - context includes capability metadata", as
 
   mockRegistry.setRecord("api:fetch", {
     id: "local.default.api.fetch.c3d4",
-    displayName: "api:fetch",
     org: "local",
     project: "default",
     namespace: "api",

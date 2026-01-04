@@ -60,7 +60,12 @@ export async function waitForDecisionCommand(
   decisionType: "AIL" | "HIL",
   timeout: number = 300000, // 5 minutes
 ): Promise<DecisionCommand | null> {
+  log.debug(`[DEBUG] waitForDecisionCommand: waiting`, { decisionType, timeout });
   const cmd = await commandQueue.waitForCommand(timeout);
+  log.debug(`[DEBUG] waitForDecisionCommand: got result`, {
+    hasCommand: cmd !== null,
+    cmdType: (cmd as { type?: string })?.type ?? "null",
+  });
 
   if (cmd === null) {
     log.warn(`${decisionType} decision timeout after ${timeout}ms`);

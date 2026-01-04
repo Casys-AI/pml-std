@@ -22,7 +22,7 @@ import { formatMCPToolError } from "../server/responses.ts";
 import { DenoSandboxExecutor, type WorkerExecutionConfig } from "../../sandbox/executor.ts";
 import { ContextBuilder } from "../../sandbox/context-builder.ts";
 import { CapabilityCodeGenerator } from "../../capabilities/code-generator.ts";
-import { hashCode } from "../../capabilities/hash.ts";
+import { hashSemanticStructure } from "../../capabilities/hash.ts";
 
 // Story 10.5: DAG Execution imports
 import { StaticStructureBuilder } from "../../capabilities/static-structure-builder.ts";
@@ -519,6 +519,7 @@ async function executeSandboxMode(
       executionTimeMs,
       deps.capabilityStore,
       deps.adaptiveThresholdManager,
+      deps.db,
     );
   }
 
@@ -646,15 +647,33 @@ async function executeSandboxMode(
 
 /**
  * Record capability feedback for adaptive learning (Story 7.3a)
+ *
+ * Uses semantic hash for consistent capability lookup (matches storeCapability).
  */
 async function recordCapabilityFeedback(
   request: CodeExecutionRequest,
   executionTimeMs: number,
   capabilityStore: CapabilityStore,
   adaptiveThresholdManager: AdaptiveThresholdManager,
+  db?: DbClient,
 ): Promise<void> {
   try {
-    const codeHash = await hashCode(request.code);
+    // Use semantic hash to match how capabilities are stored
+    let codeHash: string;
+    if (db) {
+      const builder = new StaticStructureBuilder(db);
+      const structure = await builder.buildStaticStructure(request.code);
+      if (structure.nodes.length > 0) {
+        codeHash = await hashSemanticStructure(structure);
+      } else {
+        // Fallback: no static structure means no capability to find
+        return;
+      }
+    } else {
+      // No db means we can't compute semantic hash
+      return;
+    }
+
     const capability = await capabilityStore.findByCodeHash(codeHash);
 
     if (capability) {

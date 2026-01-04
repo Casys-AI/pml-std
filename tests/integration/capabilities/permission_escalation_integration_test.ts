@@ -222,7 +222,7 @@ Deno.test({
 
     try {
       // First, create a capability
-      const cap = await store.saveCapability({
+      const { capability: cap } = await store.saveCapability({
         code: "const result = await tools.fetch({url: 'https://api.test.com'});",
         intent: "Fetch data from test API",
         durationMs: 100,
@@ -258,7 +258,7 @@ Deno.test({
 
     try {
       // Create a capability at mcp-standard level
-      const cap = await store.saveCapability({
+      const { capability: cap } = await store.saveCapability({
         code: "const x = 1;",
         intent: "Simple test",
         durationMs: 50,
@@ -326,7 +326,7 @@ Deno.test({
 
     try {
       // Create a capability
-      const cap = await capStore.saveCapability({
+      const { capability: cap } = await capStore.saveCapability({
         code: "await tools.fetch({url: 'https://api.test.com'});",
         intent: "Fetch API data",
         durationMs: 100,
@@ -377,7 +377,7 @@ Deno.test({
 
     try {
       // Create a capability
-      const cap = await capStore.saveCapability({
+      const { capability: cap } = await capStore.saveCapability({
         code: "await tools.writeFile({path: '/etc/config'});",
         intent: "Write config file",
         durationMs: 100,
@@ -427,7 +427,7 @@ Deno.test({
 
     try {
       // Create a capability
-      const cap = await capStore.saveCapability({
+      const { capability: cap } = await capStore.saveCapability({
         code: "await tools.fetch({url: 'https://api.test.com'});",
         intent: "Fetch API data",
         durationMs: 100,
@@ -489,7 +489,7 @@ Deno.test({
     const handler = new PermissionEscalationHandler(capStore, auditStore, mockHilCallback);
 
     try {
-      const cap = await capStore.saveCapability({
+      const { capability: cap } = await capStore.saveCapability({
         code: "Deno.run({cmd: ['ls']})",
         intent: "Run shell command",
         durationMs: 100,

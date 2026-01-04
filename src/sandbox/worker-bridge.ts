@@ -520,19 +520,33 @@ export class WorkerBridge {
     code: string,
     context?: Record<string, unknown>,
     toolDefinitions: ToolDefinition[] = [],
+    // Loop Capability Fix: metadata for correct executedPath building and capability saving
+    loopMetadata?: {
+      loopId?: string;
+      loopCondition?: string;
+      loopType?: string;
+      bodyTools?: string[];
+    },
   ): Promise<ExecutionResult> {
     const traceId = `code-${Date.now()}-${Math.random().toString(36).substring(7)}`;
     const startTime = Date.now();
 
     // Phase 1: Emit tool_start trace for pseudo-tool
+    // Loop Capability Fix: Include loop metadata for frontend display
     this.traces.push({
       type: "tool_start",
       tool: toolName,
       traceId,
       ts: startTime,
+      ...(loopMetadata ? {
+        loopId: loopMetadata.loopId,
+        loopType: loopMetadata.loopType,
+        loopCondition: loopMetadata.loopCondition,
+        bodyTools: loopMetadata.bodyTools,
+      } : {}),
     });
 
-    logger.debug(`Trace: tool_start for ${toolName}`, { traceId });
+    logger.debug(`Trace: tool_start for ${toolName}`, { traceId, loopId: loopMetadata?.loopId });
 
     try {
       // Execute code via Worker with preserveTraces to accumulate traces
@@ -549,6 +563,7 @@ export class WorkerBridge {
       const durationMs = endTime - startTime;
 
       // Phase 1: Emit tool_end trace for successful execution
+      // Loop Capability Fix: Include loop metadata for frontend display
       this.traces.push({
         type: "tool_end",
         tool: toolName,
@@ -558,6 +573,12 @@ export class WorkerBridge {
         durationMs,
         result: result.result,
         ...(result.error ? { error: result.error.message } : {}),
+        ...(loopMetadata ? {
+          loopId: loopMetadata.loopId,
+          loopType: loopMetadata.loopType,
+          loopCondition: loopMetadata.loopCondition,
+          bodyTools: loopMetadata.bodyTools,
+        } : {}),
       });
 
       logger.debug(`Trace: tool_end for ${toolName}`, {
@@ -565,6 +586,118 @@ export class WorkerBridge {
         success: result.success,
         durationMs,
       });
+
+      // Loop Capability Fix: Save capability for loop tasks with correct executedPath
+      if (
+        loopMetadata &&
+        toolName.startsWith("loop:") &&
+        result.success &&
+        this.capabilityStore
+      ) {
+        try {
+          // Build correct executedPath: [loop, ...bodyTools] (deduplicated from static analysis)
+          const executedPath = [toolName, ...(loopMetadata.bodyTools || [])];
+
+          // Use original intent from context (like normal capabilities) or generate from loop condition
+          const originalIntent = context?.intent as string | undefined;
+          const intent = originalIntent
+            || (loopMetadata.loopCondition
+              ? `Loop over ${loopMetadata.loopCondition.replace(/^for\s*\(/, "").replace(/\)$/, "")}`
+              : `Execute ${toolName}`);
+
+          // Reconstruct complete code with variable declarations for readable capability
+          const contextVars = context
+            ? Object.entries(context)
+                .filter(([k]) => k !== "deps" && k !== "args" && k !== "intent")
+                .map(([k, v]) => `const ${k} = ${JSON.stringify(v)};`)
+                .join("\n")
+            : "";
+          const completeCode = contextVars ? `${contextVars}\n${code}` : code;
+
+          // Create taskResult for the loop itself so TraceTimeline can render it
+          const loopTaskResult = {
+            taskId: `task_loop_${Date.now()}`,
+            tool: toolName, // e.g., "loop:forOf"
+            args: {} as Record<string, JsonValue>, // Loop has no args
+            result: (result.result ?? null) as JsonValue, // Loop result
+            success: true,
+            durationMs,
+            layerIndex: 0,
+            // Loop metadata for TraceTimeline groupTasksByLoop()
+            loopId: loopMetadata.loopId,
+            loopType: loopMetadata.loopType as "for" | "while" | "forOf" | "forIn" | "doWhile" | undefined,
+            loopCondition: loopMetadata.loopCondition,
+            bodyTools: loopMetadata.bodyTools,
+          };
+
+          const { capability } = await this.capabilityStore.saveCapability({
+            code: completeCode,
+            intent,
+            durationMs,
+            success: true,
+            toolsUsed: loopMetadata.bodyTools || [],
+            traceData: {
+              initialContext: (context ?? {}) as Record<string, JsonValue>,
+              executedPath,
+              decisions: [],
+              taskResults: [loopTaskResult],
+            },
+          });
+
+          // Create capability_records for proper naming (like execute-handler does)
+          // This gives us namespace:action like "loop:exec_XXXX" instead of just the ID
+          if (this.capabilityRegistry) {
+            try {
+              const existingRecord = await this.capabilityRegistry.getByWorkflowPatternId(
+                capability.id,
+              );
+
+              if (!existingRecord) {
+                // Create new capability_records
+                // namespace: "loop" (from toolName like "loop:forOf")
+                const namespace = toolName.includes(":") ? toolName.split(":")[0] : "loop";
+                // action: exec_XXXX (from code hash)
+                const action = `exec_${capability.codeHash.substring(0, 8)}`;
+                // 4-char hash for FQDN
+                const hash = capability.codeHash.substring(0, 4);
+
+                await this.capabilityRegistry.create({
+                  org: "local",
+                  project: "default",
+                  namespace,
+                  action,
+                  workflowPatternId: capability.id,
+                  hash,
+                  createdBy: "worker_bridge_loop",
+                  toolsUsed: loopMetadata.bodyTools || [],
+                });
+
+                logger.info("Registered loop capability in registry", {
+                  name: `${namespace}:${action}`,
+                  capabilityId: capability.id,
+                });
+              }
+            } catch (registryError) {
+              // Log but don't fail
+              logger.warn("Failed to register loop capability in registry", {
+                error: registryError instanceof Error ? registryError.message : String(registryError),
+              });
+            }
+          }
+
+          logger.info("Saved loop capability", {
+            tool: toolName,
+            intent,
+            bodyTools: loopMetadata.bodyTools,
+            executedPath,
+          });
+        } catch (saveError) {
+          // Don't fail execution if capability save fails
+          logger.warn("Failed to save loop capability", {
+            error: saveError instanceof Error ? saveError.message : String(saveError),
+          });
+        }
+      }
 
       return result;
     } catch (error) {

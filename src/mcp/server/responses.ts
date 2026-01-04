@@ -127,7 +127,7 @@ export function formatWorkflowComplete(
 }
 
 /**
- * Format approval required status for HIL
+ * Format approval required status for HIL/AIL
  */
 export function formatApprovalRequired(
   workflowId: string,
@@ -135,6 +135,7 @@ export function formatApprovalRequired(
   decisionType: string | undefined,
   description: string | undefined,
   context: unknown,
+  layerResults?: unknown[],
 ): MCPToolResponse {
   return formatMCPSuccess({
     status: "approval_required",
@@ -143,6 +144,7 @@ export function formatApprovalRequired(
     decision_type: decisionType,
     description,
     context,
+    layer_results: layerResults,
     options: ["continue", "abort", "replan"],
   });
 }

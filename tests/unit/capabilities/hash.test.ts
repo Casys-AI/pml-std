@@ -18,11 +18,15 @@ import {
   normalizeCode,
 } from "../../../src/capabilities/hash.ts";
 import { StaticStructureBuilder } from "../../../src/capabilities/static-structure-builder.ts";
-import type { DbClient } from "../../../src/db/types.ts";
+import type { DbClient, Transaction } from "../../../src/db/types.ts";
 
 // Mock DbClient for tests (StaticStructureBuilder requires it but doesn't use it for basic parsing)
 const mockDb: DbClient = {
+  connect: async () => {},
+  exec: async () => {},
   query: async () => [],
+  queryOne: async () => null,
+  transaction: async <T>(fn: (tx: Transaction) => Promise<T>) => fn({} as Transaction),
   close: async () => {},
 };
 

@@ -104,6 +104,21 @@ export interface JsonRpcRequest {
 }
 
 /**
+ * Learning context for capability saving after HIL approval
+ * Contains all data needed to call saveCapability when workflow completes.
+ */
+export interface LearningContext {
+  /** Original TypeScript code */
+  code: string;
+  /** Original intent text */
+  intent: string;
+  /** Static structure from SWC analysis */
+  staticStructure: import("../../capabilities/types.ts").StaticStructure;
+  /** Pre-computed intent embedding for similarity search */
+  intentEmbedding?: number[];
+}
+
+/**
  * Workflow execution arguments
  */
 export interface WorkflowExecutionArgs {
@@ -112,6 +127,8 @@ export interface WorkflowExecutionArgs {
   config?: {
     per_layer_validation?: boolean;
   };
+  /** Learning context for capability saving (passed from pml:execute to HIL path) */
+  learningContext?: LearningContext;
 }
 
 /**

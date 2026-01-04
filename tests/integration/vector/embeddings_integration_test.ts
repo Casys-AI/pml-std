@@ -11,8 +11,8 @@
  * - AC7: Performance targets
  */
 
-import { assert, assertEquals } from "@std/assert";
-import { schemaToText, type ToolSchema } from "../../../src/vector/embeddings.ts";
+import { assert, assertEquals, assertExists } from "@std/assert";
+import { generateEmbeddings, schemaToText, type ToolSchema } from "../../../src/vector/embeddings.ts";
 import { MockEmbeddingModel } from "../../fixtures/mock-embedding-model.ts";
 import { PGliteClient } from "../../../src/db/client.ts";
 import { createInitialMigration } from "../../../src/db/migrations.ts";

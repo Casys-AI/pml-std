@@ -102,7 +102,6 @@ Deno.test("Integration: CapabilityMatcher logs traces via AlgorithmTracer", asyn
     intent: "Fetch data from example.com website",
     durationMs: 100,
     success: true,
-    name: "fetchExample",
     description: "Fetches data from example.com",
   });
 

@@ -45,7 +45,7 @@ Deno.test({
         structure.nodes.map((n) => ({
           id: n.id,
           type: n.type,
-          tool: n.tool,
+          tool: n.type === "task" ? n.tool : undefined,
         })),
       );
 

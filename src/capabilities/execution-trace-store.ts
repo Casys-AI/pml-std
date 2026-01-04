@@ -112,6 +112,11 @@ export class ExecutionTraceStore {
         tool_id: op.toolId, // camelCase → snake_case
         duration_ms: op.durationMs, // camelCase → snake_case
       })),
+      // Loop Abstraction metadata
+      loop_id: r.loopId, // camelCase → snake_case
+      loop_type: r.loopType, // camelCase → snake_case
+      loop_condition: r.loopCondition, // camelCase → snake_case
+      body_tools: r.bodyTools, // camelCase → snake_case
     }));
 
     logger.debug("Saving execution trace", {
@@ -609,6 +614,11 @@ export class ExecutionTraceStore {
             toolId: op.tool_id, // snake_case → camelCase
             durationMs: op.duration_ms, // snake_case → camelCase
           })),
+          // Loop Abstraction metadata (snake_case → camelCase)
+          loopId: r.loop_id,
+          loopType: r.loop_type,
+          loopCondition: r.loop_condition,
+          bodyTools: r.body_tools,
         }));
       } catch {
         logger.warn("Failed to parse task_results JSONB", { traceId: row.id });
