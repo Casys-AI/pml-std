@@ -14,14 +14,69 @@
 import * as math from "../utils/math.ts";
 import type { PhaseParameters } from "./phase-interface.ts";
 import type { LevelParams, MultiLevelEmbeddings, MultiLevelForwardCache } from "../types.ts";
-import { VertexToEdgePhase } from "./vertex-to-edge-phase.ts";
-import { EdgeToVertexPhase } from "./edge-to-vertex-phase.ts";
-import { EdgeToEdgePhase } from "./edge-to-edge-phase.ts";
+import { VertexToEdgePhase, type VEForwardCache } from "./vertex-to-edge-phase.ts";
+import { EdgeToVertexPhase, type EVForwardCache } from "./edge-to-vertex-phase.ts";
+import { EdgeToEdgePhase, type EEForwardCache } from "./edge-to-edge-phase.ts";
 import {
   VertexToVertexPhase,
   type CooccurrenceEntry,
+  type V2VForwardCache,
+  type V2VGradients,
+  type V2VParams,
   type VertexToVertexConfig,
 } from "./vertex-to-vertex-phase.ts";
+
+/**
+ * Extended cache for backward pass with per-phase caches
+ */
+export interface MultiLevelBackwardCache extends MultiLevelForwardCache {
+  /** V→E phase caches per level per head: level → head → cache */
+  veCaches: Map<number, VEForwardCache[]>;
+  /** E→E upward phase caches per level per head: level → head → cache */
+  eeUpwardCaches: Map<number, EEForwardCache[]>;
+  /** E→E downward phase caches per level per head: level → head → cache */
+  eeDownwardCaches: Map<number, EEForwardCache[]>;
+  /** E→V phase caches per head: head → cache */
+  evCaches: EVForwardCache[];
+  /** V→V phase cache (optional, only if V2V enabled) */
+  v2vCache?: V2VForwardCache;
+  /** Tool-to-cap connectivity matrix */
+  toolToCapMatrix: number[][];
+  /** Cap-to-cap connectivity matrices: level → matrix */
+  capToCapMatrices: Map<number, number[][]>;
+  /** Max hierarchy level */
+  maxLevel: number;
+  /** Config used */
+  config: OrchestratorConfig;
+}
+
+/**
+ * Accumulated gradients for all level parameters
+ */
+export interface MultiLevelGradients {
+  /** Gradients per level: level → LevelParamsGradients */
+  levelGrads: Map<number, LevelParamsGradients>;
+  /** Gradient for input H [numTools][embDim] */
+  dH: number[][];
+  /** Gradient for input E per level: level → [numCaps][embDim] */
+  dE: Map<number, number[][]>;
+  /** V→V gradients (optional, only if V2V enabled) */
+  v2vGrads?: V2VGradients;
+}
+
+/**
+ * Gradients for a single level's parameters
+ */
+export interface LevelParamsGradients {
+  /** Per-head gradients for W_child */
+  dW_child: number[][][];
+  /** Per-head gradients for W_parent */
+  dW_parent: number[][][];
+  /** Per-head gradients for a_upward */
+  da_upward: number[][];
+  /** Per-head gradients for a_downward */
+  da_downward: number[][];
+}
 
 /**
  * Layer parameters for all phases
@@ -523,4 +578,551 @@ export class MultiLevelOrchestrator {
     );
   }
 
+  /**
+   * Forward pass with extended cache for backward
+   *
+   * Same as forwardMultiLevel but stores per-phase caches for backward pass.
+   *
+   * @param v2vParams - Optional V2V learnable parameters. If provided, uses trainable V2V.
+   */
+  forwardMultiLevelWithCache(
+    H_init: number[][],
+    E_levels_init: Map<number, number[][]>,
+    toolToCapMatrix: number[][],
+    capToCapMatrices: Map<number, number[][]>,
+    levelParams: Map<number, LevelParams>,
+    config: OrchestratorConfig,
+    v2vParams?: V2VParams,
+  ): { result: MultiLevelEmbeddings; cache: MultiLevelBackwardCache } {
+    if (E_levels_init.size === 0) {
+      throw new Error("forwardMultiLevelWithCache requires at least one level");
+    }
+
+    const maxLevel = Math.max(...Array.from(E_levels_init.keys()));
+
+    // Initialize extended cache
+    const veCaches = new Map<number, VEForwardCache[]>();
+    const eeUpwardCaches = new Map<number, EEForwardCache[]>();
+    const eeDownwardCaches = new Map<number, EEForwardCache[]>();
+    const evCaches: EVForwardCache[] = [];
+
+    // Initialize result structures
+    const E = new Map<number, number[][]>();
+    const attentionUpward = new Map<number, number[][][]>();
+    const attentionDownward = new Map<number, number[][][]>();
+
+    // Copy initial embeddings
+    for (const [level, embs] of E_levels_init) {
+      E.set(level, embs.map((row) => [...row]));
+    }
+
+    // Apply V→V enrichment (with cache if trainable params provided)
+    let v2vCache: V2VForwardCache | undefined;
+    let H_enriched: number[][];
+
+    if (v2vParams && this.vertexToVertexPhase && this.cooccurrenceData && this.cooccurrenceData.length > 0) {
+      // Use trainable V2V with cache
+      const v2vResult = this.vertexToVertexPhase.forwardWithCache(H_init, this.cooccurrenceData, v2vParams);
+      H_enriched = v2vResult.embeddings;
+      v2vCache = v2vResult.cache;
+    } else {
+      // Use config-based V2V (no cache)
+      H_enriched = this.applyV2VEnrichment(H_init);
+    }
+
+    let H = H_enriched.map((row) => [...row]);
+
+    // Pre-create EdgeToEdgePhase instances
+    const edgeToEdgePhases = new Map<string, EdgeToEdgePhase>();
+    for (let level = 1; level <= maxLevel; level++) {
+      edgeToEdgePhases.set(`up-${level}`, new EdgeToEdgePhase(level - 1, level));
+      edgeToEdgePhases.set(`down-${level}`, new EdgeToEdgePhase(level, level - 1));
+    }
+
+    // ========================================================================
+    // UPWARD PASS with caching
+    // ========================================================================
+    for (let level = 0; level <= maxLevel; level++) {
+      const params = levelParams.get(level);
+      if (!params) continue;
+
+      const capsAtLevel = E.get(level);
+      if (!capsAtLevel || capsAtLevel.length === 0) continue;
+
+      const headsE: number[][][] = [];
+      const levelAttention: number[][][] = [];
+      const levelVECaches: VEForwardCache[] = [];
+      const levelEECaches: EEForwardCache[] = [];
+
+      for (let head = 0; head < config.numHeads; head++) {
+        if (level === 0) {
+          // V→E with cache
+          const phaseParams: PhaseParameters = {
+            W_source: params.W_child[head],
+            W_target: params.W_parent[head],
+            a_attention: params.a_upward[head],
+          };
+
+          const { embeddings, attention, cache: veCache } = this.vertexToEdgePhase.forwardWithCache(
+            H,
+            capsAtLevel,
+            toolToCapMatrix,
+            phaseParams,
+            { leakyReluSlope: config.leakyReluSlope },
+          );
+
+          headsE.push(embeddings);
+          levelAttention.push(attention);
+          levelVECaches.push(veCache);
+        } else {
+          // E^(k-1)→E^k with cache
+          const E_prev = E.get(level - 1);
+          const connectivity = capToCapMatrices.get(level);
+          if (!E_prev || !connectivity) continue;
+
+          const phase = edgeToEdgePhases.get(`up-${level}`)!;
+          const phaseParams: PhaseParameters = {
+            W_source: params.W_child[head],
+            W_target: params.W_parent[head],
+            a_attention: params.a_upward[head],
+          };
+
+          const { embeddings, attention, cache: eeCache } = phase.forwardWithCache(
+            E_prev,
+            capsAtLevel,
+            connectivity,
+            phaseParams,
+            { leakyReluSlope: config.leakyReluSlope },
+          );
+
+          headsE.push(embeddings);
+          levelAttention.push(attention);
+          levelEECaches.push(eeCache);
+        }
+      }
+
+      // Store caches
+      if (level === 0) {
+        veCaches.set(level, levelVECaches);
+      } else {
+        eeUpwardCaches.set(level, levelEECaches);
+      }
+
+      // Concatenate heads
+      if (headsE.length > 0) {
+        E.set(level, math.concatHeads(headsE));
+      }
+      attentionUpward.set(level, levelAttention);
+    }
+
+    // ========================================================================
+    // DOWNWARD PASS with caching
+    // ========================================================================
+    for (let level = maxLevel - 1; level >= 0; level--) {
+      const params = levelParams.get(level);
+      if (!params) continue;
+
+      const capsAtLevel = E.get(level);
+      const capsAtParentLevel = E.get(level + 1);
+      if (!capsAtLevel || !capsAtParentLevel) continue;
+
+      const capsAtLevelPreDownward = capsAtLevel.map((row) => [...row]);
+      const headsE: number[][][] = [];
+      const levelAttention: number[][][] = [];
+      const levelEECaches: EEForwardCache[] = [];
+
+      const forwardConnectivity = capToCapMatrices.get(level + 1);
+      if (!forwardConnectivity) continue;
+      const reverseConnectivity = this.transposeMatrix(forwardConnectivity);
+
+      const phase = edgeToEdgePhases.get(`down-${level + 1}`)!;
+
+      for (let head = 0; head < config.numHeads; head++) {
+        const phaseParams: PhaseParameters = {
+          W_source: params.W_parent[head],
+          W_target: params.W_child[head],
+          a_attention: params.a_downward[head],
+        };
+
+        const { embeddings, attention, cache: eeCache } = phase.forwardWithCache(
+          capsAtParentLevel,
+          capsAtLevel,
+          reverseConnectivity,
+          phaseParams,
+          { leakyReluSlope: config.leakyReluSlope },
+        );
+
+        headsE.push(embeddings);
+        levelAttention.push(attention);
+        levelEECaches.push(eeCache);
+      }
+
+      eeDownwardCaches.set(level, levelEECaches);
+
+      if (headsE.length > 0) {
+        const E_concat = math.concatHeads(headsE);
+        // Residual connection
+        const E_new = capsAtLevelPreDownward.map((row, i) =>
+          row.map((val, j) => val + (E_concat[i]?.[j] ?? 0))
+        );
+        E.set(level, E_new);
+      }
+      attentionDownward.set(level, levelAttention);
+    }
+
+    // Final E^0→V phase with caching
+    const E_level0 = E.get(0);
+    if (E_level0 && E_level0.length > 0) {
+      const params = levelParams.get(0);
+      if (params) {
+        const H_preDownward = H.map((row) => [...row]);
+        const headsH: number[][][] = [];
+        const levelAttention: number[][][] = [];
+
+        for (let head = 0; head < config.numHeads; head++) {
+          const phaseParams: PhaseParameters = {
+            W_source: params.W_parent[head],
+            W_target: params.W_child[head],
+            a_attention: params.a_downward[head],
+          };
+
+          const { embeddings, attention, cache: evCache } = this.edgeToVertexPhase.forwardWithCache(
+            E_level0,
+            H,
+            toolToCapMatrix,
+            phaseParams,
+            { leakyReluSlope: config.leakyReluSlope },
+          );
+
+          headsH.push(embeddings);
+          levelAttention.push(attention);
+          evCaches.push(evCache);
+        }
+
+        if (headsH.length > 0) {
+          const H_concat = math.concatHeads(headsH);
+          H = H_preDownward.map((row, i) => row.map((val, j) => val + (H_concat[i]?.[j] ?? 0)));
+        }
+        attentionDownward.set(-1, levelAttention);
+      }
+    }
+
+    // Apply dropout during training
+    if (this.trainingMode && config.dropout > 0) {
+      H = math.applyDropout(H, config.dropout);
+      for (const [level, embs] of E) {
+        E.set(level, math.applyDropout(embs, config.dropout));
+      }
+    }
+
+    const cache: MultiLevelBackwardCache = {
+      H_init: H_init.map((row) => [...row]),
+      H_final: H.map((row) => [...row]),
+      E_init: new Map(Array.from(E_levels_init.entries()).map(([k, v]) => [k, v.map(r => [...r])])),
+      E_final: new Map(Array.from(E.entries()).map(([k, v]) => [k, v.map(r => [...r])])),
+      intermediateUpward: new Map(),
+      intermediateDownward: new Map(),
+      attentionUpward,
+      attentionDownward,
+      veCaches,
+      eeUpwardCaches,
+      eeDownwardCaches,
+      evCaches,
+      v2vCache,
+      toolToCapMatrix,
+      capToCapMatrices,
+      maxLevel,
+      config,
+    };
+
+    const result: MultiLevelEmbeddings = { H, E, attentionUpward, attentionDownward };
+    return { result, cache };
+  }
+
+  /**
+   * Backward pass through multi-level message passing
+   *
+   * Reverses the forward pass order:
+   * 1. Backward through E^0→V (gives dE^0)
+   * 2. Backward through downward passes E^(k+1)→E^k (gives dE^k+1, dE^k)
+   * 3. Backward through upward passes E^k→E^(k+1) and V→E^0 (gives gradients)
+   * 4. Backward through V→V (if trainable V2V enabled)
+   *
+   * @param dE_final - Gradient on final capability embeddings (from K-head scoring)
+   * @param dH_final - Gradient on final tool embeddings (optional, usually zero)
+   * @param cache - Forward pass cache
+   * @param levelParams - Level parameters for gradient computation
+   * @param v2vParams - Optional V2V learnable parameters (for backward)
+   * @returns Accumulated gradients for all level parameters
+   */
+  backwardMultiLevel(
+    dE_final: Map<number, number[][]>,
+    dH_final: number[][] | null,
+    cache: MultiLevelBackwardCache,
+    levelParams: Map<number, LevelParams>,
+    v2vParams?: V2VParams,
+  ): MultiLevelGradients {
+    const { maxLevel, config } = cache;
+    const numHeads = config.numHeads;
+
+    // Initialize gradients
+    const levelGrads = new Map<number, LevelParamsGradients>();
+    for (let level = 0; level <= maxLevel; level++) {
+      const params = levelParams.get(level);
+      if (!params) continue;
+
+      const headDim = params.W_child[0]?.length ?? 0;
+      const embDim = params.W_child[0]?.[0]?.length ?? 0;
+
+      levelGrads.set(level, {
+        dW_child: Array.from({ length: numHeads }, () =>
+          Array.from({ length: headDim }, () => Array(embDim).fill(0))),
+        dW_parent: Array.from({ length: numHeads }, () =>
+          Array.from({ length: headDim }, () => Array(embDim).fill(0))),
+        da_upward: Array.from({ length: numHeads }, () => Array(2 * headDim).fill(0)),
+        da_downward: Array.from({ length: numHeads }, () => Array(2 * headDim).fill(0)),
+      });
+    }
+
+    // Current gradients flowing backward
+    const dE = new Map<number, number[][]>();
+    for (const [level, grad] of dE_final) {
+      dE.set(level, grad.map(r => [...r]));
+    }
+
+    let dH: number[][] = dH_final
+      ? dH_final.map(r => [...r])
+      : Array.from({ length: cache.H_init.length }, () =>
+          Array(cache.H_init[0]?.length ?? 0).fill(0));
+
+    // ========================================================================
+    // BACKWARD through E^0→V (final downward phase)
+    // ========================================================================
+    if (cache.evCaches.length > 0) {
+      const params = levelParams.get(0);
+      if (params) {
+        const grads = levelGrads.get(0)!;
+
+        // Split dH into per-head gradients (reverse of concat)
+        const headDim = cache.evCaches[0]?.E_proj[0]?.length ?? 0;
+        const dH_perHead: number[][][] = [];
+        for (let head = 0; head < numHeads; head++) {
+          dH_perHead.push(dH.map(row =>
+            row.slice(head * headDim, (head + 1) * headDim)
+          ));
+        }
+
+        for (let head = 0; head < numHeads; head++) {
+          const evCache = cache.evCaches[head];
+          const phaseParams: PhaseParameters = {
+            W_source: params.W_parent[head],
+            W_target: params.W_child[head],
+            a_attention: params.a_downward[head],
+          };
+
+          const evGrads = this.edgeToVertexPhase.backward(dH_perHead[head], evCache, phaseParams);
+
+          // Accumulate gradients
+          this.accumulateMatrix(grads.dW_parent[head], evGrads.dW_source);
+          this.accumulateMatrix(grads.dW_child[head], evGrads.dW_target);
+          this.accumulateVector(grads.da_downward[head], evGrads.da_attention);
+
+          // Accumulate dE for level 0
+          const dE0 = dE.get(0) ?? evGrads.dE.map(r => Array(r.length).fill(0));
+          for (let i = 0; i < evGrads.dE.length; i++) {
+            for (let j = 0; j < evGrads.dE[i].length; j++) {
+              dE0[i][j] += evGrads.dE[i][j];
+            }
+          }
+          dE.set(0, dE0);
+        }
+      }
+    }
+
+    // ========================================================================
+    // BACKWARD through downward passes E^(k+1)→E^k
+    // ========================================================================
+    for (let level = 0; level < maxLevel; level++) {
+      const eeCaches = cache.eeDownwardCaches.get(level);
+      if (!eeCaches || eeCaches.length === 0) continue;
+
+      const params = levelParams.get(level);
+      if (!params) continue;
+
+      const grads = levelGrads.get(level)!;
+      const dE_level = dE.get(level);
+      if (!dE_level) continue;
+
+      // Split into per-head
+      const headDim = eeCaches[0]?.E_k_proj[0]?.length ?? 0;
+      const dE_perHead: number[][][] = [];
+      for (let head = 0; head < numHeads; head++) {
+        dE_perHead.push(dE_level.map(row =>
+          row.slice(head * headDim, (head + 1) * headDim)
+        ));
+      }
+
+      for (let head = 0; head < numHeads; head++) {
+        const eeCache = eeCaches[head];
+        const phaseParams: PhaseParameters = {
+          W_source: params.W_parent[head],
+          W_target: params.W_child[head],
+          a_attention: params.a_downward[head],
+        };
+
+        // Note: In downward, E_k is child (target), E_kPlus1 is parent (source)
+        const eeGrads = this.createEdgeToEdgePhaseForBackward(level + 1, level)
+          .backward(dE_perHead[head], eeCache, phaseParams);
+
+        this.accumulateMatrix(grads.dW_parent[head], eeGrads.dW_source);
+        this.accumulateMatrix(grads.dW_child[head], eeGrads.dW_target);
+        this.accumulateVector(grads.da_downward[head], eeGrads.da_attention);
+
+        // Accumulate dE for parent level (k+1)
+        const dE_parent = dE.get(level + 1) ?? eeGrads.dE_k.map(r => Array(r.length).fill(0));
+        for (let i = 0; i < eeGrads.dE_k.length; i++) {
+          for (let j = 0; j < eeGrads.dE_k[i].length; j++) {
+            dE_parent[i][j] += eeGrads.dE_k[i][j];
+          }
+        }
+        dE.set(level + 1, dE_parent);
+      }
+    }
+
+    // ========================================================================
+    // BACKWARD through upward passes
+    // ========================================================================
+    for (let level = maxLevel; level >= 0; level--) {
+      if (level === 0) {
+        // V→E backward
+        const veCaches = cache.veCaches.get(0);
+        if (!veCaches || veCaches.length === 0) continue;
+
+        const params = levelParams.get(0);
+        if (!params) continue;
+
+        const grads = levelGrads.get(0)!;
+        const dE0 = dE.get(0);
+        if (!dE0) continue;
+
+        const headDim = veCaches[0]?.H_proj[0]?.length ?? 0;
+        const dE_perHead: number[][][] = [];
+        for (let head = 0; head < numHeads; head++) {
+          dE_perHead.push(dE0.map(row =>
+            row.slice(head * headDim, (head + 1) * headDim)
+          ));
+        }
+
+        for (let head = 0; head < numHeads; head++) {
+          const veCache = veCaches[head];
+          const phaseParams: PhaseParameters = {
+            W_source: params.W_child[head],
+            W_target: params.W_parent[head],
+            a_attention: params.a_upward[head],
+          };
+
+          const veGrads = this.vertexToEdgePhase.backward(dE_perHead[head], veCache, phaseParams);
+
+          this.accumulateMatrix(grads.dW_child[head], veGrads.dW_source);
+          this.accumulateMatrix(grads.dW_parent[head], veGrads.dW_target);
+          this.accumulateVector(grads.da_upward[head], veGrads.da_attention);
+
+          // Accumulate dH
+          for (let i = 0; i < veGrads.dH.length; i++) {
+            for (let j = 0; j < veGrads.dH[i].length; j++) {
+              dH[i][j] += veGrads.dH[i][j];
+            }
+          }
+        }
+      } else {
+        // E^(k-1)→E^k backward
+        const eeCaches = cache.eeUpwardCaches.get(level);
+        if (!eeCaches || eeCaches.length === 0) continue;
+
+        const params = levelParams.get(level);
+        if (!params) continue;
+
+        const grads = levelGrads.get(level)!;
+        const dE_level = dE.get(level);
+        if (!dE_level) continue;
+
+        const headDim = eeCaches[0]?.E_k_proj[0]?.length ?? 0;
+        const dE_perHead: number[][][] = [];
+        for (let head = 0; head < numHeads; head++) {
+          dE_perHead.push(dE_level.map(row =>
+            row.slice(head * headDim, (head + 1) * headDim)
+          ));
+        }
+
+        for (let head = 0; head < numHeads; head++) {
+          const eeCache = eeCaches[head];
+          const phaseParams: PhaseParameters = {
+            W_source: params.W_child[head],
+            W_target: params.W_parent[head],
+            a_attention: params.a_upward[head],
+          };
+
+          const eeGrads = this.createEdgeToEdgePhaseForBackward(level - 1, level)
+            .backward(dE_perHead[head], eeCache, phaseParams);
+
+          this.accumulateMatrix(grads.dW_child[head], eeGrads.dW_source);
+          this.accumulateMatrix(grads.dW_parent[head], eeGrads.dW_target);
+          this.accumulateVector(grads.da_upward[head], eeGrads.da_attention);
+
+          // Accumulate dE for child level (k-1)
+          const dE_child = dE.get(level - 1) ?? eeGrads.dE_k.map(r => Array(r.length).fill(0));
+          for (let i = 0; i < eeGrads.dE_k.length; i++) {
+            for (let j = 0; j < eeGrads.dE_k[i].length; j++) {
+              dE_child[i][j] += eeGrads.dE_k[i][j];
+            }
+          }
+          dE.set(level - 1, dE_child);
+        }
+      }
+    }
+
+    // ========================================================================
+    // BACKWARD through V→V (if trainable V2V enabled)
+    // ========================================================================
+    let v2vGrads: V2VGradients | undefined;
+
+    if (v2vParams && cache.v2vCache && this.vertexToVertexPhase) {
+      // V2V was applied first in forward, so backward through it last
+      // dH contains gradients from all downstream phases
+      v2vGrads = this.vertexToVertexPhase.backward(dH, cache.v2vCache, v2vParams);
+
+      // Update dH to include gradients flowing to original H_init
+      // (v2vGrads.dH contains the gradient for the original input)
+      dH = v2vGrads.dH;
+    }
+
+    return { levelGrads, dH, dE, v2vGrads };
+  }
+
+  /**
+   * Helper to create EdgeToEdge phase for backward
+   */
+  private createEdgeToEdgePhaseForBackward(levelK: number, levelKPlus1: number): EdgeToEdgePhase {
+    return new EdgeToEdgePhase(levelK, levelKPlus1);
+  }
+
+  /**
+   * Accumulate matrix gradients
+   */
+  private accumulateMatrix(target: number[][], source: number[][]): void {
+    for (let i = 0; i < source.length; i++) {
+      for (let j = 0; j < source[i].length; j++) {
+        target[i][j] += source[i][j];
+      }
+    }
+  }
+
+  /**
+   * Accumulate vector gradients
+   */
+  private accumulateVector(target: number[], source: number[]): void {
+    for (let i = 0; i < source.length; i++) {
+      target[i] += source[i];
+    }
+  }
 }

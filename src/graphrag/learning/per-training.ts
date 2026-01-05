@@ -182,7 +182,25 @@ export async function trainSHGATOnPathTraces(
   // Step 3: Extract path-level features
   const pathFeatures = extractPathLevelFeatures(traces);
 
-  // Step 4: Flatten paths and generate training examples
+  // Step 4: Get ALL embeddings (capabilities + tools) for RANDOM negative mining
+  const graphBuilder = (shgat as unknown as { graphBuilder: {
+    getCapabilityNodes: () => Map<string, { embedding: number[] }>;
+    getToolNodes: () => Map<string, { embedding: number[] }>;
+  } }).graphBuilder;
+
+  const allEmbeddings = new Map<string, number[]>();
+
+  // Add capability embeddings
+  for (const [capId, cap] of graphBuilder.getCapabilityNodes()) {
+    if (cap.embedding) allEmbeddings.set(capId, cap.embedding);
+  }
+
+  // Add tool embeddings
+  for (const [toolId, tool] of graphBuilder.getToolNodes()) {
+    if (tool.embedding) allEmbeddings.set(toolId, tool.embedding);
+  }
+
+  // Step 5: Flatten paths and generate training examples
   const allExamples: TrainingExample[] = [];
   // Track which examples belong to which trace (for TD error aggregation)
   const exampleToTraceId: string[] = [];
@@ -206,8 +224,8 @@ export async function trainSHGATOnPathTraces(
     // Flatten hierarchical path
     const flatPath = await flattenExecutedPath(trace, traceStore);
 
-    // Generate multi-example (one per node)
-    const examples = traceToTrainingExamples(trace, flatPath, intentEmbedding, pathFeatures);
+    // Generate multi-example (one per node) with RANDOM negative mining
+    const examples = traceToTrainingExamples(trace, flatPath, intentEmbedding, pathFeatures, allEmbeddings);
     for (const _ex of examples) {
       exampleToTraceId.push(trace.id);
     }
@@ -409,6 +427,7 @@ export function traceToTrainingExamples(
   flatPath: string[],
   intentEmbedding: number[],
   pathFeatures: Map<string, PathLevelFeatures>,
+  capEmbeddings?: Map<string, number[]>, // Optional: for RANDOM negative mining
 ): TrainingExample[] {
   if (flatPath.length === 0) {
     return [];
@@ -430,13 +449,39 @@ export function traceToTrainingExamples(
     adjustedOutcome = outcome * (0.5 + 0.5 * weight);
   }
 
+  const NUM_NEGATIVES = 4;
+
+  // Pre-compute RANDOM negatives for the whole trace (same intent for all examples)
+  // Random negatives provide varied difficulty levels for learning
+  // (Hard negatives were too similar - all ~0.9 cosine - causing 51% accuracy)
+  let randomNegativeCapIds: string[] | undefined;
+  if (capEmbeddings && capEmbeddings.size > NUM_NEGATIVES) {
+    // RANDOM NEGATIVE SAMPLING: Select random capabilities (excluding executed path)
+    const candidateIds: string[] = [];
+    for (const [capId] of capEmbeddings) {
+      // Exclude all nodes in the executed path
+      if (flatPath.includes(capId)) continue;
+      candidateIds.push(capId);
+    }
+
+    // Fisher-Yates shuffle and take first NUM_NEGATIVES
+    for (let i = candidateIds.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [candidateIds[i], candidateIds[j]] = [candidateIds[j], candidateIds[i]];
+    }
+    randomNegativeCapIds = candidateIds.slice(0, NUM_NEGATIVES);
+  }
+
   // Generate one example per node in the path
   for (let i = 0; i < flatPath.length; i++) {
+    const candidateId = flatPath[i];
+
     examples.push({
       intentEmbedding,
       contextTools: flatPath.slice(0, i), // Nodes before this point
-      candidateId: flatPath[i], // Current node
+      candidateId,
       outcome: adjustedOutcome,
+      negativeCapIds: randomNegativeCapIds,
     });
   }
 
@@ -573,7 +618,24 @@ export async function trainSHGATOnPathTracesSubprocess(
   // Step 3: Extract path-level features
   const pathFeatures = extractPathLevelFeatures(traces);
 
-  // Step 4: Generate training examples
+  // Step 4: Get ALL embeddings (capabilities + tools) for RANDOM negative mining
+  const allEmbeddings = new Map<string, number[]>();
+
+  // Add capability embeddings from options
+  for (const cap of capabilities) {
+    if (cap.embedding) allEmbeddings.set(cap.id, cap.embedding);
+  }
+
+  // Add tool embeddings from SHGAT graphBuilder
+  const graphBuilder = (shgat as unknown as { graphBuilder: {
+    getToolNodes: () => Map<string, { embedding: number[] }>;
+  } }).graphBuilder;
+
+  for (const [toolId, tool] of graphBuilder.getToolNodes()) {
+    if (tool.embedding) allEmbeddings.set(toolId, tool.embedding);
+  }
+
+  // Step 5: Generate training examples
   const allExamples: TrainingExample[] = [];
   const exampleToTraceId: string[] = [];
 
@@ -593,7 +655,7 @@ export async function trainSHGATOnPathTracesSubprocess(
     }
 
     const flatPath = await flattenExecutedPath(trace, traceStore);
-    const examples = traceToTrainingExamples(trace, flatPath, intentEmbedding, pathFeatures);
+    const examples = traceToTrainingExamples(trace, flatPath, intentEmbedding, pathFeatures, allEmbeddings);
 
     for (const _ex of examples) {
       exampleToTraceId.push(trace.id);

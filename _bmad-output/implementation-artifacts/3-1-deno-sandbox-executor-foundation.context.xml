@@ -1,0 +1,375 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>3.1</storyId>
+    <title>Deno Sandbox Executor Foundation</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-12</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/story-3.1.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>a secure Deno sandbox environment for executing agent-generated code</iWant>
+    <soThat>agents can run TypeScript code without compromising system security</soThat>
+    <tasks
+    >
+### Phase 1: Sandbox Module Foundation (2-3h)
+- Task 1: Create sandbox module structure (AC: #1)
+  - Créer `src/sandbox/` directory
+  - Créer `src/sandbox/executor.ts` avec `CodeSandbox` classe
+  - Créer `src/sandbox/types.ts` pour interfaces TypeScript
+  - Exporter module dans `mod.ts`
+
+- Task 2: Implement Deno subprocess spawning (AC: #2)
+  - Utiliser `Deno.Command` pour spawner subprocess isolé
+  - Configurer permissions explicites: `--allow-env`, `--allow-read=~/.agentcards`
+  - Interdire tous les autres accès (no net, no write outside allowed paths)
+  - Gérer stdin/stdout pour communication avec subprocess
+
+- Task 3: Implement code execution isolation (AC: #3)
+  - Wrapper code utilisateur dans module wrapper
+  - Configurer `--no-prompt` pour éviter interactions
+  - Valider que filesystem access limité aux paths autorisés
+  - Tester tentative d'accès `/etc/passwd` → doit fail
+
+### Phase 2: Timeout &amp; Resource Limits (2h)
+- Task 4: Implement timeout enforcement (AC: #4)
+  - Timeout par défaut: 30 secondes (configurable)
+  - Utiliser `AbortController` ou timeout mechanism
+  - Tuer subprocess si timeout dépassé
+  - Retourner erreur `TimeoutError` structurée
+
+- Task 5: Implement memory limits (AC: #5)
+  - Limite heap par défaut: 512MB (configurable)
+  - Utiliser `--v8-flags=--max-old-space-size=512` pour heap limit
+  - Monitorer memory usage durant exécution
+  - Retourner erreur `MemoryLimitError` si dépassé
+
+### Phase 3: Error Handling &amp; Serialization (1-2h)
+- Task 6: Implement error capturing (AC: #6)
+  - Capturer stderr du subprocess
+  - Parser erreurs TypeScript/Deno
+  - Retourner structured error messages
+  - Gérer cas d'erreurs non-catchables (process crash)
+
+- Task 7: Implement return value serialization (AC: #7)
+  - Forcer return value JSON-serializable uniquement
+  - Utiliser `JSON.stringify()` pour validation
+  - Rejeter objets non-serializables (functions, symbols, etc.)
+  - Retourner résultat sous forme: `{ result: any, executionTimeMs: number }`
+
+### Phase 4: Testing &amp; Performance (1-2h)
+- Task 8: Create unit tests for isolation (AC: #8)
+  - Test: Tentative lecture `/etc/passwd` → doit fail avec PermissionDenied
+  - Test: Tentative écriture `/tmp/test.txt` → doit fail
+  - Test: Tentative network access (`fetch()`) → doit fail
+  - Test: Lecture `~/.agentcards/` → doit succeed (allowed path)
+  - Test: Timeout enforcement → process killed après 30s
+  - Test: Memory limit → process killed si heap > 512MB
+
+- Task 9: Performance benchmarks (AC: #9)
+  - Benchmark: Sandbox startup time &lt; 100ms
+  - Benchmark: Code execution overhead &lt; 50ms
+  - Créer test avec code simple: `return 1 + 1`
+  - Mesurer: spawning time + execution time + serialization time
+  - Documenter performance dans README
+    </tasks>
+  </story>
+
+  <acceptanceCriteria
+  >
+1. Sandbox module créé (`src/sandbox/executor.ts`)
+2. Deno subprocess spawned avec permissions explicites (`--allow-env`, `--allow-read=~/.agentcards`)
+3. Code execution isolée (no access to filesystem outside allowed paths)
+4. Timeout enforcement (default 30s, configurable)
+5. Memory limits enforcement (default 512MB heap)
+6. Error capturing et structured error messages
+7. Return value serialization (JSON-compatible outputs only)
+8. Unit tests validating isolation (attempt to access /etc/passwd should fail)
+9. Performance: Sandbox startup &lt;100ms, code execution overhead &lt;50ms
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc
+        path="docs/spikes/deno-sandbox-poc-summary.md"
+        title="Deno Sandbox POC Summary"
+        section="Complete"
+      >
+        POC successfully completed validating secure code execution with strict permissions isolation, timeout enforcement, and acceptable performance (30ms basic execution). Key architecture: temp file-based approach using deno run with whitelist permissions.
+      </doc>
+      <doc
+        path="docs/spikes/sandboxing-security-best-practices.md"
+        title="Sandboxing Security Best Practices"
+        section="Threat Model &amp; Security Controls"
+      >
+        Comprehensive security guidelines covering defense-in-depth, threat scenarios (file exfiltration, network attacks, DoS), permission controls, and incident response. Critical security checklist and testing patterns for sandbox implementation.
+      </doc>
+      <doc
+        path="docs/spikes/deno-permissions-deep-dive.md"
+        title="Deno Permissions Deep Dive"
+        section="Complete"
+      >
+        Detailed guide to Deno's whitelist-based permission model. Covers all 7 permission types (read/write/net/env/run/ffi/hrtime), scoping patterns, deny flags precedence, and best practices for sandbox security.
+      </doc>
+      <doc
+        path="docs/retrospectives/epic-2-retro-2025-11-11.md"
+        title="Epic 2 Retrospective"
+        section="Epic 3 Preparation Sprint"
+      >
+        Preparation sprint completed all Epic 3 groundwork: architecture spike for MCP tools injection, Deno sandbox POC (4/4 tests passing), PII detection research (validator.js recommended), security best practices, and integration model documentation.
+      </doc>
+      <doc
+        path="docs/epics.md"
+        title="Epic 3 Overview"
+        section="Epic 3: Agent Code Execution &amp; Local Processing"
+      >
+        Epic overview defining goals for secure code execution sandbox, MCP tools injection, local data processing, and PII detection. Story 3.1 is foundation for entire epic.
+      </doc>
+      <doc
+        path="docs/architecture.md"
+        title="Architecture Document"
+        section="Security Architecture"
+      >
+        System-wide security model and architectural patterns for Casys Intelligence including sandbox isolation requirements and permission models.
+      </doc>
+    </docs>
+    <code>
+      <artifact
+        path="tests/poc/deno-sandbox-executor.ts"
+        kind="proof-of-concept"
+        symbol="DenoSandboxExecutor"
+        lines="1-200"
+        reason="POC implementation serving as foundation for production sandbox. Contains core architecture: temp file approach, permission model, timeout/memory limits, error handling."
+      >
+        Key interfaces: SandboxConfig (timeout, memoryLimit, allowedReadPaths), ExecutionResult (success, result, error, executionTimeMs). Demonstrates wrapCode(), buildCommand(), executeWithTimeout(), parseError() patterns.
+      </artifact>
+      <artifact
+        path="tests/poc/deno-sandbox-simple-test.ts"
+        kind="test"
+        symbol="DenoSandboxExecutor tests"
+        reason="4 passing tests validating basic execution, async code, permission denial (filesystem, network). Demonstrates expected test patterns."
+      >
+        Tests cover: basic code execution (30ms), async support (100ms), /etc/passwd denial, fetch() denial. Missing: timeout and memory limit tests (noted as pending in POC).
+      </artifact>
+      <artifact
+        path="src/telemetry/logger.ts"
+        kind="service"
+        symbol="Logger module"
+        reason="Structured logging module for telemetry. Sandbox should integrate logging for security events, performance metrics, errors."
+      >
+        Provides log.info(), log.error(), log.debug(), log.warn() with file and console handlers. Logs stored in ~/.agentcards/logs/
+      </artifact>
+      <artifact
+        path="src/mcp/types.ts"
+        kind="types"
+        symbol="MCP types"
+        reason="MCP tool types for future Story 3.2 integration. Sandbox will expose execute_code as MCP tool."
+      >
+        Defines MCPToolDefinition, MCPToolCall interfaces used throughout codebase for MCP Gateway integration.
+      </artifact>
+    </code>
+    <dependencies>
+      <npm>
+        <package name="@std/assert" version="latest"
+        >Testing assertions used in all test files</package>
+        <package name="@std/log" version="latest">Structured logging for telemetry</package>
+        <package name="@std/fs" version="latest">File system utilities</package>
+      </npm>
+      <deno>
+        <runtime version="2.5+"
+        >Deno 2.5+ required for stable Deno.Command API and permission system</runtime>
+      </deno>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <security
+    >
+      - CRITICAL: Sandbox MUST use explicit deny flags: --deny-write, --deny-net, --deny-run, --deny-ffi, --deny-env
+      - CRITICAL: Use --no-prompt to prevent interactive prompts (would hang subprocess)
+      - Read access limited to temp file only (absolute path, not directory)
+      - Temp file MUST be cleaned up in finally block (prevent disk exhaustion)
+      - Error messages MUST be sanitized (no host file paths in stack traces)
+      - Permission violations MUST be logged as security events
+    </security>
+    <performance
+    >
+      - Sandbox startup: target &lt;100ms (POC measured ~30-50ms)
+      - Execution overhead: target &lt;50ms (POC measured ~30ms for simple code)
+      - Total execution: target &lt;150ms for simple code
+      - Use Deno.makeTempFileSync() for secure temp file creation
+      - Avoid subprocess pooling in Story 3.1 (premature optimization)
+    </performance>
+    <architecture
+    >
+      - Module location: src/sandbox/executor.ts (NEW)
+      - Export via mod.ts for public API
+      - Use TypeScript interfaces in src/sandbox/types.ts
+      - Follow existing patterns from src/mcp/, src/db/, src/telemetry/
+      - Integrate with telemetry logger for metrics and errors
+      - Designed for Story 3.4 MCP Gateway integration (expose execute_code tool)
+    </architecture>
+    <testing
+    >
+      - Test location: tests/unit/sandbox/ (NEW directory)
+      - Use patterns from tests/unit/health/, tests/fixtures/test-helpers.ts
+      - Coverage requirement: &gt;80% (project standard from Story 2.7)
+      - Timeout 30s for tests (project standard)
+      - Use try/finally for cleanup in tests
+      - Real Deno subprocesses, not mocks (validation requirement)
+    </testing>
+  </constraints>
+
+  <interfaces>
+    <interface name="SandboxConfig" kind="configuration">
+      <signature
+      >
+interface SandboxConfig {
+  timeout?: number;           // Default: 30000ms
+  memoryLimit?: number;       // Default: 512MB
+  allowedReadPaths?: string[]; // Default: []
+}
+      </signature>
+      <path>src/sandbox/types.ts</path>
+    </interface>
+    <interface name="ExecutionResult" kind="return-type">
+      <signature
+      >
+interface ExecutionResult {
+  success: boolean;
+  result?: unknown;
+  error?: {
+    type: "SyntaxError" | "RuntimeError" | "TimeoutError" |
+          "MemoryError" | "PermissionError";
+    message: string;
+    stack?: string;
+  };
+  executionTimeMs: number;
+  memoryUsedMb?: number;
+}
+      </signature>
+      <path>src/sandbox/types.ts</path>
+    </interface>
+    <interface name="DenoSandboxExecutor" kind="class">
+      <signature
+      >
+export class DenoSandboxExecutor {
+  constructor(config?: SandboxConfig)
+  async execute(code: string): Promise&lt;ExecutionResult&gt;
+  private wrapCode(code: string): string
+  private buildCommand(code: string): { command: Deno.Command, tempFilePath: string }
+  private executeWithTimeout(command: Deno.Command): Promise&lt;output&gt;
+  private parseError(error: unknown): StructuredError
+}
+      </signature>
+      <path>src/sandbox/executor.ts</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards
+    >
+Testing framework: Deno's built-in test runner with @std/assert. All tests use try/finally for cleanup. Coverage target &gt;80% (enforced in CI). Test patterns: isolation tests use real Deno subprocesses (not mocks) to validate security. Performance tests use performance.now() for timing. Memory tests may require --v8-flags=--expose-gc for forced GC. Security tests validate permission denials with specific error types. Tests run with 30s timeout default. Follow patterns from tests/unit/health/ and tests/fixtures/test-helpers.ts for consistency.
+    </standards>
+    <locations>
+      <location>tests/unit/sandbox/executor_test.ts - Core executor functionality tests</location>
+      <location
+      >tests/unit/sandbox/isolation_test.ts - Security isolation tests (filesystem, network, subprocess denial)</location>
+      <location>tests/unit/sandbox/timeout_test.ts - Timeout enforcement tests</location>
+      <location
+      >tests/unit/sandbox/memory_limit_test.ts - Memory limit tests (OOM scenarios)</location>
+      <location
+      >tests/unit/sandbox/serialization_test.ts - Result serialization tests (JSON compatibility)</location>
+      <location
+      >tests/benchmarks/sandbox_performance_test.ts - Performance benchmarks (startup, execution, overhead)</location>
+    </locations>
+    <ideas>
+      <test
+        ac="AC1"
+        description="Sandbox module created"
+      >
+        - Test: Import DenoSandboxExecutor from src/sandbox/executor.ts
+        - Test: Instantiate with default config
+        - Test: Instantiate with custom config (timeout, memoryLimit)
+      </test>
+      <test
+        ac="AC2"
+        description="Deno subprocess spawned with permissions"
+      >
+        - Test: Verify subprocess spawns successfully
+        - Test: Check command includes --allow-env flag
+        - Test: Check command includes --allow-read for temp file
+        - Test: Verify --no-prompt flag present
+      </test>
+      <test
+        ac="AC3"
+        description="Code execution isolated"
+      >
+        - Test: Attempt read /etc/passwd → PermissionDenied
+        - Test: Attempt read /home/user/.bashrc → PermissionDenied
+        - Test: Attempt read temp file → Success (only allowed path)
+        - Test: Path traversal attempt (../../etc/passwd) → PermissionDenied
+      </test>
+      <test
+        ac="AC4"
+        description="Timeout enforcement"
+      >
+        - Test: Infinite loop killed after 30s → TimeoutError
+        - Test: Long async wait (40s) killed after 30s → TimeoutError
+        - Test: Custom timeout (5s) enforced → TimeoutError after 5s
+        - Test: Fast execution (&lt;1s) completes successfully
+      </test>
+      <test
+        ac="AC5"
+        description="Memory limits"
+      >
+        - Test: Allocate 600MB array → MemoryError (exceeds 512MB limit)
+        - Test: Custom limit (128MB), allocate 200MB → MemoryError
+        - Test: Normal usage (&lt;100MB) succeeds
+      </test>
+      <test
+        ac="AC6"
+        description="Error capturing"
+      >
+        - Test: Syntax error → SyntaxError with message
+        - Test: Runtime error (undefined.foo) → RuntimeError with message
+        - Test: Permission error → PermissionError with sanitized message
+        - Test: Timeout → TimeoutError
+        - Test: OOM → MemoryError
+        - Test: Stack traces sanitized (no host paths)
+      </test>
+      <test
+        ac="AC7"
+        description="Return value serialization"
+      >
+        - Test: Simple types (number, string, boolean) serialize correctly
+        - Test: Objects and arrays serialize correctly
+        - Test: Non-serializable (function, symbol) rejected or sanitized
+        - Test: Large result (&gt;1MB) handled appropriately
+        - Test: Null and undefined handled correctly
+      </test>
+      <test
+        ac="AC8"
+        description="Unit tests for isolation"
+      >
+        - Test: Network access denied (fetch() → PermissionError)
+        - Test: Write access denied (writeFile() → PermissionError)
+        - Test: Subprocess spawning denied (Deno.Command → PermissionError)
+        - Test: FFI denied (Deno.dlopen → PermissionError)
+        - Test: Env access denied (Deno.env.get() → PermissionError)
+      </test>
+      <test
+        ac="AC9"
+        description="Performance targets"
+      >
+        - Benchmark: Sandbox startup time (target &lt;100ms)
+        - Benchmark: Simple code execution (return 1+1) total time (target &lt;150ms)
+        - Benchmark: Async code execution overhead (target &lt;50ms vs sync)
+        - Benchmark: Large result serialization (1000-item array)
+        - Benchmark: Error handling overhead
+      </test>
+    </ideas>
+  </tests>
+</story-context>

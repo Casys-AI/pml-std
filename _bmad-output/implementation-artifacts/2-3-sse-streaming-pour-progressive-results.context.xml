@@ -1,0 +1,207 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>2.3</storyId>
+    <title>SSE Streaming pour Progressive Results</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-05</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/story-2.3.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>user waiting for workflow results</asA>
+    <iWant>to see results streamed progressively as they complete</iWant>
+    <soThat>I get feedback immediately instead of waiting for all tools to finish</soThat>
+    <tasks>
+      <task id="1"
+      >Définir les types d'événements SSE (TaskStartEvent, TaskCompleteEvent, ExecutionCompleteEvent, ErrorEvent) dans src/dag/streaming.ts</task>
+      <task id="2">Créer StreamingExecutor class qui étend ParallelExecutor</task>
+      <task id="3"
+      >Implémenter executeWithStreaming() avec WritableStream pour événements progressifs</task>
+      <task id="4">Créer SSE HTTP handler (handleSSERequest) dans src/server/sse-handler.ts</task>
+      <task id="5">Implémenter graceful degradation avec fallback vers batch response</task>
+      <task id="6">Ajouter BufferedEventStream pour memory management (MAX_BUFFER_SIZE: 1000)</task>
+      <task id="7">Écrire tests unitaires pour streaming events et event formatting</task>
+      <task id="8">Écrire test d'intégration E2E avec mock SSE client (EventSource)</task>
+      <task id="9">Documenter l'API SSE et les event types</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">SSE (Server-Sent Events) implementation pour streaming</criterion>
+    <criterion id="AC2"
+    >Event types définis: task_start, task_complete, execution_complete, error</criterion>
+    <criterion id="AC3">Results streamés dès disponibilité (pas de wait-all-then-return)</criterion>
+    <criterion id="AC4">Event payload: tool_id, status, result, timestamp</criterion>
+    <criterion id="AC5">Client-side handling simulé dans tests</criterion>
+    <criterion id="AC6"
+    >Graceful degradation si SSE unavailable (fallback to batch response)</criterion>
+    <criterion id="AC7">Max event buffer size pour éviter memory leaks</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture - Casys Intelligence</title>
+        <section>SSE Streaming (Native ReadableStream)</section>
+        <snippet
+        >SSE Streaming: Native ReadableStream (Deno built-in) pour progressive results. HTTP Server: Deno.serve (Deno 2+ built-in) pour gateway si nécessaire. Structure: src/streaming/ avec sse.ts et types.ts pour Event stream (Story 2.3).</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>FR008 - Streaming Requirements</section>
+        <snippet
+        >FR008: Le système doit streamer les résultats via SSE dès leur disponibilité pour feedback progressif. Epic 2 objectif: Implémenter la parallélisation via DAG execution et préparer le système pour production avec SSE streaming.</snippet>
+      </doc>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Story 2.3 - SSE Streaming</section>
+        <snippet
+        >AC: SSE implementation, Event types (task_start, task_complete, execution_complete, error), Results streamés dès disponibilité (pas wait-all), Event payload (tool_id, status, result, timestamp), Client-side handling simulé, Graceful degradation si SSE unavailable, Max event buffer size.</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/story-2.2.md</path>
+        <title>Story 2.2 - Parallel Execution Engine</title>
+        <section>Prerequisites and Integration</section>
+        <snippet
+        >ParallelExecutor avec Promise.allSettled pour execution layer-by-layer. ExecutionResult contient results, executionTimeMs, parallelizationLayers, errors. Story 2.3 doit s'intégrer avec cet executor pour streamer les résultats progressivement.</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/story-2.1.md</path>
+        <title>Story 2.1 - GraphRAG Engine</title>
+        <section>DAG Structure and Execution Patterns</section>
+        <snippet
+        >DAGStructure avec tasks (id, tool, arguments, depends_on). GraphRAGEngine et GatewayHandler pour execution modes. Story 2.3 doit streamer events durant DAG execution.</snippet>
+      </doc>
+      <doc>
+        <path>docs/technical-analysis-dag-strategy.md</path>
+        <title>Analyse Technique DAG</title>
+        <section>Workflow Request/Response Format</section>
+        <snippet
+        >WorkflowResponse avec results, execution_time_ms, parallelization_speedup. TaskResult avec task_id, status, output, error, execution_time_ms. SSE doit streamer ces informations progressivement durant execution.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>src/dag/executor.ts</path>
+        <kind>service</kind>
+        <symbol>ParallelExecutor</symbol>
+        <lines>32-431</lines>
+        <reason
+        >L'exécuteur parallèle qui doit être étendu avec StreamingExecutor. Contient la logique topologicalSort, executeTask, et execute() qui doit être wrappé pour streamer les événements SSE lors de l'exécution des layers.</reason>
+      </artifact>
+      <artifact>
+        <path>src/dag/types.ts</path>
+        <kind>types</kind>
+        <symbol>DAGExecutionResult, TaskResult, TaskError</symbol>
+        <lines>1-67</lines>
+        <reason
+        >Types existants pour les résultats d'exécution DAG. Story 2.3 doit créer des types SSEEvent basés sur ces structures pour streamer les résultats progressivement.</reason>
+      </artifact>
+      <artifact>
+        <path>src/graphrag/types.ts</path>
+        <kind>types</kind>
+        <symbol>DAGStructure, Task, ExecutionResult</symbol>
+        <lines>1-100</lines>
+        <reason
+        >Définitions DAG centrales utilisées par l'executor. StreamingExecutor doit consommer DAGStructure et produire des événements SSE pour chaque Task.</reason>
+      </artifact>
+      <artifact>
+        <path>src/mcp/gateway-handler.ts</path>
+        <kind>service</kind>
+        <symbol>GatewayHandler</symbol>
+        <lines>1-80</lines>
+        <reason
+        >Handler gateway qui orchestre les modes d'exécution. Doit être intégré avec le nouveau handleSSERequest() pour servir les workflows via SSE lorsque le client accepte text/event-stream.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <deno-runtime>
+        <module>Deno built-in</module>
+        <apis>ReadableStream, WritableStream, TransformStream, Deno.serve</apis>
+        <version>2.5+ (Deno runtime)</version>
+        <purpose
+        >SSE streaming via native Web Streams API. Deno.serve pour HTTP server SSE endpoint. Aucune dépendance externe requise.</purpose>
+      </deno-runtime>
+      <existing-deps>
+        <dep name="@std/log">Logging standard Deno - déjà installé pour telemetry</dep>
+        <dep name="@std/assert">Testing assertions - déjà utilisé dans tests</dep>
+      </existing-deps>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint
+    >StreamingExecutor doit étendre ParallelExecutor pour réutiliser topologicalSort et executeTask - pas de duplication de code</constraint>
+    <constraint
+    >Events SSE doivent suivre le format standard SSE: "event: {type}\ndata: {JSON}\n\n"</constraint>
+    <constraint
+    >Event payload max size: 64KB par event (éviter saturation buffer client)</constraint>
+    <constraint>Buffer event stream max 1000 events pour éviter memory leaks</constraint>
+    <constraint
+    >Graceful degradation: si client n'accepte pas text/event-stream, fallback vers batch JSON response</constraint>
+    <constraint
+    >HTTP response headers SSE: Content-Type: text/event-stream, Cache-Control: no-cache, Connection: keep-alive</constraint>
+    <constraint>Tous les événements doivent inclure timestamp ISO 8601 pour traçabilité</constraint>
+    <constraint
+    >Error events ne doivent jamais interrompre le stream - erreurs propagées via event error puis execution_complete</constraint>
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>SSEEvent (union type)</name>
+      <kind>TypeScript discriminated union</kind>
+      <signature
+      >type SSEEvent = TaskStartEvent | TaskCompleteEvent | ExecutionCompleteEvent | ErrorEvent</signature>
+      <path>src/dag/streaming.ts (à créer)</path>
+    </interface>
+    <interface>
+      <name>StreamingExecutor.executeWithStreaming()</name>
+      <kind>async method</kind>
+      <signature
+      >async executeWithStreaming(dag: DAGStructure, eventStream: WritableStream&lt;SSEEvent&gt;): Promise&lt;DAGExecutionResult&gt;</signature>
+      <path>src/dag/streaming.ts (à créer)</path>
+    </interface>
+    <interface>
+      <name>handleSSERequest()</name>
+      <kind>HTTP request handler</kind>
+      <signature
+      >async handleSSERequest(request: Request, dag: DAGStructure): Promise&lt;Response&gt;</signature>
+      <path>src/server/sse-handler.ts (à créer)</path>
+    </interface>
+    <interface>
+      <name>handleWorkflowRequest()</name>
+      <kind>HTTP request handler with content negotiation</kind>
+      <signature
+      >async handleWorkflowRequest(request: Request, dag: DAGStructure): Promise&lt;Response&gt;</signature>
+      <path>src/server/sse-handler.ts (à créer)</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards
+    >Deno.test avec @std/assert pour assertions. Pattern AAA (Arrange-Act-Assert). Mock ToolExecutor pour simuler tool execution delays. Tests doivent valider event ordering, timing, et payload content. Utiliser TransformStream pour capturer SSE events dans tests.</standards>
+    <locations
+    >tests/unit/dag/ pour streaming executor tests, tests/integration/dag_execution_e2e_test.ts pour intégration SSE complète</locations>
+    <ideas>
+      <test-idea criterion="AC2"
+      >Valider que les 4 event types sont émis correctement avec le bon payload structure</test-idea>
+      <test-idea criterion="AC3"
+      >Tester qu'events arrivent progressivement (task_complete émis dès qu'une task finit, pas batch à la fin)</test-idea>
+      <test-idea criterion="AC4"
+      >Vérifier payload content: tool_id, status, result, timestamp présents dans chaque event</test-idea>
+      <test-idea criterion="AC5"
+      >Mock EventSource client pour consommer SSE stream et valider order/content des events</test-idea>
+      <test-idea criterion="AC6"
+      >Tester content negotiation: Accept: text/event-stream → SSE, Accept: application/json → batch response</test-idea>
+      <test-idea criterion="AC7"
+      >Tester BufferedEventStream avec >1000 events pour valider flush mechanism et prevent memory leak</test-idea>
+      <test-idea
+      >Test error handling: task failure doit émettre error event puis continuer execution (partial success)</test-idea>
+      <test-idea
+      >Test parallel execution streaming: 3 tasks en parallèle doivent émettre 3 task_complete events quasi-simultanément</test-idea>
+    </ideas>
+  </tests>
+</story-context>

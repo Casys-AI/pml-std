@@ -429,6 +429,41 @@ const result = numbers.filter(n => n > 1);`;
 });
 
 Deno.test({
+  name: "LiteralTransform - transforms multi-line array literal correctly",
+  fn: async () => {
+    // Bug fix: multi-line arrays were being truncated at first newline
+    const code = `const items = [
+  { name: "first", value: 1 },
+  { name: "second", value: 2 }
+];
+for (const item of items) {
+  await mcp.api.process({ data: item });
+}`;
+
+    const literalBindings = {
+      items: [
+        { name: "first", value: 1 },
+        { name: "second", value: 2 },
+      ],
+    };
+
+    const result = await transformLiteralsToArgs(code, literalBindings);
+
+    assertExists(result);
+    // Should NOT contain the original array declaration
+    assertEquals(result.code.includes("const items = ["), false);
+    // Should NOT contain malformed array content
+    assertEquals(result.code.startsWith("{"), false);
+    // Should use args.items in the loop
+    assertEquals(result.code.includes("args.items"), true);
+    // Should start with for loop
+    assertEquals(result.code.trim().startsWith("for"), true);
+    assertExists(result.parametersSchema.properties?.items);
+    assertEquals(result.parametersSchema.properties?.items?.type, "array");
+  },
+});
+
+Deno.test({
   name: "LiteralTransform - handles empty literalBindings",
   fn: async () => {
     const code = `await mcp.api.call({ data: args.existing });`;

@@ -17,7 +17,7 @@ import { addBreadcrumb, captureError, startTransaction } from "../../telemetry/s
 import type { CapabilityRegistry } from "../../capabilities/capability-registry.ts";
 import type { IDecisionLogger } from "../../telemetry/decision-logger.ts";
 import type { SHGAT } from "../../graphrag/algorithms/shgat.ts";
-import type { EmbeddingModel } from "../../embeddings/types.ts";
+import type { EmbeddingModelInterface } from "../../vector/embeddings.ts";
 import type { IToolStore } from "../../tools/types.ts";
 import {
   DiscoverToolsUseCase,
@@ -70,7 +70,7 @@ export interface DiscoverHandlerDeps {
   capabilityRegistry?: CapabilityRegistry;
   decisionLogger?: IDecisionLogger;
   shgat?: SHGAT;
-  embeddingModel?: EmbeddingModel;
+  embeddingModel?: EmbeddingModelInterface;
 }
 
 /**
@@ -179,6 +179,23 @@ export async function handleDiscover(
     results.sort((a, b) => b.score - a.score);
     const limitedResults = results.slice(0, limit);
 
+    // Apply softmax to convert sigmoid scores to relative probabilities
+    // This makes top results stand out more clearly
+    if (limitedResults.length > 1) {
+      const temperature = 0.1; // Sharp distribution for clear ranking
+      const scores = limitedResults.map((r) => r.score);
+      const maxScore = Math.max(...scores);
+      const expScores = scores.map((s) => Math.exp((s - maxScore) / temperature));
+      const sumExp = expScores.reduce((a, b) => a + b, 0);
+
+      for (let i = 0; i < limitedResults.length; i++) {
+        // Store original sigmoid score and replace with softmax probability
+        (limitedResults[i] as DiscoverResultItem & { semantic_score: number }).semantic_score =
+          limitedResults[i].score;
+        limitedResults[i].score = expScores[i] / sumExp;
+      }
+    }
+
     const response: DiscoverResponse = {
       results: limitedResults,
       meta: {
@@ -225,7 +242,7 @@ export async function handleDiscoverLegacy(
   capabilityRegistry?: CapabilityRegistry,
   decisionLogger?: IDecisionLogger,
   shgat?: SHGAT,
-  embeddingModel?: EmbeddingModel,
+  embeddingModel?: EmbeddingModelInterface,
   toolStore?: IToolStore,
 ): Promise<MCPToolResponse | MCPErrorResponse> {
   // If no toolStore provided, create a minimal stub that returns empty

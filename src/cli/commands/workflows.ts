@@ -13,6 +13,7 @@ import { getAllMigrations, MigrationRunner } from "../../db/migrations.ts";
 import { WorkflowSyncService } from "../../graphrag/workflow-sync.ts";
 import { WorkflowLoader } from "../../graphrag/workflow-loader.ts";
 import { getWorkflowTemplatesPath } from "../utils.ts";
+import { getMappingStats, scrapeAndSave } from "../../graphrag/workflow-patterns/mod.ts";
 
 /**
  * Default workflow templates path
@@ -27,6 +28,8 @@ const DEFAULT_WORKFLOW_PATH = getWorkflowTemplatesPath();
  *   pml workflows sync --force      # Force sync even if unchanged
  *   pml workflows validate          # Validate YAML without syncing
  *   pml workflows stats             # Show edge statistics
+ *   pml workflows scrape            # Scrape n8n templates for patterns
+ *   pml workflows scrape --limit 100 # Limit to 100 workflows
  */
 export function createWorkflowsCommand() {
   return new Command()
@@ -34,7 +37,8 @@ export function createWorkflowsCommand() {
     .description("Manage workflow templates for graph bootstrap (Story 5.2)")
     .command("sync", createSyncSubcommand())
     .command("validate", createValidateSubcommand())
-    .command("stats", createStatsSubcommand());
+    .command("stats", createStatsSubcommand())
+    .command("scrape", createScrapeSubcommand());
 }
 
 /**
@@ -204,6 +208,94 @@ function createStatsSubcommand() {
         await db.close();
       } catch (error) {
         log.error(`❌ Stats failed: ${error}`);
+        Deno.exit(1);
+      }
+    });
+}
+
+/**
+ * Create scrape subcommand
+ *
+ * Scrapes n8n workflow templates to extract tool co-occurrence patterns.
+ * Saves results to config/workflow-patterns.json for DR-DSP injection.
+ */
+function createScrapeSubcommand() {
+  return new Command()
+    .name("scrape")
+    .description("Scrape n8n workflow templates for tool co-occurrence patterns")
+    .option(
+      "--limit <count:number>",
+      "Maximum workflows to fetch",
+      { default: 500 },
+    )
+    .option(
+      "--min-views <count:number>",
+      "Minimum view count to include workflow",
+      { default: 100 },
+    )
+    .option(
+      "--output <path:string>",
+      "Output file path",
+      { default: "config/workflow-patterns.json" },
+    )
+    .option(
+      "--delay <ms:number>",
+      "Delay between API requests in milliseconds",
+      { default: 100 },
+    )
+    .option(
+      "--mapping-stats",
+      "Show mapping statistics only, don't scrape",
+      { default: false },
+    )
+    .action(async (options) => {
+      try {
+        // Show mapping stats only
+        if (options.mappingStats) {
+          const stats = getMappingStats();
+          console.log("\n📊 Tool Mapping Statistics:");
+          console.log(`   Total mappings: ${stats.totalMappings}`);
+          console.log("\n   By service:");
+          for (const [service, count] of Object.entries(stats.byService)) {
+            console.log(`     ${service}: ${count}`);
+          }
+          return;
+        }
+
+        console.log("\n🕷️  Scraping n8n workflow templates...\n");
+        console.log(`   Max workflows: ${options.limit}`);
+        console.log(`   Min views: ${options.minViews}`);
+        console.log(`   Output: ${options.output}`);
+        console.log(`   Request delay: ${options.delay}ms\n`);
+
+        const { stats } = await scrapeAndSave(
+          {
+            maxWorkflows: options.limit,
+            minViews: options.minViews,
+            requestDelay: options.delay,
+          },
+          options.output,
+        );
+
+        console.log("\n✅ Scrape complete!");
+        console.log(`   Workflows processed: ${stats.workflowsProcessed}`);
+        console.log(`   Edges extracted: ${stats.edgesExtracted}`);
+        console.log(`   Unique patterns: ${stats.uniquePatterns}`);
+        console.log(`   Mapped to MCP: ${stats.mappedPatterns}`);
+        console.log(`   Unmapped: ${stats.unmappedPatterns}`);
+
+        const mappedPct = stats.uniquePatterns > 0
+          ? ((stats.mappedPatterns / stats.uniquePatterns) * 100).toFixed(1)
+          : "0.0";
+        console.log(`   Mapping coverage: ${mappedPct}%`);
+
+        console.log(`\n📁 Patterns saved to: ${options.output}`);
+        console.log("\n💡 Next steps:");
+        console.log("   1. Review unmapped patterns in the JSON file");
+        console.log("   2. Add mappings to tool-mapper.ts for common unmapped nodes");
+        console.log("   3. Run 'pml workflows sync-patterns' to inject into DR-DSP");
+      } catch (error) {
+        log.error(`❌ Scrape failed: ${error}`);
         Deno.exit(1);
       }
     });

@@ -1,0 +1,337 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>7</epicId>
+    <storyId>1b</storyId>
+    <title>Worker RPC Bridge - Native Tracing</title>
+    <status>Ready for Implementation</status>
+    <generatedAt>2025-12-05</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/7-1b-worker-rpc-bridge.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>system executing code with MCP tools</asA>
+    <iWant>a Worker-based sandbox with RPC bridge for tool calls</iWant>
+    <soThat
+    >MCP tools work in sandbox AND all calls are traced natively without stdout parsing</soThat>
+    <tasks>
+      <task id="1">Create WorkerBridge class (src/sandbox/worker-bridge.ts) - ~150 LOC</task>
+      <task id="2">Create SandboxWorker script (src/sandbox/sandbox-worker.ts) - ~100 LOC</task>
+      <task id="3">Add RPC message types to src/sandbox/types.ts - ~50 LOC</task>
+      <task id="4">Extend DenoSandboxExecutor with Worker mode - ~30 LOC</task>
+      <task id="5">Add buildToolDefinitions() to context-builder.ts - ~20 LOC</task>
+      <task id="6"
+      >Update gateway-server.ts to use bridge traces (remove parseTraces) - ~-40 LOC</task>
+      <task id="7">Cleanup Story 7.1 code (wrapToolCall, parseTraces, rawStdout)</task>
+      <task id="8">Write unit tests for Worker RPC bridge</task>
+      <task id="9"
+      >Delete obsolete test files (trace_parsing_test.ts, tracing_performance_test.ts)</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <ac id="1" title="WorkerBridge Class">
+      <description>WorkerBridge class created in src/sandbox/worker-bridge.ts</description>
+      <checks>
+        <check>Spawns Deno Worker with permissions: "none"</check>
+        <check>Generates tool proxy code from tool definitions</check>
+        <check>Handles RPC messages: rpc_call to rpc_result</check>
+        <check>Native tracing: captures tool_start/tool_end events in bridge</check>
+        <check>Collects all traces for GraphRAG integration</check>
+        <check>Handles Worker termination (timeout, error)</check>
+      </checks>
+    </ac>
+    <ac id="2" title="SandboxWorker Script">
+      <description>Worker script created in src/sandbox/sandbox-worker.ts</description>
+      <checks>
+        <check>Receives initialization message with tool definitions</check>
+        <check>Generates tool proxy object: mcp.server.tool(args) to __rpcCall(...)</check>
+        <check>Implements __rpcCall() that sends postMessage and waits for response</check>
+        <check>Executes user code with mcp object available</check>
+        <check>Returns execution result via postMessage</check>
+      </checks>
+    </ac>
+    <ac id="3" title="RPC Message Types">
+      <description>Message types added to src/sandbox/types.ts</description>
+      <checks>
+        <check>RPCCallMessage interface defined (type, id, server, tool, args)</check>
+        <check>RPCResultMessage interface defined (type, id, success, result?, error?)</check>
+        <check>InitMessage interface defined (type, code, toolDefinitions, context?)</check>
+        <check>ToolDefinition interface defined (server, name, description, inputSchema)</check>
+        <check>ExecutionCompleteMessage interface defined</check>
+      </checks>
+    </ac>
+    <ac id="4" title="DenoSandboxExecutor Extension">
+      <description>Executor extended with Worker mode</description>
+      <checks>
+        <check>Add mode: "subprocess" | "worker" option</check>
+        <check>Worker mode uses WorkerBridge instead of subprocess</check>
+        <check>Traces available via bridge.getTraces() after execution</check>
+        <check>Default mode: "worker" (new default)</check>
+      </checks>
+    </ac>
+    <ac id="5" title="Native Tracing">
+      <description>All tool calls traced in bridge</description>
+      <checks>
+        <check>All tool calls traced with: { tool, trace_id, ts, duration_ms, success }</check>
+        <check>Traces captured in bridge (not stdout parsing)</check>
+        <check>updateFromExecution() called with traced tools</check>
+        <check>GraphRAG edges created from tool co-occurrence</check>
+      </checks>
+    </ac>
+    <ac id="6" title="Tests">
+      <description>Comprehensive test coverage</description>
+      <checks>
+        <check>Execute code calling 2 MCP tools - verify both traced</check>
+        <check>Verify edges created in GraphRAG</check>
+        <check>Test RPC timeout handling</check>
+        <check>Test Worker error handling</check>
+        <check>Performance: RPC overhead less than 10ms per call</check>
+      </checks>
+    </ac>
+    <ac id="7" title="Cleanup (Story 7.1 Code Removal)">
+      <description>Remove obsolete Story 7.1 code</description>
+      <checks>
+        <check>Remove wrapToolCall() from context-builder.ts</check>
+        <check>Remove parseTraces() from gateway-server.ts</check>
+        <check>Remove rawStdout from ExecutionResult type</check>
+        <check>Delete tests/unit/mcp/trace_parsing_test.ts</check>
+        <check>Delete tests/unit/sandbox/tracing_performance_test.ts</check>
+        <check>Remove setTracingEnabled() and isTracingEnabled() from context-builder.ts</check>
+      </checks>
+    </ac>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc
+        path="docs/adrs/ADR-032-sandbox-worker-rpc-bridge.md"
+        title="ADR-032: Sandbox Worker RPC Bridge"
+        section="Full ADR"
+      >
+        Architecture decision for replacing subprocess-based sandbox with Web Worker + RPC Bridge pattern. Covers the hidden bug in wrapMCPClient(), RPC protocol, and native tracing.
+      </doc>
+      <doc
+        path="docs/PRD.md"
+        title="Product Requirements Document"
+        section="FR017-FR019"
+      >
+        Functional requirements for sandbox code execution (FR017), safe-to-fail branches (FR018), and MCP tool injection (FR019).
+      </doc>
+      <doc
+        path="docs/epics.md"
+        title="Epic Breakdown"
+        section="Epic 7, Story 7.1b"
+      >
+        Epic 7 context with Story 7.1b details. Documents the 3-layer architecture with Worker RPC Bridge at Layer 2.
+      </doc>
+      <doc
+        path="docs/stories/7-1-ipc-tracking-tool-usage-capture.md"
+        title="Story 7.1 (Superseded)"
+        section="Full story"
+      >
+        Original Story 7.1 with __TRACE__ stdout approach. Code to remove in cleanup phase.
+      </doc>
+    </docs>
+    <code>
+      <artifact
+        path="src/sandbox/executor.ts"
+        kind="service"
+        symbol="DenoSandboxExecutor"
+        lines="71-789"
+        reason="Main sandbox executor class. Needs Worker mode addition alongside existing subprocess execution."
+      />
+      <artifact
+        path="src/sandbox/context-builder.ts"
+        kind="service"
+        symbol="ContextBuilder"
+        lines="59-270"
+        reason="Current tool context builder. Contains wrapMCPClient() and wrapToolCall() to be replaced with buildToolDefinitions()."
+      />
+      <artifact
+        path="src/sandbox/context-builder.ts"
+        kind="function"
+        symbol="wrapToolCall"
+        lines="379-427"
+        reason="Story 7.1 tracing code to REMOVE - stdout-based tracing replaced by native bridge tracing."
+      />
+      <artifact
+        path="src/sandbox/context-builder.ts"
+        kind="function"
+        symbol="wrapMCPClient"
+        lines="447-503"
+        reason="Current function wrapper that doesn't work with subprocess. To be deprecated in favor of buildToolDefinitions()."
+      />
+      <artifact
+        path="src/sandbox/types.ts"
+        kind="types"
+        symbol="ExecutionResult"
+        lines="95-128"
+        reason="Contains rawStdout field to REMOVE and location to add RPC message types."
+      />
+      <artifact
+        path="src/mcp/gateway-server.ts"
+        kind="function"
+        symbol="parseTraces"
+        lines="105-150"
+        reason="Stdout trace parsing to REMOVE. Replace with bridge.getTraces() usage."
+      />
+      <artifact
+        path="src/mcp/gateway-server.ts"
+        kind="method"
+        symbol="handleExecuteCode"
+        lines="1101-1270"
+        reason="Code execution handler. Uses parseTraces() - to be updated to use bridge traces instead."
+      />
+      <artifact
+        path="src/mcp/client.ts"
+        kind="service"
+        symbol="MCPClient"
+        reason="MCP client interface. WorkerBridge will route tool calls to these clients."
+      />
+    </code>
+    <dependencies>
+      <ecosystem name="deno">
+        <package name="deno" version="2.x"
+        >Deno runtime with Worker API support (permissions: "none")</package>
+        <package name="@modelcontextprotocol/sdk" version="^1.0.4"
+        >MCP SDK for tool definitions</package>
+      </ecosystem>
+      <key_imports>
+        <import>Web Worker API with deno: { permissions: "none" } option</import>
+        <import>postMessage/onmessage for RPC communication</import>
+        <import>crypto.randomUUID() for trace correlation IDs</import>
+      </key_imports>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint type="architecture"
+    >Worker must run with permissions: "none" for security isolation</constraint>
+    <constraint type="architecture"
+    >Tool definitions (not functions) must be serializable to Worker</constraint>
+    <constraint type="architecture"
+    >All MCP tool calls route through RPC bridge for native tracing</constraint>
+    <constraint type="architecture"
+    >No stdout parsing - traces captured directly in bridge</constraint>
+    <constraint type="performance">RPC overhead must be less than 10ms per call</constraint>
+    <constraint type="cleanup"
+    >Must remove ALL Story 7.1 __TRACE__ code - no dual implementation</constraint>
+    <constraint type="backwards-compat"
+    >Keep subprocess mode available (deprecated) during transition</constraint>
+    <constraint type="security"
+    >Context validation via SecurityValidator remains in place</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface name="WorkerBridge" kind="class">
+      <signature
+      ><![CDATA[
+class WorkerBridge {
+  constructor(mcpClients: Map<string, MCPClient>);
+  async execute(code: string, toolDefs: ToolDefinition[]): Promise<ExecutionResult>;
+  getTraces(): TraceEvent[];
+  terminate(): void;
+}
+      ]]></signature>
+      <path>src/sandbox/worker-bridge.ts (NEW)</path>
+    </interface>
+    <interface name="RPCCallMessage" kind="interface">
+      <signature
+      ><![CDATA[
+interface RPCCallMessage {
+  type: "rpc_call";
+  id: string;           // UUID for correlation
+  server: string;       // "filesystem"
+  tool: string;         // "read_file"
+  args: Record<string, unknown>;
+}
+      ]]></signature>
+      <path>src/sandbox/types.ts</path>
+    </interface>
+    <interface name="RPCResultMessage" kind="interface">
+      <signature
+      ><![CDATA[
+interface RPCResultMessage {
+  type: "rpc_result";
+  id: string;           // Matching request ID
+  success: boolean;
+  result?: unknown;
+  error?: string;
+}
+      ]]></signature>
+      <path>src/sandbox/types.ts</path>
+    </interface>
+    <interface name="ToolDefinition" kind="interface">
+      <signature
+      ><![CDATA[
+interface ToolDefinition {
+  server: string;
+  name: string;
+  description: string;
+  inputSchema: JSONSchema;
+}
+      ]]></signature>
+      <path>src/sandbox/types.ts</path>
+    </interface>
+    <interface name="TraceEvent" kind="interface">
+      <signature
+      ><![CDATA[
+interface TraceEvent {
+  type: "tool_start" | "tool_end";
+  tool: string;         // "filesystem:read_file"
+  trace_id: string;     // UUID
+  ts: number;           // Timestamp
+  success?: boolean;    // For tool_end
+  duration_ms?: number; // For tool_end
+  error?: string;       // For failed tool_end
+}
+      ]]></signature>
+      <path>src/sandbox/types.ts (existing in gateway-server, to consolidate)</path>
+    </interface>
+    <interface name="buildToolDefinitions" kind="function">
+      <signature
+      ><![CDATA[
+function buildToolDefinitions(
+  searchResults: SearchResult[]
+): ToolDefinition[]
+      ]]></signature>
+      <path>src/sandbox/context-builder.ts (NEW method)</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards
+    >
+      Tests use Deno's built-in test framework with @std/assert. Unit tests live in tests/unit/ with pattern *_test.ts. Integration tests in tests/integration/. All tests run with deno test --allow-all. Test names should be descriptive and follow pattern: "ComponentName - behavior under test".
+    </standards>
+    <locations>
+      <location>tests/unit/sandbox/worker_bridge_test.ts (NEW)</location>
+      <location>tests/unit/sandbox/executor_test.ts (existing - add Worker mode tests)</location>
+      <location
+      >tests/unit/sandbox/context_builder_test.ts (existing - update for buildToolDefinitions)</location>
+      <location>tests/integration/code_execution_test.ts (existing - end-to-end tests)</location>
+    </locations>
+    <ideas>
+      <idea ac="1">Test WorkerBridge spawns Worker with correct permissions config</idea>
+      <idea ac="1">Test WorkerBridge routes RPC calls to correct MCPClient</idea>
+      <idea ac="1">Test WorkerBridge captures tool_start and tool_end traces</idea>
+      <idea ac="2">Test SandboxWorker generates correct tool proxies from definitions</idea>
+      <idea ac="2">Test __rpcCall sends correct postMessage format</idea>
+      <idea ac="2">Test Worker returns execution result via postMessage</idea>
+      <idea ac="3">Test RPCCallMessage serialization/deserialization</idea>
+      <idea ac="4">Test executor.execute() with mode="worker" uses WorkerBridge</idea>
+      <idea ac="4">Test executor.execute() with mode="subprocess" uses existing code path</idea>
+      <idea ac="5">Test traces include all tool calls in sequence</idea>
+      <idea ac="5">Test GraphRAG updateFromExecution receives traced tools</idea>
+      <idea ac="6">Test code calling 2 MCP tools records both in traces</idea>
+      <idea ac="6">Test RPC timeout returns error within 10ms of timeout threshold</idea>
+      <idea ac="6">Test Worker error handling propagates correctly</idea>
+      <idea ac="6">Benchmark: verify RPC overhead is under 10ms per call</idea>
+      <idea ac="7">Verify parseTraces function is removed from gateway-server.ts</idea>
+      <idea ac="7">Verify rawStdout field is removed from ExecutionResult</idea>
+      <idea ac="7"
+      >Verify test files deleted: trace_parsing_test.ts, tracing_performance_test.ts</idea>
+    </ideas>
+  </tests>
+</story-context>

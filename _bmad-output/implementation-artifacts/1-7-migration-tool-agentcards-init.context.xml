@@ -1,0 +1,209 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>1.7</storyId>
+    <title>Migration Tool (agentcards init)</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-04</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/story-1.7.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>power user with existing MCP configuration</asA>
+    <iWant>to migrate my mcp.json configuration to Casys Intelligence automatically</iWant>
+    <soThat>I don't have to manually reconfigure everything</soThat>
+    <tasks>
+      <task>Implement CLI command structure using Cliffy framework</task>
+      <task>Auto-detect claude_desktop_config.json path (macOS, Linux, Windows)</task>
+      <task>Parse existing MCP config and extract server definitions</task>
+      <task>Generate Casys Intelligence config.yaml with migrated servers</task>
+      <task>Trigger schema discovery and embeddings generation</task>
+      <task>Display console output with migration instructions</task>
+      <task>Implement rollback capability for failed migrations</task>
+      <task>Add dry-run mode for previewing changes</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">CLI command `agentcards init` implemented</criterion>
+    <criterion id="AC2"
+    >Detection automatique du claude_desktop_config.json path (OS-specific)</criterion>
+    <criterion id="AC3">Parsing du mcp.json existant et extraction des MCP servers</criterion>
+    <criterion id="AC4">Generation de `~/.agentcards/config.yaml` avec servers migrés</criterion>
+    <criterion id="AC5">Embeddings generation triggered automatiquement post-migration</criterion>
+    <criterion id="AC6">Console output avec instructions pour éditer mcp.json</criterion>
+    <criterion id="AC7"
+    >Template affiché pour nouvelle config mcp.json (juste agentcards gateway)</criterion>
+    <criterion id="AC8">Rollback capability si erreur durant migration</criterion>
+    <criterion id="AC9">Dry-run mode (--dry-run) pour preview changes</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc
+        path="docs/PRD.md"
+        title="Product Requirements Document"
+        section="Migration & Setup"
+      >
+        FR016: Le système doit pouvoir lire le mcp.json existant de Claude Code et générer automatiquement la configuration Casys Intelligence correspondante.
+        Journey 1 - Setup Casys Intelligence: Alex exécute `agentcards init` → Casys Intelligence lit automatiquement le mcp.json → Détecte les 15 MCP servers configurés → Génère ~/.agentcards/config.yaml → Génère les embeddings vectoriels pour tous les tools → Stocke tout dans .agentcards.db
+      </doc>
+      <doc
+        path="docs/architecture.md"
+        title="Decision Architecture"
+        section="CLI Structure"
+      >
+        CLI structure (commands: init, serve, status) via cliffy. Project organization: src/cli/commands/init.ts for Story 1.7 migration tool.
+      </doc>
+      <doc
+        path="docs/architecture.md"
+        title="Decision Architecture"
+        section="Project Structure"
+      >
+        CLI commands location: src/cli/commands/init.ts (Story 1.7). Dependencies: cliffy (CLI framework), @std/yaml (config parsing), @std/log (structured logging).
+      </doc>
+    </docs>
+    <code>
+      <artifact
+        path="src/mcp/discovery.ts"
+        kind="service"
+        symbol="MCPServerDiscovery"
+        lines="25-187"
+        reason="Provides config loading, parsing (JSON and YAML), normalization between Claude mcp.json and Casys Intelligence config.yaml formats. Key methods: loadConfig(), normalizeConfig(), discoverServers()"
+      >
+        class MCPServerDiscovery {
+          async loadConfig(): Promise&lt;MCPConfig&gt; // Parses both .json and .yaml
+          private normalizeConfig(raw: unknown): MCPConfig // Converts Claude mcp.json → Casys Intelligence format
+          async discoverServers(): Promise&lt;MCPServer[]&gt;
+        }
+        Includes OS-specific path detection pattern (macOS, Linux, Windows)
+      </artifact>
+      <artifact
+        path="src/mcp/schema-extractor.ts"
+        kind="service"
+        symbol="SchemaExtractor"
+        lines="31-139"
+        reason="Orchestrates server discovery, schema extraction, and storage. Method extractAndStore() runs full workflow needed post-migration"
+      >
+        class SchemaExtractor {
+          async extractAndStore(): Promise&lt;DiscoveryStats&gt; // Discovers servers, extracts schemas, stores in DB
+        }
+        Required after config migration to populate database with tool schemas
+      </artifact>
+      <artifact
+        path="src/vector/embeddings.ts"
+        kind="service"
+        symbol="generateEmbeddings"
+        lines="256-407"
+        reason="Generates embeddings for all tool schemas. Required after migration to enable semantic search"
+      >
+        async function generateEmbeddings(db: PGliteClient, model: EmbeddingModel): Promise&lt;EmbeddingStats&gt;
+        Includes progress tracking, caching, and batch processing
+      </artifact>
+      <artifact
+        path="src/db/client.ts"
+        kind="database"
+        symbol="PGliteClient"
+        reason="Database client for storing migrated config and running discovery/embeddings workflows"
+      >
+        PGlite client for database operations
+      </artifact>
+    </code>
+    <dependencies>
+      <dependency ecosystem="deno">
+        <package name="@std/yaml" version="1.0.6" usage="Config file parsing (YAML format)" />
+        <package name="@std/log" version="0.224.11" usage="Structured logging" />
+        <package name="@std/fs" version="1.0.19" usage="File system operations" />
+        <package name="cliffy" version="TBD" usage="CLI framework (not yet installed - AC1)" />
+      </dependency>
+      <dependency ecosystem="npm">
+        <package name="@electric-sql/pglite" version="0.3.11" usage="Database client" />
+        <package name="@xenova/transformers" version="2.17.2" usage="Embeddings model" />
+      </dependency>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint
+    >File structure: CLI commands must be in src/cli/commands/ directory following architecture.md guidelines</constraint>
+    <constraint
+    >OS Support: Must detect claude_desktop_config.json path on macOS (~/Library/Application Support/Claude/), Linux (~/.config/Claude/), and Windows (%APPDATA%\Claude\)</constraint>
+    <constraint
+    >Config Format: Must support both Claude mcp.json format ({ mcpServers: {...} }) and Casys Intelligence config.yaml format ({ servers: [...] })</constraint>
+    <constraint
+    >Config Location: Generated Casys Intelligence config must be at ~/.agentcards/config.yaml</constraint>
+    <constraint
+    >Reuse Existing Code: MUST use existing MCPServerDiscovery.normalizeConfig() for format conversion, SchemaExtractor.extractAndStore() for discovery, and generateEmbeddings() for vector generation</constraint>
+    <constraint
+    >Error Handling: Must implement rollback capability to remove ~/.agentcards/ directory on migration failure</constraint>
+    <constraint
+    >Dry-Run Mode: Must support --dry-run flag to preview changes without applying them</constraint>
+    <constraint
+    >Testing: Unit tests in tests/unit/cli/, integration tests in tests/integration/</constraint>
+  </constraints>
+  <interfaces>
+    <interface
+      name="MCPServerDiscovery"
+      kind="class"
+      signature="class MCPServerDiscovery { constructor(configPath: string); async loadConfig(): Promise&lt;MCPConfig&gt;; private normalizeConfig(raw: unknown): MCPConfig; async discoverServers(): Promise&lt;MCPServer[]&gt;; }"
+      path="src/mcp/discovery.ts"
+    >
+      Used for loading and parsing existing Claude mcp.json. The normalizeConfig() method already handles conversion from Claude format to Casys Intelligence format.
+    </interface>
+    <interface
+      name="SchemaExtractor.extractAndStore"
+      kind="method"
+      signature="async extractAndStore(): Promise&lt;DiscoveryStats&gt;"
+      path="src/mcp/schema-extractor.ts"
+    >
+      Orchestrates server discovery and schema extraction. Must be called after config migration to populate database.
+    </interface>
+    <interface
+      name="generateEmbeddings"
+      kind="function"
+      signature="async function generateEmbeddings(db: PGliteClient, model: EmbeddingModel): Promise&lt;EmbeddingStats&gt;"
+      path="src/vector/embeddings.ts"
+    >
+      Generates embeddings for all tool schemas in database. Must be called after schema extraction to enable semantic search.
+    </interface>
+    <interface
+      name="MCPConfig"
+      kind="type"
+      signature="interface MCPConfig { servers: MCPServer[] }"
+      path="src/mcp/types.ts"
+    >
+      Casys Intelligence internal config format
+    </interface>
+    <interface
+      name="MCPServer"
+      kind="type"
+      signature="interface MCPServer { id: string; name: string; command: string; args?: string[]; env?: Record&lt;string, string&gt;; protocol: 'stdio' | 'sse'; }"
+      path="src/mcp/types.ts"
+    >
+      MCP server definition
+    </interface>
+  </interfaces>
+  <tests>
+    <standards
+    >Deno.test framework for all tests. Unit tests in tests/unit/, integration tests in tests/integration/. Target >80% coverage. Use fixtures in tests/fixtures/ for mock MCP configs.</standards>
+    <locations>tests/unit/cli/init_test.ts, tests/integration/migration_test.ts</locations>
+    <ideas>
+      <test-idea criterion="AC1"
+      >Test CLI command registration and argument parsing with cliffy</test-idea>
+      <test-idea criterion="AC2"
+      >Test path detection for macOS, Linux, Windows using mocked Deno.env</test-idea>
+      <test-idea criterion="AC3"
+      >Test parsing of Claude mcp.json format with various server configurations</test-idea>
+      <test-idea criterion="AC4">Test config.yaml generation with correct YAML format</test-idea>
+      <test-idea criterion="AC5"
+      >Test that embeddings generation is triggered after migration (mock SchemaExtractor and generateEmbeddings)</test-idea>
+      <test-idea criterion="AC6,AC7">Test console output messages and template display</test-idea>
+      <test-idea criterion="AC8"
+      >Test rollback removes ~/.agentcards/ directory on failure</test-idea>
+      <test-idea criterion="AC9">Test --dry-run flag prevents file system changes</test-idea>
+      <test-idea
+      >Integration test: Full migration flow from mock mcp.json to working Casys Intelligence setup</test-idea>
+    </ideas>
+  </tests>
+</story-context>

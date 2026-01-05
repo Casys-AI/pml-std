@@ -141,7 +141,7 @@ export class ExecutionTraceStore {
         trace.capabilityId ?? null,
         sanitizedContext, // postgres.js auto-serializes to JSONB
         trace.success,
-        trace.durationMs,
+        Math.round(trace.durationMs),
         trace.errorMessage ?? null,
         trace.userId ?? "local",
         trace.createdBy ?? "local",

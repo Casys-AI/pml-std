@@ -1,0 +1,239 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>1.2</storyId>
+    <title>PGlite Database Foundation with pgvector</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-03</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/story-1.2.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>a PGlite database with pgvector extension configured</iWant>
+    <soThat>I can store embeddings vectoriels et perform semantic search efficiently</soThat>
+    <tasks>
+      <task id="1"
+      >Initialize PGlite database avec création du fichier ~/.agentcards/.agentcards.db</task>
+      <task id="2">Load pgvector extension et vérifier son opérationnalité</task>
+      <task id="3">Create database schema with tables: tool_embedding, tool_schema, config</task>
+      <task id="4">Create HNSW vector index sur tool_embedding.embedding avec pgvector</task>
+      <task id="5">Implement and test CRUD operations (insert, query, update, delete)</task>
+      <task id="6">Implement database migration system pour la future évolution du schema</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">PGlite database initialization dans ~/.agentcards/.agentcards.db</criterion>
+    <criterion id="AC2">pgvector extension loaded et operational</criterion>
+    <criterion id="AC3"
+    >Database schema créé avec tables: tool_embedding (tool_id, embedding vector(1024), metadata), tool_schema (tool_id, schema_json, server_id, cached_at), config (key, value)</criterion>
+    <criterion id="AC4"
+    >Vector index HNSW créé sur tool_embedding.embedding avec pgvector</criterion>
+    <criterion id="AC5">Basic CRUD operations testés (insert, query, update, delete)</criterion>
+    <criterion id="AC6">Database migration system en place pour schema evolution future</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>Storage & Persistence (FR012, FR013)</section>
+        <snippet
+        >Le système doit stocker tous les embeddings, schemas, et metadata dans un fichier PGlite unique portable. Le système doit cacher les tool schemas pour éviter les rechargements répétitifs.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture - Casys Intelligence</title>
+        <section>Database & Vector Search</section>
+        <snippet
+        >PGlite 0.3.11 (PostgreSQL 17 WASM), pgvector extension (HNSW index), IndexedDB persistence (browser) / Filesystem (Deno). Supports cosine/L2/IP distance metrics.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture - Casys Intelligence</title>
+        <section>Project Structure - src/db/</section>
+        <snippet
+        >Database layer: client.ts (PGlite initialization), migrations/ directory for SQL schema evolution, queries.ts for prepared queries. Story 1.2 creates initial schema migration 001_initial.sql.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture - Casys Intelligence</title>
+        <section>Database Schema (PGlite)</section>
+        <snippet
+        >tool_schema table stores tool metadata (tool_id, server_id, name, description, input_schema JSONB, output_schema JSONB). tool_embedding stores vectors with HNSW index (m=16, ef_construction=64). config_metadata stores key-value pairs. HNSW index uses vector_cosine_ops for similarity search.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture - Casys Intelligence</title>
+        <section>ADR-001: PGlite over SQLite for Vector Search</section>
+        <snippet
+        >Use PGlite (PostgreSQL WASM) with pgvector instead of SQLite + sqlite-vec. pgvector provides production-ready HNSW + IVFFlat. PGlite is embedded (3MB WASM), enables &lt;100ms P95 vector search. Trade-off: 3MB overhead vs &lt;1MB SQLite, acceptable for performance gain.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>src/main.ts</path>
+        <kind>entry-point</kind>
+        <symbol>main</symbol>
+        <lines>1-15</lines>
+        <reason
+        >Existing project entry point from Story 1.1; Story 1.2 will import database modules from here</reason>
+      </artifact>
+      <artifact>
+        <path>mod.ts</path>
+        <kind>module</kind>
+        <symbol>module-exports</symbol>
+        <lines>1-5</lines>
+        <reason>Public API exports; will be extended with database exports after Story 1.2</reason>
+      </artifact>
+      <artifact>
+        <path>deno.json</path>
+        <kind>config</kind>
+        <symbol>imports-and-tasks</symbol>
+        <lines>25-35</lines>
+        <reason
+        >Project configuration showing Deno standard library imports (@std/log, @std/yaml) which will be used by database module</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <ecosystem name="Deno">
+        <runtime version="2.5 / 2.2 LTS">Deno runtime</runtime>
+        <stdlib version="0.224.0+">
+          <package>std/log - Structured logging for database operations</package>
+          <package>std/yaml - Configuration file parsing</package>
+        </stdlib>
+      </ecosystem>
+      <ecosystem name="NPM (via Deno npm: specifier)">
+        <package name="@electric-sql/pglite" version="0.3.11"
+        >Embedded PostgreSQL WASM with pgvector extension built-in</package>
+        <package name="@electric-sql/pglite/vector" version="0.3.11"
+        >pgvector extension module for semantic search with HNSW</package>
+      </ecosystem>
+      <note
+      >Story 1.2 will add @electric-sql/pglite to deno.json imports. No additional dependencies required for migration system (custom TypeScript implementation).</note>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint type="runtime"
+    >Deno 2.5 (latest) or 2.2 (LTS) - TypeScript 5.7+ via Deno, ES2022 target</constraint>
+    <constraint type="database"
+    >PGlite 0.3.11 WASM embedded database, filesystem persistence at ~/.agentcards/.agentcards.db</constraint>
+    <constraint type="schema"
+    >tool_embedding table must have vector(1024) column matching BGE-Large-EN-v1.5 embedding dimensions from Story 1.4</constraint>
+    <constraint type="indexing"
+    >HNSW index parameters: m=16, ef_construction=64 for balanced quality/speed trade-off per architecture decisions</constraint>
+    <constraint type="vector-search"
+    >Vector search P95 latency must be &lt;100ms for queries against 1000+ embeddings (performance target from NFR001)</constraint>
+    <constraint type="migration"
+    >Migration system must support both up() and down() operations for schema reversibility</constraint>
+    <constraint type="filesystem"
+    >Database file must be portable single-file (no external dependencies on system PostgreSQL)</constraint>
+    <constraint type="context-optimization"
+    >Schema design must support on-demand loading of tool schemas to stay within &lt;5% context budget (Story 1.6 constraint)</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>PGliteClient</name>
+      <kind>TypeScript class/module</kind>
+      <signature
+      >
+        class PGliteClient {
+          constructor(dbPath: string);
+          connect(): Promise&lt;void&gt;;
+          exec(sql: string, params?: unknown[]): Promise&lt;any&gt;;
+          query(sql: string, params?: unknown[]): Promise&lt;Row[]&gt;;
+          transaction&lt;T&gt;(fn: (tx: Transaction) =&gt; Promise&lt;T&gt;): Promise&lt;T&gt;;
+          close(): Promise&lt;void&gt;;
+        }
+      </signature>
+      <path>src/db/client.ts</path>
+      <reason
+      >Will be Story 1.2 deliverable; provides low-level database access for other modules</reason>
+    </interface>
+    <interface>
+      <name>MigrationRunner</name>
+      <kind>TypeScript function/class</kind>
+      <signature
+      >
+        interface Migration {
+          version: number;
+          name: string;
+          up(db: PGliteClient): Promise&lt;void&gt;;
+          down(db: PGliteClient): Promise&lt;void&gt;;
+        }
+
+        async function runMigrations(db: PGliteClient, migrations: Migration[]): Promise&lt;void&gt;;
+      </signature>
+      <path>src/db/migrations.ts</path>
+      <reason>Story 1.2 AC6 deliverable; enables future schema evolution without manual SQL</reason>
+    </interface>
+    <interface>
+      <name>Schema Tables</name>
+      <kind>Database tables (SQL DDL)</kind>
+      <signature
+      >
+        -- tool_schema: caches MCP tool definitions
+        CREATE TABLE tool_schema (
+          tool_id TEXT PRIMARY KEY,
+          server_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          description TEXT,
+          input_schema JSONB NOT NULL,
+          output_schema JSONB,
+          cached_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+
+        -- tool_embedding: stores BGE-Large-EN-v1.5 embeddings
+        CREATE TABLE tool_embedding (
+          tool_id TEXT PRIMARY KEY REFERENCES tool_schema(tool_id),
+          embedding vector(1024) NOT NULL,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        );
+
+        -- HNSW index for &lt;100ms semantic search
+        CREATE INDEX idx_tool_embedding_hnsw
+        ON tool_embedding
+        USING hnsw (embedding vector_cosine_ops)
+        WITH (m = 16, ef_construction = 64);
+      </signature>
+      <path>src/db/migrations/001_initial.sql</path>
+      <reason
+      >Story 1.2 core deliverable; defines persistent storage structure for embeddings and schemas</reason>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards
+    >Le projet utilise Deno.test (framework de test natif) avec une cible de couverture &gt;80%. Les tests sont organisés en unit/ et integration/ sous le répertoire tests/. Le CI GitHub Actions exécute automatiquement les tests via 'deno task test'. Support natif pour les benchmarks via 'deno bench'. Story 1.2 tests focus on database initialization, schema correctness, CRUD operations, and migration system functionality.</standards>
+    <locations>
+      <location>tests/unit/db/</location>
+      <location>tests/integration/db/</location>
+      <location>tests/unit/db/*_test.ts</location>
+      <location>tests/integration/db/*_test.ts</location>
+    </locations>
+    <ideas>
+      <test-idea criterion="AC1"
+      >Test PGlite database initialization: Verify ~/.agentcards/.agentcards.db file is created, is readable, and contains valid PostgreSQL WASM database header</test-idea>
+      <test-idea criterion="AC2"
+      >Test pgvector extension loading: Connect to database, execute "CREATE EXTENSION IF NOT EXISTS vector;", verify extension is listed in pg_extension system table</test-idea>
+      <test-idea criterion="AC3"
+      >Test schema creation: Run migration 001, verify all three tables exist (tool_schema, tool_embedding, config) with correct columns and types</test-idea>
+      <test-idea criterion="AC4"
+      >Test HNSW index creation: Verify idx_tool_embedding_hnsw index exists on tool_embedding table, check index parameters (m=16, ef_construction=64) in pg_indexes</test-idea>
+      <test-idea criterion="AC5"
+      >Test CRUD operations: Insert test tool_embedding records, query with vector similarity search, update metadata, delete records; verify data consistency</test-idea>
+      <test-idea criterion="AC6"
+      >Test migration system: Run migration up(), verify schema state, run migration down(), verify rollback, verify both up() and down() are idempotent</test-idea>
+      <test-idea criterion="AC5"
+      >Benchmark vector search performance: Insert 1000+ embeddings, measure P95 latency for cosine similarity search; assert &lt;100ms per architecture NFR001</test-idea>
+      <test-idea criterion="AC3"
+      >Test schema backward compatibility: Verify tool_schema table can support future columns without breaking existing queries (design for extensibility)</test-idea>
+    </ideas>
+  </tests>
+</story-context>

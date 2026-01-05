@@ -52,10 +52,8 @@ async function benchmarkSubprocess(code: string, iterations: number): Promise<nu
 }
 
 async function benchmarkWorker(code: string, iterations: number): Promise<number[]> {
-  const bridge = new WorkerBridge({
+  const bridge = new WorkerBridge(new Map(), {
     timeout: 5000,
-    toolDefinitions: [],
-    mcpClients: new Map(),
   });
 
   const times: number[] = [];

@@ -6,6 +6,8 @@
  * @module graphrag/algorithms/shgat/utils/math
  */
 
+import { random } from "../initialization/parameters.ts";
+
 /**
  * Matrix multiplication with transpose: A · B^T
  *
@@ -175,7 +177,7 @@ export function applyDropout(matrix: number[][], dropoutRate: number): number[][
   if (dropoutRate === 0) return matrix;
 
   const keepProb = 1 - dropoutRate;
-  return matrix.map((row) => row.map((x) => (Math.random() < keepProb ? x / keepProb : 0)));
+  return matrix.map((row) => row.map((x) => (random() < keepProb ? x / keepProb : 0)));
 }
 
 /**

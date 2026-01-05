@@ -380,7 +380,7 @@ export class CapabilityRegistry {
        FROM capability_records cr
        WHERE cr.workflow_pattern_id = wp.pattern_id
          AND cr.id = $1`,
-      [id, success, latencyMs],
+      [id, success, Math.round(latencyMs)],
     );
 
     // Also update capability_records.updated_at for tracking

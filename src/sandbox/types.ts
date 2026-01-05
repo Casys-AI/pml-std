@@ -71,6 +71,12 @@ export interface SandboxConfig {
   graphRAG?: import("../graphrag/graph-engine.ts").GraphRAGEngine;
 
   /**
+   * Optional CapabilityRegistry for routing to learned capabilities (meta-capabilities)
+   * When provided, enables capability resolution when MCP server not found.
+   */
+  capabilityRegistry?: import("../capabilities/capability-registry.ts").CapabilityRegistry;
+
+  /**
    * Use Worker for execute() instead of subprocess (Story 10.5 AC13)
    *
    * When true, execute() uses WorkerBridge internally instead of spawning

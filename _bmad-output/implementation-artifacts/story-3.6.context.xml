@@ -1,0 +1,262 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>3.6</storyId>
+    <title>PII Detection & Tokenization</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-20</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/story-3.6.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>security-conscious user</asA>
+    <iWant>personally identifiable information (PII) automatically detected and tokenized</iWant>
+    <soThat>sensitive data never reaches the LLM context</soThat>
+    <tasks>
+### Phase 1: PII Detection Module (2-3h)
+- Task 1: Create PII detector (AC: #1)
+  - Create src/sandbox/pii-detector.ts module
+  - Create PIIDetector class with detection logic
+  - Create PIIMatch interface with type + position + value
+  - Export module in mod.ts
+
+- Task 2: Implement pattern detection (AC: #2)
+  - Email regex, Phone regex (US/CA), Credit card regex
+  - SSN regex (US), API key patterns
+  - Support custom patterns (configurable)
+
+### Phase 2: Tokenization Strategy (2h)
+- Task 3: Implement tokenization (AC: #3, #4)
+  - Create TokenizationManager class
+  - Replace detected PII with tokens: [EMAIL_1], [PHONE_2], etc.
+  - Maintain reverse mapping in-memory only
+  - Generate unique token IDs
+
+- Task 4: Agent code support (AC: #5)
+  - Agent receives tokenized data
+  - Agent can reference tokens in code
+  - Tokens survive processing
+  - Agent never has access to original values
+
+### Phase 3: De-tokenization & Opt-Out (1-2h)
+- Task 5: De-tokenization for final output (AC: #6)
+  - Optional: de-tokenize result before sending to LLM
+  - User can decide: keep tokens OR restore original values
+  - Flag: detokenize: true for restoration
+
+- Task 6: Opt-out mechanism (AC: #7)
+  - CLI flag: --no-pii-protection
+  - Config option: pii_protection: false
+  - Environment variable: CAI_NO_PII_PROTECTION=1
+  - Warning message if opt-out active
+
+### Phase 4: Testing & Validation (1-2h)
+- Task 7: Unit tests for detection accuracy (AC: #8)
+  - Test detection >95% accuracy for all PII types
+  - Test false positives <5%
+
+- Task 8: Integration test (AC: #9)
+  - E2E test: Dataset with emails → tokenization → agent execution
+  - Validate: Agent code never sees original email
+  - Validate: Tokens present in final result
+  - Validate: De-tokenization works if requested
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+1. PII detection module created (src/sandbox/pii-detector.ts)
+2. Patterns detected: emails, phone numbers, credit cards, SSNs, API keys
+3. Tokenization strategy: Replace PII with [EMAIL_1], [PHONE_1], etc.
+4. Reverse mapping stored securely (in-memory only, never persisted)
+5. Agent receives tokenized data, can reference tokens in code
+6. De-tokenization happens only for final output (if needed)
+7. Opt-out flag: --no-pii-protection for trusted environments
+8. Unit tests: Validate detection accuracy (>95% for common PII types)
+9. Integration test: Email in dataset → tokenized → agent never sees raw email
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/spikes/pii-detection-research.md</path>
+        <title>PII Detection Research</title>
+        <section>Recommended Approach: validator.js</section>
+        <snippet>Research recommends validator.js (npm:validator@13.15.22) - industry standard with 93M weekly downloads, actively maintained, Deno 2 compatible. Provides isEmail(), isCreditCard(), isMobilePhone(), and matches() for custom patterns like SSN. Replaces homemade regex approach with battle-tested library.</snippet>
+      </doc>
+      <doc>
+        <path>docs/tech-spec-epic-3.md</path>
+        <title>Epic 3 Technical Specification</title>
+        <section>Security & Hardening (Stories 3.6-3.8)</section>
+        <snippet>Story 3.6 focuses on PII detection using regex patterns for emails, SSNs, tokens. Foundation for secure code execution with privacy protection. Integration with sandbox executor for tokenization before agent sees data.</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/story-3.1.md</path>
+        <title>Story 3.1 - Deno Sandbox Executor Foundation</title>
+        <section>Implementation & Security Model</section>
+        <snippet>Sandbox provides isolated execution environment with strict permissions, timeout enforcement (30s), memory limits (512MB), JSON-only serialization, and comprehensive error handling. Foundation for PII protection layer.</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/story-3.4.md</path>
+        <title>Story 3.4 - agentcards:execute_code MCP Tool</title>
+        <section>Context Injection & DAG Integration</section>
+        <snippet>Code execution tasks receive context via deps parameter. Provides integration pattern for PII tokenization: tokenize data before injection into sandbox context, agent receives tokenized data.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <file>
+        <path>src/sandbox/executor.ts</path>
+        <kind>executor</kind>
+        <symbol>DenoSandboxExecutor</symbol>
+        <lines>1-300</lines>
+        <reason>Main sandbox executor class. Integration point for PII detection: add tokenization layer before/after code execution. Lines 59-79 show constructor, can extend with PIIDetector injection.</reason>
+      </file>
+      <file>
+        <path>src/sandbox/types.ts</path>
+        <kind>types</kind>
+        <symbol>SandboxConfig, ExecutionResult, StructuredError</symbol>
+        <lines>1-100</lines>
+        <reason>Type definitions for sandbox. Will need to extend with PIIMatch interface, TokenizationConfig types for PII detection module.</reason>
+      </file>
+      <file>
+        <path>src/sandbox/context-builder.ts</path>
+        <kind>builder</kind>
+        <symbol>ContextBuilder</symbol>
+        <lines>1-200</lines>
+        <reason>Builds execution context for sandbox. Integration point for tokenization: apply PII detection to context before passing to executor.</reason>
+      </file>
+      <file>
+        <path>src/dag/controlled-executor.ts</path>
+        <kind>executor</kind>
+        <symbol>ControlledExecutor.executeCodeTask</symbol>
+        <lines>1154-1240</lines>
+        <reason>Executes code_execution tasks in DAG. Integration point for PII protection: tokenize data in deps context before sandbox execution (line 1170-1193).</reason>
+      </file>
+    </code>
+    <dependencies>
+      <deno>
+        <runtime>Deno 2.x</runtime>
+        <std-libs>
+          <lib>@std/assert@1.0.11 (testing)</lib>
+          <lib>@std/log@0.224.14 (logging)</lib>
+        </std-libs>
+        <npm-packages>
+          <package>validator@13.15.22 (RECOMMENDED for PII detection - see pii-detection-research.md)</package>
+          <package>@electric-sql/pglite@0.3.11 (database, not directly used for PII)</package>
+          <package>@modelcontextprotocol/sdk@^1.0.4 (MCP protocol)</package>
+        </npm-packages>
+      </deno>
+      <testing>
+        <framework>Deno built-in test runner</framework>
+        <commands>
+          <cmd>deno test --allow-all (all tests)</cmd>
+          <cmd>deno test --allow-all tests/unit/sandbox/ (sandbox unit tests)</cmd>
+          <cmd>deno test --allow-all tests/benchmarks/sandbox_performance_test.ts (performance validation)</cmd>
+        </commands>
+      </testing>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+- **Security**: PII must NEVER be persisted to disk (in-memory only reverse mapping)
+- **Privacy**: Tokenized data only - agent never sees original PII values
+- **Performance**: Detection overhead <10ms for 1MB dataset (regex performance critical)
+- **Memory**: Reverse mapping ~100 bytes per token, 1000 PII items ~100KB (acceptable)
+- **Integration**: Must integrate cleanly with existing sandbox executor (Story 3.1)
+- **Opt-out**: Must provide CLI flag (--no-pii-protection) and config option for trusted environments
+- **Testing**: Detection accuracy >95% for common PII types (email, phone, credit card, SSN)
+- **False positives**: <5% to avoid over-tokenization of non-PII data
+- **Logging**: NO logging of raw PII values - only counts and token IDs
+- **Telemetry**: Metrics exclude PII (only aggregate statistics)
+- **Validation library**: MUST use validator.js (npm:validator@13.15.22) per research recommendation
+- **Type safety**: All interfaces must be properly typed (PIIMatch, TokenizationManager, etc.)
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>PIIMatch</name>
+      <kind>TypeScript interface</kind>
+      <signature>
+interface PIIMatch {
+  type: "email" | "phone" | "credit_card" | "ssn" | "api_key";
+  value: string;
+  startIndex: number;
+  endIndex: number;
+  tokenId: string;
+}
+      </signature>
+      <path>src/sandbox/pii-detector.ts (to be created)</path>
+    </interface>
+    <interface>
+      <name>PIIDetector</name>
+      <kind>TypeScript class</kind>
+      <signature>
+class PIIDetector {
+  constructor(config?: PIIConfig);
+  scan(text: string): PIIMatch[];
+  // Uses validator.js for detection:
+  // - validator.isEmail() for emails
+  // - validator.isCreditCard() for credit cards
+  // - validator.isMobilePhone() for phones
+  // - validator.matches() for SSN/API keys
+}
+      </signature>
+      <path>src/sandbox/pii-detector.ts (to be created)</path>
+    </interface>
+    <interface>
+      <name>TokenizationManager</name>
+      <kind>TypeScript class</kind>
+      <signature>
+class TokenizationManager {
+  tokenize(text: string, matches: PIIMatch[]): string;
+  detokenize(text: string): string;
+  getReverseMapping(): Record&lt;string, string&gt;;
+  clear(): void;
+  // Example: tokenize("alice@example.com") → "[EMAIL_1]"
+}
+      </signature>
+      <path>src/sandbox/pii-detector.ts (to be created)</path>
+    </interface>
+    <interface>
+      <name>SandboxConfig extension</name>
+      <kind>TypeScript interface extension</kind>
+      <signature>
+interface SandboxConfig {
+  // ... existing fields ...
+  piiProtection?: {
+    enabled: boolean;
+    types?: Array&lt;"email" | "phone" | "credit_card" | "ssn" | "api_key"&gt;;
+    detokenizeOutput?: boolean;
+  };
+}
+      </signature>
+      <path>src/sandbox/types.ts (to be modified)</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+Tests use Deno's built-in test runner with @std/assert. Unit tests validate detection accuracy (>95% for each PII type), false positive rate (<5%), and tokenization/detokenization correctness. Integration tests validate E2E flow: data with PII → tokenization → agent execution → verification that agent never sees raw PII. Performance tests ensure <10ms overhead for 1MB dataset. Test naming convention: {module}_{test_type}_test.ts (e.g., pii_detector_unit_test.ts).
+    </standards>
+    <locations>
+- tests/unit/sandbox/pii_detector_test.ts - Unit tests for PIIDetector class
+- tests/unit/sandbox/tokenization_test.ts - Unit tests for TokenizationManager
+- tests/integration/pii_integration_test.ts - E2E PII flow tests
+- tests/fixtures/pii-test-data.json - Test datasets with known PII
+- tests/benchmarks/pii_performance_test.ts - Performance validation
+    </locations>
+    <ideas>
+AC #1: Unit test for PIIDetector class creation and configuration
+AC #2: Unit tests for each PII pattern (email, phone, credit card, SSN, API key) using validator.js - verify >95% detection accuracy
+AC #2: False positive test - verify <5% false positive rate for each PII type
+AC #3: Unit test for TokenizationManager - verify token format ([EMAIL_1], [PHONE_1], etc.)
+AC #4: Integration test - verify reverse mapping stored in-memory only (never persisted)
+AC #5: E2E test - agent receives tokenized data, references tokens in code, never sees raw values
+AC #6: Unit test for detokenization - verify optional restoration of original values
+AC #7: Integration test for opt-out mechanism - verify --no-pii-protection flag disables detection
+AC #8: Accuracy test suite - validate >95% precision and recall for all PII types using test dataset
+AC #9: E2E integration test - dataset with emails → tokenization → agent execution → verify agent code never sees raw email → verify tokens in final result → verify detokenization if requested
+Performance: Benchmark test - verify <10ms overhead for 1MB dataset with PII
+    </ideas>
+  </tests>
+</story-context>

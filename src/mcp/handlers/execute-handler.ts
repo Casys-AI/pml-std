@@ -274,7 +274,7 @@ export interface ExecuteResponse {
 /**
  * Default scope for local development (Story 13.2)
  */
-const DEFAULT_SCOPE: Scope = {
+export const DEFAULT_SCOPE: Scope = {
   org: "local",
   project: "default",
 };
@@ -1331,8 +1331,32 @@ async function registerSHGATNodes(
   }
 }
 
-/** Training lock to prevent concurrent training */
-let isTrainingInProgress = false;
+/**
+ * Shared training lock to prevent concurrent SHGAT training
+ * Used by both PER training (execute-handler) and batch training (gateway-server)
+ */
+export const trainingLock = {
+  inProgress: false,
+  owner: "" as string,
+
+  acquire(owner: string): boolean {
+    if (this.inProgress) return false;
+    this.inProgress = true;
+    this.owner = owner;
+    return true;
+  },
+
+  release(owner: string): void {
+    if (this.owner === owner) {
+      this.inProgress = false;
+      this.owner = "";
+    }
+  },
+
+  isLocked(): boolean {
+    return this.inProgress;
+  }
+};
 
 /**
  * Capability row from database
@@ -1353,17 +1377,18 @@ interface CapabilityRow {
  */
 async function runPERBatchTraining(deps: ExecuteDependencies): Promise<void> {
   // Skip if training already in progress (prevents concurrent training issues)
-  if (isTrainingInProgress) {
-    log.debug("[pml:execute] Skipping PER training - another training in progress");
+  if (!trainingLock.acquire("PER")) {
+    log.debug("[pml:execute] Skipping PER training - another training in progress", {
+      owner: trainingLock.owner,
+    });
     return;
   }
 
   // Check required dependencies
   if (!deps.shgat || !deps.traceStore || !deps.embeddingModel || !deps.db) {
+    trainingLock.release("PER");
     return;
   }
-
-  isTrainingInProgress = true;
   try {
     // Create embedding provider wrapper
     const embeddingProvider = {
@@ -1442,7 +1467,7 @@ async function runPERBatchTraining(deps: ExecuteDependencies): Promise<void> {
   } catch (error) {
     log.warn("[pml:execute] PER training failed", { error: String(error) });
   } finally {
-    isTrainingInProgress = false;
+    trainingLock.release("PER");
   }
 }
 

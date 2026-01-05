@@ -1,0 +1,155 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>3.7</storyId>
+    <title>Code Execution Caching & Optimization</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-20</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/story-3.7.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer running repetitive workflows</asA>
+    <iWant>code execution results cached intelligently</iWant>
+    <soThat>I don't re-execute identical code with identical inputs</soThat>
+    <tasks>
+### Phase 1: Cache Implementation (2-3h)
+- Task 1: Create cache module (AC: #1)
+- Task 2: Cache key generation (AC: #2)
+
+### Phase 2: Cache Operations (1-2h)
+- Task 3: Cache hit path (AC: #3)
+- Task 4: Cache invalidation (AC: #4)
+
+### Phase 3: TTL & Configuration (1h)
+- Task 5: TTL support (AC: #7)
+- Task 6: Configuration & opt-out (AC: #6)
+
+### Phase 4: Persistence & Metrics (1-2h)
+- Task 7: Optional persistence to PGlite (AC: #8)
+- Task 8: Cache metrics (AC: #5, #9)
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+1. Code execution cache implemented (in-memory LRU, max 100 entries)
+2. Cache key: hash(code + context + tool_versions)
+3. Cache hit: Return cached result without execution (<10ms)
+4. Cache invalidation: Auto-invalidate on tool schema changes
+5. Cache stats logged: hit_rate, avg_latency_saved_ms
+6. Configurable: --no-cache flag to disable caching
+7. TTL support: Cache entries expire after 5 minutes
+8. Persistence optional: Save cache to PGlite for cross-session reuse
+9. Performance: Cache hit rate >60% for typical workflows
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <!-- Epic & Story References -->
+      <doc path="docs/tech-spec-epic-3.md" title="Epic 3 Technical Specification" section="Sandbox Architecture">
+        Sandbox Executor (Deno subprocess): Isolation (512MB heap, 30s timeout), MCP Tools Injection (Vector Search), DAG Integration with ControlledExecutor. Safe-to-fail pattern with rollback support.
+      </doc>
+      <doc path="docs/architecture.md" title="Casys Intelligence Architecture" section="Code Execution Layer">
+        Epic 3 adds Code Execution layer between Epic 2.5 (ControlledExecutor) and MCP tools. Deno subprocess with explicit permissions, zero-config portable database, 15+ MCP servers support.
+      </doc>
+      <doc path="docs/stories/story-3.1.md" title="Story 3.1: Deno Sandbox Executor" section="Performance">
+        Execution time varies 100ms-10s. Caching saves significant latency. Subprocess spawn ~100ms baseline overhead.
+      </doc>
+      <doc path="docs/stories/story-3.2.md" title="Story 3.2: MCP Tools Injection" section="Tool Versions">
+        Tool versions tracked via MCP discovery. Tool schema changes require cache invalidation to ensure correctness.
+      </doc>
+      <doc path="docs/stories/story-3.6.md" title="Story 3.6: PII Detection" section="Integration">
+        PII protection integrated with SandboxConfig. Shows pattern for optional features with config+CLI flags.
+      </doc>
+    </docs>
+
+    <code>
+      <!-- Existing Sandbox Infrastructure -->
+      <artifact path="src/sandbox/executor.ts" kind="executor" symbol="DenoSandboxExecutor" lines="59-250" reason="Core execution logic to integrate cache before execution. Check cache hit before spawning subprocess." />
+      <artifact path="src/sandbox/types.ts" kind="types" symbol="SandboxConfig" lines="8-43" reason="Extend with cacheConfig option. Add CacheConfig interface for cache settings (enabled, maxEntries, ttl, persistence)." />
+      <artifact path="src/sandbox/types.ts" kind="types" symbol="ExecutionResult" lines="78-105" reason="Cache will store/retrieve this type. Ensure JSON-serializable for PGlite persistence." />
+
+      <!-- Database Infrastructure -->
+      <artifact path="src/db/client.ts" kind="database" symbol="PGliteClient" lines="1-100" reason="Database client for optional cache persistence. Use for CREATE TABLE and cache CRUD operations." />
+      <artifact path="src/db/migrations.ts" kind="migrations" symbol="Migration" lines="1-50" reason="Migration pattern for creating code_execution_cache table with proper schema and indexes." />
+
+      <!-- Gateway Integration -->
+      <artifact path="src/mcp/gateway-server.ts" kind="gateway" symbol="GatewayServerConfig" lines="49-60" reason="Add cacheConfig to GatewayServerConfig. Pattern: piiProtection config shows how to add optional features with CLI flags." />
+
+      <!-- Context Builder (Tool Versions) -->
+      <artifact path="src/sandbox/context-builder.ts" kind="context" symbol="ContextBuilder" lines="1-100" reason="Tool versions tracking for cache key generation. Extract MCP server versions from tool metadata." />
+    </code>
+
+    <dependencies>
+      <deno>
+        <package name="@std/assert" version="1.0.11" />
+        <package name="@std/fs" version="1.0.19" />
+        <package name="@std/log" version="0.224.14" />
+        <package name="@electric-sql/pglite" version="0.3.11" note="For optional cache persistence" />
+      </deno>
+      <node>
+        <!-- No Node dependencies for this story -->
+      </node>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Cache Implementation: Use LRU (Least Recently Used) eviction policy with max 100 entries in-memory</constraint>
+    <constraint>Cache Key: Must include hash(code + context + tool_versions) to ensure deterministic results</constraint>
+    <constraint>Performance Target: Cache hit must complete in <10ms (in-memory lookup only)</constraint>
+    <constraint>TTL: Default 5 minutes (300 seconds), configurable via config.yaml</constraint>
+    <constraint>Persistence: Optional PGlite storage (default: false). Async/non-blocking writes to avoid performance impact</constraint>
+    <constraint>Hash Function: Use fast non-crypto hash (xxHash) for cache keys - speed > crypto strength for local cache</constraint>
+    <constraint>Context Normalization: Sort object keys before JSON.stringify to ensure stable hashing</constraint>
+    <constraint>Tool Version Tracking: Extract from MCP server metadata/discovery. Invalidate cache entries when tool schemas change</constraint>
+    <constraint>Configuration: Support CLI flag (--no-cache), config option (code_execution.cache.enabled), env var (CAI_NO_CACHE=1)</constraint>
+    <constraint>Memory Safety: Max 100 entries = ~10MB max memory. No risk of memory exhaustion</constraint>
+    <constraint>Integration Pattern: Follow Story 3.6 PII protection pattern for optional feature with config+CLI+env var</constraint>
+    <constraint>Testing: Unit tests for cache operations, integration tests for end-to-end caching with executor</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface name="CacheEntry" kind="type" signature="{ code: string; context: Record<string, unknown>; result: ExecutionResult; toolVersions: Record<string, string>; timestamp: number; expiresAt: number }" path="src/sandbox/cache.ts" />
+    <interface name="CacheConfig" kind="type" signature="{ enabled: boolean; maxEntries: number; ttlSeconds: number; persistence: boolean }" path="src/sandbox/types.ts" />
+    <interface name="CodeExecutionCache" kind="class" signature="class CodeExecutionCache { constructor(config: CacheConfig); get(key: string): CacheEntry | null; set(key: string, entry: CacheEntry): void; invalidate(toolName: string): void; clear(): void; getStats(): CacheStats }" path="src/sandbox/cache.ts" />
+    <interface name="CacheStats" kind="type" signature="{ hits: number; misses: number; hitRate: number; avgLatencySavedMs: number; totalSavedMs: number }" path="src/sandbox/cache.ts" />
+    <interface name="generateCacheKey" kind="function" signature="function generateCacheKey(code: string, context: Record<string, unknown>, toolVersions: Record<string, string>): string" path="src/sandbox/cache.ts" />
+  </interfaces>
+
+  <tests>
+    <standards>
+      Deno native testing with Deno.test. Target >80% coverage. Unit tests for cache operations (hit/miss/eviction/TTL), integration tests with sandbox executor. Benchmark tests for cache performance (<10ms hit latency, >60% hit rate validation).
+    </standards>
+
+    <locations>
+      - tests/unit/sandbox/cache_test.ts (cache operations)
+      - tests/unit/sandbox/cache_key_test.ts (hash generation)
+      - tests/unit/sandbox/cache_invalidation_test.ts (invalidation logic)
+      - tests/benchmarks/cache_performance_bench.ts (performance validation)
+    </locations>
+
+    <ideas>
+      <test ac="1" description="Cache hit: Same code + context → return cached result without execution" />
+      <test ac="1" description="Cache miss: Different code → execute normally and store in cache" />
+      <test ac="2" description="Cache key generation: Verify stable hash for same inputs (code, context, tool versions)" />
+      <test ac="2" description="Cache key uniqueness: Different inputs generate different keys" />
+      <test ac="3" description="Cache hit latency: Measure <10ms response time for cache hits" />
+      <test ac="3" description="Cache hit vs miss: Verify 10-1000x speedup for cache hits (avoiding subprocess spawn)" />
+      <test ac="4" description="Tool version change: Invalidate all cache entries using modified tool" />
+      <test ac="4" description="Schema change detection: Hook into MCP discovery to auto-invalidate on tool schema updates" />
+      <test ac="5" description="Cache metrics: Verify hit_rate calculation (hits / (hits + misses))" />
+      <test ac="5" description="Latency saved: Track avg(execution_time - cache_latency) for savings metrics" />
+      <test ac="6" description="CLI flag --no-cache: Verify caching disabled when flag present" />
+      <test ac="6" description="Config option: Verify cache respects code_execution.cache.enabled setting" />
+      <test ac="6" description="Env var CAI_NO_CACHE=1: Verify caching disabled via environment" />
+      <test ac="7" description="TTL expiration: Expired entries (>5 min) trigger re-execution and cache refresh" />
+      <test ac="7" description="TTL purge: Verify expired entries automatically removed from cache" />
+      <test ac="8" description="Persistence save: Verify cache entries saved to PGlite asynchronously" />
+      <test ac="8" description="Persistence load: Verify cache restored from DB on startup (warm cache)" />
+      <test ac="8" description="Persistence disabled: Verify in-memory-only mode when persistence=false" />
+      <test ac="9" description="Hit rate >60%: Benchmark with repetitive queries (e.g., 10 identical executions → 9 hits)" />
+      <test ac="9" description="Performance validation: Cache overhead <1ms for misses (hash + lookup)" />
+    </ideas>
+  </tests>
+</story-context>

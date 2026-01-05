@@ -11,7 +11,7 @@
  * - AC7: include_related support for tools
  */
 
-import { assertAlmostEquals, assertEquals, assertExists } from "@std/assert";
+import { assert, assertAlmostEquals, assertEquals, assertExists } from "@std/assert";
 import {
   handleDiscover,
   type DiscoverHandlerDeps,
@@ -187,10 +187,10 @@ Deno.test("handleDiscover - returns tools from hybrid search", async () => {
   const graphEngine = new MockGraphEngine();
   const toolStore = new MockToolStore();
 
-  // Setup mock tool results
+  // Setup mock tool results - use lower scores to avoid GLOBAL_SCORE_CAP capping
   graphEngine.setHybridResults([
-    createToolResult("filesystem:read_file", 0.9),
-    createToolResult("filesystem:write_file", 0.8),
+    createToolResult("filesystem:read_file", 0.7),
+    createToolResult("filesystem:write_file", 0.5),
   ]);
 
   const deps = createDeps({
@@ -213,8 +213,10 @@ Deno.test("handleDiscover - returns tools from hybrid search", async () => {
   assertEquals(response.results.length, 2);
   assertEquals(response.results[0].type, "tool");
   assertEquals(response.results[0].id, "filesystem:read_file");
-  // AC12: Unified formula: 0.9 × 1.2 = 1.08 → capped at GLOBAL_SCORE_CAP
-  assertEquals(response.results[0].score, computeDiscoverScore(0.9, 1.0));
+  // Softmax is applied to scores - check ranking preserved and scores sum to ~1
+  assert(response.results[0].score > response.results[1].score, "First result should have higher score");
+  const scoreSum = response.results.reduce((sum, r) => sum + r.score, 0);
+  assertAlmostEquals(scoreSum, 1.0, 0.01); // Softmax scores sum to 1
   assertEquals(response.meta.tools_count, 2);
 });
 
@@ -289,14 +291,19 @@ Deno.test("handleDiscover - merges and sorts tools and capabilities by score", a
     meta: { tools_count: number; capabilities_count: number };
   };
 
-  // Sorted by score descending
+  // Sorted by score descending - softmax applied so scores are relative probabilities
   assertEquals(response.results.length, 3);
-  assertAlmostEquals(response.results[0].score, GLOBAL_SCORE_CAP, 0.01); // filesystem:read_file (0.85 × 1.2 → capped)
   assertEquals(response.results[0].id, "filesystem:read_file");
-  assertAlmostEquals(response.results[1].score, 0.90, 0.01); // github:create_issue (0.75 × 1.2 = 0.90)
   assertEquals(response.results[1].id, "github:create_issue");
-  assertAlmostEquals(response.results[2].score, 0.80, 0.01); // capability
   assertEquals(response.results[2].type, "capability");
+
+  // Verify ranking is preserved (descending order)
+  assert(response.results[0].score > response.results[1].score, "First > Second");
+  assert(response.results[1].score > response.results[2].score, "Second > Third");
+
+  // Softmax scores sum to ~1
+  const scoreSum = response.results.reduce((sum, r) => sum + r.score, 0);
+  assertAlmostEquals(scoreSum, 1.0, 0.01);
 
   assertEquals(response.meta.tools_count, 2);
   assertEquals(response.meta.capabilities_count, 1);

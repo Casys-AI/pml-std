@@ -127,27 +127,41 @@ export function createToolExecutorViaWorker(
     );
     const toolDefs = toolDef ? [toolDef] : [];
 
-    // Execute via WorkerBridge (100% traced!)
-    const result = await bridge.execute(code, toolDefs, {});
-
-    // Accumulate traces for later retrieval
-    context.traces.push(...bridge.getTraces());
-
-    if (!result.success) {
-      const errorMessage = result.error?.message ?? "Tool execution failed";
-      log.warn(`[WorkerBridgeExecutor] Tool execution failed`, {
-        tool,
-        error: errorMessage,
-      });
-      throw new Error(errorMessage);
-    }
-
-    log.debug(`[WorkerBridgeExecutor] Tool execution succeeded`, {
-      tool,
-      executionTimeMs: result.executionTimeMs.toFixed(2),
+    // BUG FIX: Create a NEW WorkerBridge for each parallel call
+    // The shared bridge caused race conditions where concurrent execute()
+    // calls would overwrite this.worker, causing the first call to timeout.
+    const callBridge = new WorkerBridge(mcpClients, {
+      timeout,
+      capabilityStore,
+      graphRAG,
+      capabilityRegistry,
     });
 
-    return result.result;
+    try {
+      // Execute via WorkerBridge (100% traced!)
+      const result = await callBridge.execute(code, toolDefs, {});
+
+      // Accumulate traces for later retrieval
+      context.traces.push(...callBridge.getTraces());
+
+      if (!result.success) {
+        const errorMessage = result.error?.message ?? "Tool execution failed";
+        log.warn(`[WorkerBridgeExecutor] Tool execution failed`, {
+          tool,
+          error: errorMessage,
+        });
+        throw new Error(errorMessage);
+      }
+
+      log.debug(`[WorkerBridgeExecutor] Tool execution succeeded`, {
+        tool,
+        executionTimeMs: result.executionTimeMs.toFixed(2),
+      });
+
+      return result.result;
+    } finally {
+      callBridge.cleanup();
+    }
   };
 
   return [executor, context];

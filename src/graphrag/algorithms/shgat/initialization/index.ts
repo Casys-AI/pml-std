@@ -18,6 +18,9 @@ export {
   // Adaptive configuration (v1 refactor)
   getAdaptiveHeadsByGraphSize,
   getLevelParams,
+  // RNG seeding for reproducibility
+  getRngState,
+  random,
   type HeadParams,
   importLevelParams,
   importParams,
@@ -33,6 +36,7 @@ export {
   // Types
   type LayerParams,
   resetV2GradientAccumulators,
+  seedRng,
   type SHGATParams,
   type V2GradientAccumulators,
   zerosLike2D,

@@ -268,11 +268,9 @@ export function initializeParameters(config: SHGATConfig): SHGATParams {
   // FIX: Use shared projection W_q = W_k to preserve cosine similarity structure
   // Random different projections destroy discriminability (MRR 0.148 → 1.0 with shared)
   //
-  // IMPORTANT: scoringDim is FIXED at 64, independent of hiddenDim
-  // - preserveDim mode: hiddenDim=1024 (message passing), scoringDim=64 (K-head)
-  // - standard mode: hiddenDim=64, scoringDim=64
-  // W_q/W_k project 1024-dim embeddings to 64-dim Q/K for attention scoring
-  const scoringDim = 64;
+  // scoringDim = hiddenDim = numHeads * headDim (from getAdaptiveHeadsByGraphSize)
+  // W_q/W_k project embeddingDim (1024) to scoringDim for attention scoring
+  const scoringDim = hiddenDim; // Now adaptive: 4 heads→64, 8 heads→128, etc.
   const headParams: HeadParams[] = [];
   for (let h = 0; h < numHeads; h++) {
     const W_shared = initMatrixScaled(scoringDim, embeddingDim, 10);
@@ -587,8 +585,8 @@ export function getAdaptiveHeadsByGraphSize(
   numTools: number,
   numCapabilities: number,
   maxLevel: number = 0,
-  preserveDim: boolean = false,
-  embeddingDim: number = 1024,
+  _preserveDim: boolean = false,
+  _embeddingDim: number = 1024,
 ): { numHeads: number; hiddenDim: number; headDim: number } {
   const graphSize = numTools + numCapabilities;
   const complexityFactor = maxLevel + 1; // More levels = more complex
@@ -619,23 +617,16 @@ export function getAdaptiveHeadsByGraphSize(
     numHeads += 1;
   }
 
-  // PreserveDim mode: numHeads must divide embeddingDim evenly
-  // Valid divisors of 1024: 4, 8, 16, 32, 64...
-  if (preserveDim) {
-    const validHeads = [4, 8, 16, 32].filter(h => embeddingDim % h === 0);
-    // Find closest valid numHeads
-    numHeads = validHeads.reduce((prev, curr) =>
-      Math.abs(curr - numHeads) < Math.abs(prev - numHeads) ? curr : prev
-    );
-    const headDim = embeddingDim / numHeads;
-    return { numHeads, hiddenDim: embeddingDim, headDim };
-  }
+  // Architecture: headDim is FIXED (standard transformer), scoringDim is DERIVED
+  // - headDim = 16 (fixed, standard per-head dimension)
+  // - scoringDim = numHeads * headDim (scales with graph complexity)
+  // This ensures each head has full expressive power regardless of numHeads
+  const HEAD_DIM = 16;
+  const scoringDim = numHeads * HEAD_DIM;
 
-  // Standard mode: hiddenDim = numHeads * headDim (headDim typically 16 or 32)
-  const headDim = graphSize < 200 ? 16 : 32;
-  const hiddenDim = numHeads * headDim;
-
-  return { numHeads, hiddenDim, headDim };
+  // preserveDim mode: message passing keeps embeddingDim=1024, scoring uses scoringDim
+  // standard mode: both use scoringDim
+  return { numHeads, hiddenDim: scoringDim, headDim: HEAD_DIM };
 }
 
 // ============================================================================

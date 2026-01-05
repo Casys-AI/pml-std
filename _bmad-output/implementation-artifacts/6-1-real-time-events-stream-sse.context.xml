@@ -1,0 +1,237 @@
+<story-context id="6-1-real-time-events-stream-sse" v="1.0">
+  <metadata>
+    <epicId>6</epicId>
+    <storyId>6.1</storyId>
+    <title>Real-time Events Stream (SSE)</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-01</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/6-1-real-time-events-stream-sse.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer monitoring Casys Intelligence</asA>
+    <iWant>to receive graph events in real-time via Server-Sent Events</iWant>
+    <soThat>I can observe how the system learns without polling</soThat>
+    <tasks>
+      <task id="1" ac="3,4"
+      >Créer les types d'événements GraphEvent dans src/graphrag/events.ts</task>
+      <task id="2" ac="2">Intégrer EventEmitter dans GraphRAGEngine avec méthodes on/off</task>
+      <task id="3" ac="1,6,7,8"
+      >Créer EventsStreamManager avec SSE, heartbeat, limite clients, CORS</task>
+      <task id="4" ac="1">Intégrer endpoint GET /events/stream dans Gateway Server</task>
+      <task id="5" ac="5">Documenter reconnection automatique côté client (EventSource)</task>
+      <task id="6" ac="9">Tests unitaires et intégration pour SSE streaming</task>
+      <task id="7" ac="10">Documentation API des événements dans docs/api/events.md</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <ac id="1">SSE endpoint créé: GET /events/stream</ac>
+    <ac id="2">EventEmitter intégré dans GraphRAGEngine</ac>
+    <ac id="3"
+    >Event types: graph_synced, edge_created, edge_updated, workflow_executed, metrics_updated</ac>
+    <ac id="4">Event payload: timestamp, event_type, data (tool_ids, scores, etc.)</ac>
+    <ac id="5">Reconnection automatique si connexion perdue (client-side retry logic)</ac>
+    <ac id="6">Heartbeat events toutes les 30s pour maintenir la connexion</ac>
+    <ac id="7">Max 100 clients simultanés (éviter DoS)</ac>
+    <ac id="8">CORS headers configurés pour permettre frontend local</ac>
+    <ac id="9">Tests: curl stream endpoint, vérifier format events</ac>
+    <ac id="10">Documentation: Event schema et exemples</ac>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc
+        path="docs/architecture.md"
+        title="Decision Architecture"
+        section="Pattern 3: Speculative Execution with GraphRAG"
+        snippet="Architecture principale incluant GraphRAGEngine (Pattern 3), SSE Streaming natif (Decision Summary), et les patterns d'événements pour workflows."
+      />
+      <doc
+        path="docs/stories/story-2.3.md"
+        title="Story 2.3 SSE Streaming"
+        section="Technical Notes / SSE HTTP Handler"
+        snippet="Foundation patterns SSE déjà implémentés: TaskStartEvent, TaskCompleteEvent, ExecutionCompleteEvent. Format SSE standard avec TransformStream et headers HTTP."
+      />
+      <doc
+        path="docs/PRD.md"
+        title="Product Requirements"
+        section="Product Features"
+        snippet="Context Optimization Engine et DAG Parallel Execution définissent le système. SSE mentionné comme capability de streaming."
+      />
+      <doc
+        path="docs/epics.md"
+        title="Epics Breakdown"
+        section="Epic 6: Real-time Graph Monitoring"
+        snippet="Story 6.1 fait partie d'Epic 6 (4 stories, 8-12h). Focus sur SSE events stream comme fondation pour dashboard interactif."
+      />
+      <doc
+        path="docs/tech-spec-epic-2.5.md"
+        title="Tech Spec Epic 2.5"
+        section="Event Stream Architecture"
+        snippet="EventStream basé sur TransformStream, pattern d'événements typés, intégration avec ControlledExecutor."
+      />
+    </docs>
+    <code>
+      <artifact
+        path="src/graphrag/graph-engine.ts"
+        kind="service"
+        symbol="GraphRAGEngine"
+        lines="35-685"
+        reason="Classe principale à modifier: ajouter EventEmitter, méthodes on/off, et émission d'événements dans syncFromDatabase() et updateFromExecution()"
+      />
+      <artifact
+        path="src/dag/streaming.ts"
+        kind="module"
+        symbol="SSEEvent, StreamingExecutor, BufferedEventStream"
+        lines="1-323"
+        reason="Patterns SSE existants à réutiliser: types d'événements, BufferedEventStream, format SSE standard"
+      />
+      <artifact
+        path="src/mcp/gateway-server.ts"
+        kind="server"
+        symbol="Casys IntelligenceGatewayServer"
+        lines="1859-1907"
+        reason="Point d'intégration HTTP: startHttp() méthode existante, ajouter route /events/stream"
+      />
+      <artifact
+        path="src/dag/event-stream.ts"
+        kind="module"
+        symbol="EventStream"
+        reason="EventStream existant pour DAG execution, pattern à suivre pour graph events"
+      />
+      <artifact
+        path="src/server/sse-handler.ts"
+        kind="handler"
+        symbol="handleSSERequest, handleWorkflowRequest"
+        reason="Handler SSE existant pour workflow execution, patterns de graceful degradation et CORS"
+      />
+      <artifact
+        path="src/graphrag/index.ts"
+        kind="exports"
+        reason="À modifier pour exporter les nouveaux types GraphEvent"
+      />
+      <artifact
+        path="src/graphrag/types.ts"
+        kind="types"
+        symbol="DAGStructure, WorkflowExecution, GraphStats"
+        reason="Types existants utilisés par GraphRAGEngine, base pour nouveaux event types"
+      />
+    </code>
+    <dependencies>
+      <ecosystem name="deno">
+        <package name="@std/log" version="0.224.14" />
+      </ecosystem>
+      <ecosystem name="npm">
+        <package name="graphology" version="^0.25.4" />
+        <package name="graphology-metrics" version="^2.2.0" />
+        <package name="@modelcontextprotocol/sdk" version="^1.0.4" />
+      </ecosystem>
+      <ecosystem name="native">
+        <feature name="TransformStream" description="Web Streams API for SSE" />
+        <feature name="Deno.serve" description="HTTP server for /events/stream endpoint" />
+        <feature name="EventTarget" description="Alternative to node:events EventEmitter" />
+      </ecosystem>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint source="architecture" type="pattern"
+    >SSE format standard: event: {type}\ndata: {JSON}\n\n</constraint>
+    <constraint source="architecture" type="pattern"
+    >HTTP headers SSE: Content-Type: text/event-stream, Cache-Control: no-cache, Connection: keep-alive</constraint>
+    <constraint source="story" type="performance">Connection setup: moins de 50ms</constraint>
+    <constraint source="story" type="performance"
+    >Event broadcast latency: moins de 10ms pour 100 clients</constraint>
+    <constraint source="story" type="performance">Memory per client: moins de 1KB</constraint>
+    <constraint source="story" type="performance">Heartbeat jitter: moins de 1s</constraint>
+    <constraint source="story" type="security"
+    >Max 100 clients simultanés pour éviter DoS</constraint>
+    <constraint source="architecture" type="compatibility"
+    >GraphRAGEngine ne doit PAS casser l'API existante (zero breaking changes)</constraint>
+    <constraint source="architecture" type="location"
+    >Nouveau fichier: src/graphrag/events.ts pour les types</constraint>
+    <constraint source="architecture" type="location"
+    >Nouveau fichier: src/server/events-stream.ts pour EventsStreamManager</constraint>
+    <constraint source="deno" type="runtime"
+    >Utiliser EventTarget natif Deno plutôt que node:events si possible pour meilleure compatibilité</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface name="GraphEvent" kind="type-union" path="src/graphrag/events.ts (NEW)">
+      <signature
+      >type GraphEvent = GraphSyncedEvent | EdgeCreatedEvent | EdgeUpdatedEvent | WorkflowExecutedEvent | MetricsUpdatedEvent | HeartbeatEvent</signature>
+    </interface>
+    <interface name="GraphSyncedEvent" kind="interface" path="src/graphrag/events.ts (NEW)">
+      <signature
+      >interface GraphSyncedEvent { type: "graph_synced"; data: { node_count: number; edge_count: number; sync_duration_ms: number; timestamp: string; }; }</signature>
+    </interface>
+    <interface name="EdgeCreatedEvent" kind="interface" path="src/graphrag/events.ts (NEW)">
+      <signature
+      >interface EdgeCreatedEvent { type: "edge_created"; data: { from_tool_id: string; to_tool_id: string; confidence_score: number; timestamp: string; }; }</signature>
+    </interface>
+    <interface name="EdgeUpdatedEvent" kind="interface" path="src/graphrag/events.ts (NEW)">
+      <signature
+      >interface EdgeUpdatedEvent { type: "edge_updated"; data: { from_tool_id: string; to_tool_id: string; old_confidence: number; new_confidence: number; observed_count: number; timestamp: string; }; }</signature>
+    </interface>
+    <interface name="WorkflowExecutedEvent" kind="interface" path="src/graphrag/events.ts (NEW)">
+      <signature
+      >interface WorkflowExecutedEvent { type: "workflow_executed"; data: { workflow_id: string; tool_ids: string[]; success: boolean; execution_time_ms: number; timestamp: string; }; }</signature>
+    </interface>
+    <interface name="MetricsUpdatedEvent" kind="interface" path="src/graphrag/events.ts (NEW)">
+      <signature
+      >interface MetricsUpdatedEvent { type: "metrics_updated"; data: { edge_count: number; node_count: number; density: number; pagerank_top_10: Array&lt;{ tool_id: string; score: number }&gt;; communities_count: number; timestamp: string; }; }</signature>
+    </interface>
+    <interface name="HeartbeatEvent" kind="interface" path="src/graphrag/events.ts (NEW)">
+      <signature
+      >interface HeartbeatEvent { type: "heartbeat"; data: { connected_clients: number; uptime_seconds: number; timestamp: string; }; }</signature>
+    </interface>
+    <interface name="EventsStreamManager" kind="class" path="src/server/events-stream.ts (NEW)">
+      <signature
+      >class EventsStreamManager { constructor(graphEngine: GraphRAGEngine, config?: EventsStreamConfig); handleRequest(request: Request): Response; getStats(): { connectedClients: number; uptimeSeconds: number }; close(): void; }</signature>
+    </interface>
+    <interface name="EventsStreamConfig" kind="interface" path="src/server/events-stream.ts (NEW)">
+      <signature
+      >interface EventsStreamConfig { maxClients: number; heartbeatIntervalMs: number; corsOrigins: string[]; }</signature>
+    </interface>
+    <interface name="GET /events/stream" kind="REST endpoint" path="src/mcp/gateway-server.ts">
+      <signature>GET /events/stream → Response (SSE stream) | 503 (too many clients)</signature>
+    </interface>
+    <interface name="GraphRAGEngine.on" kind="method" path="src/graphrag/graph-engine.ts (MODIFY)">
+      <signature>on(event: "graph_event", listener: (event: GraphEvent) => void): void</signature>
+    </interface>
+    <interface name="GraphRAGEngine.off" kind="method" path="src/graphrag/graph-engine.ts (MODIFY)">
+      <signature>off(event: "graph_event", listener: (event: GraphEvent) => void): void</signature>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards
+    >
+      Deno.test avec @std/assert. Tests unitaires dans tests/unit/, tests intégration dans tests/integration/.
+      Pattern existant: tests/unit/dag/streaming_test.ts (15 tests), tests/integration/sse_streaming_e2e_test.ts (10 tests).
+      Couverture cible: tous les ACs avec assertions significatives. Mock SSE client via fetch + ReadableStream.
+    </standards>
+    <locations>
+      <location>tests/unit/server/events_stream_test.ts (NEW)</location>
+      <location>tests/unit/graphrag/graph_engine_events_test.ts (NEW)</location>
+      <location>tests/integration/events_stream_e2e_test.ts (NEW)</location>
+    </locations>
+    <ideas>
+      <idea ac="1,3"
+      >Test EventsStreamManager.handleRequest() retourne SSE response avec headers corrects</idea>
+      <idea ac="2">Test GraphRAGEngine.on/off souscription et désinscription aux événements</idea>
+      <idea ac="3"
+      >Test émission de chaque type d'événement: graph_synced, edge_created, edge_updated, workflow_executed, metrics_updated</idea>
+      <idea ac="4"
+      >Test structure du payload: timestamp ISO8601, event_type string, data object</idea>
+      <idea ac="5">Test reconnection via EventSource retry (mock server restart)</idea>
+      <idea ac="6">Test heartbeat émis toutes les 30s (mock timer)</idea>
+      <idea ac="7">Test limite 100 clients: 101ème connexion reçoit 503</idea>
+      <idea ac="8">Test CORS headers présents pour origines autorisées</idea>
+      <idea ac="9">Test curl-style: fetch SSE endpoint, parser stream, vérifier format events</idea>
+      <idea ac="10">Documentation validée via tests de parsing du schema JSON</idea>
+    </ideas>
+  </tests>
+</story-context>

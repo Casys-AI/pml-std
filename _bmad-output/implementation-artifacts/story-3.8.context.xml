@@ -1,0 +1,507 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>3.8</storyId>
+    <title>End-to-End Code Execution Tests & Documentation</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-20</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/story-3.8.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer adopting code execution</asA>
+    <iWant>comprehensive tests and documentation</iWant>
+    <soThat>I understand how to use the feature effectively</soThat>
+    <tasks>
+### Phase 1: E2E Test Suite (3-4h)
+- Task 1: Create E2E test structure (AC: #1)
+  - Créer `tests/e2e/code-execution/` directory
+  - Créer structure: `01-setup.test.ts`, `02-github-analysis.test.ts`, etc.
+  - Setup helpers: mock MCP servers, test data generators
+  - Cleanup helpers: DB reset, cache clear
+
+- Task 2: GitHub commits analysis test (AC: #2.1)
+  - Test: Fetch 1000 commits → filter last week → aggregate by author
+  - Valider: Output &lt;1KB, input &gt;1MB (context savings)
+  - Valider: Execution time &lt;3 seconds
+  - Valider: Cache hit on second run
+
+- Task 3: Multi-server aggregation test (AC: #2.2)
+  - Test: Fetch from GitHub + Jira + Slack (3 MCP servers)
+  - Tool injection: Vector search finds relevant tools
+  - Aggregate results in sandbox
+  - Valider: All 3 servers called correctly
+
+- Task 4: PII-sensitive workflow test (AC: #2.3)
+  - Test: Dataset avec emails → PII tokenization → agent execution
+  - Valider: Agent code never sees raw emails
+  - Valider: Tokens `[EMAIL_1]` présents dans output
+  - Valider: De-tokenization fonctionne si activée
+
+- Task 5: Error handling tests (AC: #2.4)
+  - Test: Syntax error → structured error response
+  - Test: Runtime error → exception caught et retournée
+  - Test: Timeout → process killed après 30s
+  - Test: Memory limit → process killed si heap &gt;512MB
+
+### Phase 2: Performance & Regression Tests (2h)
+- Task 6: Performance regression tests (AC: #3)
+  - Benchmark: Sandbox startup time (&lt;100ms)
+  - Benchmark: Code execution overhead (&lt;50ms)
+  - Benchmark: Cache hit latency (&lt;10ms)
+  - Benchmark: Large dataset processing (1000 items &lt;2s)
+  - Ajouter à `tests/benchmarks/` suite
+
+- Task 7: Comparison benchmarks (AC: #6)
+  - Benchmark: Direct tool calls (baseline)
+  - Benchmark: Code execution (local processing)
+  - Mesurer: Latency (time), Context usage (tokens)
+  - Documenter speedup et context savings
+
+### Phase 3: Documentation (2-3h)
+- Task 8: README Code Execution Mode section (AC: #4)
+  - Section overview: What is code execution mode?
+  - When to use: Large datasets, complex processing
+  - Quick start: First code execution example
+  - Configuration: Flags, config options
+
+- Task 9: Real-world use cases (AC: #5)
+  - Example 1: GitHub commit analysis
+  - Example 2: Log aggregation across services
+  - Example 3: Data pipeline (fetch → transform → export)
+  - Example 4: PII-safe data processing
+  - Example 5: Multi-step workflow with caching
+  - Code samples pour chaque use case
+
+- Task 10: Migration guide (AC: #7)
+  - Decision tree: Code execution vs DAG vs Direct tool calls
+  - When to use code execution: criteria + examples
+  - When to use DAG workflows: criteria + examples
+  - When to use direct tool calls: criteria + examples
+  - Migration examples: Before/After comparisons
+
+- Task 11: Security documentation (AC: #8)
+  - Sandbox security model: Permissions, isolation
+  - PII protection: Detection, tokenization, opt-out
+  - Limitations: No network, no filesystem write
+  - Best practices: Input validation, error handling
+
+### Phase 4: Video Tutorial (Optional, 1h)
+- Task 12: 3-minute quickstart video (AC: #9, optional)
+  - Script: Install → Configure → First code execution
+  - Demo: GitHub commits analysis example
+  - Show: Context savings metrics
+  - Upload: Embed in README
+  - Note: Can be deferred to post-epic
+</tasks>
+  </story>
+
+  <acceptanceCriteria>
+1. ✅ E2E test suite créé (`tests/e2e/code-execution/`)
+2. ✅ Test scenarios:
+   - GitHub commits analysis (large dataset filtering)
+   - Multi-server data aggregation (GitHub + Jira + Slack)
+   - PII-sensitive workflow (email processing)
+   - Error handling (timeout, syntax error, runtime error)
+   - Resilient workflows with safe-to-fail branches
+3. ✅ Performance regression tests added to benchmark suite
+4. ✅ Documentation: README section "Code Execution Mode"
+5. ✅ Examples provided: 5+ real-world use cases with code samples
+6. ✅ Comparison benchmarks: Tool calls vs Code execution (context & latency)
+7. ✅ Migration guide: When to use code execution vs DAG workflows
+8. ✅ Security documentation: Sandbox limitations, PII protection details
+9. ✅ Resilient workflow patterns comprehensive documentation
+10. ✅ Video tutorial: 3-minute quickstart (optional, can be deferred)
+</acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <!-- Epic 3 Technical Specification -->
+      <doc>
+        <path>docs/tech-spec-epic-3.md</path>
+        <title>Epic 3 Technical Specification</title>
+        <section>Overview & Architecture</section>
+        <snippet>Epic 3 implements secure TypeScript code execution with Deno sandbox, allowing agents to process large datasets locally. Foundation established in Stories 3.1-3.7: sandbox isolation, MCP tools injection, PII detection, code execution caching. Story 3.8 validates everything with E2E tests.</snippet>
+      </doc>
+
+      <!-- Story 2.7 - E2E Test Reference -->
+      <doc>
+        <path>docs/stories/story-2.7.md</path>
+        <title>Story 2.7: End-to-End Tests & Production Hardening (Epic 2)</title>
+        <section>Test Infrastructure & Patterns</section>
+        <snippet>Established E2E test patterns for Epic 2: MockMCPServer, test fixtures, 9-test structure (init, discovery, embeddings, vector-search, graph-engine, dag-execution, gateway, health-checks, full-workflow). Tests with real servers, comprehensive edge cases, <2s per test. Patterns to reuse for Epic 3.</snippet>
+      </doc>
+
+      <!-- Test Infrastructure Extension Guide -->
+      <doc>
+        <path>docs/guides/test-infrastructure-extension-guide.md</path>
+        <title>Test Infrastructure Extension Guide</title>
+        <section>Adding New E2E Tests & Patterns</section>
+        <snippet>Comprehensive guide for extending Casys Intelligence test infrastructure. Test categories (unit/integration/e2e/load), organization patterns, templates for common scenarios. Deno test runner with @std/assert. Real services approach (minimal mocking). Debugging, performance testing, CI/CD integration patterns.</snippet>
+      </doc>
+
+      <!-- Previous Completed Stories (Epic 3) -->
+      <doc>
+        <path>docs/stories/story-3.1.md</path>
+        <title>Story 3.1: Deno Sandbox Executor Foundation</title>
+        <section>Implementation Complete</section>
+        <snippet>Deno sandbox with subprocess isolation, timeout enforcement (30s), memory limits (512MB). src/sandbox/executor.ts with 21 unit tests passing. Foundation for code execution.</snippet>
+      </doc>
+
+      <doc>
+        <path>docs/stories/story-3.2.md</path>
+        <title>Story 3.2: MCP Tools Injection into Code Context</title>
+        <section>Implementation Complete</section>
+        <snippet>Vector search discovers relevant MCP tools, injects type-safe wrappers into sandbox context. src/sandbox/context-builder.ts generates tool wrappers from schemas.</snippet>
+      </doc>
+
+      <doc>
+        <path>docs/stories/story-3.4.md</path>
+        <title>Story 3.4: agentcards:execute_code MCP Tool</title>
+        <section>Implementation Complete</section>
+        <snippet>MCP tool exposed via gateway, intent-based + explicit modes. DAG integration (code_execution task type). handleExecuteCode in gateway-server.ts.</snippet>
+      </doc>
+
+      <doc>
+        <path>docs/stories/story-3.5.md</path>
+        <title>Story 3.5: Safe-to-Fail Branches & Resilient Workflows</title>
+        <section>Implementation Complete</section>
+        <snippet>ControlledExecutor supports safe-to-fail branches with partial success aggregation. Resilient workflow patterns documented. Foundation for speculation (Epic 3.5).</snippet>
+      </doc>
+
+      <doc>
+        <path>docs/stories/story-3.6.md</path>
+        <title>Story 3.6: PII Detection & Tokenization</title>
+        <section>Implementation Complete</section>
+        <snippet>Automatic PII detection (emails, phones, SSNs, API keys) with tokenization. src/sandbox/pii-detector.ts with regex patterns. Tests validate email/phone/SSN detection.</snippet>
+      </doc>
+
+      <doc>
+        <path>docs/stories/story-3.7.md</path>
+        <title>Story 3.7: Code Execution Caching & Optimization</title>
+        <section>Implementation Complete</section>
+        <snippet>LRU cache (100 entries, 5-min TTL) with xxHash-inspired hash function. Cache key: hash(code + context + tool_versions). Auto-invalidation on tool schema changes. 138 sandbox tests passing.</snippet>
+      </doc>
+
+      <!-- Architecture & Patterns -->
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Casys Intelligence Architecture</title>
+        <section>System Architecture</section>
+        <snippet>Overall system architecture including sandbox layer integration with MCP gateway and DAG executor. Code execution sits between Epic 2.5 orchestration and MCP tools.</snippet>
+      </doc>
+
+      <doc>
+        <path>docs/resilient-workflows.md</path>
+        <title>Resilient Workflows Documentation</title>
+        <section>Safe-to-Fail Patterns</section>
+        <snippet>Documentation for resilient workflow patterns: safe-to-fail branches, partial success aggregation, retry logic, graceful degradation. Patterns to test in E2E suite.</snippet>
+      </doc>
+    </docs>
+
+    <code>
+      <!-- Sandbox Executor -->
+      <artifact>
+        <path>src/sandbox/executor.ts</path>
+        <kind>service</kind>
+        <symbol>DenoSandboxExecutor</symbol>
+        <lines>1-700</lines>
+        <reason>Core sandbox executor to test - all code execution flows through this class. Tests should validate execute(), timeout, memory limits, error handling, cache integration.</reason>
+      </artifact>
+
+      <!-- Context Builder -->
+      <artifact>
+        <path>src/sandbox/context-builder.ts</path>
+        <kind>service</kind>
+        <symbol>SandboxContextBuilder</symbol>
+        <lines>1-300</lines>
+        <reason>Builds execution context with MCP tool wrappers. E2E tests should validate tool injection and multi-server scenarios.</reason>
+      </artifact>
+
+      <!-- PII Detector -->
+      <artifact>
+        <path>src/sandbox/pii-detector.ts</path>
+        <kind>service</kind>
+        <symbol>PIIDetector</symbol>
+        <lines>1-200</lines>
+        <reason>PII detection and tokenization. E2E tests should validate with real PII-containing datasets (emails, phones, SSNs).</reason>
+      </artifact>
+
+      <!-- Code Execution Cache -->
+      <artifact>
+        <path>src/sandbox/cache.ts</path>
+        <kind>service</kind>
+        <symbol>CodeExecutionCache</symbol>
+        <lines>1-550</lines>
+        <reason>LRU cache with TTL. E2E tests should validate cache hits on repeated execution, performance gains, invalidation on tool changes.</reason>
+      </artifact>
+
+      <!-- MCP Gateway (execute_code handler) -->
+      <artifact>
+        <path>src/mcp/gateway-server.ts</path>
+        <kind>service</kind>
+        <symbol>handleExecuteCode</symbol>
+        <lines>465-600</lines>
+        <reason>Gateway handler for agentcards:execute_code tool. E2E tests should validate intent-based mode, explicit mode, error responses, streaming.</reason>
+      </artifact>
+
+      <!-- Existing E2E Test Structure (Story 2.7) -->
+      <artifact>
+        <path>tests/e2e/</path>
+        <kind>test-directory</kind>
+        <symbol>Epic 2 E2E Tests</symbol>
+        <lines>N/A</lines>
+        <reason>Reference implementation for E2E test patterns: 01-init.test.ts, 02-discovery.test.ts, etc. Follow same structure for Epic 3 code-execution tests.</reason>
+      </artifact>
+
+      <!-- Unit Tests (Sandbox) -->
+      <artifact>
+        <path>tests/unit/sandbox/</path>
+        <kind>test-directory</kind>
+        <symbol>Sandbox Unit Tests</symbol>
+        <lines>N/A</lines>
+        <reason>138 passing unit tests for executor, isolation, timeout, memory, serialization, context-builder, PII, cache. E2E tests should validate integration of these components.</reason>
+      </artifact>
+
+      <!-- Test Fixtures & Helpers -->
+      <artifact>
+        <path>tests/fixtures/test-helpers.ts</path>
+        <kind>helper</kind>
+        <symbol>Test Utilities</symbol>
+        <lines>1-100</lines>
+        <reason>Reusable test utilities. Can be extended for code-execution specific helpers (mock data generators, cleanup functions).</reason>
+      </artifact>
+
+      <!-- Mock MCP Server -->
+      <artifact>
+        <path>tests/fixtures/mock-mcp-server.ts</path>
+        <kind>mock</kind>
+        <symbol>MockMCPServer</symbol>
+        <lines>1-200</lines>
+        <reason>Mock MCP server for testing. Can be used to simulate GitHub, Jira, Slack servers for multi-server aggregation tests.</reason>
+      </artifact>
+
+      <!-- Integration Tests (Code Execution) -->
+      <artifact>
+        <path>tests/integration/code_execution_tool_test.ts</path>
+        <kind>test</kind>
+        <symbol>Code Execution Tool Integration Tests</symbol>
+        <lines>1-150</lines>
+        <reason>Existing integration tests for execute_code tool. E2E tests should build on these to test full user journeys.</reason>
+      </artifact>
+
+      <!-- E2E Tests (Controlled Executor + Code Exec) -->
+      <artifact>
+        <path>tests/e2e/controlled_executor_code_exec_test.ts</path>
+        <kind>test</kind>
+        <symbol>Controlled Executor Code Execution E2E</symbol>
+        <lines>1-200</lines>
+        <reason>E2E tests validating DAG integration with code execution tasks. Reference for testing orchestration patterns.</reason>
+      </artifact>
+
+      <!-- E2E Tests (Resilient Workflows) -->
+      <artifact>
+        <path>tests/e2e/controlled_executor_resilient_test.ts</path>
+        <kind>test</kind>
+        <symbol>Resilient Workflows E2E</symbol>
+        <lines>1-250</lines>
+        <reason>E2E tests for safe-to-fail branches. Reference for testing partial success aggregation and error recovery.</reason>
+      </artifact>
+    </code>
+
+    <dependencies>
+      <runtime>
+        <dep name="deno" version="2.x">Deno runtime for sandbox execution and testing</dep>
+      </runtime>
+
+      <testing>
+        <dep name="@std/assert" version="1.0.11">Deno standard assertions library</dep>
+      </testing>
+
+      <mcp>
+        <dep name="@modelcontextprotocol/sdk" version="^1.0.4">MCP SDK for gateway integration</dep>
+      </mcp>
+
+      <database>
+        <dep name="@electric-sql/pglite" version="0.3.11">PGlite for test database</dep>
+      </database>
+
+      <transformers>
+        <dep name="@huggingface/transformers" version="3.7.6">HuggingFace transformers for embeddings</dep>
+      </transformers>
+
+      <validation>
+        <dep name="validator" version="13.15.22">Input validation (used in PII detector)</dep>
+      </validation>
+
+      <graphology>
+        <dep name="graphology" version="^0.25.4">Graph library for DAG operations</dep>
+      </graphology>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <!-- Test Organization -->
+    <constraint>E2E tests MUST be organized in tests/e2e/code-execution/ directory following Story 2.7 patterns</constraint>
+    <constraint>Test files MUST use numerical prefixes for execution order (01-*, 02-*, etc.)</constraint>
+    <constraint>Each test file MUST be self-contained with setup and cleanup</constraint>
+
+    <!-- Testing Approach -->
+    <constraint>Tests MUST use real MCP servers where possible (minimize mocking)</constraint>
+    <constraint>Tests MUST complete in under 2 seconds per test (performance requirement)</constraint>
+    <constraint>Tests MUST validate both success paths AND error scenarios</constraint>
+    <constraint>Tests MUST use Deno test runner with @std/assert (no external frameworks)</constraint>
+
+    <!-- Code Quality -->
+    <constraint>TypeScript strict mode MUST be enabled for all test files</constraint>
+    <constraint>Tests MUST have clear descriptions and assertions with error messages</constraint>
+    <constraint>Test data generators MUST be reusable across test files (in fixtures)</constraint>
+
+    <!-- Documentation Requirements -->
+    <constraint>README.md MUST include "Code Execution Mode" section with quickstart</constraint>
+    <constraint>Documentation MUST include 5+ real-world use cases with code samples</constraint>
+    <constraint>Migration guide MUST provide decision tree (code exec vs DAG vs direct calls)</constraint>
+    <constraint>Security docs MUST cover sandbox limitations and PII protection details</constraint>
+
+    <!-- Performance Benchmarks -->
+    <constraint>Benchmarks MUST compare direct tool calls vs code execution (latency + context)</constraint>
+    <constraint>Benchmarks MUST be added to tests/benchmarks/ suite</constraint>
+    <constraint>Performance regression tests MUST validate &lt;100ms startup, &lt;10ms cache hit</constraint>
+
+    <!-- CI/CD Integration -->
+    <constraint>New E2E tests MUST be integrated into .github/workflows/ci.yml</constraint>
+    <constraint>Tests MUST be runnable via deno test --allow-all</constraint>
+  </constraints>
+
+  <interfaces>
+    <!-- Sandbox Executor Interface -->
+    <interface>
+      <name>DenoSandboxExecutor.execute()</name>
+      <kind>function</kind>
+      <signature>async execute(code: string, context?: Record&lt;string, unknown&gt;, options?: SandboxOptions): Promise&lt;ExecutionResult&gt;</signature>
+      <path>src/sandbox/executor.ts</path>
+    </interface>
+
+    <!-- Context Builder Interface -->
+    <interface>
+      <name>SandboxContextBuilder.buildContext()</name>
+      <kind>function</kind>
+      <signature>async buildContext(intent: string, existingContext?: Record&lt;string, unknown&gt;): Promise&lt;SandboxContext&gt;</signature>
+      <path>src/sandbox/context-builder.ts</path>
+    </interface>
+
+    <!-- PII Detector Interface -->
+    <interface>
+      <name>PIIDetector.detectAndTokenize()</name>
+      <kind>function</kind>
+      <signature>detectAndTokenize(data: Record&lt;string, unknown&gt;): TokenizationResult</signature>
+      <path>src/sandbox/pii-detector.ts</path>
+    </interface>
+
+    <!-- Code Execution Cache Interface -->
+    <interface>
+      <name>CodeExecutionCache.get()/set()</name>
+      <kind>function</kind>
+      <signature>get(key: string): CacheEntry | null; set(key: string, entry: CacheEntry): void</signature>
+      <path>src/sandbox/cache.ts</path>
+    </interface>
+
+    <!-- MCP Tool: agentcards:execute_code -->
+    <interface>
+      <name>agentcards:execute_code</name>
+      <kind>MCP tool</kind>
+      <signature>{ intent?: string, code?: string, context?: object, sandbox_config?: object }</signature>
+      <path>src/mcp/gateway-server.ts:handleExecuteCode</path>
+    </interface>
+
+    <!-- Execution Result Format -->
+    <interface>
+      <name>ExecutionResult</name>
+      <kind>type</kind>
+      <signature>{ success: boolean, result?: any, error?: { type: string, message: string }, executionTimeMs: number }</signature>
+      <path>src/sandbox/types.ts</path>
+    </interface>
+
+    <!-- Test Helper Interfaces -->
+    <interface>
+      <name>MockMCPServer</name>
+      <kind>test-mock</kind>
+      <signature>class MockMCPServer { setCommits(), setIssues(), callTool() }</signature>
+      <path>tests/fixtures/mock-mcp-server.ts</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+Casys Intelligence follows Deno testing standards with real services approach (Story 2.7 patterns). Tests use Deno.test() with @std/assert assertions. E2E tests run with real MCP servers and real database (PGlite), minimal mocking. Tests organized by category: unit tests (tests/unit/), integration tests (tests/integration/), E2E tests (tests/e2e/), load tests (tests/load/), benchmarks (tests/benchmarks/). Each test must be self-contained with proper setup/cleanup. Tests must complete quickly (&lt;2s per test) for fast feedback loop. TypeScript strict mode enforced. Coverage target: &gt;80% for critical paths.
+    </standards>
+
+    <locations>
+      <!-- New E2E Tests (to be created) -->
+      <location>tests/e2e/code-execution/</location>
+      <location>tests/e2e/code-execution/01-sandbox-isolation.test.ts</location>
+      <location>tests/e2e/code-execution/02-github-commits-analysis.test.ts</location>
+      <location>tests/e2e/code-execution/03-multi-server-aggregation.test.ts</location>
+      <location>tests/e2e/code-execution/04-pii-protection.test.ts</location>
+      <location>tests/e2e/code-execution/05-error-handling.test.ts</location>
+      <location>tests/e2e/code-execution/06-caching.test.ts</location>
+      <location>tests/e2e/code-execution/07-performance.test.ts</location>
+
+      <!-- New Test Helpers (to be created) -->
+      <location>tests/fixtures/code-execution-helpers.ts</location>
+
+      <!-- New Benchmarks (to be created) -->
+      <location>tests/benchmarks/code-execution/comparison_bench.ts</location>
+
+      <!-- Existing Unit Tests (reference) -->
+      <location>tests/unit/sandbox/executor_test.ts (21 tests)</location>
+      <location>tests/unit/sandbox/context_builder_test.ts (15 tests)</location>
+      <location>tests/unit/sandbox/pii_detector_test.ts (20 tests)</location>
+      <location>tests/unit/sandbox/cache_test.ts (14 tests)</location>
+
+      <!-- Existing Integration Tests (reference) -->
+      <location>tests/integration/code_execution_tool_test.ts</location>
+      <location>tests/integration/pii_integration_test.ts</location>
+
+      <!-- Existing E2E Tests (reference) -->
+      <location>tests/e2e/controlled_executor_code_exec_test.ts</location>
+      <location>tests/e2e/controlled_executor_resilient_test.ts</location>
+    </locations>
+
+    <ideas>
+      <!-- AC#1: E2E Test Suite Structure -->
+      <idea ac="1">Create tests/e2e/code-execution/ directory with 7 test files (01-07 prefixed). Setup/cleanup helpers in fixtures. Follow Story 2.7 patterns: real servers, comprehensive edge cases, fast execution.</idea>
+
+      <!-- AC#2.1: GitHub Commits Analysis Test -->
+      <idea ac="2.1">Test with MockGitHubClient: 1000 commits (2MB) → filter last week → aggregate by author. Validate output &lt;1KB, context savings &gt;99%, execution &lt;3s, cache hit on second run.</idea>
+
+      <!-- AC#2.2: Multi-Server Aggregation Test -->
+      <idea ac="2.2">Test with 3 MockMCPServers (GitHub, Jira, Slack). Vector search discovers tools, injects into context. Sandbox aggregates results. Validate all 3 servers called, data merged correctly.</idea>
+
+      <!-- AC#2.3: PII-Sensitive Workflow Test -->
+      <idea ac="2.3">Test with dataset containing emails/phones/SSNs. Validate PIIDetector tokenizes before execution. Agent code never sees raw PII. Tokens like [EMAIL_1] present in output. De-tokenization works if enabled.</idea>
+
+      <!-- AC#2.4: Error Handling Tests -->
+      <idea ac="2.4">Test syntax error → structured error response with line number. Runtime error → exception caught and returned. Timeout → process killed after 30s. Memory limit → process killed if heap &gt;512MB.</idea>
+
+      <!-- AC#2.5: Resilient Workflows Test -->
+      <idea ac="2.5">Test safe-to-fail branches with ControlledExecutor. Partial success aggregation. One branch fails, others succeed. Final result includes successful branches only.</idea>
+
+      <!-- AC#3: Performance Regression Tests -->
+      <idea ac="3">Benchmark sandbox startup (&lt;100ms), code execution overhead (&lt;50ms), cache hit latency (&lt;10ms), large dataset processing (1000 items &lt;2s). Add to tests/benchmarks/ suite.</idea>
+
+      <!-- AC#6: Comparison Benchmarks -->
+      <idea ac="6">Benchmark direct tool calls (baseline) vs code execution (local processing). Measure latency (time) and context usage (tokens). Document speedup (2-10x) and context savings (90-99%).</idea>
+
+      <!-- AC#4-5: Documentation Tests -->
+      <idea ac="4-5">Validate README has "Code Execution Mode" section. Validate 5+ use cases with code samples (GitHub analysis, log aggregation, data pipeline, PII processing, multi-step caching). Use grep/regex to verify content.</idea>
+
+      <!-- AC#7: Migration Guide Tests -->
+      <idea ac="7">Validate migration guide exists with decision tree. Check for keywords: "code execution vs DAG", "when to use", "before/after examples". Ensure clear criteria provided.</idea>
+
+      <!-- AC#8: Security Documentation Tests -->
+      <idea ac="8">Validate security docs cover: sandbox permissions, PII protection, limitations (no network, no write), best practices. Check for keywords: "isolation", "tokenization", "timeout", "memory limit".</idea>
+    </ideas>
+  </tests>
+</story-context>

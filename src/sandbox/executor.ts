@@ -81,7 +81,7 @@ export interface ExecutionResultWithTraces extends ExecutionResult {
  */
 export class DenoSandboxExecutor {
   private config: Required<
-    Omit<SandboxConfig, "capabilityStore" | "graphRAG" | "useWorkerForExecute">
+    Omit<SandboxConfig, "capabilityStore" | "graphRAG" | "capabilityRegistry" | "useWorkerForExecute">
   >;
   private cache: CodeExecutionCache | null = null;
   private toolVersions: Record<string, string> = {};
@@ -91,6 +91,7 @@ export class DenoSandboxExecutor {
   private lastBridge: WorkerBridge | null = null;
   private capabilityStore?: import("../capabilities/capability-store.ts").CapabilityStore;
   private graphRAG?: import("../graphrag/graph-engine.ts").GraphRAGEngine;
+  private capabilityRegistry?: import("../capabilities/capability-registry.ts").CapabilityRegistry;
   private useWorkerForExecute: boolean;
 
   // Extracted module instances
@@ -147,6 +148,7 @@ export class DenoSandboxExecutor {
     // Store optional dependencies
     this.capabilityStore = config?.capabilityStore;
     this.graphRAG = config?.graphRAG;
+    this.capabilityRegistry = config?.capabilityRegistry;
     this.useWorkerForExecute = config?.useWorkerForExecute ?? true;
 
     logger.debug("Sandbox executor initialized", {
@@ -205,6 +207,7 @@ export class DenoSandboxExecutor {
           timeout: this.config.timeout,
           capabilityStore: this.capabilityStore,
           graphRAG: this.graphRAG,
+          capabilityRegistry: this.capabilityRegistry,
         });
         this.lastBridge = bridge;
 
@@ -411,6 +414,7 @@ export class DenoSandboxExecutor {
         timeout: this.config.timeout,
         capabilityStore: this.capabilityStore,
         graphRAG: this.graphRAG,
+        capabilityRegistry: this.capabilityRegistry,
       });
       this.lastBridge = bridge;
 

@@ -78,7 +78,36 @@ function findChainRoot(
 }
 
 /**
+ * Check if a node's arguments reference another node
+ *
+ * Returns true if any argument of type "reference" has an expression
+ * that starts with the fromNodeId (e.g., "n1" or "n1.content").
+ */
+function nodeReferencesNode(node: InternalNode, fromNodeId: string): boolean {
+  if (node.type !== "task" || !node.arguments) {
+    return false;
+  }
+
+  for (const argValue of Object.values(node.arguments)) {
+    if (argValue.type === "reference" && argValue.expression) {
+      // Check if expression references the fromNodeId
+      // e.g., "n1" or "n1.content" or "n1[0]"
+      const expr = argValue.expression;
+      if (expr === fromNodeId || expr.startsWith(`${fromNodeId}.`) || expr.startsWith(`${fromNodeId}[`)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
  * Generate sequence edges between consecutive await statements
+ *
+ * Only creates edges when there's a real data dependency:
+ * - The "to" node references the "from" node in its arguments
+ * - Otherwise, nodes are independent and can run in parallel
  */
 export function generateSequenceEdges(
   nodes: InternalNode[],
@@ -121,6 +150,16 @@ export function generateSequenceEdges(
       // Skip if already exists (e.g., from chained edges)
       const edgeKey = `${from.id}->${targetNode.id}:sequence`;
       if (edgeSet.has(edgeKey)) continue;
+
+      // Only create sequence edge if there's a real data dependency
+      // Check if targetNode's arguments reference the from node
+      if (!nodeReferencesNode(targetNode, from.id)) {
+        logger.debug("Skipping sequence edge - no data dependency", {
+          from: from.id,
+          to: targetNode.id,
+        });
+        continue;
+      }
 
       edges.push({
         from: from.id,

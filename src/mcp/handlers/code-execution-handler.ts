@@ -14,6 +14,7 @@ import * as log from "@std/log";
 import type { GraphRAGEngine } from "../../graphrag/graph-engine.ts";
 import type { VectorSearch } from "../../vector/search.ts";
 import type { CapabilityStore } from "../../capabilities/capability-store.ts";
+import type { CapabilityRegistry } from "../../capabilities/capability-registry.ts";
 import type { AdaptiveThresholdManager } from "../adaptive-threshold.ts";
 import type { CodeExecutionRequest, CodeExecutionResponse, MCPClientBase } from "../types.ts";
 import type { MCPErrorResponse, MCPToolResponse, ResolvedGatewayConfig } from "../server/types.ts";
@@ -55,6 +56,8 @@ export interface CodeExecutionDependencies {
   graphEngine: GraphRAGEngine;
   mcpClients: Map<string, MCPClientBase>;
   capabilityStore?: CapabilityStore;
+  /** Capability registry for routing to learned capabilities (meta-capabilities) */
+  capabilityRegistry?: CapabilityRegistry;
   adaptiveThresholdManager?: AdaptiveThresholdManager;
   config: ResolvedGatewayConfig;
   contextBuilder: ContextBuilder;
@@ -219,6 +222,7 @@ async function tryDagExecution(
       toolDefinitions: toolDefs,
       capabilityStore: deps.capabilityStore,
       graphRAG: deps.graphEngine,
+      capabilityRegistry: deps.capabilityRegistry,
     });
 
     try {

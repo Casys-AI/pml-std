@@ -835,6 +835,7 @@ export class WorkerBridge {
               timeout: this.config.timeout,
               capabilityStore: this.capabilityStore,
               graphRAG: this.graphRAG,
+              capabilityRegistry: this.capabilityRegistry,
             });
 
             try {
@@ -1078,8 +1079,11 @@ export class WorkerBridge {
   }
 
   /**
-   * Get list of successfully called tools - DEDUPLICATED (for GraphRAG algorithms)
+   * Get list of successfully called tools AND capabilities - DEDUPLICATED (for GraphRAG algorithms)
    * Used by spectral clustering, dag-suggester, and other graph algorithms
+   *
+   * Story 13.x: Also includes capability_end traces for meta-capability learning.
+   * When code calls mcp.fake.person(), it generates capability_end not tool_end.
    */
   getToolsCalled(): string[] {
     const toolsCalled = new Set<string>();
@@ -1088,14 +1092,20 @@ export class WorkerBridge {
       if (trace.type === "tool_end" && trace.success) {
         toolsCalled.add(trace.tool);
       }
+      // Include capability calls for meta-capability learning
+      if (trace.type === "capability_end" && trace.success) {
+        toolsCalled.add(trace.capability);
+      }
     }
 
     return Array.from(toolsCalled);
   }
 
   /**
-   * Get FULL sequence of tool calls with repetitions (for invocation mode visualization)
-   * Preserves execution order and repeated calls to the same tool
+   * Get FULL sequence of tool/capability calls with repetitions (for invocation mode visualization)
+   * Preserves execution order and repeated calls to the same tool/capability
+   *
+   * Story 13.x: Also includes capability_end traces for meta-capability learning.
    */
   getToolsSequence(): string[] {
     const toolsSequence: string[] = [];
@@ -1107,18 +1117,28 @@ export class WorkerBridge {
       if (trace.type === "tool_end" && trace.success) {
         toolsSequence.push(trace.tool);
       }
+      // Include capability calls for meta-capability learning
+      if (trace.type === "capability_end" && trace.success) {
+        toolsSequence.push(trace.capability);
+      }
     }
 
     return toolsSequence;
   }
 
   /**
-   * Check if any tool call failed during execution
-   * Used to prevent saving capabilities with partial tool failures
+   * Check if any tool or capability call failed during execution
+   * Used to prevent saving capabilities with partial failures
+   *
+   * Story 13.x: Also checks capability_end failures for meta-capability learning.
    */
   hasAnyToolFailed(): boolean {
     for (const trace of this.traces) {
       if (trace.type === "tool_end" && !trace.success) {
+        return true;
+      }
+      // Include capability failures for meta-capability learning
+      if (trace.type === "capability_end" && !trace.success) {
         return true;
       }
     }
@@ -1126,9 +1146,11 @@ export class WorkerBridge {
   }
 
   /**
-   * Get detailed tool invocations with timestamps for sequence visualization
+   * Get detailed tool/capability invocations with timestamps for sequence visualization
    * Unlike getToolsCalled() which deduplicates, this returns EVERY invocation.
    * Enables graph visualization of execution order and parallelism detection.
+   *
+   * Story 13.x: Also includes capability_end traces for meta-capability learning.
    */
   getToolInvocations(): import("./types.ts").ToolInvocation[] {
     const invocations: import("./types.ts").ToolInvocation[] = [];
@@ -1142,6 +1164,20 @@ export class WorkerBridge {
         invocations.push({
           id: `${trace.tool}#${sequenceIndex}`,
           tool: trace.tool,
+          traceId: trace.traceId,
+          ts: trace.ts,
+          durationMs: trace.durationMs ?? 0,
+          success: trace.success ?? false,
+          sequenceIndex,
+          error: trace.error,
+        });
+        sequenceIndex++;
+      }
+      // Include capability invocations for meta-capability learning
+      if (trace.type === "capability_end" && "capability" in trace) {
+        invocations.push({
+          id: `${trace.capability}#${sequenceIndex}`,
+          tool: trace.capability, // Use capability name as tool for consistency
           traceId: trace.traceId,
           ts: trace.ts,
           durationMs: trace.durationMs ?? 0,

@@ -211,42 +211,38 @@ export class EventsStreamManager {
    * @param event - Event to broadcast
    */
   private async broadcastEvent(event: PmlEvent): Promise<void> {
-    // Debug logging for algorithm and capability events
-    if (event.type.startsWith("algorithm.") || event.type.startsWith("capability.")) {
-      log.debug(
-        `[SSE] Received ${event.type} from eventBus, clients: ${this.clients.size}`,
-      );
-    }
-
     const deadClients: string[] = [];
+    let sentCount = 0;
+    let filteredCount = 0;
 
     // Send to all clients (with filter check)
     for (const [clientId, client] of this.clients) {
       // Story 6.5 AC#12: Check if event matches client filters
       if (!this.matchesFilters(event.type, client.filters)) {
-        if (event.type.startsWith("algorithm.") || event.type.startsWith("capability.")) {
-          log.debug(
-            `[SSE-DEBUG] ${event.type} skipped for client ${clientId.substring(0, 8)} (filters: ${
-              client.filters.join(",")
-            })`,
-          );
-        }
+        filteredCount++;
         continue; // Skip this client
-      }
-
-      // Debug: event passed filter
-      if (event.type.startsWith("algorithm.") || event.type.startsWith("capability.")) {
-        log.debug(
-          `[SSE] Sending ${event.type} to client ${clientId.substring(0, 8)}`,
-        );
       }
 
       try {
         await this.sendToClient(client.writer, event);
+        sentCount++;
       } catch (error) {
         log.debug(`Client send failed, marking for removal: ${error}`);
         deadClients.push(clientId);
       }
+    }
+
+    // Summary log for algorithm/capability events (one line instead of N)
+    if (
+      (event.type.startsWith("algorithm.") ||
+        event.type.startsWith("capability.")) &&
+      this.clients.size > 0
+    ) {
+      log.debug(
+        `[SSE] Broadcast ${event.type} → ${sentCount} clients${
+          filteredCount > 0 ? ` (${filteredCount} filtered)` : ""
+        }`,
+      );
     }
 
     // Clean up dead clients

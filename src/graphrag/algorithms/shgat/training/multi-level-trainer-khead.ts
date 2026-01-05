@@ -137,21 +137,23 @@ export function computeKHeadScoreWithCache(
   intentProjected: number[],
   capEmbedding: number[],
   headParams: HeadParams,
-  hiddenDim: number,
-): { score: number; Q: number[]; K: number[]; dotQK: number } {
-  const inputDim = Math.min(intentProjected.length, capEmbedding.length, hiddenDim);
+  _hiddenDim: number,
+): { score: number; logit: number; Q: number[]; K: number[]; dotQK: number } {
+  // Use actual W_q dimensions (scoringDim = numHeads * 16, adaptive)
+  const scoringDim = headParams.W_q.length;
+  const inputDim = headParams.W_q[0]?.length ?? intentProjected.length;
 
   // Q = W_q @ intentProjected
-  const Q = new Array(hiddenDim).fill(0);
-  for (let i = 0; i < hiddenDim; i++) {
+  const Q = new Array(scoringDim).fill(0);
+  for (let i = 0; i < scoringDim; i++) {
     for (let j = 0; j < inputDim; j++) {
       Q[i] += (headParams.W_q[i]?.[j] ?? 0) * (intentProjected[j] ?? 0);
     }
   }
 
   // K = W_k @ capEmbedding
-  const K = new Array(hiddenDim).fill(0);
-  for (let i = 0; i < hiddenDim; i++) {
+  const K = new Array(scoringDim).fill(0);
+  for (let i = 0; i < scoringDim; i++) {
     for (let j = 0; j < inputDim; j++) {
       K[i] += (headParams.W_k[i]?.[j] ?? 0) * (capEmbedding[j] ?? 0);
     }
@@ -159,10 +161,11 @@ export function computeKHeadScoreWithCache(
 
   // dot(Q, K) / sqrt(dim)
   const dotQK = math.dot(Q, K);
-  const scale = Math.sqrt(hiddenDim);
-  const score = math.sigmoid(dotQK / scale);
+  const scale = Math.sqrt(scoringDim);
+  const logit = dotQK / scale;  // Raw logit for InfoNCE
+  const score = math.sigmoid(logit);  // Sigmoid for BCE/inference
 
-  return { score, Q, K, dotQK };
+  return { score, logit, Q, K, dotQK };
 }
 
 /**
@@ -173,22 +176,24 @@ export function computeMultiHeadKHeadScoresWithCache(
   capEmbedding: number[],
   headParams: HeadParams[],
   config: SHGATConfig,
-): { scores: number[]; caches: Array<{ Q: number[]; K: number[]; dotQK: number }> } {
+): { scores: number[]; logits: number[]; caches: Array<{ Q: number[]; K: number[]; dotQK: number }> } {
   const scores: number[] = [];
+  const logits: number[] = [];
   const caches: Array<{ Q: number[]; K: number[]; dotQK: number }> = [];
 
   for (let h = 0; h < config.numHeads; h++) {
-    const { score, Q, K, dotQK } = computeKHeadScoreWithCache(
+    const { score, logit, Q, K, dotQK } = computeKHeadScoreWithCache(
       intentProjected,
       capEmbedding,
       headParams[h],
       config.hiddenDim,
     );
     scores.push(score);
+    logits.push(logit);
     caches.push({ Q, K, dotQK });
   }
 
-  return { scores, caches };
+  return { scores, logits, caches };
 }
 
 // ============================================================================
@@ -225,11 +230,12 @@ export function backpropKHeadScore(
   headParams: HeadParams,
   grads: KHeadGradientAccumulators,
   headIdx: number,
-  config: SHGATConfig,
+  _config: SHGATConfig,
 ): { dIntentProjected: number[]; dCapEmbedding: number[] } {
-  const { hiddenDim } = config;
-  const scale = Math.sqrt(hiddenDim);
-  const inputDim = Math.min(intentProjected.length, capEmbedding.length, hiddenDim);
+  // Use actual W_q dimensions (scoringDim = numHeads * 16, adaptive)
+  const scoringDim = headParams.W_q.length;
+  const inputDim = headParams.W_q[0]?.length ?? intentProjected.length;
+  const scale = Math.sqrt(scoringDim);
 
   // d(score)/d(Q·K) = sigmoid'(x) = score * (1 - score)
   // And we have (Q·K) / √d, so extra 1/√d factor
@@ -241,14 +247,14 @@ export function backpropKHeadScore(
   const dK = Q.map((q) => dDotQK * q);
 
   // Accumulate gradients for W_q: dQ[i]/dW_q[i][j] = intent[j]
-  for (let i = 0; i < hiddenDim; i++) {
+  for (let i = 0; i < scoringDim; i++) {
     for (let j = 0; j < inputDim; j++) {
       grads.dW_q[headIdx][i][j] += (dQ[i] ?? 0) * (intentProjected[j] ?? 0);
     }
   }
 
   // Accumulate gradients for W_k: dK[i]/dW_k[i][j] = cap[j]
-  for (let i = 0; i < hiddenDim; i++) {
+  for (let i = 0; i < scoringDim; i++) {
     for (let j = 0; j < inputDim; j++) {
       grads.dW_k[headIdx][i][j] += (dK[i] ?? 0) * (capEmbedding[j] ?? 0);
     }
@@ -258,7 +264,7 @@ export function backpropKHeadScore(
   // dQ/dIntent[j] = W_q[:][j]
   const dIntentProjected = new Array(inputDim).fill(0);
   for (let j = 0; j < inputDim; j++) {
-    for (let i = 0; i < hiddenDim; i++) {
+    for (let i = 0; i < scoringDim; i++) {
       dIntentProjected[j] += (dQ[i] ?? 0) * (headParams.W_q[i]?.[j] ?? 0);
     }
   }
@@ -266,8 +272,119 @@ export function backpropKHeadScore(
   // dK/dCap[j] = W_k[:][j]
   const dCapEmbedding = new Array(inputDim).fill(0);
   for (let j = 0; j < inputDim; j++) {
-    for (let i = 0; i < hiddenDim; i++) {
+    for (let i = 0; i < scoringDim; i++) {
       dCapEmbedding[j] += (dK[i] ?? 0) * (headParams.W_k[i]?.[j] ?? 0);
+    }
+  }
+
+  return { dIntentProjected, dCapEmbedding };
+}
+
+/**
+ * Backprop through K-head scoring using LOGITS (for InfoNCE)
+ *
+ * Unlike backpropKHeadScore, this does NOT use sigmoid derivative.
+ * For InfoNCE, the gradient flows directly through the logit.
+ *
+ * logit = Q · K / √dim
+ * dLoss/dLogit flows directly (no sigmoid in InfoNCE path)
+ */
+export function backpropKHeadScoreLogit(
+  dLogit: number,
+  Q: number[],
+  K: number[],
+  intentProjected: number[],
+  capEmbedding: number[],
+  headParams: HeadParams,
+  grads: KHeadGradientAccumulators,
+  headIdx: number,
+): { dIntentProjected: number[]; dCapEmbedding: number[] } {
+  const scoringDim = headParams.W_q.length;
+  const inputDim = headParams.W_q[0]?.length ?? intentProjected.length;
+  const scale = Math.sqrt(scoringDim);
+
+  // Direct gradient: dLoss/d(Q·K) = dLoss/dLogit * (1/√dim)
+  const dDotQK = dLogit / scale;
+
+  // d(Q·K)/dQ[i] = K[i]
+  // d(Q·K)/dK[i] = Q[i]
+  const dQ = K.map((k) => dDotQK * k);
+  const dK = Q.map((q) => dDotQK * q);
+
+  // Accumulate gradients for W_q: dQ[i]/dW_q[i][j] = intent[j]
+  for (let i = 0; i < scoringDim; i++) {
+    for (let j = 0; j < inputDim; j++) {
+      grads.dW_q[headIdx][i][j] += (dQ[i] ?? 0) * (intentProjected[j] ?? 0);
+    }
+  }
+
+  // Accumulate gradients for W_k: dK[i]/dW_k[i][j] = cap[j]
+  for (let i = 0; i < scoringDim; i++) {
+    for (let j = 0; j < inputDim; j++) {
+      grads.dW_k[headIdx][i][j] += (dK[i] ?? 0) * (capEmbedding[j] ?? 0);
+    }
+  }
+
+  // Gradient w.r.t. inputs (for further backprop if needed)
+  const dIntentProjected = new Array(inputDim).fill(0);
+  for (let j = 0; j < inputDim; j++) {
+    for (let i = 0; i < scoringDim; i++) {
+      dIntentProjected[j] += (dQ[i] ?? 0) * (headParams.W_q[i]?.[j] ?? 0);
+    }
+  }
+
+  const dCapEmbedding = new Array(inputDim).fill(0);
+  for (let j = 0; j < inputDim; j++) {
+    for (let i = 0; i < scoringDim; i++) {
+      dCapEmbedding[j] += (dK[i] ?? 0) * (headParams.W_k[i]?.[j] ?? 0);
+    }
+  }
+
+  return { dIntentProjected, dCapEmbedding };
+}
+
+/**
+ * Backprop through multi-head K-head scoring using LOGITS (for InfoNCE)
+ *
+ * avgLogit = (1/numHeads) * Σ headLogits[h]
+ * dLoss/dHeadLogit[h] = dLoss/dAvgLogit * (1/numHeads)
+ */
+export function backpropMultiHeadKHeadLogit(
+  dLoss: number,
+  headCaches: Array<{ Q: number[]; K: number[]; dotQK: number }>,
+  intentProjected: number[],
+  capEmbedding: number[],
+  headParams: HeadParams[],
+  grads: KHeadGradientAccumulators,
+  config: SHGATConfig,
+): { dIntentProjected: number[]; dCapEmbedding: number[] } {
+  const { numHeads } = config;
+  const inputDim = headParams[0]?.W_q[0]?.length ?? intentProjected.length;
+
+  // dLoss/dHeadLogit[h] = dLoss * (1/numHeads) (average fusion)
+  const dHeadLogit = dLoss / numHeads;
+
+  const dIntentProjected = new Array(inputDim).fill(0);
+  const dCapEmbedding = new Array(inputDim).fill(0);
+
+  for (let h = 0; h < numHeads; h++) {
+    const { Q, K } = headCaches[h];
+
+    const { dIntentProjected: dI, dCapEmbedding: dC } = backpropKHeadScoreLogit(
+      dHeadLogit,
+      Q,
+      K,
+      intentProjected,
+      capEmbedding,
+      headParams[h],
+      grads,
+      h,
+    );
+
+    // Accumulate gradients
+    for (let j = 0; j < inputDim; j++) {
+      dIntentProjected[j] += dI[j] ?? 0;
+      dCapEmbedding[j] += dC[j] ?? 0;
     }
   }
 
@@ -290,8 +407,9 @@ export function backpropMultiHeadKHead(
   grads: KHeadGradientAccumulators,
   config: SHGATConfig,
 ): { dIntentProjected: number[]; dCapEmbedding: number[] } {
-  const { numHeads, hiddenDim } = config;
-  const inputDim = Math.min(intentProjected.length, capEmbedding.length, hiddenDim);
+  const { numHeads } = config;
+  // inputDim is the embedding dimension (1024), from actual W_q shape
+  const inputDim = headParams[0]?.W_q[0]?.length ?? intentProjected.length;
 
   // dLoss/dHeadScore[h] = dLoss * (1/numHeads)  (average fusion)
   const dHeadScore = dLoss / numHeads;

@@ -194,6 +194,38 @@ export class CapabilityDataService {
       ); // Exclude limit/offset
       const total = Number(countResult[0]?.total || 0);
 
+      // Story 10.1: Build lookup map for resolving $cap:uuid in code_snippet
+      // Maps capability_records.id → namespace:action for display
+      const capUuidLookup = new Map<string, string>();
+      try {
+        const capRecords = await this.db.query(
+          "SELECT id, namespace, action FROM capability_records",
+        ) as Array<{ id: string; namespace: string; action: string }>;
+        for (const rec of capRecords) {
+          capUuidLookup.set(rec.id, `${rec.namespace}:${rec.action}`);
+        }
+        logger.debug("Built $cap:uuid lookup for code_snippet", { count: capUuidLookup.size });
+      } catch (err) {
+        logger.warn("Failed to build $cap:uuid lookup", { error: err });
+      }
+
+      // Helper to resolve mcp["$cap:uuid"] references in code_snippet to mcp.namespace.action
+      const resolveCapReferences = (codeSnippet: string): string => {
+        // Match full mcp["$cap:uuid"] pattern and transform to mcp.namespace.action (dot notation)
+        return codeSnippet.replace(
+          /mcp\["\$cap:([0-9a-f-]{36})"\]/gi,
+          (_match, uuid) => {
+            const resolved = capUuidLookup.get(uuid);
+            if (resolved) {
+              // Transform "fake:person" → "mcp.fake.person"
+              const [namespace, action] = resolved.split(":");
+              return `mcp.${namespace}.${action}`;
+            }
+            return `mcp["$cap:${uuid}"]`; // Keep original if not found
+          },
+        );
+      };
+
       // Map rows to response objects
       const capabilities: CapabilityResponseInternal[] = result.map(
         (row: Record<string, unknown>) => {
@@ -248,7 +280,7 @@ export class CapabilityDataService {
             name: row.name ? String(row.name) : null,
             fqdn: row.fqdn ? String(row.fqdn) : null,
             description: row.description ? String(row.description) : null,
-            codeSnippet: String(row.code_snippet || ""),
+            codeSnippet: resolveCapReferences(String(row.code_snippet || "")),
             toolsUsed,
             toolInvocations,
             successRate: Number(row.success_rate || 0),
@@ -531,6 +563,34 @@ export class CapabilityDataService {
         logger.debug("Fetched traces for capabilities", {
           capabilitiesWithTraces: capabilityNodes.filter((n) => n.data.traces?.length).length,
         });
+
+        // Story 10.1: Mark capability calls in task results and add nested tools
+        // Build Map from capabilities we already fetched (no extra DB query)
+        // Maps capability name -> toolsUsed (for nested display in CapabilityTaskCard)
+        const capabilityToolsMap = new Map<string, string[]>();
+        for (const capNode of capabilityNodes) {
+          const name = capNode.data.label; // capability name like "fake:person"
+          const toolsUsed = capNode.data.toolsUsed;
+          if (name && toolsUsed && toolsUsed.length > 0) {
+            capabilityToolsMap.set(name, toolsUsed);
+          }
+        }
+
+        // Mark capability calls in task results and add nested tools
+        for (const capNode of capabilityNodes) {
+          if (capNode.data.traces) {
+            for (const trace of capNode.data.traces) {
+              for (const taskResult of trace.taskResults) {
+                const nestedTools = capabilityToolsMap.get(taskResult.tool);
+                if (nestedTools) {
+                  taskResult.isCapabilityCall = true;
+                  taskResult.nestedTools = nestedTools;
+                }
+              }
+            }
+          }
+        }
+        logger.debug("Marked capability calls in traces", { knownCount: capabilityToolsMap.size });
       }
 
       // 7. Build final response with backward compatibility

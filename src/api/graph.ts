@@ -388,6 +388,8 @@ function mapNodeData(node: GraphNode): Record<string, unknown> {
           task_results: trace.taskResults.map((r) => ({
             task_id: r.taskId,
             tool: r.tool,
+            // Story 10.1: Resolved capability name for $cap:uuid references
+            resolved_tool: r.resolvedTool,
             args: r.args,
             result: r.result,
             success: r.success,
@@ -398,6 +400,10 @@ function mapNodeData(node: GraphNode): Record<string, unknown> {
             loop_type: r.loopType,
             loop_condition: r.loopCondition,
             body_tools: r.bodyTools,
+            // Story 10.1: Flag for capability calls (render CapabilityTaskCard)
+            is_capability_call: r.isCapabilityCall,
+            // Story 10.1: Nested tools inside called capability
+            nested_tools: r.nestedTools,
           })),
         })),
       },

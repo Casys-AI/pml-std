@@ -35,7 +35,8 @@ const caps = capsWithEmbeddings.map((c: { id: string; embedding: number[]; tools
 
 const toolEmbeddings = new Map<string, number[]>();
 
-const shgat = createSHGATFromCapabilities(caps, toolEmbeddings, { numHeads: 4, hiddenDim: 64 });
+// Note: Don't override hiddenDim - let adaptive config set it correctly for preserveDim mode
+const shgat = createSHGATFromCapabilities(caps, toolEmbeddings);
 console.log(`   Registered: ${caps.length} capabilities`);
 
 // Build training examples from episodic events

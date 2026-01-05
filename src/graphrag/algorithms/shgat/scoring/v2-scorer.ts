@@ -244,13 +244,13 @@ export class V2Scorer {
       hidden[i] = Math.max(0, sum); // ReLU
     }
 
-    // Layer 2: Linear + Sigmoid
+    // Layer 2: Linear (no sigmoid - softmax at discover level)
     let output = fusionMLP.b2;
     for (let i = 0; i < mlpHiddenDim; i++) {
       output += fusionMLP.W2[i] * hidden[i];
     }
 
-    return math.sigmoid(output);
+    return output; // Raw logit, no sigmoid - softmax at discover level
   }
 
   /**

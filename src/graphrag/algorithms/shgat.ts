@@ -40,7 +40,14 @@ import {
   type SHGATParams,
   type V2GradientAccumulators,
 } from "./shgat/initialization/index.ts";
-import { MultiLevelOrchestrator, type CooccurrenceEntry } from "./shgat/message-passing/index.ts";
+import {
+  DEFAULT_V2V_PARAMS,
+  MultiLevelOrchestrator,
+  type CooccurrenceEntry,
+  type MultiLevelBackwardCache,
+  type MultiLevelGradients,
+  type V2VParams,
+} from "./shgat/message-passing/index.ts";
 import * as math from "./shgat/utils/math.ts";
 import {
   accumulateW_intentGradients,
@@ -65,12 +72,18 @@ import {
   applyKHeadGradients,
   applyWIntentGradients,
   backpropMultiHeadKHead,
+  backpropMultiHeadKHeadLogit,
   backpropWIntent,
   computeKHeadGradientNorm,
   computeMultiHeadKHeadScoresWithCache,
   initMultiLevelKHeadGradients,
 } from "./shgat/training/multi-level-trainer-khead.ts";
-import { applyLevelGradients, computeGradientNorm } from "./shgat/training/multi-level-trainer.ts";
+import {
+  applyLevelGradients,
+  computeGradientNorm,
+  type LevelGradients,
+  type MultiLevelGradientAccumulators,
+} from "./shgat/training/multi-level-trainer.ts";
 
 // Re-export all types from ./shgat/types.ts for backward compatibility
 export {
@@ -148,12 +161,15 @@ export class SHGAT {
   private levelParams: Map<number, LevelParams> = new Map();
   private hierarchyDirty = true; // Flag to rebuild hierarchy when graph changes
 
+  // V→V trainable parameters (co-occurrence enrichment)
+  private v2vParams: V2VParams = { ...DEFAULT_V2V_PARAMS };
+
   constructor(config: Partial<SHGATConfig> = {}) {
     this.config = { ...DEFAULT_SHGAT_CONFIG, ...config };
 
     // Note: preserveDim affects levelParams (message passing keeps 1024-dim)
-    // but hiddenDim stays at 64 for K-head scoring (projects 1024→64)
-    // This gives sqrt(64)=8 scaling, not sqrt(1024)=32
+    // hiddenDim = numHeads * 16 for K-head scoring (adaptive: 64, 128, etc.)
+    // Each head gets 16 dims for consistent expressiveness
 
     this.graphBuilder = new GraphBuilder();
     this.orchestrator = new MultiLevelOrchestrator(this.trainingMode);
@@ -406,20 +422,36 @@ export class SHGAT {
     // Flatten E for backward compatibility with scoring
     // Order: level 0, then level 1, etc. (matches capabilityIndex order from graphBuilder)
     let E_flat = this.flattenEmbeddingsByCapabilityOrder(result.E);
+    let H_final = result.H;
 
     // PreserveDim: add residual connection to ORIGINAL embeddings
     // This preserves semantic similarity structure while injecting graph info
     // Benchmark showed residual≥0.2 gives MRR=1.000
     if (this.config.preserveDim) {
       const E_original = this.graphBuilder.getCapabilityEmbeddings();
+      const H_original = this.graphBuilder.getToolEmbeddings();
       const residual = this.config.preserveDimResidual ?? 0.3;
 
+      // Apply residual to capabilities (E)
       E_flat = E_flat.map((e, idx) => {
         const orig = E_original[idx];
         if (!orig || orig.length !== e.length) return e;
 
         // Mix: E_final = (1-r)*E_propagated + r*E_original
         const mixed = e.map((v, i) => (1 - residual) * v + residual * orig[i]);
+
+        // Normalize to unit vector
+        const norm = Math.sqrt(mixed.reduce((s, x) => s + x * x, 0));
+        return norm > 0 ? mixed.map(x => x / norm) : mixed;
+      });
+
+      // Apply residual to tools (H) - same treatment for consistent scoring
+      H_final = H_final.map((h, idx) => {
+        const orig = H_original[idx];
+        if (!orig || orig.length !== h.length) return h;
+
+        // Mix: H_final = (1-r)*H_propagated + r*H_original
+        const mixed = h.map((v, i) => (1 - residual) * v + residual * orig[i]);
 
         // Normalize to unit vector
         const norm = Math.sqrt(mixed.reduce((s, x) => s + x * x, 0));
@@ -442,14 +474,14 @@ export class SHGAT {
       const alpha = l / numLayers;
       H_layers.push(
         H_init.map((row, i) =>
-          row.map((v, j) => v * (1 - alpha) + (result.H[i]?.[j] ?? v) * alpha)
+          row.map((v, j) => v * (1 - alpha) + (H_final[i]?.[j] ?? v) * alpha)
         ),
       );
       E_layers.push(
         E_init.map((row, i) => row.map((v, j) => v * (1 - alpha) + (E_flat[i]?.[j] ?? v) * alpha)),
       );
     }
-    H_layers.push(result.H);
+    H_layers.push(H_final);
     E_layers.push(E_flat);
 
     // Convert attention from multi-level format to layer format
@@ -473,7 +505,7 @@ export class SHGAT {
     };
 
     this.lastCache = cache;
-    return { H: result.H, E: E_flat, cache };
+    return { H: H_final, E: E_flat, cache };
   }
 
   /**
@@ -601,6 +633,41 @@ export class SHGAT {
     }
 
     return result;
+  }
+
+  /**
+   * Build mapping from flat capability index to (level, withinLevelIndex)
+   *
+   * Used by training to route dCapEmbedding gradients to correct level.
+   */
+  private buildCapIndexToLevelMap(): Map<number, { level: number; withinLevelIdx: number }> {
+    const mapping = new Map<number, { level: number; withinLevelIdx: number }>();
+    const capabilityNodes = this.graphBuilder.getCapabilityNodes();
+
+    if (!this.hierarchy) return mapping;
+
+    // Build capId → (level, withinLevelIdx)
+    const capIdToLevel = new Map<string, { level: number; withinLevelIdx: number }>();
+    for (let level = 0; level <= this.hierarchy.maxHierarchyLevel; level++) {
+      const capsAtLevel = this.hierarchy.hierarchyLevels.get(level) ?? new Set<string>();
+      let withinLevelIdx = 0;
+      for (const capId of capsAtLevel) {
+        capIdToLevel.set(capId, { level, withinLevelIdx });
+        withinLevelIdx++;
+      }
+    }
+
+    // Map flat index to (level, withinLevelIdx)
+    let flatIdx = 0;
+    for (const [capId] of capabilityNodes) {
+      const levelInfo = capIdToLevel.get(capId);
+      if (levelInfo) {
+        mapping.set(flatIdx, levelInfo);
+      }
+      flatIdx++;
+    }
+
+    return mapping;
   }
 
   /**
@@ -755,7 +822,7 @@ export class SHGAT {
       output += this.params.fusionMLP.W2[i] * hidden[i];
     }
 
-    return math.sigmoid(output);
+    return output; // Raw logit, no sigmoid
   }
 
   scoreWithTraceFeaturesV2(features: TraceFeatures): { score: number; headScores: number[] } {
@@ -930,7 +997,7 @@ export class SHGAT {
    * Uses Query-Key attention:
    * - Q = W_q @ intentProjected
    * - K = W_k @ capEmbedding
-   * - score = sigmoid(Q·K / √dim)
+   * - logit = Q·K / √dim (raw, no sigmoid - softmax at discover level)
    */
   private computeHeadScoreV1(
     intentProjected: number[],
@@ -940,10 +1007,9 @@ export class SHGAT {
     const hp = this.params.headParams[headIdx];
     const { hiddenDim } = this.config;
 
-    // W_q/W_k are [hiddenDim][embeddingDim] = [64][1024]
-    // With preserveDim: intent(1024) and cap(1024) → Q(64), K(64)
-    // Standard: intent(64) and cap(64) → Q(64), K(64)
-    const outputDim = hp.W_q.length; // = hiddenDim = 64
+    // W_q/W_k are [hiddenDim][embeddingDim] where hiddenDim = numHeads * 16
+    // Projects intent and cap embeddings to Q, K vectors for attention
+    const outputDim = hp.W_q.length; // = hiddenDim (adaptive)
     const wqCols = hp.W_q[0]?.length || hiddenDim;
     const inputDim = Math.min(intentProjected.length, capEmbedding.length, wqCols);
 
@@ -958,7 +1024,7 @@ export class SHGAT {
     }
 
     const scale = Math.sqrt(outputDim);
-    return math.sigmoid(math.dot(Q, K) / scale);
+    return math.dot(Q, K) / scale; // Raw logit, no sigmoid
   }
 
   /**
@@ -978,8 +1044,8 @@ export class SHGAT {
    *
    * v1 Architecture:
    * 1. Forward pass: V → E^0 → E^1 → ... → E^L_max (multi-level message passing)
-   * 2. K-head scoring: Q = W_q @ intent, K = W_k @ E_propagated, score_h = sigmoid(Q·K/√d)
-   * 3. Fusion: average of head scores (simple, no MLP)
+   * 2. K-head scoring: Q = W_q @ intent, K = W_k @ E_propagated, logit_h = Q·K/√d
+   * 3. Fusion: average of head logits (softmax applied at discover level)
    *
    * No TraceFeatures - pure structural similarity learned via message passing + attention.
    *
@@ -992,7 +1058,7 @@ export class SHGAT {
     const { numHeads } = this.config;
     const capabilityNodes = this.graphBuilder.getCapabilityNodes();
 
-    // PreserveDim mode: use raw intent (1024-dim) directly with W_q: [64][1024]
+    // PreserveDim mode: use raw intent (1024-dim) directly with W_q
     // Standard mode: project intent via W_intent (1024 → hiddenDim)
     const intentForScoring = this.config.preserveDim
       ? intentEmbedding
@@ -1001,16 +1067,15 @@ export class SHGAT {
     for (const [capId, cap] of capabilityNodes) {
       const cIdx = this.graphBuilder.getCapabilityIndex(capId)!;
 
-      // K-head attention scoring
-      // PreserveDim: W_q @ intent(1024) → Q(64), W_k @ E(1024) → K(64)
+      // K-head attention scoring (hiddenDim = numHeads * 16, adaptive)
       const headScores = this.computeMultiHeadScoresV1(intentForScoring, E[cIdx]);
 
-      // Fusion: simple average of head scores (already in [0,1] from sigmoid)
+      // Fusion: simple average of head logits (raw scores, softmax applied at discover level)
       const avgScore = headScores.reduce((a, b) => a + b, 0) / numHeads;
 
       // Reliability multiplier based on success rate
       const reliabilityMult = cap.successRate < 0.5 ? 0.5 : (cap.successRate > 0.9 ? 1.2 : 1.0);
-      const finalScore = Math.min(0.95, Math.max(0, avgScore * reliabilityMult));
+      const finalScore = avgScore * reliabilityMult; // No clamping for raw logits
 
       results.push({
         capabilityId: capId,
@@ -1043,14 +1108,17 @@ export class SHGAT {
     const toolNodes = this.graphBuilder.getToolNodes();
     const { numHeads } = this.config;
 
-    // Project intent to match propagated embedding dimension (1024 → hiddenDim)
-    const intentProjected = this.projectIntent(intentEmbedding);
+    // PreserveDim mode: use raw intent (1024-dim) directly with W_q
+    // Standard mode: project intent via W_intent (1024 → hiddenDim)
+    const intentForScoring = this.config.preserveDim
+      ? intentEmbedding
+      : this.projectIntent(intentEmbedding);
 
     for (const [toolId] of toolNodes) {
       const tIdx = this.graphBuilder.getToolIndex(toolId)!;
 
       // K-head attention scoring (reuse same method as capabilities)
-      const headScores = this.computeMultiHeadScoresV1(intentProjected, H[tIdx]);
+      const headScores = this.computeMultiHeadScoresV1(intentForScoring, H[tIdx]);
       const avgScore = headScores.reduce((a, b) => a + b, 0) / numHeads;
       const finalScore = Math.min(0.95, Math.max(0, avgScore));
 
@@ -1304,92 +1372,275 @@ export class SHGAT {
   }
 
   /**
-   * Train v1 with K-head scoring (trains headParams W_q, W_k)
+   * Train v1 with K-head scoring (trains headParams W_q, W_k AND levelParams)
    *
    * Unlike trainBatch() which uses cosine + fusion weights,
-   * this trains the K-head attention mechanism used in scoreAllCapabilities().
+   * this trains the K-head attention mechanism AND message passing params.
+   *
+   * Architecture:
+   * 1. Multi-level message passing: V → E^0 → ... → E^L → ... → V
+   * 2. K-head attention scoring: score = sigmoid(Q·K/√d)
+   * 3. InfoNCE contrastive loss (or BCE fallback)
+   *
+   * Trains: W_q, W_k (K-head), W_intent, AND levelParams (message passing)
    */
   trainBatchV1KHead(
     examples: TrainingExample[],
   ): { loss: number; accuracy: number; tdErrors: number[]; gradNorm: number } {
     this.trainingMode = true;
+    this.orchestrator = new MultiLevelOrchestrator(true); // Enable training mode
     const tdErrors: number[] = [];
 
-    // Initialize gradients
+    // Rebuild hierarchy to ensure structures are up-to-date
+    this.rebuildHierarchy();
+
+    // Initialize K-head and W_intent gradients
     const grads = initMultiLevelKHeadGradients(
       this.levelParams,
       this.params.headParams,
       this.config,
     );
 
+    // Build cap index → level mapping for routing gradients
+    const capIndexToLevel = this.buildCapIndexToLevelMap();
+    const maxLevel = this.hierarchy?.maxHierarchyLevel ?? 0;
+
+    // Accumulate dCapEmbedding gradients per level across batch
+    const dE_accum = new Map<number, Map<number, number[]>>();
+    for (let level = 0; level <= maxLevel; level++) {
+      dE_accum.set(level, new Map());
+    }
+
     let totalLoss = 0;
     let correct = 0;
+    let mpCache: MultiLevelBackwardCache | null = null;
+
+    // Temperature for InfoNCE
+    const TEMPERATURE = 0.1;
 
     for (const example of examples) {
-      // Forward pass
-      const { E } = this.forward();
-      const intentProjected = this.projectIntent(example.intentEmbedding);
+      // === FORWARD: Multi-level message passing with cache ===
+      const H_init = this.graphBuilder.getToolEmbeddings();
+      const capabilityNodes = this.graphBuilder.getCapabilityNodes();
 
-      // Get capability index
-      const capIdx = this.graphBuilder.getCapabilityIndex(example.candidateId);
-      if (capIdx === undefined) {
+      if (capabilityNodes.size === 0 || !this.hierarchy || !this.multiLevelIncidence) {
         tdErrors.push(0);
         continue;
       }
 
-      const capEmbedding = E[capIdx];
-
-      // Compute K-head scores with cache for backprop
-      const { scores: headScores, caches: headCaches } = computeMultiHeadKHeadScoresWithCache(
-        intentProjected,
-        capEmbedding,
-        this.params.headParams,
-        this.config,
-      );
-
-      // Average fusion
-      const avgScore = headScores.reduce((a, b) => a + b, 0) / this.config.numHeads;
-      const predScore = Math.min(0.95, Math.max(0.05, avgScore));
-
-      // Loss
-      const loss = math.binaryCrossEntropy(predScore, example.outcome);
-      totalLoss += loss;
-
-      // TD error
-      const tdError = example.outcome - predScore;
-      tdErrors.push(tdError);
-
-      // Accuracy
-      if ((predScore > 0.5 ? 1 : 0) === example.outcome) {
-        correct++;
+      // Build E_levels_init
+      const E_levels_init = new Map<number, number[][]>();
+      for (let level = 0; level <= maxLevel; level++) {
+        const capsAtLevel = this.hierarchy.hierarchyLevels.get(level) ?? new Set<string>();
+        const embeddings: number[][] = [];
+        for (const capId of capsAtLevel) {
+          const cap = capabilityNodes.get(capId);
+          if (cap) embeddings.push([...cap.embedding]);
+        }
+        if (embeddings.length > 0) {
+          E_levels_init.set(level, embeddings);
+        }
       }
 
-      // Backward pass through K-head scoring
-      // dLoss/dScore = -(y/p) + (1-y)/(1-p) for BCE
-      const dLoss = example.outcome === 1 ? -1 / (predScore + 1e-7) : 1 / (1 - predScore + 1e-7);
+      // Build matrices
+      const toolToCapMatrix = this.buildToolToCapMatrix();
+      const capToCapMatrices = this.buildCapToCapMatrices();
 
-      const { dIntentProjected } = backpropMultiHeadKHead(
-        dLoss,
-        headScores,
-        headCaches,
-        intentProjected,
-        capEmbedding,
-        this.params.headParams,
-        grads.khead,
-        this.config,
+      // Forward with cache (pass v2vParams for trainable V→V)
+      const { result, cache } = this.orchestrator.forwardMultiLevelWithCache(
+        H_init,
+        E_levels_init,
+        toolToCapMatrix,
+        capToCapMatrices,
+        this.levelParams,
+        {
+          numHeads: this.config.numHeads,
+          numLayers: this.config.numLayers,
+          dropout: this.config.dropout,
+          leakyReluSlope: this.config.leakyReluSlope,
+        },
+        this.v2vParams, // Trainable V→V parameters
       );
 
-      // Backprop through W_intent
-      backpropWIntent(dIntentProjected, example.intentEmbedding, grads, this.config);
+      mpCache = cache; // Store for backward (use last example's cache)
+
+      // Flatten E for K-head scoring
+      const E_flat = this.flattenEmbeddingsByCapabilityOrder(result.E);
+
+      // Project intent
+      const intentProjected = this.projectIntent(example.intentEmbedding);
+
+      // Get positive capability
+      const posCapIdx = this.graphBuilder.getCapabilityIndex(example.candidateId);
+      if (posCapIdx === undefined) {
+        tdErrors.push(0);
+        continue;
+      }
+
+      const posCapEmbedding = E_flat[posCapIdx];
+
+      // K-head scoring with cache
+      const { scores: posHeadScores, logits: posHeadLogits, caches: posHeadCaches } =
+        computeMultiHeadKHeadScoresWithCache(
+          intentProjected,
+          posCapEmbedding,
+          this.params.headParams,
+          this.config,
+        );
+      const posScore = posHeadScores.reduce((a, b) => a + b, 0) / this.config.numHeads;
+      const posLogit = posHeadLogits.reduce((a, b) => a + b, 0) / this.config.numHeads;
+
+      if (example.negativeCapIds && example.negativeCapIds.length > 0) {
+        // === CONTRASTIVE TRAINING (InfoNCE) ===
+        const negLogits: number[] = [];
+        const negCaches: Array<{ Q: number[]; K: number[]; dotQK: number }[]> = [];
+        const negCapIndices: number[] = [];
+        const negEmbeddings: number[][] = [];
+
+        for (const negCapId of example.negativeCapIds) {
+          const negCapIdx = this.graphBuilder.getCapabilityIndex(negCapId);
+          if (negCapIdx === undefined) continue;
+
+          const negCapEmbedding = E_flat[negCapIdx];
+          const { logits, caches } = computeMultiHeadKHeadScoresWithCache(
+            intentProjected,
+            negCapEmbedding,
+            this.params.headParams,
+            this.config,
+          );
+
+          negLogits.push(logits.reduce((a, b) => a + b, 0) / this.config.numHeads);
+          negCaches.push(caches);
+          negCapIndices.push(negCapIdx);
+          negEmbeddings.push(negCapEmbedding);
+        }
+
+        // InfoNCE loss
+        const allLogits = [posLogit, ...negLogits];
+        const scaledScores = allLogits.map((s) => s / TEMPERATURE);
+        const maxScore = Math.max(...scaledScores);
+        const expScores = scaledScores.map((s) => Math.exp(s - maxScore));
+        const sumExp = expScores.reduce((a, b) => a + b, 0);
+        const softmax = expScores.map((e) => e / sumExp);
+
+        totalLoss += -Math.log(softmax[0] + 1e-7);
+        tdErrors.push(1 - softmax[0]);
+
+        if (negLogits.length === 0 || posLogit > Math.max(...negLogits)) correct++;
+
+        // === BACKWARD: K-head + collect dCapEmbedding ===
+        const dLossPos = (softmax[0] - 1) / TEMPERATURE;
+        const { dIntentProjected: dIntentPos, dCapEmbedding: dCapPos } = backpropMultiHeadKHeadLogit(
+          dLossPos,
+          posHeadCaches,
+          intentProjected,
+          posCapEmbedding,
+          this.params.headParams,
+          grads.khead,
+          this.config,
+        );
+
+        // Accumulate dCapEmbedding for positive
+        this.accumulateDCapGradient(dE_accum, posCapIdx, dCapPos, capIndexToLevel);
+
+        // Backprop through negatives
+        let dIntentAccum = [...dIntentPos];
+        for (let i = 0; i < negLogits.length; i++) {
+          const dLossNeg = softmax[i + 1] / TEMPERATURE;
+          const { dIntentProjected: dIntentNeg, dCapEmbedding: dCapNeg } = backpropMultiHeadKHeadLogit(
+            dLossNeg,
+            negCaches[i],
+            intentProjected,
+            negEmbeddings[i],
+            this.params.headParams,
+            grads.khead,
+            this.config,
+          );
+
+          for (let j = 0; j < dIntentAccum.length; j++) {
+            dIntentAccum[j] += dIntentNeg[j] ?? 0;
+          }
+
+          // Accumulate dCapEmbedding for negative
+          this.accumulateDCapGradient(dE_accum, negCapIndices[i], dCapNeg, capIndexToLevel);
+        }
+
+        backpropWIntent(dIntentAccum, example.intentEmbedding, grads, this.config);
+      } else {
+        // === LEGACY BCE TRAINING ===
+        const predScore = Math.min(0.95, Math.max(0.05, posScore));
+        totalLoss += math.binaryCrossEntropy(predScore, example.outcome);
+        tdErrors.push(example.outcome - predScore);
+
+        if ((predScore > 0.5 ? 1 : 0) === example.outcome) correct++;
+
+        const dLoss = example.outcome === 1 ? -1 / (predScore + 1e-7) : 1 / (1 - predScore + 1e-7);
+        const { dIntentProjected, dCapEmbedding } = backpropMultiHeadKHead(
+          dLoss,
+          posHeadScores,
+          posHeadCaches,
+          intentProjected,
+          posCapEmbedding,
+          this.params.headParams,
+          grads.khead,
+          this.config,
+        );
+
+        // Accumulate dCapEmbedding
+        this.accumulateDCapGradient(dE_accum, posCapIdx, dCapEmbedding, capIndexToLevel);
+
+        backpropWIntent(dIntentProjected, example.intentEmbedding, grads, this.config);
+      }
     }
 
-    // Compute gradient norm before applying (for monitoring)
+    // === BACKWARD: Multi-level message passing + V→V ===
+    let mpGradNorm = 0;
+    let v2vGradNorm = 0;
+    if (mpCache && dE_accum.size > 0) {
+      // Convert accumulated gradients to per-level format
+      const dE_final = this.buildDEFinalFromAccum(dE_accum, mpCache);
+
+      // Backward through message passing (includes V→V if enabled)
+      const mpGrads = this.orchestrator.backwardMultiLevel(
+        dE_final,
+        null, // No gradient on H
+        mpCache,
+        this.levelParams,
+        this.v2vParams, // Pass V2V params for backward
+      );
+
+      // Convert and apply MP gradients
+      const mpGradsConverted = this.convertMPGradsToAccumFormat(mpGrads);
+      applyLevelGradients(mpGradsConverted, this.levelParams, this.config, examples.length);
+
+      // Compute MP gradient norm
+      mpGradNorm = this.computeMPGradNorm(mpGrads);
+
+      // Apply V→V gradients if present
+      if (mpGrads.v2vGrads) {
+        const lr = this.config.learningRate;
+        const batchSize = examples.length;
+
+        // SGD update for V2V params
+        this.v2vParams.residualLogit -= lr * mpGrads.v2vGrads.dResidualLogit / batchSize;
+        this.v2vParams.temperatureLogit -= lr * mpGrads.v2vGrads.dTemperatureLogit / batchSize;
+
+        // Compute V2V gradient norm
+        v2vGradNorm = Math.sqrt(
+          mpGrads.v2vGrads.dResidualLogit ** 2 +
+          mpGrads.v2vGrads.dTemperatureLogit ** 2
+        );
+      }
+    }
+
+    // Compute gradient norms (includes V2V)
     const levelGradNorm = computeGradientNorm(grads);
     const kheadGradNorm = computeKHeadGradientNorm(grads.khead);
-    const gradNorm = Math.sqrt(levelGradNorm ** 2 + kheadGradNorm ** 2);
+    const gradNorm = Math.sqrt(
+      levelGradNorm ** 2 + kheadGradNorm ** 2 + mpGradNorm ** 2 + v2vGradNorm ** 2
+    );
 
-    // Apply gradients
-    applyLevelGradients(grads, this.levelParams, this.config, examples.length);
+    // Apply K-head and W_intent gradients
     applyKHeadGradients(grads.khead, this.params.headParams, this.config, examples.length);
     applyWIntentGradients(grads, this.params.W_intent, this.config, examples.length);
 
@@ -1402,18 +1653,145 @@ export class SHGAT {
     };
   }
 
+  /**
+   * Accumulate dCapEmbedding gradient into per-level structure
+   */
+  private accumulateDCapGradient(
+    dE_accum: Map<number, Map<number, number[]>>,
+    capIdx: number,
+    dCap: number[],
+    capIndexToLevel: Map<number, { level: number; withinLevelIdx: number }>,
+  ): void {
+    const levelInfo = capIndexToLevel.get(capIdx);
+    if (!levelInfo) return;
+
+    const { level, withinLevelIdx } = levelInfo;
+    const levelMap = dE_accum.get(level);
+    if (!levelMap) return;
+
+    const existing = levelMap.get(withinLevelIdx);
+    if (existing) {
+      for (let i = 0; i < dCap.length; i++) {
+        existing[i] += dCap[i] ?? 0;
+      }
+    } else {
+      levelMap.set(withinLevelIdx, [...dCap]);
+    }
+  }
+
+  /**
+   * Build dE_final Map from accumulated gradients
+   */
+  private buildDEFinalFromAccum(
+    dE_accum: Map<number, Map<number, number[]>>,
+    cache: MultiLevelBackwardCache,
+  ): Map<number, number[][]> {
+    const dE_final = new Map<number, number[][]>();
+
+    for (const [level, withinLevelMap] of dE_accum) {
+      const levelEmbs = cache.E_final.get(level);
+      if (!levelEmbs) continue;
+
+      const numCaps = levelEmbs.length;
+      const embDim = levelEmbs[0]?.length ?? 0;
+
+      // Initialize with zeros
+      const dE_level: number[][] = Array.from(
+        { length: numCaps },
+        () => Array(embDim).fill(0),
+      );
+
+      // Fill in accumulated gradients
+      for (const [withinLevelIdx, dCap] of withinLevelMap) {
+        if (withinLevelIdx < numCaps) {
+          for (let i = 0; i < Math.min(embDim, dCap.length); i++) {
+            dE_level[withinLevelIdx][i] = dCap[i];
+          }
+        }
+      }
+
+      dE_final.set(level, dE_level);
+    }
+
+    return dE_final;
+  }
+
+  /**
+   * Convert MultiLevelGradients to MultiLevelGradientAccumulators format
+   */
+  private convertMPGradsToAccumFormat(
+    mpGrads: MultiLevelGradients,
+  ): MultiLevelGradientAccumulators {
+    const levelGradients = new Map<number, LevelGradients>();
+
+    for (const [level, grads] of mpGrads.levelGrads) {
+      levelGradients.set(level, {
+        dW_child: grads.dW_child,
+        dW_parent: grads.dW_parent,
+        da_upward: grads.da_upward,
+        da_downward: grads.da_downward,
+      });
+    }
+
+    return { levelGradients };
+  }
+
+  /**
+   * Compute gradient norm from MultiLevelGradients
+   */
+  private computeMPGradNorm(mpGrads: MultiLevelGradients): number {
+    let sumSq = 0;
+
+    for (const [_, grads] of mpGrads.levelGrads) {
+      // dW_child and dW_parent
+      for (const dW of [grads.dW_child, grads.dW_parent]) {
+        for (const head of dW) {
+          for (const row of head) {
+            for (const val of row) {
+              sumSq += val * val;
+            }
+          }
+        }
+      }
+
+      // da_upward and da_downward
+      for (const da of [grads.da_upward, grads.da_downward]) {
+        for (const head of da) {
+          for (const val of head) {
+            sumSq += val * val;
+          }
+        }
+      }
+    }
+
+    return Math.sqrt(sumSq);
+  }
+
   // ==========================================================================
   // Serialization
   // ==========================================================================
 
   exportParams(): Record<string, unknown> {
     const base = exportParamsHelper(this.config, this.params);
+
+    // PreserveDim mode: skip layerParams (deprecated V1, ~512MB unused)
+    // Only levelParams + headParams are used by trainBatchV1KHead()
+    if (this.config.preserveDim) {
+      delete (base as Record<string, unknown>).layerParams;
+    }
+
     // ADR-055: Also export levelParams for multi-level message passing
     const levelParamsObj: Record<string, LevelParams> = {};
     for (const [level, params] of this.levelParams) {
       levelParamsObj[level.toString()] = params;
     }
-    return { ...base, levelParams: levelParamsObj };
+
+    // ADR-057: Export V2V trainable params
+    return {
+      ...base,
+      levelParams: levelParamsObj,
+      v2vParams: { ...this.v2vParams },
+    };
   }
 
   importParams(params: Record<string, unknown>): void {
@@ -1427,6 +1805,17 @@ export class SHGAT {
       this.levelParams = new Map();
       for (const [levelStr, lp] of Object.entries(levelParamsObj)) {
         this.levelParams.set(parseInt(levelStr), lp);
+      }
+    }
+
+    // ADR-057: Import V2V trainable params
+    if (params.v2vParams && typeof params.v2vParams === 'object') {
+      const v2v = params.v2vParams as V2VParams;
+      if (typeof v2v.residualLogit === 'number') {
+        this.v2vParams.residualLogit = v2v.residualLogit;
+      }
+      if (typeof v2v.temperatureLogit === 'number') {
+        this.v2vParams.temperatureLogit = v2v.temperatureLogit;
       }
     }
   }
@@ -1532,7 +1921,7 @@ export function createSHGATFromCapabilities(
   const preserveDim = actualConfig?.preserveDim ?? true;
 
   // Adaptive K based on graph size (ADR-053)
-  // Pass preserveDim to get correct hiddenDim (= embeddingDim when preserveDim=true)
+  // hiddenDim = numHeads * 16 (headDim fixed at 16 for consistent expressiveness)
   const adaptiveConfig = getAdaptiveHeadsByGraphSize(
     allTools.size,
     capabilities.length,
@@ -1548,6 +1937,18 @@ export function createSHGATFromCapabilities(
     headDim: adaptiveConfig.headDim,
     ...actualConfig, // User config takes precedence
   };
+
+  // Validate config consistency
+  // hiddenDim = numHeads * headDim (adaptive: 4 heads→64, 8 heads→128, etc.)
+  const finalHiddenDim = mergedConfig.hiddenDim ?? adaptiveConfig.hiddenDim;
+  const finalNumHeads = mergedConfig.numHeads ?? adaptiveConfig.numHeads;
+  const expectedHiddenDim = finalNumHeads * 16;
+  if (finalHiddenDim !== expectedHiddenDim) {
+    log.warn(
+      `[SHGAT] hiddenDim should be numHeads * 16 = ${expectedHiddenDim}, got ${finalHiddenDim}. ` +
+      `Each head needs 16 dims for full expressiveness.`
+    );
+  }
 
   const shgat = new SHGAT(mergedConfig);
 

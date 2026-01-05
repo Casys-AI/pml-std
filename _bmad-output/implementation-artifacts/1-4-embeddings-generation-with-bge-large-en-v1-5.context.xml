@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>1.4</storyId>
+    <title>Embeddings Generation with BGE-Large-EN-v1.5</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-04</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/story-1.4.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>tool schemas to be converted into vector embeddings using BGE-Large-EN-v1.5 locally</iWant>
+    <soThat>I can perform semantic search without relying on external APIs</soThat>
+    <tasks>
+      <task id="1">Load BGE-Large-EN-v1.5 model via @xenova/transformers (AC1)</task>
+      <task id="2">Concatenate tool schemas (name + description + parameters) into text input (AC2)</task>
+      <task id="3">Generate 1024-dimensional embeddings for each tool (AC3)</task>
+      <task id="4">Store embeddings in tool_embedding table with metadata (AC4)</task>
+      <task id="5">Display progress bar during generation (AC5)</task>
+      <task id="6">Implement embedding caching to avoid regeneration (AC6)</task>
+      <task id="7">Optimize performance for 200 tools in <2 minutes (AC7)</task>
+      <task id="8">Write unit tests for embedding generation and model loading</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">BGE-Large-EN-v1.5 model downloaded et loaded (via @xenova/transformers)</criterion>
+    <criterion id="AC2">Tool schemas (name + description + parameters) concatenés en text input</criterion>
+    <criterion id="AC3">Embeddings (1024-dim) générés pour chaque tool</criterion>
+    <criterion id="AC4">Embeddings stockés dans `tool_embedding` table avec metadata</criterion>
+    <criterion id="AC5">Progress bar affichée durant génération (peut prendre ~60s pour 100+ tools)</criterion>
+    <criterion id="AC6">Embeddings cachés (pas de régénération si schema unchanged)</criterion>
+    <criterion id="AC7">Total generation time &lt;2 minutes pour 200 tools</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Casys Intelligence Product Requirements Document</title>
+        <section>Requirements - Vector Search and Embeddings</section>
+        <snippet>FR012: Le système doit supporter les embeddings vectoriels pour la recherche sémantique. FR013: Les embeddings doivent être générés localement sans dépendre d'une API externe. FR014: Les embeddings doivent être stockés et indexés en PGlite avec pgvector pour la recherche rapide.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture - Casys Intelligence</title>
+        <section>Technology Stack Details - ML & Embeddings</section>
+        <snippet>ML & Embeddings: @huggingface/transformers 2.17.2, BGE-Large-EN-v1.5 model (1024-dim embeddings), ONNX Runtime (WASM backend). Local inference, no API calls, privacy preserved.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture - Casys Intelligence</title>
+        <section>Project Structure - src/vector/</section>
+        <snippet>src/vector/ module contains: embeddings.ts (Story 1.4 - BGE model inference), search.ts (Story 1.5 - Semantic search), index.ts (HNSW index management). Story 1.4 focuses on model loading and embedding generation for all discovered tools.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture - Casys Intelligence</title>
+        <section>Data Architecture - Database Schema</section>
+        <snippet>Database schema includes: tool_embedding table (tool_id PRIMARY KEY, embedding vector(1024), created_at TIMESTAMPTZ). Story 1.4 populates this table by generating embeddings from tool_schema descriptions and storing 1024-dim vectors.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture - Casys Intelligence</title>
+        <section>Performance Considerations - Embeddings Generation</section>
+        <snippet>Performance targets: Batch processing and caching to optimize. Model loading: Lazy load BGE model on first query. Embedding generation: ~300-500ms per tool, batch of 100 tools in 40-60 seconds. Target: &lt;2 minutes for 200 tools (AC7).</snippet>
+      </doc>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Epic 1 - Stories 1.1 through 1.8</section>
+        <snippet>Story 1.4 (Embeddings Generation) depends on Story 1.3 (MCP Server Discovery) for tool schemas. Output feeds into Story 1.5 (Semantic Vector Search). Embeddings stored in PGlite tool_embedding table with pgvector indexing.</snippet>
+      </doc>
+    </docs>
+
+    <code>
+      <artifact>
+        <path>src/db/client.ts</path>
+        <kind>module</kind>
+        <symbol>PGliteClient</symbol>
+        <lines>1-150</lines>
+        <reason>Story 1.4 AC4 requires storing embeddings in PGlite. PGliteClient provides the database interface. Story will call db.exec() to insert embeddings into tool_embedding table.</reason>
+      </artifact>
+      <artifact>
+        <path>src/db/migrations.ts</path>
+        <kind>module</kind>
+        <symbol>createInitialMigration</symbol>
+        <lines>110-178</lines>
+        <reason>Creates tool_embedding table that story 1.4 populates. AC4 requires storage in tool_embedding table with columns: tool_id, embedding (vector(1024)), created_at, metadata. Story will use existing schema.</reason>
+      </artifact>
+      <artifact>
+        <path>src/mcp/types.ts</path>
+        <kind>module</kind>
+        <symbol>MCPTool, ToolSchema</symbol>
+        <lines>1-50</lines>
+        <reason>Story 1.4 AC2 requires concatenating tool schemas (name + description + parameters) from MCPTool interface. Will read tool_schema table populated by story 1.3 and transform into embeddings input text.</reason>
+      </artifact>
+      <artifact>
+        <path>deno.json</path>
+        <kind>config</kind>
+        <symbol>imports</symbol>
+        <lines>23-35</lines>
+        <reason>Story 1.4 AC1 requires @xenova/transformers import for BGE-Large-EN-v1.5 model loading. Also includes @std/log for progress logging, @std/cli for progress bar.</reason>
+      </artifact>
+      <artifact>
+        <path>src/</path>
+        <kind>directory</kind>
+        <symbol>vector/</symbol>
+        <lines>N/A</lines>
+        <reason>Story 1.4 creates src/vector/embeddings.ts module for embedding generation. Directory structure may need to be created from project setup.</reason>
+      </artifact>
+    </code>
+
+    <dependencies>
+      <ecosystem name="Deno">
+        <runtime version="2.5 / 2.2 LTS">Deno runtime for ML inference via @xenova/transformers</runtime>
+        <stdlib version="0.224.0">
+          <package>std/log - Structured logging for embedding generation progress and errors</package>
+          <package>std/cli - Optional progress bar for display (AC5)</package>
+        </stdlib>
+      </ecosystem>
+      <ecosystem name="NPM (via Deno npm: specifier)">
+        <package name="@xenova/transformers" version="latest">Transformers.js library for running BGE-Large-EN-v1.5 model locally in WASM/ONNX</package>
+        <package name="@huggingface/transformers" version="2.17.2">Alternative: HuggingFace official library (may require additional ONNX runtime setup)</package>
+      </ecosystem>
+      <note>Story 1.4 adds @xenova/transformers dependency (ONNX Runtime for WASM). Model weights (~400MB for BGE-Large-EN-v1.5) downloaded on first load from HuggingFace Hub.</note>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint type="model_loading">BGE-Large-EN-v1.5 produces 1024-dimensional embeddings (fixed). Must use @xenova/transformers with feature-extraction pipeline and mean pooling + normalization (AC1).</constraint>
+    <constraint type="text_processing">Input text must be concatenation of: tool name + description + parameter names + parameter descriptions (AC2). Maximum reasonable input length: ~512 tokens (BGE truncates at 512).</constraint>
+    <constraint type="embedding_storage">Embeddings stored as vector(1024) in PGlite. Must use PGVECTOR extension (pgvector). Column names: tool_id (PK), embedding, created_at, metadata (JSON for optional cache info) (AC4).</constraint>
+    <constraint type="caching">AC6: Check if tool_id exists in tool_embedding table before generation. Skip if exists AND tool_schema.cached_at &lt;= tool_embedding.created_at. Invalidate if schema changed (newer cached_at timestamp).</constraint>
+    <constraint type="performance">AC7: 200 tools must complete in <2 minutes (~600ms per tool including I/O). Batch processing recommended. Model loading is one-time cost (60-90s on first run). Subsequent batches: ~100ms per tool.</constraint>
+    <constraint type="database">Use existing PGliteClient from src/db/client.ts. Insert/update tool_embedding table with ON CONFLICT DO UPDATE for upsert. Transactions recommended for batch inserts (AC4).</constraint>
+    <constraint type="logging">AC5: Display progress during generation using @std/log or simple console updates. Format: "[1/200] Generating embeddings... 0.5%". Color output optional but recommended.</constraint>
+    <constraint type="testing">Story must include unit tests for: model loading, text concatenation, embedding generation, caching logic, performance targets. Use Deno.test() framework. Mock model responses for fast unit tests.</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>EmbeddingModel</name>
+      <kind>TypeScript class interface</kind>
+      <signature>
+export class EmbeddingModel {
+  async load(): Promise&lt;void&gt;;  // Load BGE-Large-EN-v1.5 model
+  async encode(text: string): Promise&lt;number[]&gt;;  // Generate 1024-dim embedding
+  isLoaded(): boolean;  // Check if model ready
+}
+      </signature>
+      <path>src/vector/embeddings.ts (to be created)</path>
+    </interface>
+
+    <interface>
+      <name>ToolEmbeddingInput</name>
+      <kind>TypeScript interface</kind>
+      <signature>
+interface ToolEmbeddingInput {
+  toolId: string;
+  text: string;  // Concatenated schema text
+  serverId: string;
+  toolName: string;
+}
+      </signature>
+      <path>src/vector/embeddings.ts</path>
+    </interface>
+
+    <interface>
+      <name>EmbeddingGenerationResult</name>
+      <kind>TypeScript interface</kind>
+      <signature>
+interface EmbeddingGenerationResult {
+  toolId: string;
+  embedding: number[];  // 1024 dimensions
+  generatedAt: Date;
+  cachedFromPrevious: boolean;  // AC6 caching indicator
+}
+      </signature>
+      <path>src/vector/embeddings.ts</path>
+    </interface>
+
+    <interface>
+      <name>ToolSchema (from MCP types)</name>
+      <kind>TypeScript interface</kind>
+      <signature>
+interface ToolSchema {
+  toolId: string;
+  serverId: string;
+  name: string;                    // AC2: Include in text concatenation
+  description: string;             // AC2: Include in text concatenation
+  inputSchema: Record&lt;string, unknown&gt;;  // AC2: Extract parameters
+  outputSchema?: Record&lt;string, unknown&gt;;
+  cachedAt: Date;  // Used for AC6 cache invalidation
+}
+      </signature>
+      <path>src/mcp/types.ts</path>
+    </interface>
+
+    <interface>
+      <name>PGliteClient (existing)</name>
+      <kind>TypeScript class</kind>
+      <signature>
+// Story 1.4 will use:
+interface PGliteClient {
+  exec(sql: string, params?: unknown[]): Promise&lt;void&gt;;
+  query&lt;T&gt;(sql: string, params?: unknown[]): Promise&lt;T[]&gt;;
+  queryOne&lt;T&gt;(sql: string, params?: unknown[]): Promise&lt;T | null&gt;;
+}
+      </signature>
+      <path>src/db/client.ts</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      Story 1.4 tests must be written using Deno.test() framework. Test strategy: Unit tests for model loading, embedding generation, text concatenation, caching logic, and performance targets. Test files must be co-located with source (src/vector/embeddings_test.ts). Target coverage: >80% of embedding generation code paths including happy path and error scenarios (model loading failures, invalid schemas, caching edge cases). Mock the @xenova/transformers pipeline for fast unit tests to avoid 60-90s model loading in tests. All tests must pass with `deno task test` and include performance verification (batch generation timing). Integration tests in Story 2.7 can test full end-to-end workflow with actual model.
+    </standards>
+
+    <locations>
+      <location>tests/unit/vector/embeddings_test.ts</location>
+      <location>tests/integration/embeddings_integration_test.ts (Story 2.7)</location>
+      <location>tests/fixtures/mock_schemas/ (test data)</location>
+    </locations>
+
+    <ideas>
+      <test-idea criterion="AC1">Test BGE-Large-EN-v1.5 model loading: Initialize EmbeddingModel, call load(), verify model is ready and can encode text</test-idea>
+      <test-idea criterion="AC1">Test model lazy loading: First encode() call triggers load, subsequent calls reuse loaded model (no reload)</test-idea>
+      <test-idea criterion="AC2">Test schema text concatenation: Convert ToolSchema with name, description, parameters to text, verify all fields included and properly formatted</test-idea>
+      <test-idea criterion="AC2">Test edge case text concatenation: Empty description, no parameters, special characters in names - verify graceful handling</test-idea>
+      <test-idea criterion="AC3">Test embedding dimensions: Generated embedding is exactly 1024 dimensions, all values are floats in [-1, 1] range (normalized)</test-idea>
+      <test-idea criterion="AC3">Test embedding consistency: Same input text produces identical embedding (deterministic)</test-idea>
+      <test-idea criterion="AC4">Test embedding storage: Insert 10 embeddings into tool_embedding table, verify all stored correctly with correct columns</test-idea>
+      <test-idea criterion="AC4">Test embedding metadata: Stored embedding includes tool_id, created_at timestamp, optional metadata JSON field</test-idea>
+      <test-idea criterion="AC5">Test progress reporting: Generate embeddings for 10 tools, verify progress updates logged/displayed (0%, 10%, 20%, ... 100%)</test-idea>
+      <test-idea criterion="AC5">Test progress with cancellation: Long-running batch, verify user can see progress and understand how many tools remaining</test-idea>
+      <test-idea criterion="AC6">Test embedding caching: Generate embeddings for 5 tools, regenerate with unchanged schemas, verify second run is instant (cache hit)</test-idea>
+      <test-idea criterion="AC6">Test cache invalidation: Update tool_schema.cached_at for one tool, verify cache invalidates and embedding regenerates</test-idea>
+      <test-idea criterion="AC6">Test cache miss scenario: Delete one tool_embedding record, regenerate, verify it's recreated while others use cache</test-idea>
+      <test-idea criterion="AC7">Test batch performance: Measure time to generate embeddings for 200 mock tools, verify &lt;2 minutes total (including model load ~90s + 100 tools ~10s)</test-idea>
+      <test-idea criterion="AC7">Test performance optimization: Batch inserts vs individual inserts, verify batch is significantly faster for 200 tools</test-idea>
+    </ideas>
+  </tests>
+</story-context>

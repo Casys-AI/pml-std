@@ -14,13 +14,27 @@ export { EdgeToEdgePhase } from "./edge-to-edge-phase.ts";
 export {
   type ForwardCache,
   type LayerParameters,
+  type LevelParamsGradients,
+  type MultiLevelBackwardCache,
+  type MultiLevelGradients,
   MultiLevelOrchestrator,
   type OrchestratorConfig,
 } from "./multi-level-orchestrator.ts";
 
 // V→V co-occurrence phase
-export { VertexToVertexPhase, buildCooccurrenceMatrix } from "./vertex-to-vertex-phase.ts";
-export type { CooccurrenceEntry, VertexToVertexConfig } from "./vertex-to-vertex-phase.ts";
+export {
+  DEFAULT_V2V_PARAMS,
+  VertexToVertexPhase,
+  buildCooccurrenceMatrix,
+} from "./vertex-to-vertex-phase.ts";
+export type {
+  CooccurrenceEntry,
+  V2VForwardCache,
+  V2VGradients,
+  V2VParams,
+  V2VPhaseResultWithCache,
+  VertexToVertexConfig,
+} from "./vertex-to-vertex-phase.ts";
 
 // Co-occurrence loader utilities
 export { loadCooccurrenceData, getToolEmbeddings, mergeEmbeddings } from "./cooccurrence-loader.ts";

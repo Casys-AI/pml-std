@@ -51,9 +51,9 @@ const stressScenario = generateStressGraph({
 const stressGraph = buildGraphFromScenario(stressScenario);
 
 // Get some node IDs for pairwise tests
-const smallNodes = Array.from(smallGraph.nodes()).slice(0, 5);
-const mediumNodes = Array.from(mediumGraph.nodes()).slice(0, 10);
-const stressNodes = Array.from(stressGraph.nodes()).slice(0, 20);
+const smallNodes: string[] = Array.from(smallGraph.nodes()).slice(0, 5);
+const mediumNodes: string[] = Array.from(mediumGraph.nodes()).slice(0, 10);
+const stressNodes: string[] = Array.from(stressGraph.nodes()).slice(0, 20);
 
 // ============================================================================
 // Benchmarks: Pairwise Similarity
@@ -95,30 +95,36 @@ Deno.bench({
 // ============================================================================
 
 Deno.bench({
-  name: "Adamic-Adar: full computation (small graph)",
+  name: "Adamic-Adar: computation for node (small graph)",
   group: "aa-full",
   baseline: true,
   fn: () => {
-    computeAdamicAdar(smallGraph);
+    if (smallNodes.length >= 1) {
+      computeAdamicAdar(smallGraph, smallNodes[0]);
+    }
   },
 });
 
 Deno.bench({
-  name: "Adamic-Adar: full computation (medium graph)",
+  name: "Adamic-Adar: computation for node (medium graph)",
   group: "aa-full",
   fn: () => {
-    computeAdamicAdar(mediumGraph);
+    if (mediumNodes.length >= 1) {
+      computeAdamicAdar(mediumGraph, mediumNodes[0]);
+    }
   },
 });
 
 // Note: Full AA computation on stress graph is O(n^2) - very slow
 // Only run if explicitly needed
 Deno.bench({
-  name: "Adamic-Adar: full computation (stress graph) [SLOW]",
+  name: "Adamic-Adar: computation for node (stress graph) [SLOW]",
   group: "aa-full",
   ignore: true, // Enable manually when needed
   fn: () => {
-    computeAdamicAdar(stressGraph);
+    if (stressNodes.length >= 1) {
+      computeAdamicAdar(stressGraph, stressNodes[0]);
+    }
   },
 });
 
@@ -132,7 +138,7 @@ Deno.bench({
   baseline: true,
   fn: () => {
     if (smallNodes.length >= 1) {
-      findSimilarNodes(smallGraph, smallNodes[0], 3);
+      findSimilarNodes(smallGraph, [smallNodes[0]], 3);
     }
   },
 });
@@ -142,7 +148,7 @@ Deno.bench({
   group: "aa-similar",
   fn: () => {
     if (mediumNodes.length >= 1) {
-      findSimilarNodes(mediumGraph, mediumNodes[0], 5);
+      findSimilarNodes(mediumGraph, [mediumNodes[0]], 5);
     }
   },
 });
@@ -152,7 +158,7 @@ Deno.bench({
   group: "aa-similar",
   fn: () => {
     if (mediumNodes.length >= 1) {
-      findSimilarNodes(mediumGraph, mediumNodes[0], 10);
+      findSimilarNodes(mediumGraph, [mediumNodes[0]], 10);
     }
   },
 });
@@ -162,7 +168,7 @@ Deno.bench({
   group: "aa-similar",
   fn: () => {
     if (stressNodes.length >= 1) {
-      findSimilarNodes(stressGraph, stressNodes[0], 10);
+      findSimilarNodes(stressGraph, [stressNodes[0]], 10);
     }
   },
 });

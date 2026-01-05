@@ -1,0 +1,266 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2.5</epicId>
+    <storyId>2.5.2</storyId>
+    <title>Checkpoint & Resume</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-14</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/story-2.5-2.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer running long-running agent workflows</asA>
+    <iWant>the ability to checkpoint execution state and resume from failures</iWant>
+    <soThat>workflows can recover gracefully from crashes without losing progress</soThat>
+    <tasks>
+      <task id="1" title="Checkpoint Infrastructure" estimate="1-1.5h">
+        <subtask id="1.1">Create migration src/db/migrations/006_workflow_checkpoints.sql</subtask>
+        <subtask id="1.2">Create CheckpointManager class in src/dag/checkpoint-manager.ts</subtask>
+        <subtask id="1.3">Implement saveCheckpoint() method</subtask>
+        <subtask id="1.4">Implement loadCheckpoint() method</subtask>
+        <subtask id="1.5">Implement getLatestCheckpoint() method</subtask>
+        <subtask id="1.6">Unit tests for CheckpointManager</subtask>
+      </task>
+      <task id="2" title="Checkpoint Persistence Integration" estimate="1h">
+        <subtask id="2.1"
+        >Integrate checkpoint saves into ControlledExecutor.executeStream()</subtask>
+        <subtask id="2.2">Implement pruneCheckpoints() method in CheckpointManager</subtask>
+        <subtask id="2.3">Call pruning after checkpoint save</subtask>
+        <subtask id="2.4">Integration tests</subtask>
+      </task>
+      <task id="3" title="Resume from Checkpoint" estimate="1-1.5h">
+        <subtask id="3.1">Implement resumeFromCheckpoint() method in ControlledExecutor</subtask>
+        <subtask id="3.2">Skip completed layers logic</subtask>
+        <subtask id="3.3">Continue execution from remaining layers</subtask>
+        <subtask id="3.4">Integration tests for resume</subtask>
+      </task>
+      <task id="4" title="Idempotence Documentation & Testing" estimate="0.5-1h">
+        <subtask id="4.1">Document checkpoint limitations</subtask>
+        <subtask id="4.2">Document idempotence requirement</subtask>
+        <subtask id="4.3">Create test scenarios for idempotent tasks</subtask>
+      </task>
+      <task id="5" title="Resume Chaos Testing" estimate="0.5h">
+        <subtask id="5.1">Inject crashes at random layers</subtask>
+        <subtask id="5.2">Verify resume correctness</subtask>
+        <subtask id="5.3">Performance validation</subtask>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC-2.1" title="Checkpoint Infrastructure" status="✅">
+      <requirement>workflow_checkpoint table created in PGlite</requirement>
+      <requirement
+      >Checkpoint interface defined (id, workflow_id, layer, state, timestamp)</requirement>
+      <requirement>CheckpointManager class implements CRUD operations</requirement>
+      <requirement>Checkpoint save &lt;50ms P95 (async, non-blocking)</requirement>
+      <source>docs/tech-spec-epic-2.5.md#ac-21-checkpoint-infrastructure</source>
+    </criterion>
+    <criterion id="AC-2.2" title="Checkpoint Persistence" status="✅">
+      <requirement>WorkflowState serialized to JSONB correctly</requirement>
+      <requirement>Checkpoints saved after each layer execution</requirement>
+      <requirement>Retention policy: Keep 5 most recent per workflow</requirement>
+      <requirement>Auto-pruning on new checkpoint save</requirement>
+      <source>docs/tech-spec-epic-2.5.md#ac-22-checkpoint-persistence</source>
+    </criterion>
+    <criterion id="AC-2.3" title="Resume from Checkpoint" status="✅">
+      <requirement>resumeFromCheckpoint() method implemented</requirement>
+      <requirement
+      >State fully restored (workflow_id, current_layer, tasks, decisions, messages, context)</requirement>
+      <requirement>Execution continues from current_layer + 1</requirement>
+      <requirement>Completed layers skipped (no re-execution)</requirement>
+      <source>docs/tech-spec-epic-2.5.md#ac-23-resume-from-checkpoint</source>
+    </criterion>
+    <criterion id="AC-2.4" title="Idempotence Documentation" status="✅">
+      <requirement>Checkpoint limitations documented (filesystem state NOT saved)</requirement>
+      <requirement>Idempotence requirement documented for file-modifying tasks</requirement>
+      <requirement>Epic 3 (Sandbox) noted as full resolution</requirement>
+      <requirement>Example idempotent vs non-idempotent tasks provided</requirement>
+      <source>docs/tech-spec-epic-2.5.md#ac-24-idempotence-documentation</source>
+      <source>docs/adrs/ADR-007-dag-adaptive-feedback-loops.md#what-checkpoints-dont-save</source>
+    </criterion>
+    <criterion id="AC-2.5" title="Resume Tests" status="✅">
+      <requirement>Resume from checkpoint succeeds (read-only workflows)</requirement>
+      <requirement>Inject crash at random layers, verify resume correctness</requirement>
+      <requirement>State consistency verified post-resume</requirement>
+      <requirement>Idempotent task re-run behavior tested</requirement>
+      <source>docs/tech-spec-epic-2.5.md#ac-25-resume-tests</source>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/tech-spec-epic-2.5.md</path>
+        <title>Epic Technical Specification: Adaptive DAG Feedback Loops</title>
+        <section>Checkpoint &amp; Resume (Story 2.5-2)</section>
+        <snippet
+        >Epic 2.5 se concentre sur l'orchestration et la décision (pas l'exécution de code), avec checkpoints sauvegardant WorkflowState complet (tasks, decisions, messages, context) dans PGlite. Checkpoint overhead &lt;50ms, retention de 5 checkpoints par workflow.</snippet>
+      </doc>
+      <doc>
+        <path>docs/adrs/ADR-007-dag-adaptive-feedback-loops.md</path>
+        <title>ADR-007: DAG Adaptatif avec Feedback Loops</title>
+        <section>Checkpoint Architecture &amp; Limitations</section>
+        <snippet
+        >Les checkpoints sauvegardent WorkflowState (tasks, decisions, messages, context) mais PAS l'état du filesystem. Workflows read-only = resume parfait. Workflows avec modifications = tasks DOIVENT être idempotentes. Epic 3 (Sandbox) résoudra cette limitation.</snippet>
+      </doc>
+      <doc>
+        <path>docs/stories/story-2.5-1.md</path>
+        <title>Story 2.5-1: Event Stream + Command Queue + State Management</title>
+        <section>Dev Notes - Learnings</section>
+        <snippet
+        >WorkflowState avec 4 reducers implémenté (messages, tasks, decisions, context). ControlledExecutor extends ParallelExecutor. State update: 0.003ms (&lt;1ms target). EventStream et CommandQueue disponibles pour réutilisation.</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>Epic 2.5 - Adaptive DAG Feedback Loops</section>
+        <snippet
+        >Loop 1 (Execution) fournit checkpoint &amp; resume infrastructure avec PGlite persistence. Retention policy: 5 checkpoints par workflow. Performance: checkpoint save &lt;50ms P95.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Architecture Document</title>
+        <section>Pattern 4 - 3-Loop Learning Architecture</section>
+        <snippet
+        >Loop 1 (Execution) implémente checkpoint persistence via PGlite JSONB storage. Resume capability permet workflows fault-tolerant. Speedup 5x préservé via async checkpoint saves.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>src/dag/state.ts</path>
+        <kind>interface</kind>
+        <symbol>WorkflowState</symbol>
+        <lines>51-58</lines>
+        <reason
+        >Interface principale à sérialiser dans checkpoints. Contient workflow_id, current_layer, tasks, decisions, messages, context. Créée par story 2.5-1, sera persistée par story 2.5-2.</reason>
+      </artifact>
+      <artifact>
+        <path>src/dag/state.ts</path>
+        <kind>function</kind>
+        <symbol>updateState</symbol>
+        <lines>143-159</lines>
+        <reason
+        >Méthode de mise à jour du state avec reducers automatiques. Utilisée par ControlledExecutor après chaque layer. Checkpoint sauvegarde le state après cette mise à jour.</reason>
+      </artifact>
+      <artifact>
+        <path>src/dag/controlled-executor.ts</path>
+        <kind>class</kind>
+        <symbol>ControlledExecutor</symbol>
+        <lines>40-306</lines>
+        <reason
+        >Classe principale qui exécute le DAG avec event stream et command queue. Story 2.5-2 ajoute la méthode resumeFromCheckpoint() et intègre les checkpoints dans executeStream().</reason>
+      </artifact>
+      <artifact>
+        <path>src/dag/types.ts</path>
+        <kind>interface</kind>
+        <symbol>ExecutionEvent</symbol>
+        <lines>83-150</lines>
+        <reason
+        >Types d'événements émis pendant l'exécution. Story 2.5-2 émettra un événement 'checkpoint' après chaque layer avec checkpoint_id et state.</reason>
+      </artifact>
+      <artifact>
+        <path>src/db/migrations/001_initial.sql</path>
+        <kind>migration</kind>
+        <symbol>initial schema</symbol>
+        <lines>1-50</lines>
+        <reason
+        >Migration initiale PGlite. Story 2.5-2 créera 006_workflow_checkpoints.sql suivant le même pattern pour la table workflow_checkpoint.</reason>
+      </artifact>
+      <artifact>
+        <path>src/dag/executor.ts</path>
+        <kind>class</kind>
+        <symbol>ParallelExecutor</symbol>
+        <lines>1-200</lines>
+        <reason
+        >Classe de base pour ControlledExecutor. Fournit executeLayer() et logique de parallélisation. Checkpoint n'affecte pas cette classe (extension pattern).</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <deno>
+        <package>deno</package>
+        <version>2.2+</version>
+        <usage
+        >Runtime avec crypto.randomUUID() pour génération d'ID checkpoints, async/await pour opérations non-bloquantes</usage>
+      </deno>
+      <npm>
+        <package>@electric-sql/pglite</package>
+        <version>0.3.11</version>
+        <usage
+        >Base de données pour persistence checkpoints. Table workflow_checkpoint avec colonne JSONB pour state. Queries paramétrées pour sécurité.</usage>
+      </npm>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint type="performance"
+    >Checkpoint save &lt;50ms P95 (async, non-blocking). Ne doit pas dégrader le speedup 5x de ParallelExecutor.</constraint>
+    <constraint type="architecture"
+    >ControlledExecutor.resumeFromCheckpoint() doit être une méthode async generator (même signature que executeStream()). Zero breaking changes.</constraint>
+    <constraint type="data"
+    >WorkflowState serialization doit être round-trip safe (save → load → identical). Validation de structure JSONB requise.</constraint>
+    <constraint type="retention"
+    >Retention policy: Keep 5 most recent checkpoints par workflow. Auto-pruning sur nouveau save (async, fire-and-forget).</constraint>
+    <constraint type="idempotence"
+    >Workflows avec file modifications nécessitent tasks idempotentes. Documentation claire de cette limitation requise (AC-2.4).</constraint>
+    <constraint type="security"
+    >Toutes les queries PGlite doivent être paramétrées ($1, $2, etc.) pour éviter SQL injection. State doit être isolé par workflow_id.</constraint>
+    <constraint type="compatibility"
+    >Epic 3 (Sandbox) résoudra la limitation filesystem. Story 2.5-2 documente cette limitation comme acceptable pour MVP.</constraint>
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>Checkpoint</name>
+      <kind>TypeScript interface</kind>
+      <signature
+      >interface Checkpoint { id: string; workflow_id: string; timestamp: Date; layer: number; state: WorkflowState; }</signature>
+      <path>src/dag/types.ts (à ajouter)</path>
+    </interface>
+    <interface>
+      <name>CheckpointManager</name>
+      <kind>TypeScript class</kind>
+      <signature
+      >class CheckpointManager { async saveCheckpoint(workflow_id, layer, state): Promise&lt;Checkpoint&gt;; async loadCheckpoint(checkpoint_id): Promise&lt;Checkpoint | null&gt;; async getLatestCheckpoint(workflow_id): Promise&lt;Checkpoint | null&gt;; async pruneCheckpoints(workflow_id): Promise&lt;void&gt;; }</signature>
+      <path>src/dag/checkpoint-manager.ts (à créer)</path>
+    </interface>
+    <interface>
+      <name>ControlledExecutor.resumeFromCheckpoint</name>
+      <kind>TypeScript method</kind>
+      <signature
+      >async *resumeFromCheckpoint(checkpoint_id: string, config: ExecutionConfig): AsyncGenerator&lt;ExecutionEvent, WorkflowState, void&gt;</signature>
+      <path>src/dag/controlled-executor.ts (à modifier)</path>
+    </interface>
+    <interface>
+      <name>workflow_checkpoint (PGlite table)</name>
+      <kind>SQL schema</kind>
+      <signature
+      >CREATE TABLE workflow_checkpoint (id TEXT PRIMARY KEY, workflow_id TEXT NOT NULL, timestamp TIMESTAMPTZ DEFAULT NOW(), layer INTEGER NOT NULL, state JSONB NOT NULL); CREATE INDEX idx_checkpoint_workflow_ts ON workflow_checkpoint(workflow_id, timestamp DESC);</signature>
+      <path>src/db/migrations/006_workflow_checkpoints.sql (à créer)</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards
+    >Tests suivent patterns de story 2.5-1: Deno.test avec substeps, cleanup try/finally, performance benchmarks. Unit tests &gt;80% coverage (CheckpointManager CRUD), integration tests pour resume scenarios, chaos tests pour crashes aléatoires. Utilise mocks de tests/fixtures/test-helpers.ts.</standards>
+    <locations>
+      <location
+      >tests/unit/dag/checkpoint_manager_test.ts - CRUD operations, serialization round-trip, performance &lt;50ms</location>
+      <location
+      >tests/integration/dag/resume_test.ts - Resume correctness, state consistency, chaos testing (random crashes)</location>
+      <location
+      >tests/benchmarks/checkpoint_performance_test.ts - Save latency P95, resume latency, large state (1000 tasks)</location>
+    </locations>
+    <ideas>
+      <idea ac="AC-2.1"
+      >Test checkpoint save succeeds avec state valide. Test load checkpoint by ID returns correct state. Test getLatestCheckpoint returns most recent. Benchmark save latency &lt;50ms P95.</idea>
+      <idea ac="AC-2.2"
+      >Test checkpoints saved after each layer execution (integration avec ControlledExecutor.executeStream()). Test checkpoint events emitted correctly. Test pruning keeps only 5 most recent (delete older).</idea>
+      <idea ac="AC-2.3"
+      >Test resumeFromCheckpoint() restores state correctly (workflow_id, current_layer, tasks, decisions, messages, context). Test completed layers skipped (no re-execution). Test execution continues from correct layer.</idea>
+      <idea ac="AC-2.4"
+      >Test read-only workflow resumes perfectly (100% success). Test idempotent task re-run produces same result. Document non-idempotent task example (appendFileSync duplicates).</idea>
+      <idea ac="AC-2.5"
+      >Chaos test: Inject crash at random layer (0, 2, final), resume from checkpoint, verify final results match non-crashed execution. Test state consistency post-resume (tasks.length, messages.length preserved).</idea>
+    </ideas>
+  </tests>
+</story-context>

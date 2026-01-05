@@ -243,9 +243,10 @@ export interface SHGATConfig {
  */
 export const DEFAULT_SHGAT_CONFIG: SHGATConfig = {
   // Architecture (overridden by adaptive config in createSHGATFromCapabilities)
+  // hiddenDim = numHeads * headDim (headDim=16 is fixed, hiddenDim scales with numHeads)
   numHeads: 4, // Fallback for empty graph, scales up automatically
-  hiddenDim: 64,
-  headDim: 16, // 64 / 4
+  hiddenDim: 64, // = 4 * 16
+  headDim: 16, // Fixed at 16 for consistent per-head expressiveness
   embeddingDim: 1024,
   numLayers: 2,
   mlpHiddenDim: 32,
@@ -255,7 +256,7 @@ export const DEFAULT_SHGAT_CONFIG: SHGATConfig = {
   preserveDimResidual: 0.3, // 30% original + 70% propagated
 
   // Training
-  learningRate: 0.001,
+  learningRate: 0.01,  // Increased 10x for InfoNCE contrastive training
   batchSize: 32,
   maxContextLength: 5,
 
@@ -289,16 +290,22 @@ export function getAdaptiveConfig(_traceCount: number): Partial<SHGATConfig> {
 
 /**
  * Training example from episodic events
+ *
+ * For contrastive training:
+ * - candidateId = positive (the capability that was executed)
+ * - negativeCapIds = negatives (random other capabilities)
  */
 export interface TrainingExample {
   /** Intent embedding (1024-dim) */
   intentEmbedding: number[];
   /** Context tool IDs that were active */
   contextTools: string[];
-  /** Candidate capability ID */
+  /** Candidate capability ID (positive - the one that was executed) */
   candidateId: string;
-  /** Outcome: 1 = success, 0 = failure */
+  /** Outcome: 1 = success, 0 = failure (legacy, kept for compatibility) */
   outcome: number;
+  /** Negative capability IDs for contrastive learning (optional) */
+  negativeCapIds?: string[];
 }
 
 // ============================================================================

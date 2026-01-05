@@ -1,0 +1,367 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>6</epicId>
+    <storyId>6.3</storyId>
+    <title>Live Metrics &amp; Analytics Panel</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-02</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/6-3-live-metrics-analytics-panel.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>to see live metrics about graph health and recommendations</iWant>
+    <soThat>I can monitor system performance and debug issues</soThat>
+    <tasks>
+      <task id="1" ac="4">
+        <title>Create API endpoint /api/metrics</title>
+        <subtasks>
+          <subtask id="1.1">Implement getMetrics(range) in GraphRAGEngine</subtask>
+          <subtask id="1.2">Implement getAdaptiveAlpha() in GraphRAGEngine</subtask>
+          <subtask id="1.3"
+          >Implement getMetricsTimeSeries(range) with telemetry_metrics query</subtask>
+          <subtask id="1.4">Add route GET /api/metrics in gateway-server.ts</subtask>
+          <subtask id="1.5">Return GraphMetricsResponse with current, timeseries, period</subtask>
+        </subtasks>
+      </task>
+      <task id="2" ac="1">
+        <title>Create MetricsPanel island</title>
+        <subtasks>
+          <subtask id="2.1">Create src/web/islands/MetricsPanel.tsx</subtask>
+          <subtask id="2.2">Implement state management (metrics, dateRange, loading)</subtask>
+          <subtask id="2.3">Implement fetch metrics with polling 5s</subtask>
+          <subtask id="2.4">Create layout sidebar/overlay responsive</subtask>
+        </subtasks>
+      </task>
+      <task id="3" ac="2">
+        <title>Display live metrics</title>
+        <subtasks>
+          <subtask id="3.1">Create src/web/components/MetricCard.tsx (static)</subtask>
+          <subtask id="3.2">Display edge_count, node_count, density</subtask>
+          <subtask id="3.3">Display adaptive_alpha with visual indicator</subtask>
+          <subtask id="3.4">Display PageRank top 10 as scrollable list</subtask>
+          <subtask id="3.5">Display communities_count</subtask>
+          <subtask id="3.6">Display workflow_success_rate with color badge</subtask>
+        </subtasks>
+      </task>
+      <task id="4" ac="3">
+        <title>Implement time-series charts</title>
+        <subtasks>
+          <subtask id="4.1">Add Chart.js CDN in routes/dashboard.tsx</subtask>
+          <subtask id="4.2">Create src/web/components/TimeSeriesChart.tsx</subtask>
+          <subtask id="4.3">Edge count over time line chart</subtask>
+          <subtask id="4.4">Avg confidence over time line chart</subtask>
+          <subtask id="4.5">Workflow rate bar chart (workflows/hour)</subtask>
+        </subtasks>
+      </task>
+      <task id="5" ac="5,7">
+        <title>Date range and refresh</title>
+        <subtasks>
+          <subtask id="5.1">Implement date range selector (1h, 24h, 7d)</subtask>
+          <subtask id="5.2">Re-fetch metrics when range changes</subtask>
+          <subtask id="5.3">Integrate SSE metrics_updated for real-time refresh</subtask>
+          <subtask id="5.4">Display last updated timestamp indicator</subtask>
+        </subtasks>
+      </task>
+      <task id="6" ac="6">
+        <title>Export CSV</title>
+        <subtasks>
+          <subtask id="6.1">Implement exportMetricsCSV() function</subtask>
+          <subtask id="6.2">Add Download CSV button in panel</subtask>
+          <subtask id="6.3">Generate filename with dateRange and timestamp</subtask>
+        </subtasks>
+      </task>
+      <task id="7" ac="1">
+        <title>Integrate in dashboard route</title>
+        <subtasks>
+          <subtask id="7.1">Modify routes/dashboard.tsx to include MetricsPanel</subtask>
+          <subtask id="7.2">Layout: graph (left 70%), metrics panel (right 30%)</subtask>
+          <subtask id="7.3">Mobile responsive: metrics panel below graph</subtask>
+          <subtask id="7.4">Toggle collapse/expand for metrics panel</subtask>
+        </subtasks>
+      </task>
+      <task id="8" ac="8">
+        <title>Tests</title>
+        <subtasks>
+          <subtask id="8.1">Unit test for getMetrics() in graph-engine</subtask>
+          <subtask id="8.2">Unit test for getMetricsTimeSeries()</subtask>
+          <subtask id="8.3">Integration test: /api/metrics returns correct structure</subtask>
+          <subtask id="8.4">Smoke test: MetricsPanel renders without errors</subtask>
+        </subtasks>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Metrics panel dans dashboard (sidebar ou overlay)</criterion>
+    <criterion id="AC2"
+    >Live metrics affich\u00e9s: edge count, node count, density, alpha adaptatif, PageRank top 10, communities count, workflow success rate (24h)</criterion>
+    <criterion id="AC3"
+    >Graphiques time-series (Chart.js): edge count over time, avg confidence over time, workflow execution rate (workflows/hour)</criterion>
+    <criterion id="AC4"
+    >API endpoint: GET /api/metrics retourne JSON (GraphMetricsResponse)</criterion>
+    <criterion id="AC5">Auto-refresh toutes les 5s (ou via SSE metrics_updated)</criterion>
+    <criterion id="AC6">Export metrics: bouton Download CSV</criterion>
+    <criterion id="AC7">Date range selector: last 1h, 24h, 7d</criterion>
+    <criterion id="AC8"
+    >Tests: v\u00e9rifier que metrics endpoint retourne donn\u00e9es correctes</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc
+        path="docs/stories/6-2-interactive-graph-visualization-dashboard.md"
+        title="Story 6.2 - Graph Dashboard"
+        section="Dev Notes"
+        snippet="Fresh migration complete, island pattern for GraphVisualization.tsx, SSE integration pattern, CDN loading for Cytoscape.js, Tailwind styling conventions"
+      />
+      <doc
+        path="docs/architecture.md"
+        title="Decision Architecture"
+        section="Project Structure"
+        snippet="Fresh dashboard in src/web/, routes for SSR, islands for interactive components, Preact + Tailwind CSS"
+      />
+      <doc
+        path="docs/epics.md"
+        title="Epic Breakdown"
+        section="Epic 6"
+        snippet="Real-time Graph Monitoring: SSE events stream, interactive dashboard, live metrics, graph explorer. Story 6.3 focuses on metrics panel with Chart.js"
+      />
+      <doc
+        path="src/web/README.md"
+        title="Fresh Dashboard README"
+        section="Architecture"
+        snippet="SSR + Islands architecture. Route renders initial HTML, island hydrates for interactivity. GraphVisualization.tsx is reference pattern"
+      />
+      <doc
+        path="docs/PRD.md"
+        title="Product Requirements"
+        section="Observability"
+        snippet="Dashboard interactif avec visualisation graphe, m\u00e9triques temps r\u00e9el, PageRank/communities affich\u00e9s"
+      />
+    </docs>
+    <code>
+      <artifact
+        path="src/web/routes/dashboard.tsx"
+        kind="route"
+        symbol="Dashboard"
+        lines="1-43"
+        reason="Main route to extend with MetricsPanel island, loads CDN scripts (add Chart.js here)"
+      />
+      <artifact
+        path="src/web/islands/GraphVisualization.tsx"
+        kind="island"
+        symbol="GraphVisualization"
+        lines="1-342"
+        reason="Reference pattern for islands: state management, SSE integration, fetch from API, Cytoscape handling"
+      />
+      <artifact
+        path="src/web/components/Legend.tsx"
+        kind="component"
+        symbol="Legend"
+        lines="1-40"
+        reason="Reference for static component pattern with Tailwind absolute positioning"
+      />
+      <artifact
+        path="src/web/components/NodeDetails.tsx"
+        kind="component"
+        symbol="NodeDetails"
+        lines="1-43"
+        reason="Reference for component props interface and Tailwind styling"
+      />
+      <artifact
+        path="src/graphrag/graph-engine.ts"
+        kind="service"
+        symbol="GraphRAGEngine"
+        lines="36-897"
+        reason="Core class to extend with getMetrics(), getAdaptiveAlpha(), getMetricsTimeSeries(). Has getDensity(), getTopPageRank(), getCommunitiesCount() (private) to expose"
+      />
+      <artifact
+        path="src/mcp/gateway-server.ts"
+        kind="server"
+        symbol="Casys IntelligenceGatewayServer.startHttp"
+        lines="1860-1968"
+        reason="HTTP server with routes - add /api/metrics endpoint here. Reference /api/graph/snapshot pattern"
+      />
+      <artifact
+        path="src/graphrag/events.ts"
+        kind="types"
+        symbol="GraphEvent"
+        reason="Event types including metrics_updated for SSE integration"
+      />
+      <artifact
+        path="src/server/events-stream.ts"
+        kind="service"
+        symbol="EventsStreamManager"
+        reason="SSE manager already integrated, emits metrics_updated events"
+      />
+    </code>
+    <dependencies>
+      <ecosystem name="deno" version="2.5/2.2 LTS">
+        <package name="fresh" version="^2.0.0" registry="jsr" />
+        <package name="preact" version="^10.27.0" registry="npm" />
+        <package name="preact/hooks" version="^10.27.0" registry="npm" />
+        <package name="tailwindcss" version="3.4.1" registry="npm" />
+        <package name="@std/log" version="0.224.14" registry="jsr" />
+        <package name="graphology" version="^0.25.4" registry="npm" />
+        <package name="graphology-metrics" version="^2.2.0" registry="npm" />
+        <package name="@electric-sql/pglite" version="0.3.11" registry="npm" />
+      </ecosystem>
+      <cdn>
+        <library
+          name="Cytoscape.js"
+          version="3.30.4"
+          url="https://cdn.jsdelivr.net/npm/cytoscape@3.30.4/dist/cytoscape.min.js"
+          loaded="routes/dashboard.tsx"
+        />
+        <library
+          name="Chart.js"
+          version="4.4.7"
+          url="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"
+          toAdd="routes/dashboard.tsx"
+        />
+      </cdn>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint type="architecture"
+    >MetricsPanel MUST be an island (not component) because it manages state, fetches data, and handles SSE events</constraint>
+    <constraint type="architecture"
+    >Static components (MetricCard, TimeSeriesChart) can be regular components as they are props-driven</constraint>
+    <constraint type="pattern"
+    >Follow Fresh islands pattern: routes/ for SSR, islands/ for interactive, components/ for static</constraint>
+    <constraint type="pattern"
+    >CDN libraries (Chart.js) loaded in route Head like Cytoscape.js</constraint>
+    <constraint type="styling"
+    >Use Tailwind CSS classes consistent with Legend.tsx and NodeDetails.tsx</constraint>
+    <constraint type="api"
+    >API base URL hard-coded to http://localhost:3001 in islands (Fresh props serialization issue from Story 6.2)</constraint>
+    <constraint type="performance"
+    >Graph rendering &lt;500ms for 200 nodes (existing constraint)</constraint>
+    <constraint type="performance">Polling interval 5s or SSE for real-time updates</constraint>
+    <constraint type="data"
+    >Time series queries from telemetry_metrics table (Story 1.8)</constraint>
+    <constraint type="data"
+    >GraphRAGEngine methods getDensity(), getTopPageRank(), getCommunitiesCount() are private - must expose or add wrapper getMetrics()</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface
+      name="GraphMetricsResponse"
+      kind="TypeScript interface"
+      path="src/graphrag/types.ts (new)"
+    >
+      <signature
+      ><![CDATA[
+interface GraphMetricsResponse {
+  current: {
+    node_count: number;
+    edge_count: number;
+    density: number;
+    adaptive_alpha: number;
+    communities_count: number;
+    pagerank_top_10: Array<{ tool_id: string; score: number }>;
+  };
+  timeseries: {
+    edge_count: Array<{ timestamp: string; value: number }>;
+    avg_confidence: Array<{ timestamp: string; value: number }>;
+    workflow_rate: Array<{ timestamp: string; value: number }>;
+  };
+  period: {
+    range: "1h" | "24h" | "7d";
+    workflows_executed: number;
+    workflows_success_rate: number;
+    new_edges_created: number;
+    new_nodes_added: number;
+  };
+}
+      ]]></signature>
+    </interface>
+    <interface name="GET /api/metrics" kind="REST endpoint" path="src/mcp/gateway-server.ts">
+      <signature
+      ><![CDATA[
+GET /api/metrics?range={1h|24h|7d}
+Response: GraphMetricsResponse (JSON)
+Headers: Content-Type: application/json, CORS enabled
+      ]]></signature>
+    </interface>
+    <interface name="getMetrics" kind="method" path="src/graphrag/graph-engine.ts">
+      <signature
+      ><![CDATA[
+async getMetrics(range: "1h" | "24h" | "7d"): Promise<GraphMetricsResponse>
+// Aggregates getDensity(), getTopPageRank(), getCommunitiesCount(), getAdaptiveAlpha()
+// Queries telemetry_metrics for time series data
+      ]]></signature>
+    </interface>
+    <interface name="getAdaptiveAlpha" kind="method" path="src/graphrag/graph-engine.ts">
+      <signature
+      ><![CDATA[
+getAdaptiveAlpha(): number
+// Returns current alpha value based on graph density
+// Formula: alpha = max(0.5, 1.0 - density * 2)
+// Already calculated in searchToolsHybrid(), extract to separate method
+      ]]></signature>
+    </interface>
+    <interface name="SSE metrics_updated" kind="event" path="src/graphrag/events.ts">
+      <signature
+      ><![CDATA[
+{
+  type: "metrics_updated",
+  data: {
+    edge_count: number;
+    node_count: number;
+    density: number;
+    pagerank_top_10: Array<{ tool_id: string; score: number }>;
+    communities_count: number;
+    timestamp: string;
+  }
+}
+// Already emitted by GraphRAGEngine.updateFromExecution()
+      ]]></signature>
+    </interface>
+    <interface
+      name="MetricsPanelProps"
+      kind="TypeScript interface"
+      path="src/web/islands/MetricsPanel.tsx (new)"
+    >
+      <signature
+      ><![CDATA[
+interface MetricsPanelProps {
+  apiBase: string;
+  position?: "sidebar" | "overlay";
+}
+      ]]></signature>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      <paragraph
+      >Tests use Deno.test with @std/assert (assertEquals, assertExists). Unit tests in tests/unit/, integration in tests/integration/. Pattern from Story 6.2: graph_engine_snapshot_test.ts (5 unit tests), dashboard_endpoints_test.ts (4 integration tests). Mock database with PGliteClient(":memory:"). Test HTTP endpoints with fetch(). Coverage target >80%.</paragraph>
+    </standards>
+    <locations>
+      <location glob="tests/unit/graphrag/*_test.ts">GraphRAGEngine unit tests</location>
+      <location glob="tests/integration/dashboard_*_test.ts">Dashboard endpoint tests</location>
+      <location glob="tests/unit/web/*_test.ts">Fresh component tests (if needed)</location>
+    </locations>
+    <ideas>
+      <idea ac="AC4" priority="high"
+      >Test getMetrics() returns correct structure with all required fields (current, timeseries, period)</idea>
+      <idea ac="AC4" priority="high"
+      >Test getMetrics() with empty graph returns zeros without crashing</idea>
+      <idea ac="AC4" priority="medium"
+      >Test getMetricsTimeSeries() queries correct time range (1h vs 24h vs 7d)</idea>
+      <idea ac="AC4" priority="high"
+      >Integration test: GET /api/metrics?range=24h returns 200 with valid JSON</idea>
+      <idea ac="AC2" priority="medium"
+      >Test getAdaptiveAlpha() returns value in [0.5, 1.0] range</idea>
+      <idea ac="AC2" priority="medium">Test pagerank_top_10 is sorted descending by score</idea>
+      <idea ac="AC7" priority="low"
+      >Test date range parameter validation (rejects invalid values)</idea>
+      <idea ac="AC8" priority="low"
+      >Smoke test: MetricsPanel island renders without errors (may need jsdom or similar)</idea>
+    </ideas>
+  </tests>
+</story-context>

@@ -189,9 +189,9 @@ export class MultiLevelScorer {
           activeWeights[2] * temporalScore) /
           totalActiveWeight;
 
-        // Final score with reliability
+        // Final score with reliability (raw logit, no sigmoid - softmax applied at discover level)
         const rawScore = baseScore * reliabilityMult;
-        const score = Number.isFinite(rawScore) ? math.sigmoid(rawScore) : 0.5;
+        const score = Number.isFinite(rawScore) ? rawScore : 0;
 
         // Compute normalized head weights for interpretability
         const headWeights = [

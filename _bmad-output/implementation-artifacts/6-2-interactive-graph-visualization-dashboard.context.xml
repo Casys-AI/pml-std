@@ -1,0 +1,288 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>6</epicId>
+    <storyId>6.2</storyId>
+    <title>Interactive Graph Visualization Dashboard</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-01</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/6-2-interactive-graph-visualization-dashboard.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>power user</asA>
+    <iWant>a web interface to visualize the tool dependency graph</iWant>
+    <soThat>I can understand which tools are used together and observe real-time learning</soThat>
+    <tasks>
+      <task
+        id="1"
+        acs="1,10"
+      >Créer endpoint static dashboard
+        - Créer public/dashboard.html avec structure HTML/CSS
+        - Ajouter route GET /dashboard dans gateway-server.ts
+        - Tester accès via curl http://localhost:3000/dashboard
+      </task>
+      <task
+        id="2"
+        acs="2,3,4,5"
+      >Implémenter Cytoscape.js graph rendering
+        - Ajouter Cytoscape.js CDN dans HTML
+        - Implémenter graph container avec styles
+        - Configurer force-directed layout (cose)
+        - Styliser nodes (couleur par server, taille par PageRank)
+        - Styliser edges (épaisseur par confidence_score)
+        - Ajouter interactions zoom/pan/drag
+      </task>
+      <task
+        id="3"
+        acs="6"
+      >Ajouter node click details panel
+        - Créer #node-details HTML panel
+        - Implémenter tap event handler
+        - Display node details (name, server, PageRank, degree)
+        - List connected nodes (neighbors)
+      </task>
+      <task
+        id="4"
+        acs="7"
+      >Real-time updates via SSE
+        - Connect EventSource to /events/stream
+        - Handler pour edge_created event (add edge avec animation)
+        - Handler pour edge_updated event (update confidence)
+        - Handler pour metrics_updated event (resize nodes)
+        - Ajouter highlight/flash animation pour nouveaux edges
+      </task>
+      <task
+        id="5"
+        acs="8"
+      >Légende interactive avec filtres
+        - Créer #legend HTML panel
+        - Populate legend dynamiquement avec servers
+        - Server color mapping (couleur par MCP server)
+        - Click legend item → filter/show nodes par server
+      </task>
+      <task
+        id="6"
+      >Backend API pour graph snapshot
+        - Implémenter getGraphSnapshot() dans GraphRAGEngine
+        - Ajouter route GET /api/graph/snapshot dans gateway
+        - Transform graph data to visualization format
+        - Include PageRank, degree, server metadata
+      </task>
+      <task
+        id="7"
+        acs="9"
+      >Performance optimization
+        - Benchmark render time avec 200 nodes
+        - Optimize Cytoscape layout settings
+        - Lazy load edges si > 500 edges
+        - Verify P95 &lt;500ms render time
+      </task>
+      <task
+        id="8"
+        acs="11"
+      >Mobile responsive (optional)
+        - Ajouter media queries pour mobile
+        - Adjust legend/details panels pour small screens
+        - Test touch interactions (zoom, pan)
+      </task>
+      <task
+        id="9"
+      >Tests
+        - Unit test pour getGraphSnapshot()
+        - Integration test: dashboard loads sans erreurs
+        - E2E test: SSE events update graph
+        - Performance test: render 200 nodes &lt;500ms
+      </task>
+      <task
+        id="10"
+      >Documentation
+        - Update docs/api/ avec dashboard usage
+        - Screenshot du dashboard pour README
+        - Document customization (colors, layout)
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">Page HTML statique servie via endpoint GET /dashboard</criterion>
+    <criterion id="AC2">Force-directed graph layout avec D3.js ou Cytoscape.js</criterion>
+    <criterion id="AC3">Nodes = tools (couleur par server, taille par PageRank)</criterion>
+    <criterion id="AC4">Edges = dépendances (épaisseur par confidence_score)</criterion>
+    <criterion id="AC5">Interactions: zoom, pan, drag nodes</criterion>
+    <criterion id="AC6"
+    >Click sur node → affiche details (name, server, PageRank, neighbors)</criterion>
+    <criterion id="AC7">Real-time updates via SSE (nouveaux edges animés)</criterion>
+    <criterion id="AC8">Légende interactive (filtres par server)</criterion>
+    <criterion id="AC9">Performance: render &lt;500ms pour 200 nodes</criterion>
+    <criterion id="AC10">Endpoint static: GET /dashboard sert le HTML</criterion>
+    <criterion id="AC11">Mobile responsive (optionnel mais nice-to-have)</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/stories/6-1-real-time-events-stream-sse.md</path>
+        <title>Story 6.1: Real-time Events Stream (SSE)</title>
+        <section>Technical Notes</section>
+        <snippet
+        >Implémentation complète de SSE avec EventsStreamManager, EventTarget dans GraphRAGEngine, 6 types d'événements (graph_synced, edge_created, edge_updated, workflow_executed, metrics_updated, heartbeat), CORS configuré, limite 100 clients, heartbeat 30s.</snippet>
+      </doc>
+      <doc>
+        <path>docs/api/events.md</path>
+        <title>Casys Intelligence Events API Documentation</title>
+        <section>Event Types</section>
+        <snippet
+        >Documentation complète de l'API SSE: endpoint GET /events/stream, tous les types d'événements avec payloads JSON, event formats (edge_created, edge_updated, metrics_updated avec pagerank_top_10), exemples clients JavaScript/TypeScript.</snippet>
+      </doc>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>Epic 6: Real-time Graph Monitoring &amp; Observability</title>
+        <section>Epic 6 Description</section>
+        <snippet
+        >4 stories pour dashboard interactif avec SSE: events stream (6.1 ✅), visualization dashboard (6.2), metrics panel (6.3), graph explorer (6.4). Objectif: visualiser le graphe en temps réel avec D3.js/Cytoscape.js, PageRank viz, filtres par server.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture</title>
+        <section>Tech Stack</section>
+        <snippet
+        >Deno 2.5, PGlite avec pgvector, graphology pour PageRank/Louvain, SSE native ReadableStream, Deno.serve pour HTTP server. Pattern: zero-config, portable single-file database, 15+ MCP servers simultanés.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>src/graphrag/graph-engine.ts</path>
+        <kind>service</kind>
+        <symbol>GraphRAGEngine</symbol>
+        <lines>35-100</lines>
+        <reason
+        >Graph engine avec EventTarget pour événements SSE, méthodes on/off/emit déjà implémentées. Besoin d'ajouter getGraphSnapshot() pour snapshot complet du graphe (nodes + edges + metadata).</reason>
+      </artifact>
+      <artifact>
+        <path>src/graphrag/graph-engine.ts</path>
+        <kind>service</kind>
+        <symbol>getDensity, getTopPageRank, getCommunitiesCount</symbol>
+        <lines>666-690</lines>
+        <reason
+        >Helper methods privées déjà disponibles pour calculer density, PageRank top N, et nombre de communautés. Réutiliser dans getGraphSnapshot() pour metadata.</reason>
+      </artifact>
+      <artifact>
+        <path>src/server/events-stream.ts</path>
+        <kind>service</kind>
+        <symbol>EventsStreamManager</symbol>
+        <lines>1-100</lines>
+        <reason
+        >Service SSE déjà implémenté (Story 6.1) pour broadcast des GraphEvents. Dashboard utilisera EventSource client-side pour se connecter à /events/stream. NE PAS MODIFIER ce fichier.</reason>
+      </artifact>
+      <artifact>
+        <path>src/mcp/gateway-server.ts</path>
+        <kind>server</kind>
+        <symbol>Deno.serve request handler</symbol>
+        <lines>1873-1892</lines>
+        <reason
+        >Handler HTTP avec routing pour /health, /events/stream, /message. Ajouter routes: GET /dashboard (serve HTML) et GET /api/graph/snapshot (JSON snapshot).</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <node>
+        <package>cytoscape</package>
+        <version>3.30.4</version>
+        <note>CDN via jsdelivr pour graph visualization (force-directed layout, interactions)</note>
+      </node>
+      <deno>
+        <package>@std/log</package>
+        <version>0.224.14</version>
+        <note>Logging déjà utilisé dans projet</note>
+      </deno>
+      <deno>
+        <package>graphology</package>
+        <version>0.26.0</version>
+        <note>Déjà utilisé pour PageRank, Louvain - graph computations</note>
+      </deno>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint
+    >Module location: public/dashboard.html (frontend static), src/mcp/gateway-server.ts (backend routes), src/graphrag/graph-engine.ts (getGraphSnapshot method)</constraint>
+    <constraint
+    >DO NOT modify src/server/events-stream.ts - EventsStreamManager déjà complété dans Story 6.1</constraint>
+    <constraint
+    >Utiliser EventSource browser API pour connexion SSE (compatible avec EventTarget pattern du GraphRAGEngine)</constraint>
+    <constraint
+    >Performance target: render &lt;500ms pour 200 nodes (AC9) - optimiser Cytoscape layout settings</constraint>
+    <constraint
+    >CORS déjà configuré dans EventsStreamManager - pas de modification nécessaire</constraint>
+    <constraint
+    >Toujours utiliser project-relative paths (e.g., src/..., public/...) jamais absolute paths</constraint>
+    <constraint
+    >Cytoscape.js via CDN (pas npm) pour simplicité - dashboard.html standalone</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>GraphRAGEngine.getGraphSnapshot()</name>
+      <kind>method</kind>
+      <signature>async getGraphSnapshot(): Promise&lt;GraphSnapshot&gt;</signature>
+      <path>src/graphrag/graph-engine.ts</path>
+      <description
+      >Nouvelle méthode à implémenter - retourne snapshot complet: nodes (id, label, server, pagerank, degree), edges (source, target, confidence, observed_count), metadata (total_nodes, total_edges, density, last_updated)</description>
+    </interface>
+    <interface>
+      <name>GET /dashboard</name>
+      <kind>HTTP endpoint</kind>
+      <signature>GET /dashboard → Response(text/html)</signature>
+      <path>src/mcp/gateway-server.ts</path>
+      <description
+      >Nouveau endpoint à ajouter - sert public/dashboard.html avec Content-Type: text/html</description>
+    </interface>
+    <interface>
+      <name>GET /api/graph/snapshot</name>
+      <kind>HTTP endpoint</kind>
+      <signature>GET /api/graph/snapshot → Response(application/json)</signature>
+      <path>src/mcp/gateway-server.ts</path>
+      <description
+      >Nouveau endpoint à ajouter - appelle graphEngine.getGraphSnapshot() et retourne JSON</description>
+    </interface>
+    <interface>
+      <name>EventSource /events/stream</name>
+      <kind>SSE client</kind>
+      <signature>new EventSource("http://localhost:3000/events/stream")</signature>
+      <path>public/dashboard.html</path>
+      <description
+      >Connexion SSE client-side pour recevoir edge_created, edge_updated, metrics_updated events - déjà implémenté côté server dans Story 6.1</description>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards
+    >
+      Framework: Deno.test native testing avec @std/assert (assertEquals, assertExists, assertRejects).
+      Patterns: Unit tests (tests/unit/), integration tests (tests/integration/), E2E tests (tests/e2e/).
+      Mocking: Classes mock avec interfaces TypeScript (ex: MockGraphEngine dans events_stream_test.ts).
+      Coverage target: &gt;80% pour code critique.
+      Performance: Utiliser performance.now() pour benchmarks, vérifier P95 targets.
+    </standards>
+    <locations
+    >
+      - tests/unit/graphrag/ (graph_engine_snapshot_test.ts - nouveau)
+      - tests/integration/ (dashboard_e2e_test.ts - nouveau)
+      - tests/e2e/ (si besoin de test end-to-end complet)
+      - public/examples/ (events-client.ts - exemple déjà existant comme référence)
+    </locations>
+    <ideas>
+      <test acs="AC6,AC10"
+      >Unit test: GraphRAGEngine.getGraphSnapshot() - vérifier structure retournée (nodes avec id/label/server/pagerank/degree, edges avec source/target/confidence, metadata avec density/total counts)</test>
+      <test acs="AC1,AC10"
+      >Integration test: GET /dashboard endpoint - vérifier status 200, Content-Type text/html, HTML contient Cytoscape.js CDN script tag</test>
+      <test acs="AC2,AC3,AC4,AC5"
+      >Integration test: GET /api/graph/snapshot endpoint - vérifier JSON structure, nodes/edges arrays non-vides, PageRank values entre 0-1, confidence scores 0-1</test>
+      <test acs="AC7"
+      >E2E test: SSE real-time updates - connecter EventSource, émettre edge_created event via GraphRAGEngine, vérifier réception côté client (simulation avec browser-like fetch)</test>
+      <test acs="AC9"
+      >Performance test: Render time benchmark - générer graph avec 200 nodes, mesurer temps de getGraphSnapshot() + JSON.stringify(), vérifier &lt;500ms P95</test>
+      <test acs="AC8"
+      >Manual test: Légende filtres - vérifier que click sur legend item cache/montre nodes par server (test browser interactif)</test>
+    </ideas>
+  </tests>
+</story-context>

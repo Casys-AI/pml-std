@@ -23,7 +23,7 @@ import type {
   TrainingExample,
 } from "../types.ts";
 import type { HeadParams, LayerParams } from "../initialization/parameters.ts";
-import { zerosLike3D } from "../initialization/parameters.ts";
+import { random, zerosLike3D } from "../initialization/parameters.ts";
 import * as math from "../utils/math.ts";
 
 // ============================================================================
@@ -354,14 +354,14 @@ export async function trainOnEpisodes(
   // Yield to event loop for UI responsiveness during long training
   await Promise.resolve();
 
-  const epochs = options.epochs || 10;
+  const epochs = options.epochs ?? 1; // Default 1 epoch - more causes overfitting on small datasets
   const batchSize = options.batchSize || 32;
 
   let finalLoss = 0;
   let finalAccuracy = 0;
 
   for (let epoch = 0; epoch < epochs; epoch++) {
-    const shuffled = [...episodes].sort(() => Math.random() - 0.5);
+    const shuffled = [...episodes].sort(() => random() - 0.5);
 
     let epochLoss = 0;
     let epochAccuracy = 0;

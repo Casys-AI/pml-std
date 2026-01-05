@@ -1,0 +1,321 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2.5</epicId>
+    <storyId>4</storyId>
+    <title>MCP Control Tools &amp; Per-Layer Validation</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-25</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/story-2.5-4.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>external agent (Claude Code) using Casys Intelligence via MCP</asA>
+    <iWant>to control workflow execution with continue/abort/replan commands</iWant>
+    <soThat
+    >I can build adaptive workflows with per-layer validation and progressive discovery</soThat>
+    <tasks>
+      <task id="AC1"
+      >MCP Control Tools (3h) - Add 4 meta-tools to gateway-server.ts: agentcards:continue, agentcards:abort, agentcards:replan, agentcards:approval_response</task>
+      <task id="AC2"
+      >Per-Layer Validation Mode (2h) - Modify execute to support per_layer_validation: true config, return layer_complete status with workflow_id</task>
+      <task id="AC3"
+      >Workflow DAG Persistence (1.5h) - New table workflow_dags + module workflow-dag-store.ts (Spike Option C)</task>
+      <task id="AC4"
+      >Integration Tests (1h) - Create tests/integration/mcp/control-tools.test.ts with 3 test cases</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1" name="MCP Control Tools">
+      <description>Expose 4 commands as MCP meta-tools for external agents</description>
+      <tools>
+        <tool name="agentcards:continue" required="workflow_id" optional="reason"
+        >Continue DAG execution to next layer</tool>
+        <tool name="agentcards:abort" required="workflow_id, reason">Abort DAG execution</tool>
+        <tool
+          name="agentcards:replan"
+          required="workflow_id, new_requirement"
+          optional="available_context"
+        >Replan DAG via GraphRAG</tool>
+        <tool
+          name="agentcards:approval_response"
+          required="workflow_id, checkpoint_id, approved"
+          optional="feedback"
+        >HIL approval checkpoint</tool>
+      </tools>
+      <tests>
+        <test>Call agentcards:continue → workflow proceeds to next layer</test>
+        <test>Call agentcards:abort → workflow stops with reason</test>
+        <test>Call agentcards:replan → GraphRAG adds new tasks</test>
+        <test>Call agentcards:approval_response → HIL checkpoint resolved</test>
+      </tests>
+    </criterion>
+    <criterion id="AC2" name="Per-Layer Validation Mode">
+      <description>Enable external agents to validate after each layer</description>
+      <input>execute with config: { per_layer_validation: true }</input>
+      <output
+      >{ status: "layer_complete", workflow_id, layer_index, layer_results, next_layer_preview, options }</output>
+    </criterion>
+    <criterion id="AC3" name="Workflow DAG Persistence">
+      <description
+      >Persist DAG in separate table for MCP stateless continuation (Spike Option C)</description>
+      <table>workflow_dags (workflow_id PK, dag JSONB, intent TEXT, created_at, expires_at)</table>
+      <interface>
+        <function>saveWorkflowDAG(db, workflowId, dag, intent): Promise&lt;void&gt;</function>
+        <function>getWorkflowDAG(db, workflowId): Promise&lt;DAGStructure | null&gt;</function>
+        <function>deleteWorkflowDAG(db, workflowId): Promise&lt;void&gt;</function>
+        <function>cleanupExpiredDAGs(db): Promise&lt;number&gt;</function>
+      </interface>
+      <cleanup>DAGs older than 1 hour automatically cleaned up via expires_at TTL</cleanup>
+    </criterion>
+    <criterion id="AC4" name="Integration Tests">
+      <description>3 test cases for external agent flows</description>
+      <tests>
+        <test>External agent flow: execute → continue → complete</test>
+        <test>Replan mid-workflow</test>
+        <test>Abort mid-workflow</test>
+      </tests>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc
+        path="docs/adrs/ADR-020-ail-control-protocol.md"
+        title="ADR-020: AIL Control Protocol"
+        section="Full Document"
+      >
+        Source of truth for Three-Level AIL Architecture. Defines 4 unified commands (continue, abort, replan, approval_response) and MCP meta-tools pattern.
+      </doc>
+      <doc
+        path="docs/adrs/ADR-007-dag-adaptive-feedback-loops.md"
+        title="ADR-007: 3-Loop Learning Architecture"
+        section="Loop 2 - Adaptation"
+      >
+        Conceptual foundation for AIL/HIL decision points. Defines decision_required events and command queue patterns.
+      </doc>
+      <doc
+        path="docs/tech-spec-epic-2.5.md"
+        title="Epic 2.5 Technical Specification"
+        section="Loop 2 (Adaptation - Runtime)"
+      >
+        Technical spec covering ControlledExecutor, CommandQueue, EventStream, and checkpoint infrastructure.
+      </doc>
+      <doc
+        path="docs/stories/story-2.5-3.md"
+        title="Story 2.5-3: AIL/HIL Integration"
+        section="Prerequisites"
+      >
+        Prerequisite story implementing SSE events, decision points, and CommandQueue for Level 2 agents.
+      </doc>
+      <doc
+        path="docs/architecture.md"
+        title="Decision Architecture"
+        section="DAG Execution"
+      >
+        Custom DAG executor with topological sort + Promise.all, 5x speedup, zero external dependencies.
+      </doc>
+      <doc
+        path="docs/spikes/spike-agent-human-dag-feedback-loop.md"
+        title="Spike: Agent-Human DAG Feedback Loop"
+        section="MCP Constraints"
+      >
+        Original exploration of MCP one-shot protocol limitations and HTTP response patterns.
+      </doc>
+      <doc
+        path="docs/spikes/spike-mcp-workflow-state-persistence.md"
+        title="Spike: MCP Workflow State Persistence"
+        section="Decision"
+      >
+        Spike for DAG persistence decision. Option C (separate table) chosen over checkpoint embedding.
+      </doc>
+    </docs>
+    <code>
+      <file
+        path="src/mcp/gateway-server.ts"
+        kind="server"
+        symbol="Casys IntelligenceGatewayServer"
+        lines="1-1500"
+        reason="Main file to modify - add 4 MCP control tools and handlers"
+      >
+        <methods>
+          <method name="handleListTools" lines="191-400"
+          >Returns tool definitions including new control tools</method>
+          <method name="handleCallTool" lines="410-500"
+          >Dispatch to handlers based on tool name</method>
+          <method name="handleContinue" lines="946-1093">NEW - Handle agentcards:continue</method>
+          <method name="handleAbort" lines="1104-1156">NEW - Handle agentcards:abort</method>
+          <method name="handleReplan" lines="1167-1300">NEW - Handle agentcards:replan</method>
+          <method name="handleApprovalResponse" lines="1311-1456"
+          >NEW - Handle agentcards:approval_response</method>
+        </methods>
+      </file>
+      <file
+        path="src/mcp/workflow-dag-store.ts"
+        kind="module"
+        symbol="WorkflowDAGStore"
+        reason="NEW - DAG persistence for MCP stateless workflows (Spike Option C)"
+      >
+        <exports>
+          <export name="saveWorkflowDAG">Persist DAG to workflow_dags table</export>
+          <export name="getWorkflowDAG">Load DAG by workflow_id</export>
+          <export name="deleteWorkflowDAG">Delete DAG after workflow completion</export>
+          <export name="cleanupExpiredDAGs">Auto-cleanup DAGs past expires_at TTL</export>
+        </exports>
+      </file>
+      <file
+        path="src/db/migrations/008_workflow_dags.sql"
+        kind="sql"
+        reason="NEW - Migration for workflow_dags table"
+      >
+        <schema
+        >CREATE TABLE workflow_dags (workflow_id TEXT PK, dag JSONB, intent TEXT, created_at, expires_at)</schema>
+      </file>
+      <file
+        path="src/dag/controlled-executor.ts"
+        kind="class"
+        symbol="ControlledExecutor"
+        reason="Extends ParallelExecutor with event stream and command queue"
+      >
+        <methods>
+          <method name="enqueueCommand" lines="1025-1027">Enqueue command to CommandQueue</method>
+          <method name="executeStream" lines="150-500"
+          >Async generator yielding ExecutionEvent</method>
+        </methods>
+      </file>
+      <file
+        path="src/dag/command-queue.ts"
+        kind="class"
+        symbol="CommandQueue"
+        reason="FIFO command queue for dynamic control"
+      >
+        <methods>
+          <method name="enqueue">Add command to queue</method>
+          <method name="processCommands">Drain all pending commands (synchronous)</method>
+          <method name="drainSync">BUG-001 fix - synchronous drain</method>
+        </methods>
+      </file>
+      <file
+        path="src/dag/types.ts"
+        kind="types"
+        symbol="Command"
+        lines="246-292"
+        reason="Type definitions for 8 command types"
+      >
+        <types>
+          <type name="continue">Resume execution (reason optional)</type>
+          <type name="abort">Stop execution (reason required)</type>
+          <type name="replan">Trigger GraphRAG replanning</type>
+          <type name="approval_response">HIL checkpoint response</type>
+        </types>
+      </file>
+      <file
+        path="src/dag/event-stream.ts"
+        kind="class"
+        symbol="EventStream"
+        reason="TransformStream for real-time observability"
+      >
+        <events
+        >decision_required, checkpoint, layer_complete, workflow_complete, task_complete, task_error</events>
+      </file>
+    </code>
+    <dependencies>
+      <ecosystem name="deno">
+        <package name="@std/assert" version="1.0.11" use="testing" />
+        <package name="@std/log" version="0.224.14" use="logging" />
+        <package name="@electric-sql/pglite" version="0.3.11" use="database (checkpoints)" />
+        <package name="@modelcontextprotocol/sdk" version="1.21.1" use="MCP protocol" />
+      </ecosystem>
+      <internal>
+        <module name="src/dag/controlled-executor.ts">ControlledExecutor class</module>
+        <module name="src/dag/command-queue.ts">CommandQueue class</module>
+        <module name="src/dag/types.ts">Command type definitions</module>
+        <module name="src/dag/event-stream.ts">EventStream class</module>
+        <module name="src/mcp/gateway-server.ts">Casys IntelligenceGatewayServer class</module>
+      </internal>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint type="protocol"
+    >MCP is one-shot request/response - cannot stream SSE events to external agents</constraint>
+    <constraint type="architecture"
+    >Level 1 agents (Claude Code) use MCP meta-tools, Level 2 (internal) use CommandQueue directly</constraint>
+    <constraint type="naming">Tool names use colons as separator: agentcards:tool_name</constraint>
+    <constraint type="state"
+    >Workflow state is in-memory (Map), lost on restart - acceptable for MVP</constraint>
+    <constraint type="cleanup">Stale workflows (>1h) automatically cleaned up</constraint>
+    <constraint type="backward-compat"
+    >execute renamed from execute_workflow - update tests</constraint>
+    <constraint type="performance"
+    >Checkpoint overhead &lt;50ms, command processing &lt;10ms P95</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface name="MCP Control Tools" kind="REST-like MCP">
+      <endpoint name="agentcards:execute" method="call">
+        <input
+        >{ intent: string, workflow?: object, config?: { per_layer_validation: boolean } }</input>
+        <output
+        >{ status: "complete"|"layer_complete", workflow_id?, results?, layer_results?, options? }</output>
+      </endpoint>
+      <endpoint name="agentcards:continue" method="call">
+        <input>{ workflow_id: string, reason?: string }</input>
+        <output>{ status: "complete"|"layer_complete", ... }</output>
+      </endpoint>
+      <endpoint name="agentcards:abort" method="call">
+        <input>{ workflow_id: string, reason: string }</input>
+        <output>{ status: "aborted", partial_results, completed_layers }</output>
+      </endpoint>
+      <endpoint name="agentcards:replan" method="call">
+        <input>{ workflow_id: string, new_requirement: string, available_context?: object }</input>
+        <output>{ status: "replanned", new_tasks?, options }</output>
+      </endpoint>
+      <endpoint name="agentcards:approval_response" method="call">
+        <input
+        >{ workflow_id: string, checkpoint_id: string, approved: boolean, feedback?: string }</input>
+        <output>{ status: "complete"|"rejected"|"layer_complete", ... }</output>
+      </endpoint>
+    </interface>
+    <interface name="ControlledExecutor.enqueueCommand" kind="internal">
+      <signature>enqueueCommand(command: Command): void</signature>
+      <usage>workflow.executor.enqueueCommand({ type: "continue", reason: "..." })</usage>
+    </interface>
+    <interface name="ActiveWorkflow" kind="internal">
+      <signature
+      >interface ActiveWorkflow { workflowId, executor, generator, dag, currentLayer, totalLayers, layerResults, status, createdAt, lastActivityAt }</signature>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards
+    >
+      Deno 2.x built-in test runner (Deno.test). Assertions via @std/assert.
+      Tests use real MCP servers (not mocks) for E2E. Fast feedback (&lt;2s per test).
+      Coverage target: >80%. Integration tests in tests/integration/, unit tests in tests/unit/.
+    </standards>
+    <locations>
+      <location>tests/unit/mcp/gateway_server_test.ts</location>
+      <location>tests/integration/mcp_gateway_e2e_test.ts</location>
+      <location>tests/unit/dag/command_queue_test.ts</location>
+      <location>tests/unit/dag/controlled_executor_test.ts</location>
+      <location>tests/integration/dag/ail_workflow_e2e_test.ts</location>
+      <location>tests/integration/mcp/control-tools.test.ts (NEW)</location>
+    </locations>
+    <ideas>
+      <idea ac="AC1">Test agentcards:continue - verify workflow proceeds to next layer</idea>
+      <idea ac="AC1"
+      >Test agentcards:abort - verify workflow stops with reason and partial results</idea>
+      <idea ac="AC1">Test agentcards:replan - verify GraphRAG adds new tasks</idea>
+      <idea ac="AC1">Test agentcards:approval_response - verify HIL checkpoint resolved</idea>
+      <idea ac="AC2"
+      >Test execute with per_layer_validation: true returns layer_complete status</idea>
+      <idea ac="AC2">Test workflow_id is returned and can be used for continuation</idea>
+      <idea ac="AC3">Test workflow state cleanup after 1h (stale workflow)</idea>
+      <idea ac="AC3">Test invalid workflow_id returns error</idea>
+      <idea ac="AC4">E2E: execute → continue → complete flow</idea>
+      <idea ac="AC4">E2E: execute → replan → continue → complete flow</idea>
+      <idea ac="AC4">E2E: execute → abort flow with partial results</idea>
+    </ideas>
+  </tests>
+</story-context>

@@ -15,6 +15,7 @@ import {
   type ExecuteArgs,
   type ExecuteDependencies,
   handleExecute,
+  trainingLock,
 } from "../../../../src/mcp/handlers/execute-handler.ts";
 
 // Mock dependencies factory
@@ -669,4 +670,90 @@ Deno.test("Execute Handler - accept_suggestion does not record usage on capabili
 
   // recordUsage should NOT be called for not-found (no capability to track)
   assertEquals(recordUsageCalled, false);
+});
+
+// ============================================================================
+// Training Lock Tests (Batch vs PER concurrency prevention)
+// ============================================================================
+
+Deno.test("trainingLock - should acquire lock successfully when not locked", () => {
+  // Ensure lock is released before test
+  trainingLock.release("BATCH");
+  trainingLock.release("PER");
+
+  const acquired = trainingLock.acquire("TEST");
+  assertEquals(acquired, true);
+  assertEquals(trainingLock.isLocked(), true);
+  assertEquals(trainingLock.owner, "TEST");
+
+  // Cleanup
+  trainingLock.release("TEST");
+});
+
+Deno.test("trainingLock - should reject second acquire when already locked", () => {
+  // Ensure lock is released before test
+  trainingLock.release("BATCH");
+  trainingLock.release("PER");
+
+  // First acquire succeeds
+  const first = trainingLock.acquire("BATCH");
+  assertEquals(first, true);
+
+  // Second acquire fails
+  const second = trainingLock.acquire("PER");
+  assertEquals(second, false);
+  assertEquals(trainingLock.owner, "BATCH"); // Original owner unchanged
+
+  // Cleanup
+  trainingLock.release("BATCH");
+});
+
+Deno.test("trainingLock - should only allow owner to release", () => {
+  // Ensure lock is released before test
+  trainingLock.release("BATCH");
+  trainingLock.release("PER");
+
+  trainingLock.acquire("BATCH");
+
+  // Wrong owner cannot release
+  trainingLock.release("PER");
+  assertEquals(trainingLock.isLocked(), true);
+  assertEquals(trainingLock.owner, "BATCH");
+
+  // Correct owner can release
+  trainingLock.release("BATCH");
+  assertEquals(trainingLock.isLocked(), false);
+  assertEquals(trainingLock.owner, "");
+});
+
+Deno.test("trainingLock - should allow reacquire after release", () => {
+  // Ensure lock is released before test
+  trainingLock.release("BATCH");
+  trainingLock.release("PER");
+
+  // Acquire and release
+  trainingLock.acquire("BATCH");
+  trainingLock.release("BATCH");
+
+  // Should be able to acquire again
+  const acquired = trainingLock.acquire("PER");
+  assertEquals(acquired, true);
+  assertEquals(trainingLock.owner, "PER");
+
+  // Cleanup
+  trainingLock.release("PER");
+});
+
+Deno.test("trainingLock - isLocked returns correct state", () => {
+  // Ensure lock is released before test
+  trainingLock.release("BATCH");
+  trainingLock.release("PER");
+
+  assertEquals(trainingLock.isLocked(), false);
+
+  trainingLock.acquire("TEST");
+  assertEquals(trainingLock.isLocked(), true);
+
+  trainingLock.release("TEST");
+  assertEquals(trainingLock.isLocked(), false);
 });

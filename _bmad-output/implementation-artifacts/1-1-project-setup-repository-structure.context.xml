@@ -1,0 +1,148 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>1.1</storyId>
+    <title>Project Setup & Repository Structure</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-03</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/story-1.1.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>a clean Deno project structure with CI/CD configured</iWant>
+    <soThat>I can start development with proper tooling and automation in place</soThat>
+    <tasks>
+      <task id="1"
+      >Créer l'arborescence standard Deno (src/, tests/, docs/, .github/workflows/)</task>
+      <task id="2"
+      >Configurer deno.json avec tasks scripts (test, lint, fmt, dev, check) et options de formatage</task>
+      <task id="3"
+      >Implémenter GitHub Actions CI avec jobs: lint, typecheck, test (Deno 2.5.x)</task>
+      <task id="4">Créer README.md avec badges CI et quick start guide</task>
+      <task id="5">Ajouter .gitignore pour projets Deno</task>
+      <task id="6">Ajouter LICENSE (MIT) et CODE_OF_CONDUCT.md</task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1"
+    >Repository initialisé avec structure Deno standard (src/, tests/, docs/)</criterion>
+    <criterion id="AC2">GitHub Actions CI configuré (lint, typecheck, tests)</criterion>
+    <criterion id="AC3">deno.json configuré avec tasks scripts (test, lint, fmt, dev)</criterion>
+    <criterion id="AC4">README.md avec badges CI et quick start guide</criterion>
+    <criterion id="AC5">.gitignore approprié pour Deno projects</criterion>
+    <criterion id="AC6">License MIT et CODE_OF_CONDUCT.md</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture - Casys Intelligence</title>
+        <section>Project Initialization</section>
+        <snippet
+        >First Story (1.1) initializes project using Deno's official tooling (deno init). Provides deno.json, main.ts, main_test.ts with standard Deno conventions: TypeScript by default, ES modules. Deno Version: 2.5 (latest) / 2.2 (LTS).</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture - Casys Intelligence</title>
+        <section>Project Structure</section>
+        <snippet
+        >Standard Deno project structure with src/ (core modules: db/, mcp/, vector/, cli/), tests/, docs/, deno.json, deps.ts (centralized dependencies), mod.ts (public API exports).</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture - Casys Intelligence</title>
+        <section>Technology Stack Details - Runtime Environment</section>
+        <snippet
+        >Deno 2.5 (latest) or 2.2 (LTS), TypeScript 5.7+ via Deno, ES2022 target. Native testing with Deno.test, >80% coverage target.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>Decision Architecture - Casys Intelligence</title>
+        <section>deno.json Tasks</section>
+        <snippet
+        >Standard tasks: dev (run with -A), test, bench, fmt, lint, build (compile to binary). Tasks include development server, testing, benchmarks, formatting, linting.</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>Livrables clés</section>
+        <snippet
+        >Repository configuré avec CI/CD et structure Deno. Architecture edge-ready dès le début.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <!-- No existing code - this is the first story -->
+    </code>
+    <dependencies>
+      <ecosystem name="Deno">
+        <runtime version="2.5 / 2.2 LTS">Deno runtime</runtime>
+        <stdlib version="0.224.0">
+          <package>std/log - Structured logging</package>
+          <package>std/yaml - YAML parsing for config</package>
+        </stdlib>
+      </ecosystem>
+      <ecosystem name="NPM (via Deno npm: specifier)">
+        <package name="@electric-sql/pglite" version="0.3.11"
+        >Embedded PostgreSQL WASM with pgvector</package>
+        <package name="@huggingface/transformers" version="2.17.2"
+        >BGE-Large-EN-v1.5 local embeddings</package>
+        <package name="@modelcontextprotocol/sdk" version="latest"
+        >Official MCP TypeScript SDK</package>
+      </ecosystem>
+      <ecosystem name="Deno.land/x">
+        <package name="cliffy" version="v1.0.0-rc.4">Type-safe CLI framework</package>
+        <package name="graphology" version="latest">Graph algorithms library</package>
+      </ecosystem>
+      <note
+      >Story 1.1 creates project structure; dependencies will be added in subsequent stories via deno.json imports</note>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint type="runtime"
+    >Deno 2.5 (latest) or 2.2 (LTS) - TypeScript 5.7+ via Deno, ES2022 target</constraint>
+    <constraint type="structure"
+    >Standard Deno project structure: src/ (modules: db/, mcp/, vector/, cli/), tests/, docs/, deno.json, deps.ts, mod.ts</constraint>
+    <constraint type="formatting"
+    >deno.json fmt config: useTabs=false, lineWidth=100, semiColons=true</constraint>
+    <constraint type="linting">Deno lint with "recommended" rules tag</constraint>
+    <constraint type="testing">Deno.test native testing framework, target >80% coverage</constraint>
+    <constraint type="tasks"
+    >Required deno.json tasks: dev (watch mode), test, lint, fmt, check (typecheck)</constraint>
+    <constraint type="ci"
+    >GitHub Actions CI with jobs: lint, typecheck, test on Deno 2.5.x</constraint>
+    <constraint type="security"
+    >Explicit Deno permissions model (--allow-read, --allow-net, etc.), no eval/Function constructor</constraint>
+    <constraint type="conventions">TypeScript by default, ES modules standard</constraint>
+  </constraints>
+  <interfaces>
+    <!-- No interfaces defined yet - this is project initialization -->
+  </interfaces>
+  <tests>
+    <standards
+    >Le projet utilise Deno.test (framework de test natif) avec une cible de couverture >80%. Les tests sont organisés en unit/ et integration/ sous le répertoire tests/. Le CI GitHub Actions exécute automatiquement les tests via 'deno task test'. Support natif pour les benchmarks via 'deno bench'.</standards>
+    <locations>
+      <location>tests/unit/**/*_test.ts</location>
+      <location>tests/integration/**/*_test.ts</location>
+      <location>**/*_test.ts (convention Deno)</location>
+    </locations>
+    <ideas>
+      <test-idea criterion="AC1"
+      >Test de création de structure de répertoires : Vérifier que src/, tests/, docs/, .github/workflows/ existent après init</test-idea>
+      <test-idea criterion="AC2"
+      >Test de configuration CI : Valider que .github/workflows/ci.yml contient les jobs lint, typecheck, test avec Deno 2.5.x</test-idea>
+      <test-idea criterion="AC3"
+      >Test de validation deno.json : Parser et vérifier la présence des tasks (test, lint, fmt, dev, check) et options de formatage</test-idea>
+      <test-idea criterion="AC4"
+      >Test de présence README.md : Vérifier existence et contenu minimal (badges, quick start)</test-idea>
+      <test-idea criterion="AC5"
+      >Test .gitignore : Vérifier patterns Deno appropriés (.deno/, deno.lock exclusions)</test-idea>
+      <test-idea criterion="AC6"
+      >Test fichiers de projet : Vérifier présence LICENSE (MIT) et CODE_OF_CONDUCT.md</test-idea>
+    </ideas>
+  </tests>
+</story-context>

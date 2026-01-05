@@ -1,0 +1,396 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3.5</epicId>
+    <storyId>1</storyId>
+    <title>DAG Suggester &amp; Speculative Execution</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-26</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/3.5-1-dag-suggester-speculative-execution.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>AI agent</asA>
+    <iWant>Casys Intelligence to predict and execute likely next actions speculatively</iWant>
+    <soThat>I get instant responses without waiting for execution</soThat>
+    <tasks>
+      <task id="1" status="pending">
+        <title>Implement predictNextNodes() method (AC: #1, #2, #3)</title>
+        <subtasks>
+          <subtask id="1.1"
+          >Add predictNextNodes(workflowState, completedTasks) to DAGSuggester</subtask>
+          <subtask id="1.2"
+          >Query community members for last completed tool via graphEngine.findCommunityMembers()</subtask>
+          <subtask id="1.3"
+          >Filter candidates by co-occurrence patterns from GraphRAG edges</subtask>
+          <subtask id="1.4"
+          >Calculate confidence score from co-occurrence frequency, context similarity, and PageRank</subtask>
+          <subtask id="1.5"
+          >Return sorted list of PredictedNode with toolId, confidence, reasoning</subtask>
+        </subtasks>
+      </task>
+      <task id="2" status="pending">
+        <title>Add confidence-based speculation triggering (AC: #4, #6)</title>
+        <subtasks>
+          <subtask id="2.1"
+          >Create speculation config interface: { enabled: boolean, confidence_threshold: number, max_concurrent: number }</subtask>
+          <subtask id="2.2"
+          >Integrate with AdaptiveThresholdManager to get dynamic threshold (READ direction)</subtask>
+          <subtask id="2.3">Add shouldSpeculate(confidence, toolId) helper method</subtask>
+          <subtask id="2.4">Apply configurable threshold (default 0.70)</subtask>
+          <subtask id="2.5"
+          >Feed speculation outcomes back to AdaptiveThresholdManager (WRITE direction)</subtask>
+          <subtask id="2.6"
+          >On hint success, call graphEngine.reinforceEdge(fromTool, toTool) to strengthen pattern</subtask>
+        </subtasks>
+      </task>
+      <task id="3" status="pending">
+        <title>Implement sandbox-isolated speculative execution (AC: #5)</title>
+        <subtasks>
+          <subtask id="3.1"
+          >Create SpeculativeExecutor class that uses DenoSandboxExecutor for isolated execution</subtask>
+          <subtask id="3.2"
+          >Fork execution: run predicted tasks in sandbox while main workflow continues</subtask>
+          <subtask id="3.3"
+          >Cache speculation results with metadata (prediction_id, confidence, timestamp)</subtask>
+          <subtask id="3.4"
+          >Implement result validation: compare predicted tool with actual agent request</subtask>
+          <subtask id="3.5"
+          >Discard cache if prediction incorrect (sandbox isolation ensures no side effects)</subtask>
+        </subtasks>
+      </task>
+      <task id="4" status="pending">
+        <title>Integrate speculation with ControlledExecutor (AC: #5, #8)</title>
+        <subtasks>
+          <subtask id="4.1">Add startSpeculativeExecution() method to ControlledExecutor</subtask>
+          <subtask id="4.2"
+          >Before each layer, call predictNextNodes() for high-confidence speculation</subtask>
+          <subtask id="4.3">Store speculation cache accessible by main workflow</subtask>
+          <subtask id="4.4"
+          >Add checkSpeculativeCache(toolId) to return cached results if available</subtask>
+          <subtask id="4.5"
+          >Fallback to normal execution if cache miss or prediction incorrect</subtask>
+        </subtasks>
+      </task>
+      <task id="5" status="pending">
+        <title>Implement metrics tracking (AC: #7)</title>
+        <subtasks>
+          <subtask id="5.1"
+          >Create SpeculationMetrics interface: hit_rate, net_benefit_ms, false_positive_rate</subtask>
+          <subtask id="5.2"
+          >Track speculation_start, speculation_hit, speculation_miss events via EpisodicMemoryStore</subtask>
+          <subtask id="5.3"
+          >Calculate real-time metrics: wasted_ms (incorrect speculation), saved_ms (correct speculation)</subtask>
+          <subtask id="5.4">Expose metrics via getSpeculationMetrics() method</subtask>
+        </subtasks>
+      </task>
+      <task id="6" status="pending" dependency="story-5-2">
+        <title>Implement agent hints + learned pattern export (AC: #12, #13)</title>
+        <note>Dependency: Story 5-2 must be completed first (workflow-templates.yaml sync)</note>
+        <subtasks>
+          <subtask id="6.1">Add speculate_hint command type to CommandQueue registry</subtask>
+          <subtask id="6.2">Create handleSpeculateHint(toolIds) in ControlledExecutor</subtask>
+          <subtask id="6.3"
+          >Add getLearnedPatterns(minSuccessRate, minExecutions) to GraphRAGEngine</subtask>
+          <subtask id="6.4"
+          >Create agentcards workflows suggest - shows learned patterns as YAML</subtask>
+          <subtask id="6.5"
+          >Create agentcards workflows export - DB to workflow-templates.yaml (for user review)</subtask>
+        </subtasks>
+      </task>
+      <task id="7" status="pending">
+        <title>Add tests (AC: #9, #10, #12, #13)</title>
+        <subtasks>
+          <subtask id="7.1"
+          >Unit test: predictNextNodes returns sorted predictions with valid confidence scores</subtask>
+          <subtask id="7.2"
+          >Unit test: speculation triggered only when confidence >= threshold</subtask>
+          <subtask id="7.3"
+          >Integration test: common pattern recognition (file read -> json parse)</subtask>
+          <subtask id="7.4"
+          >Integration test: sandbox isolation ensures no side effects on incorrect prediction</subtask>
+          <subtask id="7.5">Benchmark test: speculation overhead &lt;50ms per prediction</subtask>
+          <subtask id="7.6"
+          >E2E test: workflow with speculation demonstrates cache hit and time savings</subtask>
+          <subtask id="7.7">Unit test: agent hint command triggers immediate speculation</subtask>
+          <subtask id="7.8"
+          >Unit test: getLearnedPatterns filters by success rate + observation count</subtask>
+          <subtask id="7.9"
+          >Integration test: workflows export generates valid YAML from DB</subtask>
+        </subtasks>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC-1"
+    >predictNextNodes(current_state, context) method implemented in DAGSuggester</criterion>
+    <criterion id="AC-2">GraphRAG community detection used for pattern matching</criterion>
+    <criterion id="AC-3"
+    >Confidence scoring based on: historical co-occurrence frequency (85% of cases), context similarity (embeddings), workflow type patterns</criterion>
+    <criterion id="AC-4">Confidence threshold: >0.70 for speculation (configurable)</criterion>
+    <criterion id="AC-5"
+    >Speculative execution: fork workflow in sandbox, execute predicted tasks in parallel, cache results with confidence score, discard if prediction incorrect (no side effects)</criterion>
+    <criterion id="AC-6"
+    >Bidirectional integration with AdaptiveThresholdManager: read dynamic threshold, write speculation outcomes (hit/miss), hint feedback reinforces patterns</criterion>
+    <criterion id="AC-7"
+    >Metrics tracking: speculation hit rate (% correct predictions), net benefit (time saved - time wasted), false positive rate</criterion>
+    <criterion id="AC-8">Graceful fallback: if prediction incorrect, execute normally</criterion>
+    <criterion id="AC-9"
+    >Tests: common pattern test, high/low confidence tests, rollback test</criterion>
+    <criterion id="AC-10">Performance: speculation overhead &lt;50ms</criterion>
+    <criterion id="AC-11"
+    >User-defined workflows via config/workflow-templates.yaml (Story 5-2 synergy)</criterion>
+    <criterion id="AC-12">Agent hints: type speculate_hint, tools array at runtime</criterion>
+    <criterion id="AC-13"
+    >Learned patterns to workflow suggestions: >90% success rate over 20+ executions = suggested as new workflow</criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/architecture.md" relevance="high"
+      >System architecture overview - GraphRAG integration, DAG execution flow</doc>
+      <doc path="docs/epics.md" relevance="high"
+      >Epic 3.5 definition - Speculative Execution milestone</doc>
+      <doc
+        path="docs/adrs/ADR-007-dag-adaptive-feedback-loops.md"
+        relevance="critical"
+      >
+        Defines adaptive feedback loops architecture including:
+        - AdaptiveThresholdManager for dynamic confidence thresholds
+        - EpisodicMemoryStore for event capture (speculation_start events)
+        - GraphRAG integration for pattern reinforcement
+        - ControlledExecutor extension points
+      </doc>
+    </docs>
+    <code>
+      <file path="src/graphrag/dag-suggester.ts" relevance="critical">
+        <description>Core DAGSuggester class - extend with predictNextNodes() method</description>
+        <interfaces>
+          <interface name="DAGSuggester">
+            <method>suggestDAG(intent: WorkflowIntent): Promise&lt;SuggestedDAG | null&gt;</method>
+            <method>replanDAG(currentDAG, context): Promise&lt;DAGStructure&gt;</method>
+            <method>getGraphEngine(): GraphRAGEngine</method>
+            <add
+            >predictNextNodes(workflowState, completedTasks): Promise&lt;PredictedNode[]&gt;</add>
+          </interface>
+        </interfaces>
+      </file>
+      <file path="src/dag/controlled-executor.ts" relevance="critical">
+        <description>ControlledExecutor - integrate speculation before each layer</description>
+        <existingMethods>
+          <method
+          >executeStream(dag, workflow_id): AsyncGenerator&lt;ExecutionEvent, WorkflowState&gt;</method>
+          <method>setEpisodicMemoryStore(store): void</method>
+          <method
+          >captureSpeculationStart(workflowId, toolId, confidence, reasoning): string | null</method>
+          <method>enqueueCommand(command): void</method>
+        </existingMethods>
+        <toAdd>
+          <method
+          >startSpeculativeExecution(predictions: PredictedNode[]): Promise&lt;void&gt;</method>
+          <method>checkSpeculativeCache(toolId: string): CachedResult | null</method>
+        </toAdd>
+      </file>
+      <file path="src/graphrag/graph-engine.ts" relevance="high">
+        <description
+        >GraphRAGEngine - use findCommunityMembers() and getNeighbors() for prediction</description>
+        <usefulMethods>
+          <method>findCommunityMembers(toolId: string): string[]</method>
+          <method>getNeighbors(toolId, direction): string[]</method>
+          <method>getPageRank(toolId: string): number</method>
+          <method>computeAdamicAdar(toolId, limit): Array&lt;{toolId, score}&gt;</method>
+          <method>updateFromExecution(execution): Promise&lt;void&gt;</method>
+        </usefulMethods>
+        <toAdd>
+          <method>reinforceEdge(fromTool, toTool): Promise&lt;void&gt;</method>
+          <method>getLearnedPatterns(minSuccessRate, minExecutions): Pattern[]</method>
+        </toAdd>
+      </file>
+      <file path="src/mcp/adaptive-threshold.ts" relevance="high">
+        <description
+        >AdaptiveThresholdManager - bidirectional integration for speculation thresholds</description>
+        <interfaces>
+          <interface name="AdaptiveThresholdManager">
+            <method>getThresholds(): { explicitThreshold?, suggestionThreshold? }</method>
+            <method>recordExecution(record: ExecutionRecord): void</method>
+            <method>loadThresholds(context?): Promise&lt;StoredThreshold | null&gt;</method>
+            <method>saveThresholds(context?): Promise&lt;void&gt;</method>
+            <method>getMetrics(): SpeculativeMetrics</method>
+          </interface>
+        </interfaces>
+      </file>
+      <file path="src/learning/episodic-memory-store.ts" relevance="high">
+        <description>EpisodicMemoryStore - capture speculation events for metrics</description>
+        <eventTypes>
+          <type>speculation_start</type>
+          <type>task_complete</type>
+          <type>ail_decision</type>
+          <type>hil_decision</type>
+        </eventTypes>
+      </file>
+      <file path="src/sandbox/executor.ts" relevance="high">
+        <description>DenoSandboxExecutor - use for isolated speculative execution</description>
+        <features>
+          <feature>Strict permission whitelisting (read-only temp file)</feature>
+          <feature>Timeout enforcement (default 30s)</feature>
+          <feature>Memory limits (default 512MB)</feature>
+          <feature>Resource limiting via ResourceLimiter singleton</feature>
+          <feature>Security validation before execution</feature>
+        </features>
+      </file>
+      <file path="src/dag/command-queue.ts" relevance="medium">
+        <description>CommandQueue - add speculate_hint command type</description>
+      </file>
+    </code>
+    <dependencies>
+      <runtime>
+        <dep name="graphology" version="^0.25.4">Graph data structure and algorithms</dep>
+        <dep name="graphology-metrics" version="^2.2.0">PageRank computation</dep>
+        <dep name="graphology-communities-louvain" version="^2.0.1"
+        >Community detection (Louvain algorithm)</dep>
+        <dep name="@electric-sql/pglite" version="0.3.11">Embedded PostgreSQL for persistence</dep>
+      </runtime>
+      <test>
+        <dep name="@std/assert">Deno standard assertions</dep>
+      </test>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint type="performance"
+    >Speculation overhead must be &lt;50ms per prediction (AC #10)</constraint>
+    <constraint type="performance"
+    >GraphRAG sync &lt;50ms P95 for 200 tools (from ADR-007)</constraint>
+    <constraint type="isolation"
+    >Speculative tasks MUST run in DenoSandboxExecutor (no side effects)</constraint>
+    <constraint type="threshold"
+    >Default speculation confidence threshold: 0.70 (configurable)</constraint>
+    <constraint type="dependency"
+    >Story 5-2 (workflow-templates.yaml) must be completed for Task 6</constraint>
+    <constraint type="backward-compat"
+    >ControlledExecutor changes must not break existing executeStream() API</constraint>
+    <constraint type="metrics"
+    >Use EpisodicMemoryStore for all speculation events (consistency with ADR-008)</constraint>
+  </constraints>
+
+  <interfaces>
+    <newTypes>
+      <type name="PredictedNode">
+        <field>toolId: string</field>
+        <field>confidence: number (0-1)</field>
+        <field>reasoning: string</field>
+        <field>source: "community" | "co-occurrence" | "hint"</field>
+      </type>
+      <type name="SpeculationConfig">
+        <field>enabled: boolean</field>
+        <field>confidence_threshold: number (default 0.70)</field>
+        <field>max_concurrent: number (default 3)</field>
+      </type>
+      <type name="SpeculationCache">
+        <field>prediction_id: string</field>
+        <field>toolId: string</field>
+        <field>result: unknown</field>
+        <field>confidence: number</field>
+        <field>timestamp: number</field>
+        <field>executionTimeMs: number</field>
+      </type>
+      <type name="SpeculationMetrics">
+        <field>hit_rate: number</field>
+        <field>net_benefit_ms: number</field>
+        <field>false_positive_rate: number</field>
+        <field>total_speculations: number</field>
+        <field>total_hits: number</field>
+        <field>total_misses: number</field>
+      </type>
+      <type name="LearnedPattern">
+        <field>from_tool: string</field>
+        <field>to_tool: string</field>
+        <field>success_rate: number</field>
+        <field>observation_count: number</field>
+        <field>avg_confidence: number</field>
+      </type>
+    </newTypes>
+    <commandTypes>
+      <command name="speculate_hint">
+        <field>type: "speculate_hint"</field>
+        <field>tools: string[]</field>
+        <field>priority?: number</field>
+      </command>
+    </commandTypes>
+    <cliCommands>
+      <command>agentcards workflows suggest</command>
+      <command>agentcards workflows export</command>
+    </cliCommands>
+  </interfaces>
+
+  <tests>
+    <standards>
+      <standard>Deno.test() with descriptive names</standard>
+      <standard>Use @std/assert for assertions</standard>
+      <standard>Unit tests in tests/unit/, integration in tests/integration/</standard>
+      <standard>E2E tests in tests/e2e/</standard>
+      <standard>Benchmarks in tests/benchmarks/</standard>
+      <standard>Run: deno task test:unit or deno task test</standard>
+    </standards>
+    <locations>
+      <location path="tests/unit/graphrag/dag_suggester_test.ts"
+      >Extend with predictNextNodes tests</location>
+      <location path="tests/unit/dag/controlled_executor_test.ts"
+      >Add speculation integration tests</location>
+      <location path="tests/unit/mcp/adaptive_threshold_test.ts"
+      >Add speculation threshold tests</location>
+      <location path="tests/benchmarks/sandbox_performance_test.ts"
+      >Reference for performance testing</location>
+      <location path="tests/integration/dag/">Integration test patterns</location>
+    </locations>
+    <ideas>
+      <idea priority="1">Unit: predictNextNodes returns empty array when no history</idea>
+      <idea priority="1">Unit: predictNextNodes returns sorted by confidence descending</idea>
+      <idea priority="1">Unit: speculation not triggered when confidence &lt; threshold</idea>
+      <idea priority="1">Unit: speculation triggered when confidence >= threshold</idea>
+      <idea priority="2">Integration: file_read followed by json_parse pattern recognized</idea>
+      <idea priority="2">Integration: incorrect speculation discards cache, no side effects</idea>
+      <idea priority="2">Integration: correct speculation returns cached result instantly</idea>
+      <idea priority="3">Benchmark: prediction overhead &lt;50ms (100 iterations)</idea>
+      <idea priority="3">E2E: full workflow with speculation shows time savings in metrics</idea>
+      <idea priority="4">Unit: speculate_hint command processed by CommandQueue</idea>
+      <idea priority="4">Unit: getLearnedPatterns filters correctly</idea>
+      <idea priority="4">Integration: workflows export generates valid YAML</idea>
+    </ideas>
+  </tests>
+
+  <implementationNotes>
+    <note
+      priority="high"
+    >
+      The captureSpeculationStart() method already exists in ControlledExecutor (line 325-359).
+      It captures speculation_start events to EpisodicMemoryStore. Use this for metrics.
+    </note>
+    <note
+      priority="high"
+    >
+      GraphRAGEngine.findCommunityMembers() already implements Louvain community detection.
+      Use this to find related tools for prediction.
+    </note>
+    <note
+      priority="high"
+    >
+      AdaptiveThresholdManager already has getThresholds() and recordExecution().
+      Extend with speculation-specific tracking (hit/miss).
+    </note>
+    <note
+      priority="medium"
+    >
+      DenoSandboxExecutor has ResourceLimiter for concurrency control.
+      Use max_concurrent from SpeculationConfig to limit parallel speculations.
+    </note>
+    <note
+      priority="medium"
+    >
+      Story 5-2 dependency: Task 6 (agent hints + learned patterns export) requires
+      workflow-templates.yaml infrastructure from Story 5-2. Can implement Tasks 1-5 first.
+    </note>
+  </implementationNotes>
+</story-context>

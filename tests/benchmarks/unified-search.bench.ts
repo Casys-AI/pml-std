@@ -19,14 +19,22 @@
 
 import { assertGreater } from "@std/assert";
 import {
+  calculateReliabilityFactor,
   createMockGraph,
   createMockVectorSearch,
+  DEFAULT_RELIABILITY_CONFIG,
+  GLOBAL_SCORE_CAP,
   type SearchableNode,
   unifiedSearch,
   type UnifiedVectorSearch,
 } from "../../src/graphrag/algorithms/unified-search.ts";
 import { EmbeddingModel } from "../../src/vector/embeddings.ts";
-import { computeDiscoverScore } from "../../src/mcp/handlers/discover-handler.ts";
+
+// Compute discover score helper (unified formula)
+function computeDiscoverScore(semanticScore: number, successRate: number = 1.0): number {
+  const reliabilityFactor = calculateReliabilityFactor(successRate, DEFAULT_RELIABILITY_CONFIG);
+  return Math.min(semanticScore * reliabilityFactor, GLOBAL_SCORE_CAP);
+}
 
 // NOTE: LocalAlphaCalculator and SpectralClusteringManager are NOT used by pml_discover
 // They are only relevant for predictNextNode (SHGAT+DR-DSP mode) - see stories 10.7a/b

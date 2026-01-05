@@ -1,0 +1,240 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>9</storyId>
+    <title>Sandbox Security Hardening</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-24</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/3-9-sandbox-security-hardening.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>security-conscious developer</asA>
+    <iWant>the Deno sandbox environment to be hardened against security vulnerabilities and attacks</iWant>
+    <soThat>agent-generated code cannot compromise system security or bypass isolation</soThat>
+    <tasks>
+      - Task 1: Security Audit (AC: #1) - Review permissions, identify escalation vectors, document attack surface
+      - Task 2: Input Validation Implementation (AC: #2) - Validate code inputs, sanitize contexts, block malicious patterns
+      - Task 3: Permission Model Hardening (AC: #3) - Minimize paths, add deny-lists, enforce network blocking
+      - Task 4: Resource Limits Enhancement (AC: #4) - CPU monitoring, disk quotas, concurrent limits, memory pressure
+      - Task 5: Security Penetration Testing (AC: #5) - Test escalation, breakout, bypass, exhaustion, injection
+      - Task 6: Subprocess Isolation Verification (AC: #6) - Verify memory isolation, zombie cleanup, signal security
+      - Task 7: Error Sanitization (AC: #7) - Review messages, sanitize stacks, prevent leakage
+      - Task 8: Production Defaults Configuration (AC: #8) - Enable all security, remove debug, validate config
+      - Task 9: Security Test Suite (AC: #9) - Create tests/security/, add regression tests, CI gates
+      - Task 10: Security Documentation (AC: #10) - Document model, publish analysis, best practices, incident response
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    1. Security Audit - Complete security audit of sandbox implementation
+       - Review all Deno permission configurations
+       - Identify potential privilege escalation vectors
+       - Document attack surface and mitigation strategies
+
+    2. Input Validation - Comprehensive input validation and sanitization
+       - Validate all code inputs before execution
+       - Sanitize context objects to prevent injection attacks
+       - Reject malicious patterns (eval, Function constructor, __proto__ pollution)
+
+    3. Permission Hardening - Strengthen Deno permission model
+       - Implement principle of least privilege
+       - Add deny-list for sensitive operations
+       - Review and minimize allowed read/write paths
+       - Ensure network access is completely blocked
+
+    4. Resource Limits Enforcement - Additional resource protections
+       - Add CPU usage monitoring and limits
+       - Implement disk I/O quotas for allowed paths
+       - Add concurrent execution limits to prevent fork bombs
+       - Memory pressure detection and early termination
+
+    5. Attack Vector Testing - Security penetration tests
+       - Test privilege escalation attempts
+       - Test filesystem breakout attempts
+       - Test network access bypass attempts
+       - Test resource exhaustion attacks (CPU, memory, disk)
+       - Test code injection vulnerabilities
+
+    6. Subprocess Isolation - Enhanced subprocess security
+       - Verify subprocess cannot access parent process memory
+       - Ensure proper cleanup prevents zombie processes
+       - Validate signal handling security
+       - Test against process hijacking
+
+    7. Error Message Sanitization - Prevent information leakage
+       - Review all error messages for sensitive data exposure
+       - Sanitize stack traces to not reveal system paths
+       - Ensure error responses don't leak internal state
+
+    8. Security Configuration Defaults - Production-ready defaults
+       - All security features enabled by default
+       - No debug/development modes in production builds
+       - Secure defaults documented in README
+       - Configuration validation on startup
+
+    9. Security Tests Suite - Automated security testing
+       - Add security-focused test suite (tests/security/)
+       - Integration tests for each attack vector
+       - Regression tests for known vulnerabilities
+       - CI/CD gates for security test failures
+
+    10. Security Documentation - Comprehensive security guide
+        - Document sandbox security model
+        - Publish attack surface analysis
+        - Provide security best practices guide
+        - Include incident response guidelines
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/tech-spec-epic-3.md" title="Epic 3 Technical Specification" section="Security & Hardening">
+        Security hardening requirements for sandbox executor, including threat model, attack vectors, and existing security foundations from Stories 3.1, 3.2, 3.6. Documents gaps to address: input validation, resource limits, permission model, security testing, error sanitization.
+      </doc>
+      <doc path="docs/retrospectives/epic-2.5-retro-2025-11-17.md" title="Epic 2.5 Retrospective" section="Risk 2: Sandbox Security Vulnerabilities">
+        CRITICAL security risk flagged: "Story 3-8 (Security Hardening) backlog but CRITICAL". Recommendation: "Security tests run for EVERY story, not just hardening story". Likelihood LOW, Impact CRITICAL.
+      </doc>
+      <doc path="docs/architecture.md" title="Architecture Document" section="Sandbox Isolation & Security">
+        Sandbox architecture using Deno subprocess with explicit permissions, isolation model, and security boundaries. References Epic 3 security requirements.
+      </doc>
+      <doc path="docs/PRD.md" title="Product Requirements Document" section="NFR-Security">
+        Non-functional security requirements for Casys Intelligence sandbox isolation, including explicit permissions only, subprocess isolation, resource limits, and security testing targets.
+      </doc>
+      <doc path="docs/stories/story-3.1.md" title="Story 3.1: Deno Sandbox Executor Foundation">
+        Existing security foundation: explicit permissions (--allow-env, --allow-read), denied by default (--deny-write, --deny-net, --deny-run, --deny-ffi), timeout enforcement (30s), memory limits (512MB heap).
+      </doc>
+      <doc path="docs/stories/story-3.2.md" title="Story 3.2: MCP Tools Injection">
+        Security implementation: No eval() or Function() constructor, input validation for tool names, structured errors without sensitive data leaks.
+      </doc>
+      <doc path="docs/stories/story-3.6.md" title="Story 3.6: PII Detection & Tokenization">
+        Complementary security: PII pattern detection (emails, SSNs, tokens), tokenization to prevent sensitive data leakage.
+      </doc>
+      <doc path="https://docs.deno.com/runtime/fundamentals/security/" title="Deno Security Guide" section="Official Documentation">
+        Official Deno security model, permission system, security best practices, and isolation mechanisms.
+      </doc>
+    </docs>
+    <code>
+      <artifact path="src/sandbox/executor.ts" kind="service" symbol="DenoSandboxExecutor" lines="1-450" reason="Core sandbox implementation requiring security hardening - permission configuration, subprocess spawning, timeout enforcement, memory limits">
+        Main sandbox executor class with security-critical code paths. Current implementation uses explicit permissions but needs hardening for input validation, resource monitoring, and enhanced isolation.
+      </artifact>
+      <artifact path="src/sandbox/context-builder.ts" kind="service" symbol="ContextBuilder" lines="1-400" reason="Tool injection system - needs input validation for tool names and context sanitization">
+        Builds execution context with MCP tools injection. Security-relevant for preventing injection attacks and validating tool access.
+      </artifact>
+      <artifact path="src/sandbox/pii-detector.ts" kind="service" symbol="PIIDetector" lines="1-360" reason="PII detection module - complements security by preventing data leakage">
+        Existing PII protection that should be integrated with security hardening for comprehensive data protection.
+      </artifact>
+      <artifact path="src/sandbox/types.ts" kind="types" symbol="SandboxConfig" lines="1-100" reason="Configuration types - needs security defaults and validation">
+        Type definitions for sandbox configuration including timeout, memory limits, and permissions. Requires security-focused defaults.
+      </artifact>
+      <artifact path="tests/unit/sandbox/executor_test.ts" kind="test" symbol="isolation tests" lines="1-300" reason="Existing isolation tests - foundation for security test suite">
+        Current unit tests for sandbox isolation. Needs expansion with security-focused penetration tests.
+      </artifact>
+    </code>
+    <dependencies>
+      <deno>
+        <runtime version="2.5 / 2.2 LTS">Core runtime with security permission model</runtime>
+      </deno>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    - **Zero Performance Regression**: Security hardening must maintain existing performance targets (startup <100ms, execution overhead <50ms per Story 3.1 AC #9)
+    - **Backward Compatibility**: All security enhancements must be backward compatible with existing sandbox executor API
+    - **Input Validation Overhead**: Input validation must add <10ms overhead to maintain responsiveness
+    - **Explicit Permissions Only**: Deno subprocess must use explicit allow-list, deny all by default (Story 3.1 foundation)
+    - **No eval()**: Absolutely no eval() or Function() constructor anywhere in codebase (Story 3.2 constraint)
+    - **Project-Relative Paths**: All documentation and code references must use project-relative paths
+    - **CRITICAL Priority**: Flagged as CRITICAL in Epic 2.5 retrospective - must be completed before production
+    - **Security Tests Every Story**: Per retrospective recommendation, security tests should be integrated into every story, not just this hardening story
+  </constraints>
+
+  <interfaces>
+    <interface name="DenoSandboxExecutor.execute()" kind="function signature" signature="async execute(code: string, context?: Record<string, unknown>): Promise<ExecutionResult>" path="src/sandbox/executor.ts">
+      Main execution interface - requires input validation before code execution, sanitization of context objects, and enhanced error handling with sanitized messages.
+    </interface>
+    <interface name="SandboxConfig" kind="type interface" signature="interface SandboxConfig { timeoutMs: number; heapLimitMB: number; allowedReadPaths?: string[]; allowNetwork?: boolean; allowWrite?: boolean; }" path="src/sandbox/types.ts">
+      Configuration interface - needs security-focused defaults, validation logic, and production-ready presets.
+    </interface>
+    <interface name="StructuredError" kind="type interface" signature="interface StructuredError { type: string; message: string; stack?: string; code?: string; toolName?: string; }" path="src/sandbox/types.ts">
+      Error type - requires sanitization to prevent information leakage through stack traces and error messages.
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      Testing framework: Deno.test (native testing)
+      Coverage target: >90% for security-critical components (Story 3.1 security requirement)
+      Test organization: Unit tests (60%), Integration tests (30%), E2E/Security tests (10%)
+      Security test categories: Isolation tests, Attack vector tests, Input validation tests, Resource limit tests
+      CI/CD: Automated security gates - fail build on security test failures
+      Performance benchmarks: Gated in CI - fail if >10% regression (Epic 2.7 standard)
+    </standards>
+    <locations>
+      - tests/security/ (NEW - to be created for this story)
+      - tests/security/isolation_test.ts (filesystem, network, process isolation)
+      - tests/security/attack_vectors_test.ts (escalation, breakout, bypass, exhaustion)
+      - tests/security/input_validation_test.ts (malicious code, proto pollution, injection)
+      - tests/security/resource_limits_test.ts (CPU, memory, disk, concurrent limits)
+      - tests/unit/sandbox/ (existing unit tests to be extended)
+      - tests/integration/ (integration tests for security features)
+    </locations>
+    <ideas>
+      AC #1 (Security Audit):
+        - Document current permission model and identify weaknesses
+        - Create threat model diagram
+        - Generate security recommendations report
+
+      AC #2 (Input Validation):
+        - Test: Reject code containing eval() or Function() constructor
+        - Test: Sanitize __proto__ and constructor.prototype in context objects
+        - Test: Validate malicious pattern blocklist effectiveness
+
+      AC #3 (Permission Hardening):
+        - Test: Verify --allow-read paths are minimized
+        - Test: Ensure --deny-net flag is enforced
+        - Test: Validate no write access outside temp directories
+        - Test: Confirm --deny-run and --deny-ffi flags active
+
+      AC #4 (Resource Limits):
+        - Test: CPU usage monitoring detects infinite loops
+        - Test: Disk I/O quotas prevent disk filling
+        - Test: Concurrent execution limit prevents fork bombs
+        - Test: Memory pressure detection triggers early termination
+
+      AC #5 (Attack Vectors):
+        - Test: Privilege escalation (attempt sudo, setuid) - must fail
+        - Test: Filesystem breakout (../../../etc/passwd) - must fail
+        - Test: Network bypass (fetch, WebSocket) - must fail
+        - Test: Resource exhaustion (fork bomb, memory bomb) - must be prevented
+        - Test: Code injection (proto pollution) - must be blocked
+
+      AC #6 (Subprocess Isolation):
+        - Test: Parent process memory inaccessible from subprocess
+        - Test: Zombie processes cleaned up properly
+        - Test: Signal handling doesn't expose vulnerabilities
+        - Test: Process hijacking attempts fail
+
+      AC #7 (Error Sanitization):
+        - Test: Stack traces don't reveal absolute system paths
+        - Test: Error messages don't expose sensitive data
+        - Test: Internal state not leaked through error responses
+
+      AC #8 (Security Defaults):
+        - Test: All security features enabled in default config
+        - Test: No debug/dev modes in production build
+        - Test: Configuration validation catches insecure settings
+
+      AC #9 (Security Test Suite):
+        - Test: All attack vector tests exist and pass
+        - Test: Regression tests for known vulnerabilities
+        - Test: CI/CD gates fail on security test failures
+
+      AC #10 (Security Documentation):
+        - Generate: Security model documentation
+        - Generate: Attack surface analysis report
+        - Generate: Security best practices guide
+        - Generate: Incident response guidelines
+    </ideas>
+  </tests>
+</story-context>

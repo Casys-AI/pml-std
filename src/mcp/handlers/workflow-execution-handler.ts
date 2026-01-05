@@ -32,7 +32,7 @@ import { getTaskType } from "../../dag/execution/task-router.ts";
 import type { CapabilityStore } from "../../capabilities/capability-store.ts";
 import { getToolPermissionConfig } from "../../capabilities/permission-inferrer.ts";
 import type { AdaptiveThresholdManager, ThresholdMode } from "../adaptive-threshold.ts";
-import { updateThompsonSampling } from "./execute-handler.ts";
+import { DEFAULT_SCOPE, updateThompsonSampling } from "./execute-handler.ts";
 // Story 10.5 AC10: WorkerBridge-based executor for 100% traceability
 import {
   cleanupWorkerBridgeExecutor,
@@ -715,6 +715,46 @@ export async function processGeneratorUntilPause(
             capabilityId: capability.id,
             toolsUsed,
           });
+
+          // HIL Learning Fix: Also create capability_record (like direct mode does)
+          // This links the workflow_pattern to capability_records for discovery
+          if (deps.capabilityRegistry) {
+            try {
+              const codeHash = capability.codeHash;
+              const existingRecord = await deps.capabilityRegistry.getByCodeHash(
+                codeHash,
+                DEFAULT_SCOPE,
+              );
+
+              if (!existingRecord) {
+                // Infer namespace from first tool (e.g., "fake:person" -> "fake")
+                const firstTool = toolsUsed[0] ?? "misc";
+                const namespace = firstTool.includes(":") ? firstTool.split(":")[0] : "code";
+                const action = `exec_${codeHash.substring(0, 8)}`;
+                const hash = codeHash.substring(0, 4);
+
+                const record = await deps.capabilityRegistry.create({
+                  org: DEFAULT_SCOPE.org,
+                  project: DEFAULT_SCOPE.project,
+                  namespace,
+                  action,
+                  workflowPatternId: capability.id,
+                  hash,
+                  createdBy: "pml_execute_hil",
+                  toolsUsed,
+                });
+
+                log.info(`[HIL Learning] Capability record created`, {
+                  name: `${namespace}:${action}`,
+                  fqdn: record.id,
+                });
+              }
+            } catch (registryError) {
+              log.warn(`[HIL Learning] Failed to create capability record`, {
+                error: String(registryError),
+              });
+            }
+          }
         } catch (saveError) {
           // Log but don't fail the workflow - learning is non-critical
           log.warn(`[HIL Learning] Failed to save capability after HIL approval`, {

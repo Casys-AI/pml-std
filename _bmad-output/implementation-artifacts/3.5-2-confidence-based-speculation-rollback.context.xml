@@ -1,0 +1,275 @@
+<story-context id="3.5-2-confidence-based-speculation-rollback" v="1.0">
+  <metadata>
+    <epicId>3.5</epicId>
+    <storyId>2</storyId>
+    <title>Confidence-Based Speculation &amp; Rollback</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-11-28</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/stories/3.5-2-confidence-based-speculation-rollback.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>system administrator</asA>
+    <iWant>confidence-based speculation controls and rollback capabilities</iWant>
+    <soThat>I can tune the speculation aggressiveness vs safety tradeoff</soThat>
+    <tasks>
+      <task id="1" title="Create config file and loader (AC #1)">
+        <subtask>1.1: Create config/speculation_config.yaml with all settings</subtask>
+        <subtask>1.2: Create src/speculation/speculation-config-loader.ts</subtask>
+        <subtask>1.3: Add YAML parsing with @std/yaml</subtask>
+        <subtask>1.4: Validate config values (threshold bounds 0.40-0.90, timeout > 0)</subtask>
+        <subtask>1.5: Merge with DEFAULT_SPECULATION_CONFIG as fallback</subtask>
+      </task>
+      <task id="2" title="Complete reinforcePattern() TODO (AC #3)">
+        <subtask
+        >2.1: In speculation-manager.ts:201-223, replace log-only with actual persistence</subtask>
+        <subtask>2.2: Call graphEngine.addEdge() to create/update edge</subtask>
+        <subtask>2.3: Increment edge weight for successful patterns</subtask>
+        <subtask>2.4: Add unit test for pattern reinforcement</subtask>
+      </task>
+      <task id="3" title="Improve timeout handling (AC #5)">
+        <subtask>3.1: Add AbortController to SpeculativeExecutor.executeSpeculation()</subtask>
+        <subtask>3.2: Use speculation_timeout from config</subtask>
+        <subtask>3.3: Clean termination on timeout (no dangling promises)</subtask>
+        <subtask>3.4: Add timeout test</subtask>
+      </task>
+      <task id="4" title="Create CLI commands (AC #4)">
+        <subtask>4.1: Create src/cli/commands/speculation.ts</subtask>
+        <subtask>4.2: Implement createConfigSubcommand() with options</subtask>
+        <subtask>4.3: Implement createStatsSubcommand() with JSON output</subtask>
+        <subtask>4.4: Wire up in main CLI</subtask>
+        <subtask>4.5: Add --reset flag to stats for metric reset</subtask>
+      </task>
+      <task id="5" title="Add tests (AC #5)">
+        <subtask>5.1: Create tests/unit/speculation/speculation_config_test.ts</subtask>
+        <subtask>5.2: Test config loading and validation</subtask>
+        <subtask>5.3: Test threshold tuning effect on speculation frequency</subtask>
+        <subtask>5.4: Test max_concurrent queueing behavior</subtask>
+        <subtask>5.5: Test timeout termination</subtask>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion
+      id="AC1"
+      title="Configuration file"
+    >
+      config/speculation_config.yaml with: enabled, confidence_threshold (0.70), max_concurrent_speculations (3), speculation_timeout (10s), adaptive.enabled, adaptive.min_threshold (0.40), adaptive.max_threshold (0.90)
+    </criterion>
+    <criterion
+      id="AC2"
+      title="Rollback mechanisms"
+    >
+      Sandbox isolation ensures no side effects (via DenoSandboxExecutor), speculation branch discarded if incorrect (via discardCache()), main workflow unaffected by failed speculation
+    </criterion>
+    <criterion
+      id="AC3"
+      title="Adaptive threshold learning"
+    >
+      Track speculation success/failure rates via recordOutcome(), adjust threshold dynamically based on hit/miss ratio, complete reinforcePattern() to persist patterns
+    </criterion>
+    <criterion
+      id="AC4"
+      title="CLI commands"
+    >
+      agentcards speculation config (--threshold, --enable/--disable, --timeout), agentcards speculation stats (--json, --reset)
+    </criterion>
+    <criterion
+      id="AC5"
+      title="Tests"
+    >
+      Threshold tuning, resource limit (max_concurrent queueing), timeout handling
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc
+        path="docs/architecture.md"
+        title="Decision Architecture"
+        section="ADR-006, Pattern 3"
+      >
+        Speculative execution is THE feature. Three execution modes: explicit_required (&lt;0.70), suggestion (0.70-0.85), speculative_execution (&gt;0.85). Threshold bounds: 0.40 (min) to 0.90 (max). Never speculate on dangerous operations.
+      </doc>
+      <doc
+        path="docs/architecture.md"
+        title="Decision Architecture"
+        section="Pattern 4: 3-Loop Learning"
+      >
+        Loop 3 meta-learning with adaptive thresholds. Sliding window (50 executions). Increase threshold if FP &gt; 20%, decrease if FN &gt; 30%.
+      </doc>
+      <doc
+        path="docs/stories/3.5-1-dag-suggester-speculative-execution.md"
+        title="Story 3.5-1"
+        section="Dev Agent Record"
+      >
+        Prior story implementing core speculation mechanism. SpeculationManager, SpeculativeExecutor, 14 unit tests passing.
+      </doc>
+    </docs>
+    <code>
+      <artifact
+        path="src/speculation/speculation-manager.ts"
+        kind="service"
+        symbol="SpeculationManager"
+        lines="1-286"
+        reason="Core component to extend: shouldSpeculate(), recordOutcome(), reinforcePattern() TODO at lines 201-223"
+      >
+        DEFAULT_SPECULATION_CONFIG: enabled=true, confidence_threshold=0.70, max_concurrent=3
+        Methods: getSpeculationThreshold(), shouldSpeculate(), filterForSpeculation(), recordOutcome(), getMetrics(), updateConfig()
+        TODO: reinforcePattern() at line 213-214 only logs, needs actual persistence via graphEngine.addEdge()
+      </artifact>
+      <artifact
+        path="src/speculation/speculative-executor.ts"
+        kind="service"
+        symbol="SpeculativeExecutor"
+        lines="1-379"
+        reason="Speculation execution and caching, needs AbortController for timeout"
+      >
+        SpeculativeExecutorConfig: timeout=30000, memoryLimit=256, maxConcurrent=3, cacheTtlMs=300000
+        Methods: startSpeculations(), executeSpeculation(), checkCache(), validateAndConsume(), discardCache()
+        Note: generateSpeculationCode() at line 189-190 returns placeholder (acceptable, real MCP integration deferred)
+      </artifact>
+      <artifact
+        path="src/mcp/adaptive-threshold.ts"
+        kind="service"
+        symbol="AdaptiveThresholdManager"
+        lines="1-377"
+        reason="Threshold learning integration for Story 4.2, sliding window algorithm"
+      >
+        AdaptiveConfig: initialSuggestionThreshold=0.70, learningRate=0.05, minThreshold=0.40, maxThreshold=0.90, windowSize=50
+        Methods: recordExecution(), getThresholds(), adjustThresholds(), loadThresholds(), saveThresholds()
+        FP &gt; 20% increases threshold, FN &gt; 30% decreases threshold
+      </artifact>
+      <artifact
+        path="src/cli/commands/workflows.ts"
+        kind="controller"
+        symbol="createWorkflowsCommand"
+        lines="1-212"
+        reason="CLI pattern reference for speculation commands"
+      >
+        Pattern: cliffy Command with subcommands (.command("name", createSubcommand()))
+        Options: .option("--flag &lt;value:type&gt;", "description")
+        Async action with database initialization, migration runner
+      </artifact>
+      <artifact
+        path="src/graphrag/types.ts"
+        kind="types"
+        symbol="SpeculationConfig, PredictedNode, SpeculationMetrics"
+        lines="166-230"
+        reason="Type definitions for speculation"
+      >
+        SpeculationConfig: enabled, confidence_threshold, max_concurrent
+        SpeculationMetrics: hit_rate, net_benefit_ms, false_positive_rate, total_speculations, total_hits, total_misses
+        PredictedNode: toolId, confidence, reasoning, source
+      </artifact>
+      <artifact
+        path="tests/unit/speculation/speculation_manager_test.ts"
+        kind="test"
+        symbol="SpeculationManagerTests"
+        lines="1-218"
+        reason="Existing 14 tests, pattern reference for new tests"
+      >
+        Tests: shouldSpeculate threshold behavior, filterForSpeculation, recordOutcome metrics, getMetrics structure, resetMetrics
+        Helper: createManager() factory function
+      </artifact>
+    </code>
+    <dependencies>
+      <ecosystem name="deno">
+        <package name="@std/yaml" version="1.0.10" purpose="YAML parsing for config file" />
+        <package
+          name="@cliffy/command"
+          version="1.0.0-rc.8"
+          purpose="CLI framework for speculation commands"
+        />
+        <package name="@std/log" version="0.224.14" purpose="Structured logging" />
+      </ecosystem>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint source="ADR-006"
+    >Threshold bounds: 0.40 (min) to 0.90 (max), conservative start at 0.70</constraint>
+    <constraint source="ADR-006"
+    >Never speculate on dangerous operations (delete, deploy, payment, send_email)</constraint>
+    <constraint source="Story 4.2"
+    >Sliding window algorithm (50 executions), increase threshold if FP &gt; 20%, decrease if FN &gt; 30%</constraint>
+    <constraint source="Architecture">CLI pattern uses @cliffy/command with subcommands</constraint>
+    <constraint source="Dev Notes"
+    >generateSpeculationCode() mock is acceptable for now - focus on reinforcePattern()</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface
+      name="SpeculationConfig"
+      kind="interface"
+      path="src/graphrag/types.ts"
+    >
+      { enabled: boolean; confidence_threshold: number; max_concurrent: number; }
+    </interface>
+    <interface
+      name="SpeculationManager.updateConfig"
+      kind="method"
+      path="src/speculation/speculation-manager.ts:267"
+    >
+      updateConfig(config: Partial&lt;SpeculationConfig&gt;): void
+    </interface>
+    <interface
+      name="SpeculationManager.getMetrics"
+      kind="method"
+      path="src/speculation/speculation-manager.ts:230"
+    >
+      getMetrics(): SpeculationMetrics
+    </interface>
+    <interface
+      name="SpeculationManager.resetMetrics"
+      kind="method"
+      path="src/speculation/speculation-manager.ts:254"
+    >
+      resetMetrics(): void
+    </interface>
+    <interface
+      name="GraphRAGEngine.addEdge"
+      kind="method"
+      path="src/graphrag/graph-engine.ts"
+    >
+      addEdge(from: string, to: string, weight?: number): void - Needed for reinforcePattern()
+    </interface>
+    <interface
+      name="createWorkflowsCommand pattern"
+      kind="CLI"
+      path="src/cli/commands/workflows.ts"
+    >
+      Command().name("x").description("...").command("sub", createSubcommand()).option("--flag", "desc")
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards
+    >
+      Framework: Deno.test with @std/assert (assertEquals, assertExists). Co-locate test files with source where possible or in tests/unit/speculation/. Follow existing pattern from speculation_manager_test.ts using helper factory functions.
+    </standards>
+    <locations>
+      <location>tests/unit/speculation/speculation_manager_test.ts (existing, 14 tests)</location>
+      <location>tests/unit/speculation/speculation_config_test.ts (to create)</location>
+    </locations>
+    <ideas>
+      <idea ac="AC1"
+      >Test YAML config loading: valid config, invalid threshold bounds, missing fields default to DEFAULT_SPECULATION_CONFIG</idea>
+      <idea ac="AC1"
+      >Test config validation: threshold &lt; 0.40 rejected, threshold &gt; 0.90 rejected, timeout &lt;= 0 rejected</idea>
+      <idea ac="AC3"
+      >Test reinforcePattern(): verify graphEngine.addEdge() called, edge weight incremented</idea>
+      <idea ac="AC4"
+      >Test CLI config command: --threshold updates config, --enable/--disable toggles, --timeout updates</idea>
+      <idea ac="AC4"
+      >Test CLI stats command: returns SpeculationMetrics, --json outputs JSON, --reset calls resetMetrics()</idea>
+      <idea ac="AC5">Test threshold tuning: lower threshold increases speculation frequency</idea>
+      <idea ac="AC5"
+      >Test max_concurrent: 4+ predictions with max_concurrent=3 queues additional</idea>
+      <idea ac="AC5"
+      >Test timeout: speculation exceeding timeout terminates without affecting main workflow</idea>
+    </ideas>
+  </tests>
+</story-context>

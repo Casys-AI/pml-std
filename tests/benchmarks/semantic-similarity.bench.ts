@@ -124,9 +124,8 @@ async function runBenchmark() {
     // ========================================================================
     console.log("📏 Testing SHGAT with Cosine semantic heads (baseline)...");
 
+    // Note: Don't override hiddenDim - let adaptive config set it for preserveDim mode
     const shgatCosine = createSHGATFromCapabilities(capabilities, toolEmbeddings, {
-      numHeads: 4,
-      hiddenDim: 64,
       numLayers: 2,
       embeddingDim: 1024,
     });

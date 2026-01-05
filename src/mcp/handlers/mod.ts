@@ -9,7 +9,7 @@
 export { handleSearchCapabilities, handleSearchTools } from "./search-handler.ts";
 export { type DiscoverArgs, handleDiscover } from "./discover-handler.ts";
 export { type CodeExecutionDependencies, handleExecuteCode } from "./code-execution-handler.ts";
-export { type ExecuteArgs, type ExecuteDependencies, handleExecute } from "./execute-handler.ts";
+export { type ExecuteArgs, type ExecuteDependencies, handleExecute, trainingLock } from "./execute-handler.ts";
 export {
   handleAbort,
   handleApprovalResponse,

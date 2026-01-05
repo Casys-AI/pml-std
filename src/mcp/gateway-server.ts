@@ -91,6 +91,7 @@ import {
   handleSearchCapabilities,
   handleSearchTools,
   handleWorkflowExecution,
+  trainingLock,
   type WorkflowHandlerDependencies,
 } from "./handlers/mod.ts";
 import {
@@ -843,6 +844,7 @@ export class PMLGatewayServer {
       checkpointManager: this.checkpointManager,
       activeWorkflows: this.activeWorkflows,
       adaptiveThresholdManager: this.adaptiveThresholdManager, // Story 10.7c
+      algorithmTracer: this.algorithmTracer ?? undefined, // Story 7.6
     };
   }
 
@@ -1125,6 +1127,12 @@ export class PMLGatewayServer {
       return;
     }
 
+    // Acquire training lock to prevent concurrent training with PER
+    if (!trainingLock.acquire("BATCH")) {
+      log.info(`[Gateway] Skipping batch training - another training in progress (owner: ${trainingLock.owner})`);
+      return;
+    }
+
     try {
       // Query execution_trace with JOIN on workflow_pattern for intent data
       // Since migration 030, intent_text and intent_embedding come from workflow_pattern
@@ -1156,6 +1164,7 @@ export class PMLGatewayServer {
         return;
       }
 
+
       log.info(`[Gateway] Training SHGAT on ${traces.length} execution traces...`);
 
       // Build capability embedding lookup
@@ -1164,9 +1173,11 @@ export class PMLGatewayServer {
         capEmbeddings.set(cap.id, cap.embedding);
       }
 
-      // Convert traces to TrainingExamples
-      // Since migration 030, intentEmbedding comes from workflow_pattern via JOIN
+      // Convert traces to TrainingExamples with RANDOM negative mining
+      // Random negatives are easier to learn than hard negatives (which are too similar)
       const examples: TrainingExample[] = [];
+      const NUM_NEGATIVES = 4;
+
       for (const trace of traces) {
         // Skip if capability not in our set
         if (!capEmbeddings.has(trace.capability_id)) continue;
@@ -1182,11 +1193,26 @@ export class PMLGatewayServer {
           continue; // Skip traces with invalid embedding format
         }
 
+        // RANDOM NEGATIVE MINING: Select random capabilities (excluding positive)
+        const candidateIds: string[] = [];
+        for (const [capId] of capEmbeddings) {
+          if (capId === trace.capability_id) continue; // Exclude positive
+          candidateIds.push(capId);
+        }
+
+        // Fisher-Yates shuffle and take first NUM_NEGATIVES
+        for (let i = candidateIds.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [candidateIds[i], candidateIds[j]] = [candidateIds[j], candidateIds[i]];
+        }
+        const negativeCapIds = candidateIds.slice(0, NUM_NEGATIVES);
+
         examples.push({
           intentEmbedding,
           contextTools: trace.executed_path ?? [],
           candidateId: trace.capability_id,
           outcome: trace.success ? 1.0 : 0.0,
+          negativeCapIds,
         });
       }
 
@@ -1216,25 +1242,36 @@ export class PMLGatewayServer {
       const result = await spawnSHGATTraining({
         capabilities: capsForWorker,
         examples,
-        epochs: 3, // Reduced for faster training
+        epochs: 10, // 10 epochs for better logit separation with InfoNCE
         batchSize: 16,
       });
 
-      if (result.success && result.params && this.shgat) {
-        // Import trained params back into main SHGAT
-        this.shgat.importParams(result.params);
-        log.info(
-          `[Gateway] SHGAT training complete: loss=${result.finalLoss?.toFixed(4)}, accuracy=${
-            result.finalAccuracy?.toFixed(2)
-          }`,
-        );
-        // Save immediately after training (don't wait for periodic save)
-        await this.saveSHGATParams();
+      if (result.success && this.shgat) {
+        if (result.savedToDb) {
+          // Worker saved params directly to DB - reload them
+          await this.loadSHGATParams();
+          log.info(
+            `[Gateway] SHGAT training complete: loss=${result.finalLoss?.toFixed(4)}, accuracy=${
+              result.finalAccuracy?.toFixed(2)
+            } (params loaded from DB)`,
+          );
+        } else if (result.params) {
+          // Fallback: import params from result (shouldn't happen with DB save)
+          this.shgat.importParams(result.params);
+          log.info(
+            `[Gateway] SHGAT training complete: loss=${result.finalLoss?.toFixed(4)}, accuracy=${
+              result.finalAccuracy?.toFixed(2)
+            }`,
+          );
+          await this.saveSHGATParams();
+        }
       } else if (!result.success) {
         log.warn(`[Gateway] SHGAT subprocess training failed: ${result.error}`);
       }
     } catch (error) {
       log.warn(`[Gateway] SHGAT training failed: ${error}`);
+    } finally {
+      trainingLock.release("BATCH");
     }
   }
 
@@ -1571,11 +1608,11 @@ export class PMLGatewayServer {
 
       await this.db.query(
         `INSERT INTO shgat_params (user_id, params, updated_at)
-         VALUES ($1, $2, NOW())
+         VALUES ($1, $2::jsonb, NOW())
          ON CONFLICT (user_id) DO UPDATE SET
            params = EXCLUDED.params,
            updated_at = NOW()`,
-        ["local", JSON.stringify(params)],
+        ["local", params], // postgres.js/pglite auto-serializes to JSONB
       );
 
       log.info("[Gateway] SHGAT params saved to DB");

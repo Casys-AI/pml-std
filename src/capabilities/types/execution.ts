@@ -47,8 +47,14 @@ export interface LogicalOperation {
 export interface TraceTaskResult {
   /** ID of the task node (matches StaticStructureNode.id) */
   taskId: string;
-  /** Tool identifier (e.g., "filesystem:read_file") */
+  /** Tool identifier (e.g., "filesystem:read_file" or "$cap:uuid" for nested capabilities) */
   tool: string;
+  /**
+   * Story 10.1: Resolved capability name for $cap:uuid references
+   * Only present when tool is a capability reference (starts with "$cap:")
+   * Contains the human-readable call_name (e.g., "fake:person")
+   */
+  resolvedTool?: string;
   /** Arguments passed to the tool (sanitized, AC #10) */
   args: Record<string, JsonValue>;
   /** Result returned by the tool (sanitized) */
@@ -105,6 +111,20 @@ export interface TraceTaskResult {
    * Used by TraceTimeline to display nested tools in LoopTaskCard
    */
   bodyTools?: string[];
+
+  /**
+   * Story 10.1: Flag indicating this task is a capability call (not a regular tool)
+   * Set when task.tool matches a known capability name (namespace:action)
+   * Used by TraceTimeline to render CapabilityTaskCard instead of regular TaskCard
+   */
+  isCapabilityCall?: boolean;
+
+  /**
+   * Story 10.1: Nested tools inside the called capability
+   * Only present when isCapabilityCall is true
+   * Contains the toolsUsed of the called capability for nested display
+   */
+  nestedTools?: string[];
 }
 
 /**

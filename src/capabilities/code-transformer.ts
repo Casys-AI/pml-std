@@ -1031,7 +1031,15 @@ function findMcpCallInlineLiterals(
  * Find the bounds of a variable declaration statement
  *
  * Given "const token = 'xxx';" returns the full statement bounds
- * including any trailing semicolon and newline
+ * including any trailing semicolon and newline.
+ *
+ * Handles multi-line declarations like:
+ * ```
+ * const items = [
+ *   { name: "foo" },
+ *   { name: "bar" }
+ * ];
+ * ```
  */
 function findDeclarationBounds(
   code: string,
@@ -1053,20 +1061,65 @@ function findDeclarationBounds(
     start--;
   }
 
-  // Search forward for semicolon or newline
+  // Search forward for end of declaration, tracking bracket depth
+  // This handles multi-line arrays/objects: const x = [ ... ];
   let end = identEnd;
+  let bracketDepth = 0;
+  let braceDepth = 0;
+  let parenDepth = 0;
+  let inString = false;
+  let stringChar = "";
+
   while (end < code.length) {
     const char = code[end];
-    if (char === ";") {
-      end++; // Include semicolon
-      // Also include trailing newline if present
-      if (code[end] === "\n") end++;
-      break;
+    const prevChar = end > 0 ? code[end - 1] : "";
+
+    // Track string state (handle escaped quotes)
+    if ((char === '"' || char === "'" || char === "`") && prevChar !== "\\") {
+      if (!inString) {
+        inString = true;
+        stringChar = char;
+      } else if (char === stringChar) {
+        inString = false;
+        stringChar = "";
+      }
     }
-    if (char === "\n") {
-      end++; // Include newline
-      break;
+
+    // Only track brackets when not in string
+    if (!inString) {
+      if (char === "[") bracketDepth++;
+      else if (char === "]") bracketDepth--;
+      else if (char === "{") braceDepth++;
+      else if (char === "}") braceDepth--;
+      else if (char === "(") parenDepth++;
+      else if (char === ")") parenDepth--;
     }
+
+    // Only end at semicolon when all brackets are balanced
+    if (!inString && bracketDepth === 0 && braceDepth === 0 && parenDepth === 0) {
+      if (char === ";") {
+        end++; // Include semicolon
+        // Also include trailing newline if present
+        if (end < code.length && code[end] === "\n") end++;
+        break;
+      }
+      // For statements without semicolon, end at newline only if brackets are balanced
+      // and we've passed the = sign
+      if (char === "\n" && end > identEnd + 2) {
+        // Check if there's no continuation (next non-whitespace is not part of expression)
+        let nextNonWs = end + 1;
+        while (nextNonWs < code.length && (code[nextNonWs] === " " || code[nextNonWs] === "\t")) {
+          nextNonWs++;
+        }
+        const nextChar = code[nextNonWs];
+        // If next line starts with these, the declaration continues
+        if (nextChar !== "[" && nextChar !== "{" && nextChar !== "(" && nextChar !== ",") {
+          end++; // Include newline
+          break;
+        }
+      }
+    }
+
     end++;
   }
 
