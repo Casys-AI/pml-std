@@ -259,8 +259,8 @@ export interface CapWhoisResponse {
   tags: string[];
   /** Visibility level */
   visibility: "private" | "project" | "org" | "public";
-  /** Execution routing */
-  routing: "local" | "cloud";
+  /** Execution routing (client/server preferred, local/cloud for legacy) */
+  routing: "client" | "server" | "local" | "cloud";
   /** Description from workflow_pattern */
   description?: string | null;
   /** Input parameters schema (JSON Schema) */

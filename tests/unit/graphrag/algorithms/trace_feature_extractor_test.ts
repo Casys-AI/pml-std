@@ -424,12 +424,17 @@ Deno.test("TraceFeatureExtractor - respects minTracesForStats", async () => {
   await db.close();
 });
 
-Deno.test("TraceFeatureExtractor - default config is valid", () => {
-  assertEquals(DEFAULT_EXTRACTOR_CONFIG.cacheTtlMs, 5 * 60 * 1000);
-  assertEquals(DEFAULT_EXTRACTOR_CONFIG.maxCacheEntries, 1000);
-  assertEquals(DEFAULT_EXTRACTOR_CONFIG.minTracesForStats, 5);
-  assertEquals(DEFAULT_EXTRACTOR_CONFIG.recencyHalfLifeHours, 24);
-  assertEquals(DEFAULT_EXTRACTOR_CONFIG.maxContextTools, 10);
+Deno.test({
+  name: "TraceFeatureExtractor - default config is valid",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: () => {
+    assertEquals(DEFAULT_EXTRACTOR_CONFIG.cacheTtlMs, 5 * 60 * 1000);
+    assertEquals(DEFAULT_EXTRACTOR_CONFIG.maxCacheEntries, 1000);
+    assertEquals(DEFAULT_EXTRACTOR_CONFIG.minTracesForStats, 5);
+    assertEquals(DEFAULT_EXTRACTOR_CONFIG.recencyHalfLifeHours, 24);
+    assertEquals(DEFAULT_EXTRACTOR_CONFIG.maxContextTools, 10);
+  },
 });
 
 // ============================================================================

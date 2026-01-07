@@ -661,11 +661,12 @@ Deno.test("cap:merge - uses MIN created_at (AC2)", async () => {
     target: "fs:read_new",
   });
 
-  // Verify UPDATE query uses the OLDER date (source's created_at)
-  const updateQuery = mockDb.queries.find((q) => q.sql.includes("UPDATE capability_records"));
+  // Verify UPDATE workflow_pattern uses the OLDER date (source's created_at)
+  // Stats now live in workflow_pattern (migration 034)
+  const updateQuery = mockDb.queries.find((q) => q.sql.includes("UPDATE workflow_pattern"));
   assertEquals(updateQuery !== undefined, true);
-  // The 4th param ($4) is created_at = MIN of the two
-  const createdAtParam = updateQuery!.params[3] as Date;
+  // The 3rd param ($3) is created_at = MIN of the two
+  const createdAtParam = updateQuery!.params[2] as Date;
   assertEquals(createdAtParam.toISOString(), "2024-06-01T00:00:00.000Z");
 });
 

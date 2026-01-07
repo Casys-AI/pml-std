@@ -1,8 +1,9 @@
 # Architecture Refactoring - Phase 2
 
-**Status:** Draft
+**Status:** In Progress
 **Priority:** P1 - High
 **Created:** 2025-12-29
+**Updated:** 2026-01-07
 **Depends On:** `tech-spec-large-files-refactoring.md` (Phases 1-4 completed)
 
 ---
@@ -25,16 +26,28 @@ Phase 2 addresses architectural issues that emerged after Phase 1:
 
 ## Problem Statement
 
-### Code Metrics (2025-12-29)
+### Code Metrics (2026-01-07 Updated)
 
-| File | Lines | Issues | Priority |
-|------|-------|--------|----------|
-| `static-structure-builder.ts` | 2,399 | God class, mixed concerns | **P0** |
-| `controlled-executor.ts` | 1,556 | Re-inflated from 841 lines | **P0** |
-| `gateway-server.ts` | 1,215 | Re-inflated, 10-param constructor | **P0** |
-| `capability-store.ts` | 1,441 | 6 responsibilities | **P1** |
-| `capabilities/types.ts` | 1,237 | 85+ types in 1 file | **P1** |
-| `sandbox/executor.ts` | 1,302 | Phase 5 pending | **P1** |
+| File | Lines | Issues | Priority | Status |
+|------|-------|--------|----------|--------|
+| `shgat.ts` | 2,087 | God class, training + inference + utils | **P1** | 📋 Phase 3.3 |
+| `execute-handler.ts` | 1,803 | 4 responsibilities in one handler | **P1** | 📋 Phase 3.1 |
+| `gateway-server.ts` | 1,624 | GraphSyncController inline | **P1** | 📋 Phase 3.3 |
+| `static-structure-builder.ts` | 1,567 | God class, mixed concerns | **P2** | 📋 Phase 3.3 |
+| `capability-store.ts` | 1,498 | Store + transformer + observer | **P2** | 📋 Phase 3.3 |
+| `code-transformer.ts` | 1,245 | Multiple transform types bundled | **P2** | 📋 Phase 3.3 |
+| `worker-bridge.ts` | 1,237 | RPC + tracing + injection | **P2** | 📋 Phase 3.3 |
+| `tool-mapper.ts` | 1,113 | Multiple pattern handlers | **P3** | 📋 Phase 3.3 |
+| `api/graph.ts` | 1,040 | 4 endpoints in one file | **P2** | 📋 Phase 3.3 |
+| `sandbox/executor.ts` | 399 | ✅ Refactored | Done | ✅ Phase 2.4 |
+
+### DI Container Issues (2026-01-07 New)
+
+| Issue | Current | Target | Phase |
+|-------|---------|--------|-------|
+| Registered services | 6 | 20+ | Phase 3.2 |
+| Direct `new` in handlers | ~15 | 0 | Phase 3.2 |
+| Direct `eventBus` imports | 94 | 0 | Phase 3.4 |
 
 ### Circular Dependencies
 
@@ -60,16 +73,27 @@ graph TD
 
 ## Document Structure
 
-| Document | Content | When to Use |
-|----------|---------|-------------|
-| [quick-wins.md](./quick-wins.md) | QW-1 to QW-5 | Start immediately |
-| [phase-2.1-dependency-injection.md](./phase-2.1-dependency-injection.md) | diod, interfaces, domain types | Sprint 1 |
-| [phase-2.2-god-classes.md](./phase-2.2-god-classes.md) | Refactor large files | Sprint 2 |
-| [phase-2.3-type-splitting.md](./phase-2.3-type-splitting.md) | Split type files | Sprint 3 |
-| [phase-2.4-sandbox.md](./phase-2.4-sandbox.md) | Sandbox executor | Sprint 3 |
-| [phase-2.5-patterns.md](./phase-2.5-patterns.md) | Design patterns, CQRS | Sprint 5 |
-| [phase-2.6-testing.md](./phase-2.6-testing.md) | Test architecture | Sprint 6 |
-| [phase-2.7-deno-native.md](./phase-2.7-deno-native.md) | Deno APIs, import maps | Ongoing |
+### Phase 2: Foundation (Completed/In Progress)
+
+| Document | Content | Status |
+|----------|---------|--------|
+| [quick-wins.md](./quick-wins.md) | QW-1 to QW-5 | ✅ Done |
+| [phase-2.1-dependency-injection.md](./phase-2.1-dependency-injection.md) | diod, interfaces, domain types | ✅ Done |
+| [phase-2.2-god-classes.md](./phase-2.2-god-classes.md) | Refactor large files | 🔄 Partial |
+| [phase-2.3-type-splitting.md](./phase-2.3-type-splitting.md) | Split type files | 📋 Planned |
+| [phase-2.4-sandbox.md](./phase-2.4-sandbox.md) | Sandbox executor | ✅ Done |
+| [phase-2.5-patterns.md](./phase-2.5-patterns.md) | Design patterns, CQRS | 📋 Planned |
+| [phase-2.6-testing.md](./phase-2.6-testing.md) | Test architecture | 📋 Planned |
+| [phase-2.7-deno-native.md](./phase-2.7-deno-native.md) | Deno APIs, import maps | 🔄 Ongoing |
+
+### Phase 3: Architecture Consolidation (New)
+
+| Document | Content | Priority | Effort |
+|----------|---------|----------|--------|
+| [phase-3.1-execute-handler-usecases.md](./phase-3.1-execute-handler-usecases.md) | Split execute-handler.ts into Use Cases | **P1** | L |
+| [phase-3.2-di-expansion.md](./phase-3.2-di-expansion.md) | Expand DI container (6→20+ services) | **P1** | M |
+| [phase-3.3-god-classes-round2.md](./phase-3.3-god-classes-round2.md) | Split remaining God Classes (8 files) | **P2** | L |
+| [phase-3.4-eventbus-injection.md](./phase-3.4-eventbus-injection.md) | Replace 94 direct eventBus imports | **P3** | L |
 
 ---
 
@@ -118,21 +142,29 @@ Rules:
 
 ---
 
-## Timeline (12 weeks)
+## Timeline (18 weeks)
 
-### Sprint 1-2: Foundation (Weeks 1-4)
+### Sprint 1-2: Foundation (Weeks 1-4) ✅
 - **QW-1 to QW-5**: Quick wins (parallel)
 - **Phase 2.1**: Domain types, interfaces, diod setup
 
-### Sprint 3-4: God Classes (Weeks 5-8)
+### Sprint 3-4: God Classes Round 1 (Weeks 5-8) 🔄
 - **Phase 2.2**: Refactor static-structure-builder, controlled-executor
 - **Phase 2.3**: Split type files
-- **Phase 2.4**: Sandbox executor
+- **Phase 2.4**: Sandbox executor ✅
 
 ### Sprint 5-6: Patterns & Testing (Weeks 9-12)
 - **Phase 2.5**: Design patterns, CQRS, events
 - **Phase 2.6**: Test architecture
 - **Phase 2.7**: Deno-native patterns (ongoing)
+
+### Sprint 7-8: Architecture Consolidation (Weeks 13-16) 🆕
+- **Phase 3.1**: Execute Handler → Use Cases (P1)
+- **Phase 3.2**: DI Container Expansion (P1)
+- **Phase 3.3**: God Classes Round 2 (P2)
+
+### Sprint 9: Decoupling (Weeks 17-18) 🆕
+- **Phase 3.4**: EventBus Injection (P3)
 
 ---
 

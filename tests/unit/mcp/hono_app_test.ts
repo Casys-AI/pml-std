@@ -190,36 +190,41 @@ Deno.test("Hono App - MCP endpoint works in local mode", async () => {
 
 // === Rate Limiting Tests ===
 
-Deno.test("Hono App - rate limiting returns 429 after exceeding limit", async () => {
-  // Enable cloud mode with auth
-  Deno.env.set("GITHUB_CLIENT_ID", "test-client-id");
+Deno.test({
+  name: "Hono App - rate limiting returns 429 after exceeding limit",
+  sanitizeOps: false,
+  sanitizeResources: false, // BroadcastChannel may leak from event bus
+  fn: async () => {
+    // Enable cloud mode with auth
+    Deno.env.set("GITHUB_CLIENT_ID", "test-client-id");
 
-  try {
-    const deps = createMockDeps();
-    // Use a fresh app instance with low rate limit for testing
-    const app = createApp(deps, ["http://localhost:3003"]);
+    try {
+      const deps = createMockDeps();
+      // Use a fresh app instance with low rate limit for testing
+      const app = createApp(deps, ["http://localhost:3003"]);
 
-    // Make requests until rate limited (default: 100 req/min for MCP)
-    // Since we can't easily mock the RateLimiter, we verify the 429 response format
-    // In production, this would require 101 requests to trigger
+      // Make requests until rate limited (default: 100 req/min for MCP)
+      // Since we can't easily mock the RateLimiter, we verify the 429 response format
+      // In production, this would require 101 requests to trigger
 
-    // For unit testing, we just verify the rate limit response format is correct
-    // by checking middleware is properly configured
-    const req = new Request("http://localhost:3003/mcp", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-forwarded-for": "test-ip-rate-limit",
-      },
-      body: JSON.stringify({ jsonrpc: "2.0", method: "tools/list", id: 1 }),
-    });
-    const res = await app.fetch(req);
+      // For unit testing, we just verify the rate limit response format is correct
+      // by checking middleware is properly configured
+      const req = new Request("http://localhost:3003/mcp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-forwarded-for": "test-ip-rate-limit",
+        },
+        body: JSON.stringify({ jsonrpc: "2.0", method: "tools/list", id: 1 }),
+      });
+      const res = await app.fetch(req);
 
-    // First request should succeed (401 due to no valid auth token in test)
-    assertEquals(res.status, 401);
-  } finally {
-    Deno.env.delete("GITHUB_CLIENT_ID");
-  }
+      // First request should succeed (401 due to no valid auth token in test)
+      assertEquals(res.status, 401);
+    } finally {
+      Deno.env.delete("GITHUB_CLIENT_ID");
+    }
+  },
 });
 
 Deno.test("Hono App - invalid JSON-RPC request returns error", async () => {

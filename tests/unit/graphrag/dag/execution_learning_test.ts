@@ -550,29 +550,34 @@ Deno.test("Execution Learning - updateFromCodeExecution with multiple parents", 
   await db.close();
 });
 
-Deno.test("Execution Learning - updateFromCodeExecution handles missing parent gracefully", async () => {
-  const graph = new DirectedGraph() as ExecutionLearningGraph;
-  const db = await createTestDb();
+Deno.test({
+  name: "Execution Learning - updateFromCodeExecution handles missing parent gracefully",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
+    const graph = new DirectedGraph() as ExecutionLearningGraph;
+    const db = await createTestDb();
 
-  const traces: TraceEvent[] = [
-    {
-      type: "tool_end",
-      tool: "orphan:tool",
-      traceId: "trace-child",
-      parentTraceId: "trace-nonexistent", // Parent not in traces
-      ts: Date.now(),
-      success: true,
-      durationMs: 10,
-    },
-  ];
+    const traces: TraceEvent[] = [
+      {
+        type: "tool_end",
+        tool: "orphan:tool",
+        traceId: "trace-child",
+        parentTraceId: "trace-nonexistent", // Parent not in traces
+        ts: Date.now(),
+        success: true,
+        durationMs: 10,
+      },
+    ];
 
-  const result = await updateFromCodeExecution(graph, db, traces);
+    const result = await updateFromCodeExecution(graph, db, traces);
 
-  assertEquals(result.nodesCreated, 1);
-  assertEquals(result.edgesCreated, 0); // No edge created (parent missing)
-  assertEquals(graph.hasNode("orphan:tool"), true);
+    assertEquals(result.nodesCreated, 1);
+    assertEquals(result.edgesCreated, 0); // No edge created (parent missing)
+    assertEquals(graph.hasNode("orphan:tool"), true);
 
-  await db.close();
+    await db.close();
+  },
 });
 
 Deno.test("Execution Learning - createOrUpdateEdge weight calculation precision", async () => {

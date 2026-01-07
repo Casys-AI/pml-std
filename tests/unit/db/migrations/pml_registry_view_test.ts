@@ -78,7 +78,7 @@ Deno.test("Migration 031 - AC1: adds code_url column to tool_schema", async () =
   }
 });
 
-Deno.test("Migration 031 - AC1: adds routing column to tool_schema with default 'local'", async () => {
+Deno.test("Migration 031 - AC1: adds routing column to tool_schema with default 'client'", async () => {
   const client = new PGliteClient(getTestDbPath("ac1-routing"));
   await client.connect();
 
@@ -124,7 +124,7 @@ Deno.test("Migration 031 - AC2: pml_registry VIEW returns MCP tools", async () =
     assertEquals(result[0].id, toolId);
     assertEquals(result[0].name, "read_file");
     assertEquals(result[0].description, "Read a file");
-    assertEquals(result[0].routing, "local");
+    assertEquals(result[0].routing, "client");
     assertEquals(result[0].server_id, "filesystem");
   } finally {
     await client.close();
@@ -153,7 +153,7 @@ Deno.test("Migration 031 - AC2: pml_registry VIEW returns capabilities", async (
     assertEquals(result[0].id, capabilityId);
     assertEquals(result[0].name, "fs:read_json");
     assertEquals(result[0].description, "Test capability");
-    assertEquals(result[0].routing, "local");
+    assertEquals(result[0].routing, "client");
     assertEquals(result[0].workflow_pattern_id, patternId);
     assertEquals(result[0].org, "local");
     assertEquals(result[0].project, "default");

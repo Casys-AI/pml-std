@@ -13,6 +13,7 @@ export { handleMetricsRoutes, handlePrometheusMetrics } from "./metrics.ts";
 export { handleEmergenceRoutes } from "./emergence.ts";
 export { handleToolsRoutes } from "./tools.ts";
 export { handleHealthRoutes } from "./health.ts";
+export { handleTracesRoutes } from "./traces.ts";
 
 // Algorithm API (core logic, called by Fresh thin wrappers)
 export {

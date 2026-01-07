@@ -34,9 +34,7 @@ import type { SchemaInferrer } from "./schema-inferrer.ts";
 import type { StaticStructureBuilder } from "./static-structure-builder.ts";
 import type { CapabilityRegistry } from "./capability-registry.ts";
 import { normalizeVariableNames, transformCapabilityRefs, transformLiteralsToArgs } from "./code-transformer.ts";
-// Story 6.5: EventBus integration (ADR-036)
 import { eventBus } from "../events/mod.ts";
-// Story 10.7c: Thompson Sampling risk classification
 import { calculateCapabilityRisk } from "../mcp/adaptive-threshold.ts";
 
 const logger = getLogger("default");

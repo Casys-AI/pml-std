@@ -148,20 +148,25 @@ Deno.test("Execute Handler - should detect Mode Direct when code is provided", a
   }
 });
 
-Deno.test("Execute Handler - should detect Mode Suggestion when only intent is provided", async () => {
-  const deps = createMockDependencies();
-  const args: ExecuteArgs = {
-    intent: "read a file",
-  };
+Deno.test({
+  name: "Execute Handler - should detect Mode Suggestion when only intent is provided",
+  sanitizeOps: false,
+  sanitizeResources: false, // BroadcastChannel may leak from event bus
+  fn: async () => {
+    const deps = createMockDependencies();
+    const args: ExecuteArgs = {
+      intent: "read a file",
+    };
 
-  const result = await handleExecute(args, deps);
-  assertExists(result);
+    const result = await handleExecute(args, deps);
+    assertExists(result);
 
-  if ("content" in result) {
-    const parsed = JSON.parse(result.content[0].text);
-    // Mode suggestion with no match returns suggestions
-    assertEquals(parsed.status, "suggestions");
-  }
+    if ("content" in result) {
+      const parsed = JSON.parse(result.content[0].text);
+      // Mode suggestion with no match returns suggestions
+      assertEquals(parsed.status, "suggestions");
+    }
+  },
 });
 
 // ============================================================================

@@ -74,27 +74,32 @@ Deno.test("AlgorithmOTELSubscriber - start() subscribes to events when OTEL enab
   }
 });
 
-Deno.test("AlgorithmOTELSubscriber - start() does not subscribe when OTEL disabled", () => {
-  // Save original env
-  const originalOtelDeno = Deno.env.get("OTEL_DENO");
+Deno.test({
+  name: "AlgorithmOTELSubscriber - start() does not subscribe when OTEL disabled",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: () => {
+    // Save original env
+    const originalOtelDeno = Deno.env.get("OTEL_DENO");
 
-  try {
-    // Disable OTEL
-    Deno.env.delete("OTEL_DENO");
+    try {
+      // Disable OTEL
+      Deno.env.delete("OTEL_DENO");
 
-    const subscriber = new AlgorithmOTELSubscriber();
-    subscriber.start();
+      const subscriber = new AlgorithmOTELSubscriber();
+      subscriber.start();
 
-    // Should not be active when OTEL is disabled
-    assertEquals(subscriber.isActive(), false);
+      // Should not be active when OTEL is disabled
+      assertEquals(subscriber.isActive(), false);
 
-    subscriber.stop();
-  } finally {
-    // Restore env
-    if (originalOtelDeno) {
-      Deno.env.set("OTEL_DENO", originalOtelDeno);
+      subscriber.stop();
+    } finally {
+      // Restore env
+      if (originalOtelDeno) {
+        Deno.env.set("OTEL_DENO", originalOtelDeno);
+      }
     }
-  }
+  },
 });
 
 Deno.test("AlgorithmOTELSubscriber - stop() unsubscribes from events", () => {

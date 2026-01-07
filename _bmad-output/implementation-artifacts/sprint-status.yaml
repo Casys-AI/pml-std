@@ -278,15 +278,19 @@ development_status:
   14-1-package-scaffolding-cli-init: done # Story created 2025-12-29, deno install, pml init, .mcp.json generation
   14-2-workspace-resolution-system: done # Code Review APPROVED 2025-12-30, 74 tests passing, 7/7 issues fixed
   14-3-routing-config-permission-inferrer: done # Code review passed, 97 tests, scope: permissions only (routing=cloud)
+  14-3b-hil-approval-flow: done # Code review APPROVED 2026-01-06, 199 tests passing, 3 issues fixed
   # Phase 2: Local Execution (~5 days)
-  14-4-dynamic-mcp-loader-registry: backlog # Dynamic import from JSR, Deno cache
-  14-5-sandboxed-local-mcp-execution: backlog # Deno Worker/subprocess, workspace-scoped permissions
+  14-4-dynamic-mcp-loader-registry: review # Implementation complete 2026-01-06, 192 tests passing, 16 tasks done
+  14-5-sandboxed-local-mcp-execution: in-progress # Deno Worker/subprocess, workspace-scoped permissions
   # Phase 3: Cloud Integration (~4 days)
   14-6-http-streamable-server-byok: backlog # MCP HTTP server, cloud RPC, BYOK API key injection
   14-7-mcp-source-resolution: backlog # Registry strategy (depends on 13.8 MCP Server Registry)
   # Phase 4: Quality (~3 days)
   14-8-e2e-integration-testing: backlog # Full flow tests,  offline mode, permission boundaries
   14-9-custom-mcp-servers-support: backlog # User's .mcp-servers.json - deferred until 14.1-14.8 complete
+  14-10-standalone-capability-distribution: backlog # pml add/run/remove/list for standalone caps
+  # Phase 5: Distribution (~2 days)
+  14-11-binary-distribution-deno-compile: backlog # deno compile for Linux/macOS/Windows, install.sh, pml upgrade
   epic-14-retrospective: optional
 
   # Epic 15: CasysDB Native Engine (Rust)

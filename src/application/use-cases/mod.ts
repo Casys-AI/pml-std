@@ -63,7 +63,7 @@ export type {
   SuggestedTask,
 } from "./capabilities/mod.ts";
 
-// Code Execution Use Cases
+// Code Execution Use Cases (deprecated)
 export { ExecuteCodeUseCase } from "./code/mod.ts";
 export type {
   CapabilityDetails,
@@ -89,3 +89,31 @@ export type {
   ValidateCodeResult,
   WorkerExecutionConfig,
 } from "./code/mod.ts";
+
+// Execute Use Cases (Phase 3.1)
+export {
+  ExecuteDirectUseCase,
+  ExecuteSuggestionUseCase,
+  ContinueWorkflowUseCase,
+  TrainSHGATUseCase,
+} from "./execute/mod.ts";
+export type {
+  ExecuteDirectDependencies,
+  ExecuteDirectRequest,
+  ExecuteDirectResult,
+  ExecuteSuggestionDependencies,
+  ExecuteSuggestionRequest,
+  ExecuteSuggestionResult,
+  ContinueWorkflowDependencies,
+  ContinueWorkflowRequest,
+  ContinueWorkflowResult,
+  TrainSHGATDependencies,
+  TrainSHGATRequest,
+  TrainSHGATResult,
+  ExecuteResponse,
+  AcceptSuggestionRequest,
+  AcceptSuggestionResult,
+} from "./execute/mod.ts";
+
+// Discover Use Cases
+export * from "./discover/mod.ts";

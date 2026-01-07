@@ -1,12 +1,16 @@
 /**
  * Routing Resolver (Story 13.9)
  *
- * Infers capability routing (local/cloud) from tools_used.
+ * Infers capability routing (client/server) from tools_used.
  * Config loaded from config/mcp-routing.json.
  *
- * DEFAULT IS LOCAL - only servers explicitly listed in 'cloud' array
- * can execute remotely. This is for security: local servers have
- * filesystem/process access that must NOT run on cloud.
+ * DEFAULT IS CLIENT - only servers explicitly listed in 'server' array
+ * can execute remotely. This is for security: client servers have
+ * filesystem/process access that must NOT run on server.
+ *
+ * Terminology:
+ * - client: Runs on user's machine (Claude Code, local MCP)
+ * - server: Runs on pml.casys.ai (stateless computation, external APIs)
  *
  * @module capabilities/routing-resolver
  */
@@ -18,18 +22,19 @@ const logger = getLogger("default");
 
 /**
  * Routing config structure (loaded from config/mcp-routing.json)
- * Only cloud servers are listed - everything else defaults to local.
+ * Only server-routed tools are listed - everything else defaults to client.
  */
 interface McpRoutingJson {
   routing: {
-    cloud: string[];
+    server: string[];
+    client?: string[]; // Optional, for documentation only
   };
 }
 
 /**
- * Default empty config (all servers default to local)
+ * Default empty config (all servers default to client)
  */
-const EMPTY_CONFIG: McpRoutingJson = { routing: { cloud: [] } };
+const EMPTY_CONFIG: McpRoutingJson = { routing: { server: [] } };
 
 /**
  * Cached routing config
@@ -53,7 +58,7 @@ function isValidConfig(parsed: unknown): parsed is McpRoutingJson {
   const obj = parsed as Record<string, unknown>;
   if (typeof obj.routing !== "object" || obj.routing === null) return false;
   const routing = obj.routing as Record<string, unknown>;
-  return Array.isArray(routing.cloud);
+  return Array.isArray(routing.server);
 }
 
 /**
@@ -63,7 +68,7 @@ function parseConfig(content: string, path: string): McpRoutingJson | null {
   try {
     const parsed = JSON.parse(content);
     if (!isValidConfig(parsed)) {
-      logger.warn("Invalid mcp-routing.json structure, missing routing.cloud array", { path });
+      logger.warn("Invalid mcp-routing.json structure, missing routing.server array", { path });
       return null;
     }
     return parsed;
@@ -84,7 +89,7 @@ function loadRoutingJsonSync(): McpRoutingJson {
       if (config) {
         logger.debug("MCP routing config loaded (sync)", {
           path: configPath,
-          cloudCount: config.routing.cloud.length,
+          serverCount: config.routing.server.length,
         });
         return config;
       }
@@ -93,7 +98,7 @@ function loadRoutingJsonSync(): McpRoutingJson {
     }
   }
 
-  logger.debug("MCP routing config not found, defaulting all to local");
+  logger.debug("MCP routing config not found, defaulting all to client");
   return EMPTY_CONFIG;
 }
 
@@ -113,7 +118,7 @@ async function loadRoutingJson(): Promise<McpRoutingJson> {
         ROUTING_CACHE = config;
         logger.debug("MCP routing config loaded", {
           path: configPath,
-          cloudCount: config.routing.cloud.length,
+          serverCount: config.routing.server.length,
         });
         return config;
       }
@@ -122,7 +127,7 @@ async function loadRoutingJson(): Promise<McpRoutingJson> {
     }
   }
 
-  logger.debug("MCP routing config not found, defaulting all to local");
+  logger.debug("MCP routing config not found, defaulting all to client");
   ROUTING_CACHE = EMPTY_CONFIG;
   return ROUTING_CACHE;
 }
@@ -153,15 +158,15 @@ function matchesPattern(toolId: string, pattern: string): boolean {
 }
 
 /**
- * Check if tool/server is in the cloud list
+ * Check if tool/server is in the server list (can run on pml.casys.ai)
  */
-function isInCloudList(toolId: string): boolean {
+function isInServerList(toolId: string): boolean {
   if (!toolId || typeof toolId !== "string") return false;
 
   const config = getRoutingConfig();
   const serverName = extractServerName(toolId);
 
-  return config.routing.cloud.some((pattern) =>
+  return config.routing.server.some((pattern) =>
     matchesPattern(toolId, pattern) || matchesPattern(serverName, pattern)
   );
 }
@@ -194,35 +199,39 @@ export function extractServerName(toolId: string): string {
 }
 
 /**
- * Check if a server requires local execution
- * Default is LOCAL - only returns false if explicitly in cloud list
+ * Check if a server requires client execution
+ * Default is CLIENT - only returns false if explicitly in server list
  */
-export function isLocalServer(serverName: string): boolean {
-  return !isInCloudList(serverName);
+export function isClientServer(serverName: string): boolean {
+  return !isInServerList(serverName);
 }
 
 /**
- * Check if a server can run on cloud
+ * Check if a server can run on server (pml.casys.ai)
  */
-export function isCloudServer(serverName: string): boolean {
-  return isInCloudList(serverName);
+export function isServerRouted(serverName: string): boolean {
+  return isInServerList(serverName);
 }
+
+// Legacy aliases for backwards compatibility
+export const isLocalServer = isClientServer;
+export const isCloudServer = isServerRouted;
 
 /**
  * Resolve routing for a capability based on tools used
  *
  * Algorithm:
  * 1. If explicit override provided, use it
- * 2. If no tools used (pure compute), return 'cloud' (safe)
- * 3. If ANY tool requires local, return 'local'
- * 4. If ALL tools are in cloud list, return 'cloud'
+ * 2. If no tools used (pure compute), return 'server' (safe)
+ * 3. If ANY tool requires client, return 'client'
+ * 4. If ALL tools are in server list, return 'server'
  *
- * Local servers (filesystem, shell, etc.) access USER resources.
- * Cloud servers (tavily, github, etc.) use HTTP APIs with keys.
+ * Client servers (filesystem, shell, etc.) access USER resources.
+ * Server-routed tools (tavily, github, etc.) use HTTP APIs with keys.
  *
  * @param toolsUsed - Array of tool IDs used by the capability
  * @param explicitOverride - Optional explicit routing override
- * @returns 'local' or 'cloud'
+ * @returns 'client' or 'server'
  */
 export function resolveRouting(
   toolsUsed: string[],
@@ -233,27 +242,27 @@ export function resolveRouting(
     return explicitOverride;
   }
 
-  // 2. No tools = pure compute = cloud safe (AC6)
+  // 2. No tools = pure compute = server safe (AC6)
   if (!toolsUsed || toolsUsed.length === 0) {
-    return "cloud";
+    return "server";
   }
 
-  // 3. Check each tool - any local = capability is local
+  // 3. Check each tool - any client-only = capability is client
   // Filter out invalid entries (null, undefined, empty strings)
   const validTools = toolsUsed.filter((t) => t && typeof t === "string");
 
   for (const tool of validTools) {
-    if (!isInCloudList(tool)) {
-      logger.debug("Capability requires local routing", {
+    if (!isInServerList(tool)) {
+      logger.debug("Capability requires client routing", {
         tool,
         serverName: extractServerName(tool),
       });
-      return "local";
+      return "client";
     }
   }
 
-  // 4. All tools are explicitly in cloud list (or all were invalid)
-  return validTools.length > 0 ? "cloud" : "cloud";
+  // 4. All tools are explicitly in server list (or all were invalid)
+  return validTools.length > 0 ? "server" : "server";
 }
 
 /**
@@ -361,7 +370,7 @@ function parseToolsUsedFromDb(raw: unknown): string[] | null {
  * Get routing for a single tool
  */
 export function getToolRouting(toolId: string): CapabilityRouting {
-  return isInCloudList(toolId) ? "cloud" : "local";
+  return isInServerList(toolId) ? "server" : "client";
 }
 
 /**
@@ -369,7 +378,7 @@ export function getToolRouting(toolId: string): CapabilityRouting {
  */
 export function getRoutingConfigHash(): string {
   const config = getRoutingConfig();
-  const content = JSON.stringify(config.routing.cloud.sort());
+  const content = JSON.stringify(config.routing.server.sort());
   // Simple hash
   let hash = 0;
   for (let i = 0; i < content.length; i++) {

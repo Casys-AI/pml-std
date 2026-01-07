@@ -345,19 +345,26 @@ Deno.test("Thompson - getThresholdForTool returns valid threshold", () => {
   assert(result.breakdown !== undefined, "Should include breakdown");
 });
 
-Deno.test("Thompson - different modes produce different thresholds", () => {
+Deno.test("Thompson - different modes produce different mode adjustments", () => {
   const manager = new AdaptiveThresholdManager();
 
   const active = manager.getThresholdForTool("filesystem:read_file", "active_search");
   const passive = manager.getThresholdForTool("filesystem:read_file", "passive_suggestion");
   const speculation = manager.getThresholdForTool("filesystem:read_file", "speculation");
 
-  // Active search should have lowest threshold (more exploration)
+  // Mode adjustments are deterministic (per ADR-049):
+  // - active_search: -0.10 (more permissive)
+  // - passive_suggestion: 0 (baseline)
+  // - speculation: +0.05 (more conservative)
+  // Note: Final thresholds include stochastic Thompson sampling so we test mode adjustments
   assert(
-    active.threshold <= passive.threshold,
-    "Active search should have lower or equal threshold",
+    active.breakdown!.modeAdjustment < passive.breakdown!.modeAdjustment,
+    `Active search mode adjustment (${active.breakdown!.modeAdjustment}) should be < passive (${passive.breakdown!.modeAdjustment})`,
   );
-  assert(passive.threshold <= speculation.threshold, "Speculation should have highest threshold");
+  assert(
+    passive.breakdown!.modeAdjustment < speculation.breakdown!.modeAdjustment,
+    `Passive mode adjustment (${passive.breakdown!.modeAdjustment}) should be < speculation (${speculation.breakdown!.modeAdjustment})`,
+  );
 });
 
 Deno.test("Thompson - recordToolOutcome updates sampler", () => {
@@ -387,10 +394,10 @@ Deno.test("Thompson - requiresHIL returns true for unknown tools", () => {
 Deno.test("Thompson - getToolRiskCategory returns correct risk", () => {
   const manager = new AdaptiveThresholdManager();
 
-  // filesystem should be moderate (based on typical mcp-permissions.yaml)
-  // Unknown tools default to moderate
+  // Unknown tools now default to dangerous (mcp-standard scope)
+  // This is more secure: unknown tools get conservative treatment
   const unknownRisk = manager.getToolRiskCategory("totally_unknown:tool");
-  assertEquals(unknownRisk, "moderate", "Unknown tools should have moderate risk");
+  assertEquals(unknownRisk, "dangerous", "Unknown tools should have dangerous risk (conservative)");
 });
 
 Deno.test("getRiskFromScope - maps scopes correctly", () => {
@@ -435,9 +442,9 @@ Deno.test("calculateCapabilityRisk - returns safe for empty tools", () => {
 });
 
 Deno.test("calculateCapabilityRisk - returns max risk of tools", () => {
-  // Single unknown tool should be moderate
+  // Single unknown tool now returns dangerous (mcp-standard scope = conservative)
   const singleUnknown = calculateCapabilityRisk(["unknown:tool"]);
-  assertEquals(singleUnknown, "moderate");
+  assertEquals(singleUnknown, "dangerous");
 });
 
 Deno.test("Thompson - recordExecution with toolId updates Thompson", () => {

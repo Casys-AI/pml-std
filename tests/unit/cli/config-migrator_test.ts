@@ -34,49 +34,59 @@ Deno.test("ConfigMigrator - dry-run preview with sample config", async () => {
   assertEquals(result.configPath, configPath);
 });
 
-Deno.test("ConfigMigrator - dry-run with non-existent config", async () => {
-  const migrator = new ConfigMigrator();
+Deno.test({
+  name: "ConfigMigrator - dry-run with non-existent config",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
+    const migrator = new ConfigMigrator();
 
-  const result = await migrator.migrate({
-    configPath: "/non/existent/config.json",
-    dryRun: true,
-  });
-
-  // Should fail
-  assertEquals(result.success, false, "Should fail with non-existent config");
-  assert(result.error, "Should have error message");
-  assert(result.error!.includes("not found"), "Error should mention file not found");
-});
-
-Deno.test("ConfigMigrator - preview displays server info", async () => {
-  const migrator = new ConfigMigrator();
-
-  const fixturesDir = join(Deno.cwd(), "tests", "fixtures");
-  const configPath = join(fixturesDir, "mcp-config-sample.json");
-
-  // Capture console output
-  const originalLog = console.log;
-  const logs: string[] = [];
-  console.log = (...args: unknown[]) => {
-    logs.push(args.join(" "));
-  };
-
-  try {
-    await migrator.migrate({
-      configPath,
+    const result = await migrator.migrate({
+      configPath: "/non/existent/config.json",
       dryRun: true,
     });
 
-    // Verify output contains expected information
-    const fullOutput = logs.join("\n");
-    assert(fullOutput.includes("DRY RUN"), "Should indicate dry-run mode");
-    assert(fullOutput.includes("filesystem"), "Should list filesystem server");
-    assert(fullOutput.includes("github"), "Should list github server");
-    assert(fullOutput.includes("memory"), "Should list memory server");
-    assert(fullOutput.includes("3"), "Should show server count");
-  } finally {
-    console.log = originalLog;
-  }
+    // Should fail
+    assertEquals(result.success, false, "Should fail with non-existent config");
+    assert(result.error, "Should have error message");
+    assert(result.error!.includes("not found"), "Error should mention file not found");
+  },
+});
+
+Deno.test({
+  name: "ConfigMigrator - preview displays server info",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
+    const migrator = new ConfigMigrator();
+
+    const fixturesDir = join(Deno.cwd(), "tests", "fixtures");
+    const configPath = join(fixturesDir, "mcp-config-sample.json");
+
+    // Capture console output
+    const originalLog = console.log;
+    const logs: string[] = [];
+    console.log = (...args: unknown[]) => {
+      logs.push(args.join(" "));
+    };
+
+    try {
+      await migrator.migrate({
+        configPath,
+        dryRun: true,
+      });
+
+      // Verify output contains expected information
+      const fullOutput = logs.join("\n");
+      assert(fullOutput.includes("DRY RUN"), "Should indicate dry-run mode");
+      assert(fullOutput.includes("filesystem"), "Should list filesystem server");
+      assert(fullOutput.includes("github"), "Should list github server");
+      assert(fullOutput.includes("memory"), "Should list memory server");
+      assert(fullOutput.includes("3"), "Should show server count");
+    } finally {
+      console.log = originalLog;
+    }
+  },
 });
 
 Deno.test("ConfigMigrator - generates JSON config (not YAML) per ADR-009", async () => {

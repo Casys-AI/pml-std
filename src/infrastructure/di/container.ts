@@ -20,6 +20,12 @@ import type { ICapabilityRepository } from "../../domain/interfaces/capability-r
 import type { IDAGExecutor } from "../../domain/interfaces/dag-executor.ts";
 import type { IGraphEngine } from "../../domain/interfaces/graph-engine.ts";
 import type { IMCPClientRegistry } from "../../domain/interfaces/mcp-client-registry.ts";
+import type { IStreamOrchestrator, IStreamOrchestratorDeps } from "../../domain/interfaces/stream-orchestrator.ts";
+import type {
+  DecisionPreparation,
+  AILResponseResult,
+  DecisionEvent,
+} from "../patterns/strategy/mod.ts";
 
 /**
  * Abstract class tokens for DI resolution.
@@ -94,6 +100,48 @@ export abstract class MCPClientRegistry implements IMCPClientRegistry {
 // Re-export MCPClientBase for adapter consumers
 export type { MCPClientBase } from "../../mcp/types.ts";
 
+/** Token for stream orchestrator */
+export abstract class StreamOrchestrator implements IStreamOrchestrator {
+  abstract executeStream(
+    dag: import("../../graphrag/types.ts").DAGStructure,
+    deps: IStreamOrchestratorDeps,
+    workflowId?: string,
+  ): AsyncGenerator<import("../../dag/types.ts").ExecutionEvent, import("../../dag/state.ts").WorkflowState, void>;
+
+  abstract resumeFromCheckpoint(
+    dag: import("../../graphrag/types.ts").DAGStructure,
+    checkpointId: string,
+    deps: IStreamOrchestratorDeps,
+  ): AsyncGenerator<import("../../dag/types.ts").ExecutionEvent, import("../../dag/state.ts").WorkflowState, void>;
+}
+
+/**
+ * Token for decision strategy
+ *
+ * Uses DecisionEvent as the event type (canonical type from strategy pattern).
+ * Adapters cast from their concrete context types.
+ */
+export abstract class DecisionStrategy {
+  abstract prepareAILDecision(
+    ctx: unknown,
+    layerIdx: number,
+    hasErrors: boolean,
+  ): Promise<DecisionPreparation<DecisionEvent>>;
+
+  abstract waitForAILResponse(
+    ctx: unknown,
+    topologicalSort: (dag: unknown) => unknown[],
+  ): Promise<AILResponseResult>;
+
+  abstract prepareHILApproval(
+    ctx: unknown,
+    layerIdx: number,
+    layer: unknown[],
+  ): Promise<DecisionPreparation<DecisionEvent>>;
+
+  abstract waitForHILResponse(ctx: unknown, layerIdx: number): Promise<void>;
+}
+
 /** Token for database client */
 export abstract class DatabaseClient {
   abstract connect(): Promise<void>;
@@ -138,6 +186,8 @@ export interface ContainerImplementations {
   GraphEngineImpl?: new () => GraphEngine;
   DAGExecutorImpl?: new (repo: CapabilityRepository, graph: GraphEngine) => DAGExecutor;
   MCPClientRegistryImpl?: new () => MCPClientRegistry;
+  StreamOrchestratorImpl?: new (decisionStrategy: DecisionStrategy) => StreamOrchestrator;
+  DecisionStrategyImpl?: new () => DecisionStrategy;
 
   // Factory functions (alternative to classes)
   createDbClient?: (dbPath: string) => DatabaseClient;
@@ -147,6 +197,8 @@ export interface ContainerImplementations {
   createGraphEngine?: () => GraphEngine;
   createDAGExecutor?: (repo: CapabilityRepository, graph: GraphEngine) => DAGExecutor;
   createMCPClientRegistry?: () => MCPClientRegistry;
+  createStreamOrchestrator?: (decisionStrategy: DecisionStrategy) => StreamOrchestrator;
+  createDecisionStrategy?: () => DecisionStrategy;
 }
 
 /**
@@ -234,6 +286,23 @@ export function buildContainer(
     builder.register(MCPClientRegistry).useInstance(impls.createMCPClientRegistry());
   }
 
+  // Decision Strategy (must be registered before StreamOrchestrator)
+  if (impls.DecisionStrategyImpl) {
+    builder.register(DecisionStrategy).use(impls.DecisionStrategyImpl).asSingleton();
+  } else if (impls.createDecisionStrategy) {
+    builder.register(DecisionStrategy).useInstance(impls.createDecisionStrategy());
+  }
+
+  // Stream Orchestrator
+  if (impls.StreamOrchestratorImpl) {
+    builder.register(StreamOrchestrator).use(impls.StreamOrchestratorImpl).asSingleton();
+  } else if (impls.createStreamOrchestrator) {
+    builder.register(StreamOrchestrator).useFactory((c) => {
+      const strategy = c.get(DecisionStrategy);
+      return impls.createStreamOrchestrator!(strategy);
+    }).asSingleton();
+  }
+
   // Build validates graph - throws if cycles or missing deps
   return builder.build();
 }
@@ -255,6 +324,14 @@ export function getGraphEngine(container: Container): GraphEngine {
 
 export function getMCPClientRegistry(container: Container): MCPClientRegistry {
   return container.get(MCPClientRegistry);
+}
+
+export function getStreamOrchestrator(container: Container): StreamOrchestrator {
+  return container.get(StreamOrchestrator);
+}
+
+export function getDecisionStrategy(container: Container): DecisionStrategy {
+  return container.get(DecisionStrategy);
 }
 
 export function getDbClient(container: Container): DatabaseClient {

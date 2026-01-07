@@ -40,3 +40,13 @@ export { ResourceLimiter } from "./resource-limiter.ts";
 
 // Security validation (internal but useful for advanced usage)
 export { SecurityValidator } from "./security-validator.ts";
+
+// Execution modules (Phase 2.4)
+export { DenoSubprocessRunner } from "./execution/deno-runner.ts";
+export { WorkerRunner } from "./execution/worker-runner.ts";
+export { resultParser, RESULT_MARKER } from "./execution/result-parser.ts";
+export { TimeoutHandler } from "./execution/timeout-handler.ts";
+
+// Security modules (Phase 2.4)
+export { PermissionMapper } from "./security/permission-mapper.ts";
+export { pathSanitizer } from "./security/path-sanitizer.ts";

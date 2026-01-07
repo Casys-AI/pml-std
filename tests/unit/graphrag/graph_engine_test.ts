@@ -96,19 +96,25 @@ Deno.test("GraphRAGEngine - can import Graphology dependencies", () => {
 // AC2: Graph sync from PGlite
 // ============================================
 
-Deno.test("GraphRAGEngine - sync from database loads nodes and edges", async () => {
-  const db = await createTestDb();
-  await insertTestTools(db);
-  await insertTestDependencies(db);
+// Note: sanitizeOps/sanitizeResources disabled due to EventBus singleton using BroadcastChannel
+Deno.test({
+  name: "GraphRAGEngine - sync from database loads nodes and edges",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
+    const db = await createTestDb();
+    await insertTestTools(db);
+    await insertTestDependencies(db);
 
-  const engine = new GraphRAGEngine(db);
-  await engine.syncFromDatabase();
+    const engine = new GraphRAGEngine(db);
+    await engine.syncFromDatabase();
 
-  const stats = engine.getStats();
-  assertEquals(stats.nodeCount, 5, "Should load 5 tool nodes");
-  assertEquals(stats.edgeCount, 4, "Should load 4 dependency edges");
+    const stats = engine.getStats();
+    assertEquals(stats.nodeCount, 5, "Should load 5 tool nodes");
+    assertEquals(stats.edgeCount, 4, "Should load 4 dependency edges");
 
-  await db.close();
+    await db.close();
+  },
 });
 
 Deno.test("GraphRAGEngine - sync handles empty database gracefully", async () => {

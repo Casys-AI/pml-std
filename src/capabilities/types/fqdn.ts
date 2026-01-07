@@ -23,10 +23,15 @@ export type CapabilityVisibility = "private" | "project" | "org" | "public";
 /**
  * Routing mode for capability execution (Epic 13)
  *
- * - local: Execute in local sandbox (default)
- * - cloud: Execute via cloud RPC
+ * New terminology (preferred):
+ * - client: Execute on user's machine (Claude Code, local MCP)
+ * - server: Execute via PML server (pml.casys.ai)
+ *
+ * Legacy aliases (for backwards compatibility):
+ * - local: Alias for "client"
+ * - cloud: Alias for "server"
  */
-export type CapabilityRouting = "local" | "cloud";
+export type CapabilityRouting = "client" | "server" | "local" | "cloud";
 
 /**
  * Components of a Fully Qualified Domain Name for capabilities (Story 13.1)

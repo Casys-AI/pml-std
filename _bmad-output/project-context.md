@@ -13,11 +13,14 @@ sections_completed: [
   "hypergraph_algorithms",
   "minitools",
   "adaptive_learning",
+  "clean_architecture",
+  "dependency_injection",
+  "jsr_package_routing",
 ]
 status: complete
 last_scan: "exhaustive"
-last_update: "2025-12-28"
-rule_count: 192
+last_update: "2026-01-07"
+rule_count: 215
 optimized_for_llm: true
 ---
 
@@ -424,6 +427,131 @@ src/
 - `mod.ts` exporte API publique uniquement
 - Communication cross-feature via interfaces
 
+### Clean Architecture & Dependency Injection (Epic 14 Refactor)
+
+#### Structure 3 Couches
+
+```
+src/
+├── domain/
+│   └── interfaces/          # Contrats purs (I*Repository, I*Executor)
+│
+├── application/
+│   └── use-cases/           # Business operations
+│       ├── shared/          # UseCaseResult<T>, UseCaseError
+│       ├── code/            # ExecuteCodeUseCase
+│       ├── capabilities/    # SearchCapabilitiesUseCase, GetSuggestionUseCase
+│       ├── workflows/       # AbortWorkflowUseCase, ReplanWorkflowUseCase
+│       └── discover/        # DiscoverCapabilities, DiscoverTools
+│
+├── infrastructure/
+│   ├── di/
+│   │   ├── container.ts     # DI container (diod)
+│   │   ├── bootstrap.ts     # Production wiring
+│   │   ├── testing.ts       # Test mocks
+│   │   └── adapters/        # Wrap implementations
+│   │
+│   └── patterns/            # Builder, Factory, Visitor, Strategy, Template Method
+```
+
+#### Dependency Injection (diod)
+
+- **Abstract class tokens** — Interfaces TS effacées au runtime, utiliser abstract classes
+- **Container singleton** — `buildContainer()` construit une fois, injecte partout
+- **Adapters pattern** — Wrap des implémentations existantes dans `di/adapters/`
+- **Bootstrap** — `bootstrapDI()` pour wiring production
+- **Testing** — `buildTestContainer()` + `createMock*()` helpers
+
+**Tokens DI Disponibles:**
+
+| Token | Interface | Description |
+|-------|-----------|-------------|
+| `CapabilityRepository` | `ICapabilityRepository` | Stockage capabilities |
+| `DAGExecutor` | `IDAGExecutor` | Exécution DAG |
+| `GraphEngine` | `IGraphEngine` | GraphRAG engine |
+| `MCPClientRegistry` | `IMCPClientRegistry` | Registry clients MCP |
+| `StreamOrchestrator` | `IStreamOrchestrator` | Orchestration streaming |
+| `DecisionStrategy` | `IDecisionStrategy` | Stratégie AIL/HIL |
+
+#### Use Cases Pattern
+
+- **Request/Result typés** — `UseCaseResult<T>` avec `success`, `data?`, `error?`
+- **Transport-agnostic** — Pas de dépendance HTTP/MCP
+- **Interface-based deps** — Toutes deps via interfaces (`ISandboxExecutor`, `IToolDiscovery`)
+- **Nommage** — `XxxUseCase` avec méthode `execute(request): Promise<UseCaseResult<T>>`
+- **Jamais throw** — Retourner `{ success: false, error: { code, message } }`
+
+```typescript
+// Pattern canonical
+class ExecuteCodeUseCase {
+  constructor(deps: ExecuteCodeDependencies) {}
+
+  async execute(request: ExecuteCodeRequest): Promise<UseCaseResult<ExecuteCodeResult>> {
+    if (!request.code) {
+      return { success: false, error: { code: "MISSING_CODE", message: "..." } };
+    }
+    // orchestration logic
+    return { success: true, data: result };
+  }
+}
+```
+
+#### Design Patterns Implémentés (`infrastructure/patterns/`)
+
+| Pattern | Module | Usage |
+|---------|--------|-------|
+| **Builder** | `patterns/builder/` | `GatewayBuilder` construction fluente |
+| **Factory** | `patterns/factory/` | `GatewayFactory` création centralisée |
+| **Visitor** | `patterns/visitor/` | `ASTVisitor` traversée SWC |
+| **Strategy** | `patterns/strategy/` | `DecisionStrategy` AIL/HIL |
+| **Template Method** | `patterns/template-method/` | `LayerExecutionTemplate` |
+
+#### Règles DI Critiques
+
+- **JAMAIS `new Service()` direct** — Via container ou factory
+- **Abstract class = Token** — `container.get(CapabilityRepository)` pas `I*`
+- **Handlers → Use Cases** — Les handlers MCP/HTTP délèguent aux use cases
+- **Interfaces dans domain/** — Implémentations dans modules concrets
+
+### JSR Package & MCP Routing (Epic 14)
+
+#### Terminologie Routing
+
+- **client** — Exécution sur machine utilisateur (filesystem, docker, ssh, git)
+- **server** — Exécution sur pml.casys.ai (json, math, tavily, pml:*)
+- **Config source** — `config/mcp-routing.json` (jamais de fallback hardcodé)
+- **Default** — `"client"` pour outils inconnus (sécurité)
+
+#### Modes de Distribution
+
+| Mode | Description | Status |
+|------|-------------|--------|
+| **A (Toolkit)** | Meta-tools uniquement (`pml stdio`) | ✅ Ready |
+| **B (Standalone)** | Capability directe (`pml add/run namespace.action`) | ✅ Ready |
+| **C (Hybrid)** | Meta-tools + curated caps dynamiques | ⚠️ BLOQUÉ (#4118) |
+
+#### HIL Approval Flow (Stdio Mode)
+
+- **Retourner `approval_required: true`** + `workflow_id` — Pas `await hilCallback()`
+- **Jamais bloquer stdin** — stdin = JSON-RPC, pas user input
+- **Claude UI** — User voit [Continue] [Always] [Abort]
+- **Continuation** — Via `continue_workflow: { workflow_id, approved, always }`
+- **Expiration** — 5 minutes timeout sur workflows en attente
+
+#### Naming Convention
+
+| Context | Format | Example |
+|---------|--------|---------|
+| FQDN (registry) | dots | `casys.pml.filesystem.read_file` |
+| Tool name (Claude) | colon | `filesystem:read_file` |
+| Code TS | dots + prefix | `mcp.filesystem.read_file()` |
+
+#### BYOK (Bring Your Own Key)
+
+- **Local execution** — Clés lues depuis `.env` (TAVILY_API_KEY, etc.)
+- **Cloud execution** — Clés stockées dans profil pml.casys.ai/settings
+- **One-shot usage** — Clés jamais stockées en logs côté cloud
+
 ### Development Workflow Rules
 
 #### Git Conventions
@@ -564,4 +692,4 @@ src/
 
 ---
 
-_Last Updated: 2025-12-28_
+_Last Updated: 2026-01-07_

@@ -22,8 +22,22 @@
  */
 
 export * from "./capability-repository.ts";
+export * from "./code-analyzer.ts";
+export * from "./code-executor.ts";
 export * from "./dag-executor.ts";
+export * from "./dag-suggester.ts";
 export * from "./event-bus.ts";
 export * from "./graph-engine.ts";
 export * from "./mcp-client-registry.ts";
+export * from "./shgat-trainer.ts";
+export * from "./stream-orchestrator.ts";
 export * from "./tool-repository.ts";
+export * from "./trace-collector.ts";
+export * from "./workflow-repository.ts";
+
+// Re-export from infrastructure patterns (canonical location)
+export type {
+  IDecisionStrategy,
+  DecisionPreparation,
+  AILResponseResult,
+} from "../../infrastructure/patterns/strategy/mod.ts";

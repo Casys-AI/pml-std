@@ -277,8 +277,10 @@ Deno.test("SHGAT scoreAllCapabilities - returns results for all capabilities", (
   const results = shgat.scoreAllCapabilities(intentEmbedding);
 
   assertEquals(results.length, 2, "Should return scores for both capabilities");
-  assertEquals(results[0].score >= 0, true, "Scores should be >= 0");
-  assertEquals(results[0].score <= 1, true, "Scores should be <= 1");
+  // Note: scoreAllCapabilities returns raw logits (not probabilities), so they can be negative
+  // Just verify we get valid numbers, not NaN or Infinity
+  assert(!Number.isNaN(results[0].score), "Score should not be NaN");
+  assert(Number.isFinite(results[0].score), "Score should be finite");
 });
 
 Deno.test("SHGAT - hierarchical capabilities produce differentiated scores", () => {

@@ -42,6 +42,7 @@ import { createPmlRegistryVisibilityMigration } from "./migrations/036_pml_regis
 import { up as entropyHistory032Up, down as entropyHistory032Down } from "./migrations/032_entropy_history.ts";
 import { createWorkflowPatternCreatedByMigration } from "./migrations/033_workflow_pattern_created_by.ts";
 import { up as dropCapUsageCols034Up, down as dropCapUsageCols034Down } from "./migrations/034_drop_capability_records_usage_columns.ts";
+import { createRoutingClientServerMigration } from "./migrations/037_routing_client_server.ts";
 
 /**
  * Migration definition
@@ -437,5 +438,6 @@ export function getAllMigrations(): Migration[] {
     { version: 34, name: "drop_capability_records_usage_columns", up: dropCapUsageCols034Up, down: dropCapUsageCols034Down }, // Drop unused cols from capability_records
     createPmlRegistryViewMigration(), // Story 13.8: Unified pml_registry VIEW (version 35)
     createPmlRegistryVisibilityMigration(), // Catalog: Expose visibility in pml_registry VIEW
+    createRoutingClientServerMigration(), // Story 13.9: Align DB constraint with client/server terminology
   ];
 }

@@ -36,7 +36,7 @@ user's local resources.
 - **FR14-4:** The system must dynamically import MCP code from unified PML registry (`pml.casys.ai/mcp/{fqdn}`)
 - **FR14-5:** The system must execute local MCPs (filesystem, shell, sqlite) in Deno sandbox with
   scoped permissions
-- **FR14-6:** The system must forward cloud MCPs (pml:search, GraphRAG, tavily) via HTTP RPC to
+- **FR14-6:** The system must forward server MCPs (pml:search, GraphRAG, tavily) via HTTP RPC to
   `pml.casys.ai`
 - **FR14-7:** The system must expose an MCP HTTP Streamable server for Claude Code integration
 - **FR14-8:** The system must support BYOK (Bring Your Own Key) for third-party MCPs via local
@@ -83,20 +83,22 @@ user's local resources.
 
 ### FR Coverage Map
 
-| FR      | Epic    | Story      | Description                                           |
-| ------- | ------- | ---------- | ----------------------------------------------------- |
-| FR14-1  | Epic 14 | 14.1       | Package JSR installable via `deno install`            |
-| FR14-2  | Epic 14 | 14.2       | Workspace resolution (ENV → detection → CWD)          |
-| FR14-3  | Epic 14 | 14.3       | Routing based on cloud config (cached locally)        |
-| FR14-4  | Epic 14 | 14.4, 14.7 | Dynamic MCP import from unified registry              |
-| FR14-5  | Epic 14 | 14.5       | Sandboxed local MCP execution                         |
-| FR14-6  | Epic 14 | 14.1       | Forward cloud MCPs via HTTP RPC (from stdio)          |
-| FR14-7  | Epic 14 | 14.6       | HTTP Streamable server (optional, for debug)          |
-| FR14-8  | Epic 14 | 14.1       | BYOK support via local env vars                       |
-| FR14-9  | Epic 14 | 14.1       | `.mcp.json` generation via `pml init` (stdio type)    |
-| FR14-10 | Epic 14 | 14.4       | MCP code caching via Deno HTTP cache                  |
-| FR14-11 | Epic 14 | 14.1       | Local and Cloud mode support (via stdio)              |
-| FR14-12 | Epic 14 | 14.1       | Local API keys never stored on cloud                  |
+| FR      | Epic    | Story       | Description                                           |
+| ------- | ------- | ----------- | ----------------------------------------------------- |
+| FR14-1  | Epic 14 | 14.1        | Package JSR installable via `deno install`            |
+| FR14-2  | Epic 14 | 14.2        | Workspace resolution (ENV → detection → CWD)          |
+| FR14-3  | Epic 14 | 14.3, 14.3b | Routing based on cloud config (cached locally)        |
+| FR14-4  | Epic 14 | 14.4, 14.7  | Dynamic MCP import from unified registry              |
+| FR14-5  | Epic 14 | 14.5        | Sandboxed local MCP execution                         |
+| FR14-6  | Epic 14 | 14.1        | Forward cloud MCPs via HTTP RPC (from stdio)          |
+| FR14-7  | Epic 14 | 14.6        | HTTP Streamable server (optional, for debug)          |
+| FR14-8  | Epic 14 | 14.1        | BYOK support via local env vars                       |
+| FR14-9  | Epic 14 | 14.1        | `.mcp.json` generation via `pml init` (stdio type)    |
+| FR14-10 | Epic 14 | 14.4        | MCP code caching via Deno HTTP cache                  |
+| FR14-11 | Epic 14 | 14.1        | Local and Cloud mode support (via stdio)              |
+| FR14-12 | Epic 14 | 14.1        | Local API keys never stored on cloud                  |
+| FR14-13 | Epic 14 | 14.10       | Standalone capability distribution (add/run/remove)   |
+| FR14-14 | Epic 14 | 14.3b       | HIL approval flow via MCP response (stdio compatible) |
 
 ## Epic List
 
@@ -139,6 +141,247 @@ pml stdio (jsr:@casys/pml)
 **Why stdio (not HTTP)?** Claude Code spawns MCP servers via stdio, not HTTP connections.
 The `pml stdio` command is the primary interface. `pml serve` (HTTP) remains available
 for debugging, dashboard integration, and non-Claude clients.
+
+---
+
+### Distribution Modes (Clarified 2025-01-06)
+
+PML supports three distinct usage modes:
+
+**Mode A: PML Toolkit (Meta-Tools Only)**
+```
+.mcp.json:
+{
+  "mcpServers": {
+    "pml": { "command": "pml", "args": ["stdio"] }
+  }
+}
+
+Claude sees:
+├── pml:discover      ← Search capabilities
+├── pml:execute       ← Run any capability
+├── pml:create        ← Create new workflows
+```
+**Use case:** Developers who want full control - discovery, execution, workflow creation.
+
+**Mode B: Standalone Capability (Direct MCP)**
+```bash
+# CLI command (terminal)
+pml add namespace.action[@version]
+
+# Examples:
+pml add db.postgres_query           # latest par défaut
+pml add db.postgres_query@latest    # explicit
+pml add db.postgres_query@1.2.0     # version spécifique (future)
+```
+```
+.mcp.json (auto-modified):
+{
+  "mcpServers": {
+    "db_postgres_query": { "command": "pml", "args": ["run", "db.postgres_query"] }
+  }
+}
+
+Claude sees:
+├── db_postgres_query:run      ← Direct call, no wrapper
+├── db_postgres_query:config   ← Capability config
+```
+**Use case:** Users who want ONE specific capability as a native MCP, without meta-layer.
+**Note:** Requires Claude Code restart to load new capability.
+
+**Mode C: Hybrid (Meta-Tools + Curated Caps) - TARGET END-USER MODE** ⚠️ BLOCKED
+```
+.mcp.json:
+{
+  "mcpServers": {
+    "pml": { "command": "pml", "args": ["stdio"] }
+  }
+}
+
+.pml.json:
+{
+  "expose_tools": {
+    "mode": "hybrid",
+    "curated_limit": 10
+  }
+}
+
+Claude sees (dynamic, no restart needed):
+├── pml:discover           ← Meta-tool
+├── pml:execute            ← Meta-tool
+├── pml:create             ← Meta-tool
+├── pml:smartSearch        ← Curated capability (dynamic)
+├── pml:db_query           ← Curated capability (dynamic)
+├── pml:fs_read_json       ← Curated capability (dynamic)
+```
+**Use case:** End users who want both meta-tools AND direct access to most-used caps.
+**Key advantage:** Curated list changes dynamically (via `tools/list_changed` notification).
+
+⚠️ **BLOCKED:** Claude Code doesn't support `notifications/tools/list_changed` yet.
+- See: [Issue #4118](https://github.com/anthropics/claude-code/issues/4118) (Open, no ETA)
+- VSCode and Cursor already support it
+- **Workaround:** Pre-load curated list at startup (requires restart for changes)
+- See: `spike-2025-01-06-dynamic-tool-injection.md`
+
+**Comparison:**
+| Aspect | Mode A (Toolkit) | Mode B (Standalone) | Mode C (Hybrid) ⚠️ |
+|--------|------------------|---------------------|---------------------|
+| `.mcp.json` entries | 1 ("pml") | N (one per cap) | 1 ("pml") |
+| Meta-tools | ✅ Yes | ❌ No | ✅ Yes |
+| Direct cap access | ❌ Via execute | ✅ Native | ✅ Dynamic |
+| Restart needed | For config | Per capability | ❌ No (dynamic) |
+| Target user | Developer | Fixed workflow | End user |
+| **Status** | ✅ Ready | ✅ Ready | ⚠️ Blocked (#4118) |
+
+---
+
+### Capability Bundling (Clarified 2025-01-05)
+
+**Key Insight:** All Deno capabilities are **bundled** before distribution.
+
+```
+Source (with deps)              →    Bundle (self-contained)
+─────────────────────────            ────────────────────────
+import { z } from "zod";             // All deps inlined
+import { Client } from "pg";         // Zero external imports
+                                     // Pure Deno/TypeScript
+export function query() {...}        export function query() {...}
+```
+
+**Why bundling matters:**
+- ✅ Dynamic `import()` works without dependency resolution
+- ✅ Deno caches the bundle natively (offline support)
+- ✅ Immutable (content hash = identity)
+- ✅ Fast loading (single file)
+
+**What CAN'T be bundled:**
+- Stdio MCP servers (e.g., `@modelcontextprotocol/server-memory`)
+- These require installation + subprocess spawn
+
+**Capability with stdio MCP deps:**
+```json
+{
+  "fqdn": "casys.pml.myCapability",
+  "type": "deno",
+  "code_url": "https://pml.casys.ai/mcp/casys.pml.myCapability",
+  "mcp_deps": [
+    {
+      "name": "memory",
+      "type": "stdio",
+      "install": "npx @modelcontextprotocol/server-memory@1.2.3",
+      "version": "1.2.3",
+      "integrity": "sha256-abc123..."
+    }
+  ]
+}
+```
+
+**Security:** Version pinned + integrity hash vérifié à l'installation (comme npm).
+
+**Installation flow (Story 14.4):**
+1. Check si dep installée avec bonne version
+2. Si non → HIL prompt: "Installer memory@1.2.3?"
+3. Install + verify integrity hash
+4. Execute capability
+
+**Cleanup:** Les hashes des deps plus utilisées doivent être nettoyés périodiquement
+(éviter le bloat). À gérer via `pml cleanup` ou automatiquement.
+
+---
+
+### Naming Convention (Consolidated 2026-01-06)
+
+| Context | Format | Example |
+|---------|--------|---------|
+| **FQDN** (registry lookup) | org.project.namespace.action | `casys.pml.filesystem.read_file` |
+| **Tool name** (config, Claude sees) | namespace:action | `filesystem:read_file` |
+| **Code TS** (capability code) | mcp.namespace.action() | `mcp.filesystem.read_file()` |
+
+**Rules:**
+- FQDN = all dots (for registry URLs)
+- Tool names = colon (MCP standard, what Claude displays)
+- Code calls = dots with `mcp.` prefix (our internal DSL)
+
+**No difference between capabilities and MCP servers** - same naming applies to both.
+
+**Conversion:**
+- FQDN → Tool: `casys.pml.filesystem.read_file` → `filesystem:read_file`
+- Tool → Code: `filesystem:read_file` → `mcp.filesystem.read_file()`
+
+---
+
+### Routing = WHERE to Execute (Clarified 2026-01-06)
+
+**Terminology:**
+- `client` = runs on user's machine (dangerous tools: filesystem, docker, ssh)
+- `server` = runs on pml.casys.ai (safe tools: json, math, tavily)
+
+Routing determines **where** code executes:
+
+```
+Capability: "smartSearch"       Capability: "fileProcessor"
+Routing: "server"               Routing: "client"
+    │                               │
+    ▼                               ▼
+pml.casys.ai imports +          User's PML imports +
+executes on server              executes on client
+    │                               │
+    ▼                               ▼
+mcp.tavily.search → server      mcp.filesystem.read_file → local
+```
+
+**Same code, different execution context:**
+- Code is fetched from same URL (`pml.casys.ai/mcp/{fqdn}`)
+- Routing decides: execute on server OR on user's machine (client)
+- `mcp.*` calls resolve differently based on context
+
+**Config source:** `config/mcp-routing.json` (synced from server at startup)
+
+---
+
+### API Keys & BYOK (Clarified 2025-01-05)
+
+**Two flows for API key management:**
+
+**1. Standalone (`pml add`) - Option B: Warning**
+```bash
+pml add notion
+# ⚠ notion requires:
+#   - NOTION_API_KEY
+# Add to .env before using.
+# ✓ notion added.
+```
+Simple warning at install, error at runtime if missing.
+
+**2. Execute (cloud PML toolkit) - HIL Pause**
+```
+mcp.pml.execute({ cap: "notion_search" })
+    │
+    ├─► notion_search needs NOTION_API_KEY
+    │
+    ├─► User has key configured on pml.casys.ai?
+    │       Yes → execute
+    │       No  → HIL PAUSE
+    │             "Configure your API key: pml.casys.ai/settings/keys"
+    │             [Continue] [Abort] [Replan]
+    │
+    │             User configures key online
+    │             User clicks [Continue]
+    │             │
+    │             ▼
+    └─► Resume execution (no retry needed)
+```
+
+**BYOK (Bring Your Own Key):**
+- Local execution: PML reads keys from `.env`
+- Cloud execution: Keys stored in user's cloud profile (pml.casys.ai/settings)
+  → Cloud uses key one-shot, never in logs
+
+**Stdio subprocess management (cloud):**
+- Many MCPs are stdio even with APIs (notion, google-sheets, serena)
+- Cloud must manage subprocess pool for concurrent calls
+- See ADR-044 (JSON-RPC multiplexer) for multiplexing pattern
+- Latency monitoring required
 
 **Unified Registry (Story 13.8):**
 
@@ -252,11 +495,16 @@ focuses on PML package integration and capability permission inference.
 
 **Acceptance Criteria:**
 
-**AC1-3 (Routing - DONE via Story 13.9):**
+**AC1-3 (Routing - DONE via Story 13.9, Updated 2025-01-06):**
 
 ~~**Given** the existing `mcp-permissions.yaml` configuration **When** the schema is extended **Then**
-each MCP entry supports a `routing: local | cloud` field **And** the default is `cloud` if not
-specified~~ → **DONE:** `config/mcp-routing.json` exists with cloud list, default is local.
+each MCP entry supports a `routing: client | server` field **And** the default is `client` if not
+specified~~ → **DONE:** `config/mcp-routing.json` exists with explicit client/server lists.
+
+**Terminology (2025-01-06):**
+- `client` = runs on user's machine (filesystem, docker, ssh, etc.)
+- `server` = runs on pml.casys.ai (json, math, tavily, etc.)
+- `default: "client"` = unknown tools run on client (safe)
 
 ~~**Given** the PermissionInferrer module **When** a new function `getToolRouting(mcpName: string)` is
 called **Then** it returns the routing mode from configuration **And** caches the result for
@@ -268,7 +516,7 @@ according to its configuration~~ → **DONE:** `resolveRouting()` with cache + p
 **AC4-6 (NEW - PML Package Integration + Permission Inference):**
 
 **Given** the PML package (`packages/pml`) **When** it needs to determine routing **Then** it has an
-embedded routing resolver matching `config/mcp-routing.json` **And** returns `"local"` for unknown
+embedded routing resolver matching `config/mcp-routing.json` **And** returns `"client"` for unknown
 tools (security-first)
 
 **Given** a capability with `tools_used = ["filesystem:read", "tavily:search"]` **And** user's
@@ -299,6 +547,59 @@ calls to `serena:analyze` skip HIL **And** other `serena:*` tools still require 
 **Technical Note:**
 > The "Always" option persists the specific tool (e.g., `serena:analyze`), not the namespace.
 > Users can manually edit `.pml.json` to use wildcards (`serena:*`) if they want broader approval.
+
+---
+
+### Story 14.3b: HIL Approval Flow for Stdio Mode
+
+As a developer using PML via Claude Code, I want dependency installation approval to work
+seamlessly through Claude's native UI, So that I can approve, always-approve, or abort
+without breaking the JSON-RPC protocol.
+
+**Context (2026-01-06):**
+
+Story 14.4 implemented HIL as a blocking callback (`await hilCallback(prompt)`), but this
+doesn't work in stdio mode because stdin is used for JSON-RPC, not user input. This story
+implements the correct pattern: return `approval_required` in the MCP response, let Claude
+show [Continue] [Always] [Abort], then handle the `continue_workflow` callback.
+
+**Acceptance Criteria:**
+
+**AC1-2 (Approval Required Response):**
+
+**Given** a tool call for a capability with uninstalled dependencies **And** the tool
+permission is "ask" (not in allow list) **When** PML processes the request **Then** it
+returns an MCP response with `approval_required: true` and `approval_context` containing
+the dependency info and a unique `workflow_id` for continuation.
+
+**Given** Claude Code receives an `approval_required` response **Then** it shows the native
+[Continue] [Always] [Abort] UI to the user.
+
+**AC3-4 (Continue Workflow Handling):**
+
+**Given** user clicks [Continue] or [Always] **When** Claude calls back with
+`continue_workflow: { workflow_id, approved: true, always: boolean }` **Then** PML proceeds
+with dependency installation and executes the original tool call.
+
+**Given** `always: true` in the continue_workflow request **When** PML processes it **Then**
+it adds the tool to the user's `allow` list in `.pml.json` before proceeding.
+
+**AC5-6 (Auto-Approve for Allowed Tools):**
+
+**Given** a tool is in the user's `allow` list (e.g., `filesystem:*`) **When** it requires
+dependency installation **Then** installation proceeds automatically without
+`approval_required` response.
+
+**Given** a tool is in the user's `deny` list **When** called **Then** PML returns an error
+immediately without attempting installation.
+
+**AC7-8 (Workflow Expiration):**
+
+**Given** an `approval_required` response was sent **When** no `continue_workflow` is
+received within 5 minutes **Then** the workflow expires and subsequent continuation
+attempts return an error.
+
+**Implementation:** See `14-3b-hil-approval-flow.md` for detailed tasks and dev notes.
 
 ---
 
@@ -455,7 +756,7 @@ supports MCP HTTP Streamable transport (ADR-025)
 shell) **Then** PML routes to sandboxed local execution **And** returns the result via HTTP
 streaming
 
-**Given** Claude Code sends a tool call via HTTP **When** the tool is a cloud MCP (pml:search,
+**Given** Claude Code sends a tool call via HTTP **When** the tool is a server MCP (pml:search,
 GraphRAG, tavily) **Then** PML forwards via HTTP to `pml.casys.ai/mcp` **And** injects BYOK API keys
 from local environment **And** returns the result via HTTP streaming
 
@@ -507,7 +808,7 @@ The package handles the response based on content-type or embedded metadata. No 
 it **Then** it returns the Deno module code directly **And** the code exports metadata as comments
 or a `__meta__` export:
 ```typescript
-// __meta__: { "type": "deno", "tools": ["filesystem:read_file", ...], "routing": "local" }
+// __meta__: { "type": "deno", "tools": ["filesystem:read_file", ...], "routing": "client" }
 export async function read_file(args: { path: string }) { ... }
 export async function write_file(args: { path: string, content: string }) { ... }
 ```
@@ -526,7 +827,7 @@ export async function write_file(args: { path: string, content: string }) { ... 
   },
   "tools": ["serena:analyze", "serena:refactor", "serena:explain"],
   "warnings": { "creates_dotfiles": [".serena"] },
-  "routing": "local"
+  "routing": "client"
 }
 ```
 
@@ -540,13 +841,13 @@ export async function write_file(args: { path: string, content: string }) { ... 
   "proxy_to": "https://pml.casys.ai/mcp/proxy/tavily",
   "tools": ["tavily:search"],
   "env_required": ["TAVILY_API_KEY"],
-  "routing": "cloud"
+  "routing": "server"
 }
 ```
 
 **AC4-5 (Capability Records & 404):**
 
-**Given** a request to `pml.casys.ai/mcp/fs:read_json` (learned capability) **When** the endpoint
+**Given** a request to `pml.casys.ai/mcp/casys.pml.fs.read_json` (learned capability) **When** the endpoint
 processes it **Then** it returns Deno module code (same as native MCP) **And** the capability is
 indistinguishable from a native MCP
 
@@ -601,7 +902,7 @@ MCPs are exercised
 **Given** a local filesystem MCP test **When** reading a file within workspace **Then** content is
 returned correctly **And** execution stays within sandbox permissions
 
-**Given** a cloud MCP test (e.g., `pml:search_tools`) **When** called via the local package **Then**
+**Given** a server MCP test (e.g., `pml:search_tools`) **When** called via the local package **Then**
 the request is forwarded to cloud **And** results are returned through HTTP
 
 **Given** offline mode simulation **When** cloud is unreachable but cache exists **Then** local MCPs
@@ -643,12 +944,12 @@ them like any other MCP.
     "internal-db": {
       "type": "stdio",
       "install": { "command": "npx", "args": ["@company/internal-db-mcp"] },
-      "tools": ["internal-db:query", "internal-db:migrate"]
+      "tools": ["internal_db:query", "internal_db:migrate"]
     }
   }
 }
 ```
-**When** `internal-db:query` is called **Then** PML uses the local definition **And** installs
+**When** `internal_db:query` is called **Then** PML uses the local definition **And** installs
 on-demand like registry MCPs
 
 **Given** a private MCP name conflicts with a registry MCP **When** the tool is called **Then**
@@ -686,6 +987,204 @@ apply **And** HIL works identically to registry MCPs
 
 ---
 
+### Story 14.10: Standalone Capability Distribution (add/run/remove)
+
+As an end user, I want to install specific capabilities as native MCP servers for Claude,
+So that I can use them directly without the full PML meta-tools overhead.
+
+**Context:**
+
+This is the "Docker model" for capabilities:
+- `pml add <cap>` = install capability as standalone MCP server
+- `pml run <cap>` = start capability as MCP server (for .mcp.json)
+- `pml remove <cap>` = uninstall capability
+- `pml list` = list installed standalone capabilities
+
+**Note:** Standalone mode does NOT require `PML_API_KEY`. Capabilities are fetched once from registry during `pml add` and cached locally. Unlike `pml stdio` (cloud mode), standalone capabilities run fully offline after installation.
+
+**Acceptance Criteria:**
+
+**AC1-2 (Add Command):**
+
+**Given** a user runs `pml add smartSearch` **When** the capability exists in registry **Then**:
+1. Capability code is fetched and cached locally
+2. Stdio MCP deps (if any) are installed automatically
+3. `.mcp.json` is updated to add the capability as a server:
+```json
+{
+  "mcpServers": {
+    "smartSearch": {
+      "type": "stdio",
+      "command": "pml",
+      "args": ["run", "smartSearch"]
+    }
+  }
+}
+```
+4. Success message: "✓ smartSearch added. Restart Claude Code to use."
+
+**Given** a capability has stdio MCP dependencies **When** `pml add` is run **Then**:
+1. Dependencies are listed: "smartSearch requires: memory, filesystem"
+2. Each dep is installed (npx, pip, etc.)
+3. Missing env vars are reported: "⚠ Set ANTHROPIC_API_KEY for serena"
+
+**AC3-4 (Run Command):**
+
+**Given** a `.mcp.json` with `"args": ["run", "smartSearch"]` **When** Claude Code starts **Then**:
+1. PML spawns as stdio server for "smartSearch" capability
+2. Dynamic imports the capability code from cache (or fetches if needed)
+3. Exposes capability tools as native MCP tools
+4. Routes internal `mcp.*` calls to appropriate MCPs (local or cloud)
+
+**Given** `pml run smartSearch` is executed **When** capability has stdio deps **Then**:
+1. Required stdio MCPs are spawned as subprocesses
+2. `mcp.memory.create_entities()` calls route to memory subprocess
+3. Subprocess lifecycle is managed (spawn on first call, idle timeout)
+
+**AC5-6 (Remove & List Commands):**
+
+**Given** `pml remove smartSearch` is run **When** capability is installed **Then**:
+1. Entry is removed from `.mcp.json`
+2. Local cache is optionally cleaned (`--clean` flag)
+3. Stdio deps are NOT removed (might be used by other caps)
+
+**Given** `pml list` is run **Then** output shows:
+```
+Installed capabilities:
+  smartSearch     (cloud)    mcp.smartSearch.*
+  fileProcessor   (local)    mcp.fileProcessor.*
+
+PML meta-tools: enabled (mcp.pml.*)
+```
+
+**AC7-8 (Dynamic Import & Execution):**
+
+**Given** `pml run <cap>` starts **When** loading capability **Then**:
+```typescript
+// Dynamic import from registry (or cache)
+const cap = await import(`https://pml.casys.ai/mcp/${capName}.ts`);
+
+// Expose as MCP server
+server.addTool("run", cap.run);
+server.addTool("config", cap.config);
+```
+
+**Given** capability code calls `mcp.X.action()` **When** executed **Then**:
+1. PML intercepts the call
+2. Resolves X to appropriate MCP (local subprocess, cloud HTTP, or another capability)
+3. Returns result transparently
+
+**Technical Notes:**
+
+> **Standalone ≠ Isolated**: Standalone capabilities still need PML runtime for:
+> - Resolving `mcp.*` calls
+> - Managing stdio subprocess deps
+> - Routing to cloud MCPs
+>
+> "Standalone" means: exposed as native MCP to Claude, not wrapped in `pml.execute()`.
+>
+> **Analogy:**
+> - `docker run nginx` = standalone container, but needs Docker daemon
+> - `pml run smartSearch` = standalone capability, but needs PML runtime
+
+**Dependencies:**
+
+- Story 14.4: Dynamic import infrastructure
+- Story 14.7: Registry endpoint for capability code
+
+---
+
+### Story 14.11: Binary Distribution via Deno Compile
+
+As an end user, I want to install PML as a standalone binary without any runtime dependencies,
+So that I can use it immediately without installing Deno, Node, or any other prerequisite.
+
+**Context:**
+
+`deno compile` bundles the Deno runtime into a single executable (~80-100MB). Users download one file and it works. No `deno install`, no `npm install`, no runtime version conflicts.
+
+**Distribution Channels:**
+- Direct download from `pml.casys.ai/install.sh`
+- GitHub Releases (Linux x64, macOS x64/arm64, Windows x64)
+- Homebrew tap (macOS): `brew install casys/tap/pml`
+
+**Acceptance Criteria:**
+
+**AC1-2 (Cross-Platform Compilation):**
+
+**Given** the PML source code
+**When** CI/CD runs on release
+**Then** it compiles binaries for:
+- `pml-linux-x64`
+- `pml-macos-x64`
+- `pml-macos-arm64`
+- `pml-windows-x64.exe`
+**And** each binary is self-contained (no external dependencies)
+
+**Given** a compiled binary
+**When** user runs `./pml --version`
+**Then** it shows version without requiring Deno installed
+
+**AC3-4 (Installation Script):**
+
+**Given** a user on Linux/macOS
+**When** they run `curl -fsSL https://pml.casys.ai/install.sh | sh`
+**Then** the script:
+1. Detects OS and architecture
+2. Downloads correct binary from GitHub Releases
+3. Installs to `~/.pml/bin/pml` (or `/usr/local/bin` with sudo)
+4. Adds to PATH if needed
+5. Prints success: "✓ PML installed. Run 'pml init' to get started."
+
+**Given** a Windows user
+**When** they download `pml-windows-x64.exe`
+**Then** they can run it directly or add to PATH manually
+
+**AC5-6 (Self-Update):**
+
+**Given** PML is installed
+**When** user runs `pml upgrade`
+**Then** it:
+1. Checks latest version from GitHub Releases API
+2. If newer, downloads new binary
+3. Replaces current binary atomically
+4. Prints: "✓ Upgraded from v1.0.0 to v1.1.0"
+
+**Given** PML is already latest version
+**When** user runs `pml upgrade`
+**Then** it prints: "✓ Already up to date (v1.1.0)"
+
+**AC7-8 (CI/CD Pipeline):**
+
+**Given** a git tag `v*` is pushed
+**When** GitHub Actions runs
+**Then** it:
+1. Runs `deno compile` for each platform
+2. Creates GitHub Release with all binaries
+3. Updates `install.sh` with latest version
+4. Optionally updates Homebrew formula
+
+**Technical Notes:**
+
+> **Binary size:** ~80-100MB is acceptable for dev tools (VS Code is 300MB+)
+>
+> **Compilation command:**
+> ```bash
+> deno compile --allow-all --target x86_64-unknown-linux-gnu --output dist/pml-linux-x64 src/cli/mod.ts
+> deno compile --allow-all --target x86_64-apple-darwin --output dist/pml-macos-x64 src/cli/mod.ts
+> deno compile --allow-all --target aarch64-apple-darwin --output dist/pml-macos-arm64 src/cli/mod.ts
+> deno compile --allow-all --target x86_64-pc-windows-msvc --output dist/pml-windows-x64.exe src/cli/mod.ts
+> ```
+>
+> **Worker sandbox still works:** The compiled binary includes Deno runtime, so Deno Worker with permissions works as expected.
+
+**Dependencies:**
+
+- Story 14.1: CLI structure and commands
+- Stories 14.1-14.8: Complete functionality to compile
+
+---
+
 ## Technical Notes
 
 ### Package Structure
@@ -695,24 +1194,27 @@ packages/pml/
 ├── deno.json           # JSR config
 ├── mod.ts              # Entry point
 ├── src/
-│   ├── server.ts       # MCP HTTP Streamable server
-│   ├── router.ts       # Local/Cloud routing
-│   ├── local/
-│   │   ├── executor.ts # Sandboxed execution
-│   │   └── loader.ts   # Dynamic import from registry
-│   ├── cloud/
-│   │   └── rpc.ts      # HTTP RPC client to pml.casys.ai
-│   └── workspace.ts    # Workspace resolution
+│   ├── cli/
+│   │   ├── mod.ts          # CLI entry (Cliffy)
+│   │   ├── stdio-command.ts # Primary interface for Claude Code
+│   │   └── serve-command.ts # HTTP server (debug/dashboard)
+│   ├── routing/
+│   │   ├── mod.ts          # Exports
+│   │   ├── resolver.ts     # Client/Server routing
+│   │   ├── cache.ts        # Local config cache
+│   │   └── sync.ts         # Sync config from server
+│   ├── permissions/        # User permission loading
+│   └── workspace.ts        # Workspace resolution
 └── README.md
 ```
 
 ### Key Dependencies
 
-- `@modelcontextprotocol/sdk` - MCP HTTP server implementation
+- `@cliffy/command` - CLI framework
 - Deno native `Worker` API - Sandbox isolation
-- Deno native `fetch` - Cloud RPC calls + registry fetching
+- Deno native `fetch` - Server RPC calls + registry fetching
 - Story 13.8 - `pml_registry` table for unified MCP/capability storage
-- Story 13.9 - `routing` field for local/cloud decisions
+- Story 13.9 - `routing` field for client/server decisions
 
 ### Related ADRs
 
@@ -729,8 +1231,8 @@ pml.casys.ai/mcp/{fqdn}
 
 Examples:
   /mcp/filesystem        → Native MCP server code
-  /mcp/fs:read_json      → Learned capability (same MCP interface)
-  /mcp/data:transform    → Learned capability
+  /mcp/casys.pml.fs.read_json      → Learned capability (same MCP interface)
+  /mcp/casys.pml.data.transform    → Learned capability
 ```
 
 Internal distinction via `pml_registry.record_type`:
@@ -803,27 +1305,29 @@ The `record_type` field (`'mcp-tool'` | `'capability'`) directly tells us the ty
 
 The `routing` field in `tool_schema` is set by **us** when we seed MCPs. Users cannot change it.
 
-### Routing Rules
+### Routing Rules (Updated 2025-01-06)
 
 | Routing | Critère | Exemples |
 |---------|---------|----------|
-| **local** | MUST access user's workspace/files | `filesystem`, `shell`, `sqlite`, `git` |
-| **cloud** | API-based, can proxy or BYOK | `tavily`, `github`, `slack`, `pml:*` |
+| **client** | MUST access user's workspace/files | `filesystem`, `shell`, `docker`, `ssh`, `git` |
+| **server** | API-based, can proxy or BYOK | `tavily`, `github`, `slack`, `json`, `math`, `pml:*` |
+
+**Config source:** `config/mcp-routing.json` (synced from server, NO hardcoded fallback)
 
 ### What the user controls
 
 | User Config | Purpose |
 |-------------|---------|
 | `.pml.json` permissions | `allow/deny/ask` - HIL behavior |
-| `.env` API keys | BYOK for cloud MCPs (TAVILY_API_KEY, etc.) |
+| `.env` API keys | BYOK for server MCPs (TAVILY_API_KEY, etc.) |
 
 ### What the user does NOT control
 
 - `routing` field - fixed by platform
-- Which MCPs are local vs cloud - platform decision
+- Which MCPs are client vs server - platform decision
 - MCP code source - always from `pml.casys.ai/mcp/{fqdn}`
 
-### Cloud MCP Flow (BYOK)
+### Server MCP Flow (BYOK)
 
 ```
 User calls tavily:search

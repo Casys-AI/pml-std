@@ -313,20 +313,25 @@ Deno.test("isAdminUser - ADMIN_USERNAMES is case insensitive", async () => {
 // queryUserActivity Tests
 // ============================================
 
-Deno.test("queryUserActivity - returns user activity metrics for 24h", async () => {
-  const db = await setupTestDb();
-  await seedTestData(db);
+Deno.test({
+  name: "queryUserActivity - returns user activity metrics for 24h",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
+    const db = await setupTestDb();
+    await seedTestData(db);
 
-  const activity = await queryUserActivity(db, "24h");
+    const activity = await queryUserActivity(db, "24h");
 
-  // Should have active users in last 24h
-  assertGreater(activity.activeUsers, 0);
-  assertEquals(activity.dailyActiveUsers, activity.activeUsers);
+    // Should have active users in last 24h
+    assertGreater(activity.activeUsers, 0);
+    assertEquals(activity.dailyActiveUsers, activity.activeUsers);
 
-  // Top users should be populated
-  assert(Array.isArray(activity.topUsers));
+    // Top users should be populated
+    assert(Array.isArray(activity.topUsers));
 
-  await db.close();
+    await db.close();
+  },
 });
 
 Deno.test("queryUserActivity - returns user activity metrics for 7d", async () => {
@@ -493,20 +498,25 @@ Deno.test("getAdminAnalytics - uses cache on second call", async () => {
   await db.close();
 });
 
-Deno.test("getAdminAnalytics - different time ranges have separate cache entries", async () => {
-  const db = await setupTestDb();
-  await seedTestData(db);
+Deno.test({
+  name: "getAdminAnalytics - different time ranges have separate cache entries",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
+    const db = await setupTestDb();
+    await seedTestData(db);
 
-  clearAnalyticsCache();
+    clearAnalyticsCache();
 
-  await getAdminAnalytics(db, { timeRange: "24h" });
-  await getAdminAnalytics(db, { timeRange: "7d" });
-  await getAdminAnalytics(db, { timeRange: "30d" });
+    await getAdminAnalytics(db, { timeRange: "24h" });
+    await getAdminAnalytics(db, { timeRange: "7d" });
+    await getAdminAnalytics(db, { timeRange: "30d" });
 
-  const stats = getCacheStats();
-  assertEquals(stats.entries, 3);
+    const stats = getCacheStats();
+    assertEquals(stats.entries, 3);
 
-  await db.close();
+    await db.close();
+  },
 });
 
 Deno.test("clearAnalyticsCache - clears all cache entries", async () => {

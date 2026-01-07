@@ -70,12 +70,15 @@ async function saveParamsToDb(
   });
 
   try {
-    // Use $1::jsonb cast with raw object - postgres.js auto-serializes to JSONB
+    // postgres.js auto-serializes objects to JSONB
+    // Type error is false positive - same param used twice confuses TS inference
+    // deno-lint-ignore no-explicit-any
+    const p = params as any;
     await sql`
       INSERT INTO shgat_params (user_id, params, updated_at)
-      VALUES ('local', ${params}::jsonb, NOW())
+      VALUES ('local', ${p}::jsonb, NOW())
       ON CONFLICT (user_id) DO UPDATE SET
-        params = ${params}::jsonb,
+        params = ${p}::jsonb,
         updated_at = NOW()
     `;
 

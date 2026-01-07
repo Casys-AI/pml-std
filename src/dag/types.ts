@@ -5,6 +5,7 @@
  */
 
 import type { JsonValue } from "../capabilities/types.ts";
+import type { DecisionEvent } from "../infrastructure/patterns/strategy/decision-strategy.ts";
 
 /**
  * Result of a single task execution
@@ -254,17 +255,8 @@ export type ExecutionEvent =
     checkpointId: string;
     layerIndex: number;
   }
-  | {
-    type: "decision_required";
-    timestamp: number;
-    workflowId: string;
-    decisionType: "AIL" | "HIL";
-    description: string;
-    /** Checkpoint ID for approval_response (Story 2.5-3 HIL fix) */
-    checkpointId?: string;
-    /** Additional context for the decision (e.g., permission escalation details) */
-    context?: Record<string, unknown>;
-  }
+  // decision_required uses DecisionEvent from strategy pattern (no duplication)
+  | DecisionEvent
   | {
     type: "workflow_complete";
     timestamp: number;

@@ -1,7 +1,19 @@
 {
   "$schema": "./mcp-routing.schema.json",
   "routing": {
-    "cloud": [
+    "client": [
+      "filesystem:*",
+      "git:*",
+      "shell:*",
+      "process:*",
+      "docker:*",
+      "kubernetes:*",
+      "ssh:*",
+      "database:*",
+      "sqlite:*",
+      "postgres:*"
+    ],
+    "server": [
       "memory:*",
       "tavily:*",
       "brave_search:*",
@@ -34,5 +46,10 @@
       "pml:*"
     ]
   },
-  "_comment": "Only cloud servers listed. Everything else defaults to LOCAL for security."
+  "default": "client",
+  "_comments": {
+    "client": "Runs on user's machine - filesystem, process, network access",
+    "server": "Runs on pml.casys.ai - stateless computation, external APIs",
+    "default": "Unknown tools route to client (safe fallback)"
+  }
 }

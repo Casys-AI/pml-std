@@ -1,34 +1,31 @@
 /**
- * Deno Sandbox Executor - Production Implementation
+ * Deno Sandbox Executor - Facade
  *
  * Provides secure code execution via Worker (default) or subprocess.
+ * Phase 2.4 refactor: Delegates to extracted modules for execution logic.
  *
  * ## Architecture Decision (Story 10.5 AC13)
  *
  * **Worker Mode (default, recommended for MCP):**
- * - Uses `WorkerBridge` with `permissions: "none"`
+ * - Uses `WorkerRunner` with `permissions: "none"`
  * - 100% traçabilité: all I/O goes through MCP RPC bridge
  * - Faster execution (~33ms vs ~54ms subprocess)
- * - No direct filesystem/network access (security by design)
  *
  * **Subprocess Mode (legacy, opt-in via `useWorkerForExecute: false`):**
- * - Spawns Deno subprocess with explicit permission flags
+ * - Uses `DenoSubprocessRunner` with explicit permission flags
  * - Required for: allowedReadPaths, memoryLimit, elevated permission sets
- * - Slower due to process spawn overhead
  *
  * @module sandbox/executor
  */
 
-import type { JsonValue } from "../capabilities/types.ts";
+import type { PermissionSet } from "../capabilities/types.ts";
 import type {
-  ExecutionMode,
   ExecutionResult,
   SandboxConfig,
   ToolDefinition,
   TraceEvent,
 } from "./types.ts";
 import type { MCPClientBase } from "../mcp/types.ts";
-import type { PermissionSet } from "../capabilities/types.ts";
 import { getLogger } from "../telemetry/logger.ts";
 import { type CacheStats, CodeExecutionCache, generateCacheKey } from "./cache.ts";
 import { SecurityValidationError, SecurityValidator } from "./security-validator.ts";
@@ -38,13 +35,12 @@ import {
   ResourceLimitError,
   type ResourceStats,
 } from "./resource-limiter.ts";
-import { WorkerBridge } from "./worker-bridge.ts";
 
 // Extracted modules (Phase 2.4)
-import { PermissionMapper } from "./security/permission-mapper.ts";
+import { DenoSubprocessRunner } from "./execution/deno-runner.ts";
+import { WorkerRunner } from "./execution/worker-runner.ts";
 import { resultParser } from "./execution/result-parser.ts";
-import { TimeoutHandler } from "./execution/timeout-handler.ts";
-import { codeWrapper } from "./tools/code-wrapper.ts";
+import { PermissionMapper } from "./security/permission-mapper.ts";
 
 const logger = getLogger("default");
 
@@ -77,53 +73,40 @@ export interface ExecutionResultWithTraces extends ExecutionResult {
  * Deno Sandbox Executor
  *
  * Executes user-provided TypeScript code in an isolated environment.
- * Uses extracted modules for permission mapping, result parsing, etc.
+ * Acts as a facade delegating to WorkerRunner or DenoSubprocessRunner.
  */
 export class DenoSandboxExecutor {
-  private config: Required<
-    Omit<SandboxConfig, "capabilityStore" | "graphRAG" | "capabilityRegistry" | "useWorkerForExecute">
-  >;
   private cache: CodeExecutionCache | null = null;
   private toolVersions: Record<string, string> = {};
   private securityValidator: SecurityValidator;
   private resourceLimiter: ResourceLimiter;
-  private executionMode: ExecutionMode = "worker";
-  private lastBridge: WorkerBridge | null = null;
-  private capabilityStore?: import("../capabilities/capability-store.ts").CapabilityStore;
-  private graphRAG?: import("../graphrag/graph-engine.ts").GraphRAGEngine;
-  private capabilityRegistry?: import("../capabilities/capability-registry.ts").CapabilityRegistry;
-  private useWorkerForExecute: boolean;
-
-  // Extracted module instances
   private permissionMapper: PermissionMapper;
-  private timeoutHandler: TimeoutHandler;
+
+  // Runners
+  private workerRunner: WorkerRunner;
+  private subprocessRunner: DenoSubprocessRunner;
+
+  // Config
+  private timeout: number;
+  private memoryLimit: number;
+  private useWorkerForExecute: boolean;
+  private cacheConfig: Required<NonNullable<SandboxConfig["cacheConfig"]>>;
 
   constructor(config?: SandboxConfig) {
-    this.config = {
-      timeout: config?.timeout ?? DEFAULTS.TIMEOUT_MS,
-      memoryLimit: config?.memoryLimit ?? DEFAULTS.MEMORY_LIMIT_MB,
-      allowedReadPaths: config?.allowedReadPaths ?? DEFAULTS.ALLOWED_READ_PATHS,
-      piiProtection: config?.piiProtection ?? {
-        enabled: true,
-        types: ["email", "phone", "credit_card", "ssn", "api_key"],
-        detokenizeOutput: false,
-      },
-      cacheConfig: config?.cacheConfig ?? {
-        enabled: true,
-        maxEntries: 100,
-        ttlSeconds: 300,
-        persistence: false,
-      },
+    this.timeout = config?.timeout ?? DEFAULTS.TIMEOUT_MS;
+    this.memoryLimit = config?.memoryLimit ?? DEFAULTS.MEMORY_LIMIT_MB;
+    this.useWorkerForExecute = config?.useWorkerForExecute ?? true;
+
+    this.cacheConfig = {
+      enabled: config?.cacheConfig?.enabled ?? true,
+      maxEntries: config?.cacheConfig?.maxEntries ?? 100,
+      ttlSeconds: config?.cacheConfig?.ttlSeconds ?? 300,
+      persistence: config?.cacheConfig?.persistence ?? false,
     };
 
     // Initialize cache if enabled
-    if (this.config.cacheConfig.enabled) {
-      this.cache = new CodeExecutionCache({
-        enabled: true,
-        maxEntries: this.config.cacheConfig.maxEntries ?? 100,
-        ttlSeconds: this.config.cacheConfig.ttlSeconds ?? 300,
-        persistence: this.config.cacheConfig.persistence ?? false,
-      });
+    if (this.cacheConfig.enabled) {
+      this.cache = new CodeExecutionCache(this.cacheConfig);
     }
 
     // Initialize security validator
@@ -141,21 +124,27 @@ export class DenoSandboxExecutor {
       memoryPressureThresholdPercent: 80,
     });
 
-    // Initialize extracted modules
+    // Initialize permission mapper
     this.permissionMapper = new PermissionMapper();
-    this.timeoutHandler = new TimeoutHandler(this.config.timeout);
 
-    // Store optional dependencies
-    this.capabilityStore = config?.capabilityStore;
-    this.graphRAG = config?.graphRAG;
-    this.capabilityRegistry = config?.capabilityRegistry;
-    this.useWorkerForExecute = config?.useWorkerForExecute ?? true;
+    // Initialize runners
+    this.workerRunner = new WorkerRunner({
+      timeout: this.timeout,
+      capabilityStore: config?.capabilityStore,
+      graphRAG: config?.graphRAG,
+      capabilityRegistry: config?.capabilityRegistry,
+    });
+
+    this.subprocessRunner = new DenoSubprocessRunner({
+      timeout: this.timeout,
+      memoryLimit: this.memoryLimit,
+      allowedReadPaths: config?.allowedReadPaths ?? DEFAULTS.ALLOWED_READ_PATHS,
+    });
 
     logger.debug("Sandbox executor initialized", {
-      timeout: this.config.timeout,
-      memoryLimit: this.config.memoryLimit,
-      allowedPathsCount: this.config.allowedReadPaths.length,
-      cacheEnabled: this.config.cacheConfig.enabled,
+      timeout: this.timeout,
+      memoryLimit: this.memoryLimit,
+      cacheEnabled: this.cacheConfig.enabled,
       useWorkerForExecute: this.useWorkerForExecute,
     });
   }
@@ -169,56 +158,21 @@ export class DenoSandboxExecutor {
     permissionSet: PermissionSet = "minimal",
   ): Promise<ExecutionResult> {
     const startTime = performance.now();
-    let tempFile: string | null = null;
     let resourceToken: ExecutionToken | null = null;
 
     try {
       // Security validation
-      try {
-        this.securityValidator.validate(code, context);
-      } catch (securityError) {
-        if (securityError instanceof SecurityValidationError) {
-          return {
-            success: false,
-            error: { type: "SecurityError", message: securityError.message },
-            executionTimeMs: performance.now() - startTime,
-          };
-        }
-        throw securityError;
-      }
+      this.validateSecurity(code, context);
 
       // Resource limits
-      try {
-        resourceToken = await this.resourceLimiter.acquire(this.config.memoryLimit);
-      } catch (resourceError) {
-        if (resourceError instanceof ResourceLimitError) {
-          return {
-            success: false,
-            error: { type: "ResourceLimitError", message: resourceError.message },
-            executionTimeMs: performance.now() - startTime,
-          };
-        }
-        throw resourceError;
-      }
+      resourceToken = await this.acquireResources();
 
       // Worker path (default)
       if (this.useWorkerForExecute) {
-        const bridge = new WorkerBridge(new Map(), {
-          timeout: this.config.timeout,
-          capabilityStore: this.capabilityStore,
-          graphRAG: this.graphRAG,
-          capabilityRegistry: this.capabilityRegistry,
-        });
-        this.lastBridge = bridge;
-
-        const result = await bridge.execute(code, [], context);
+        const result = await this.workerRunner.executeSimple(code, context);
         const executionTimeMs = performance.now() - startTime;
 
-        if (resourceToken) {
-          this.resourceLimiter.release(resourceToken);
-          resourceToken = null;
-        }
-
+        // Classify error if present
         let error = result.error;
         if (error) {
           error = resultParser.classifyWorkerError(error);
@@ -232,136 +186,26 @@ export class DenoSandboxExecutor {
         };
       }
 
-      // Subprocess path (legacy)
+      // Subprocess path (legacy) - with caching
       if (this.cache) {
         const cacheKey = generateCacheKey(code, context ?? {}, this.toolVersions);
         const cached = this.cache.get(cacheKey);
         if (cached) return cached.result;
       }
 
-      const wrappedCode = codeWrapper.wrapCode(code, context);
-      const { command, tempFilePath } = this.buildCommand(wrappedCode, permissionSet);
-      tempFile = tempFilePath;
+      const result = await this.subprocessRunner.execute(code, context, permissionSet);
 
-      const output = await this.timeoutHandler.executeWithTimeout(command);
-
-      if (!output.success || output.stderr.length > 0) {
-        throw new Error(`SUBPROCESS_ERROR: ${output.stderr || "Non-zero exit code"}`);
-      }
-
-      const parsed = resultParser.parseOutput(output.stdout);
-      const executionTimeMs = performance.now() - startTime;
-
-      const result: ExecutionResult = {
-        success: true,
-        result: parsed.result as JsonValue,
-        executionTimeMs,
-        memoryUsedMb: parsed.memoryUsedMb,
-      };
-
-      // Eager learning
-      const intent = context?.intent as string | undefined;
-      if (this.capabilityStore && intent) {
-        try {
-          await this.capabilityStore.saveCapability({
-            code,
-            intent,
-            durationMs: Math.round(executionTimeMs),
-            success: true,
-            toolsUsed: [],
-            traceData: {
-              initialContext: (context ?? {}) as Record<string, import("../capabilities/types.ts").JsonValue>,
-              executedPath: [],
-              decisions: [],
-              taskResults: [],
-              userId: (context?.userId as string) ?? "local",
-            },
-          });
-        } catch {
-          // Don't fail execution if capability storage fails
-        }
-      }
-
-      // Cache result
-      if (this.cache) {
-        const cacheKey = generateCacheKey(code, context ?? {}, this.toolVersions);
-        const now = Date.now();
-        const ttlMs = this.config.cacheConfig.ttlSeconds! * 1000;
-        this.cache.set(cacheKey, {
-          code,
-          context: context ?? {},
-          result,
-          toolVersions: this.toolVersions,
-          timestamp: now,
-          expiresAt: now + ttlMs,
-          hitCount: 0,
-        });
+      // Cache successful result
+      if (result.success && this.cache) {
+        this.cacheResult(code, context, result);
       }
 
       return result;
     } catch (error) {
-      const executionTimeMs = performance.now() - startTime;
-      const structuredError = resultParser.parseError(error, {
-        timeout: this.config.timeout,
-        memoryLimit: this.config.memoryLimit,
-      });
-      return { success: false, error: structuredError, executionTimeMs };
+      return this.handleExecutionError(error, startTime);
     } finally {
       if (resourceToken) this.resourceLimiter.release(resourceToken);
-      if (tempFile) {
-        try {
-          Deno.removeSync(tempFile);
-        } catch {
-          // Ignore cleanup errors
-        }
-      }
     }
-  }
-
-  /**
-   * Build Deno command with permission set support
-   */
-  private buildCommand(
-    code: string,
-    permissionSet: PermissionSet = "minimal",
-  ): { command: Deno.Command; tempFilePath: string } {
-    const tempFile = Deno.makeTempFileSync({ prefix: "sandbox-", suffix: ".ts" });
-    Deno.writeTextFileSync(tempFile, code);
-
-    const args: string[] = ["run"];
-    args.push(`--v8-flags=--max-old-space-size=${this.config.memoryLimit}`);
-    args.push("--no-prompt");
-    args.push("--deny-run");
-    args.push("--deny-ffi");
-
-    let permissionFlags = this.permissionMapper.toDenoFlags(permissionSet);
-
-    // Ensure temp file is readable
-    if (!this.permissionMapper.hasReadPermission(permissionFlags)) {
-      args.push(`--allow-read=${tempFile}`);
-    } else {
-      permissionFlags = this.permissionMapper.addReadPath(permissionFlags, tempFile);
-    }
-
-    // Add user-configured paths
-    if (this.config.allowedReadPaths.length > 0) {
-      for (const path of this.config.allowedReadPaths) {
-        permissionFlags = this.permissionMapper.addReadPath(permissionFlags, path);
-      }
-    }
-
-    args.push(...permissionFlags);
-
-    if (permissionSet === "minimal") {
-      args.push("--deny-write", "--deny-net", "--deny-env");
-    }
-
-    args.push(tempFile);
-
-    return {
-      command: new Deno.Command("deno", { args, stdout: "piped", stderr: "piped" }),
-      tempFilePath: tempFile,
-    };
   }
 
   /**
@@ -383,53 +227,21 @@ export class DenoSandboxExecutor {
 
     try {
       // Security validation
-      try {
-        this.securityValidator.validate(code, context);
-      } catch (securityError) {
-        if (securityError instanceof SecurityValidationError) {
-          return {
-            success: false,
-            error: { type: "SecurityError", message: securityError.message },
-            executionTimeMs: performance.now() - startTime,
-          };
-        }
-        throw securityError;
-      }
+      this.validateSecurity(code, context);
 
       // Resource limits
-      try {
-        resourceToken = await this.resourceLimiter.acquire(this.config.memoryLimit);
-      } catch (resourceError) {
-        if (resourceError instanceof ResourceLimitError) {
-          return {
-            success: false,
-            error: { type: "ResourceLimitError", message: resourceError.message },
-            executionTimeMs: performance.now() - startTime,
-          };
-        }
-        throw resourceError;
-      }
+      resourceToken = await this.acquireResources();
 
-      const bridge = new WorkerBridge(workerConfig.mcpClients, {
-        timeout: this.config.timeout,
-        capabilityStore: this.capabilityStore,
-        graphRAG: this.graphRAG,
-        capabilityRegistry: this.capabilityRegistry,
-      });
-      this.lastBridge = bridge;
-
-      const result = await bridge.execute(
+      // Execute via WorkerRunner
+      const result = await this.workerRunner.execute(
         code,
+        workerConfig.mcpClients,
         workerConfig.toolDefinitions,
         context,
         capabilityContext,
       );
 
-      return {
-        ...result,
-        traces: bridge.getTraces(),
-        toolsCalled: bridge.getToolsCalled(),
-      };
+      return result;
     } catch (error) {
       return {
         success: false,
@@ -439,6 +251,78 @@ export class DenoSandboxExecutor {
     } finally {
       if (resourceToken) this.resourceLimiter.release(resourceToken);
     }
+  }
+
+  // === Helper methods ===
+
+  private validateSecurity(code: string, context?: Record<string, unknown>): void {
+    try {
+      this.securityValidator.validate(code, context);
+    } catch (error) {
+      if (error instanceof SecurityValidationError) {
+        throw error;
+      }
+      throw error;
+    }
+  }
+
+  private async acquireResources(): Promise<ExecutionToken> {
+    try {
+      return await this.resourceLimiter.acquire(this.memoryLimit);
+    } catch (error) {
+      if (error instanceof ResourceLimitError) {
+        throw error;
+      }
+      throw error;
+    }
+  }
+
+  private handleExecutionError(error: unknown, startTime: number): ExecutionResult {
+    const executionTimeMs = performance.now() - startTime;
+
+    if (error instanceof SecurityValidationError) {
+      return {
+        success: false,
+        error: { type: "SecurityError", message: error.message },
+        executionTimeMs,
+      };
+    }
+
+    if (error instanceof ResourceLimitError) {
+      return {
+        success: false,
+        error: { type: "ResourceLimitError", message: error.message },
+        executionTimeMs,
+      };
+    }
+
+    return {
+      success: false,
+      error: { type: "RuntimeError", message: error instanceof Error ? error.message : String(error) },
+      executionTimeMs,
+    };
+  }
+
+  private cacheResult(
+    code: string,
+    context: Record<string, unknown> | undefined,
+    result: ExecutionResult,
+  ): void {
+    if (!this.cache) return;
+
+    const cacheKey = generateCacheKey(code, context ?? {}, this.toolVersions);
+    const now = Date.now();
+    const ttlMs = this.cacheConfig.ttlSeconds * 1000;
+
+    this.cache.set(cacheKey, {
+      code,
+      context: context ?? {},
+      result,
+      toolVersions: this.toolVersions,
+      timestamp: now,
+      expiresAt: now + ttlMs,
+      hitCount: 0,
+    });
   }
 
   // === Delegation methods ===
@@ -451,20 +335,12 @@ export class DenoSandboxExecutor {
     return this.permissionMapper.toDenoFlags(set);
   }
 
-  setExecutionMode(mode: ExecutionMode): void {
-    this.executionMode = mode;
-  }
-
-  getExecutionMode(): ExecutionMode {
-    return this.executionMode;
-  }
-
   getLastTraces(): TraceEvent[] {
-    return this.lastBridge?.getTraces() ?? [];
+    return this.workerRunner.getLastTraces();
   }
 
   getLastToolsCalled(): string[] {
-    return this.lastBridge?.getToolsCalled() ?? [];
+    return this.workerRunner.getLastToolsCalled();
   }
 
   setToolVersions(toolVersions: Record<string, string>): void {

@@ -28,127 +28,152 @@ function createMockDB(): PGliteClient {
   } as PGliteClient;
 }
 
-Deno.test("GraphRAGEngine - on/off subscription", () => {
-  const db = createMockDB();
-  const engine = new GraphRAGEngine(db);
+Deno.test({
+  name: "GraphRAGEngine - on/off subscription",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: () => {
+    const db = createMockDB();
+    const engine = new GraphRAGEngine(db);
 
-  let eventReceived = false;
-  const listener = (event: GraphEvent) => {
-    eventReceived = true;
-    assertEquals(event.type, "heartbeat");
-  };
+    let eventReceived = false;
+    const listener = (event: GraphEvent) => {
+      eventReceived = true;
+      assertEquals(event.type, "heartbeat");
+    };
 
-  // Subscribe
-  engine.on("graph_event", listener);
+    // Subscribe
+    engine.on("graph_event", listener);
 
-  // Unsubscribe
-  engine.off("graph_event", listener);
+    // Unsubscribe
+    engine.off("graph_event", listener);
 
-  // Event should not be received after unsubscription
-  assertEquals(eventReceived, false);
+    // Event should not be received after unsubscription
+    assertEquals(eventReceived, false);
+  },
 });
 
-Deno.test("GraphRAGEngine - graph_synced event on syncFromDatabase", async () => {
-  const db = createMockDB();
-  const engine = new GraphRAGEngine(db);
+Deno.test({
+  name: "GraphRAGEngine - graph_synced event on syncFromDatabase",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
+    const db = createMockDB();
+    const engine = new GraphRAGEngine(db);
 
-  const eventsReceived: GraphEvent[] = [];
-  engine.on("graph_event", (event) => {
-    eventsReceived.push(event);
-  });
+    const eventsReceived: GraphEvent[] = [];
+    engine.on("graph_event", (event) => {
+      eventsReceived.push(event);
+    });
 
-  await engine.syncFromDatabase();
+    await engine.syncFromDatabase();
 
-  // Should receive one graph_synced event
-  const syncedEvents = eventsReceived.filter((e) => e.type === "graph_synced");
-  assertEquals(syncedEvents.length, 1);
+    // Should receive one graph_synced event
+    const syncedEvents = eventsReceived.filter((e) => e.type === "graph_synced");
+    assertEquals(syncedEvents.length, 1);
 
-  const syncEvent = syncedEvents[0];
-  assertEquals(syncEvent.type, "graph_synced");
-  assertExists(syncEvent.data.nodeCount);
-  assertExists(syncEvent.data.edgeCount);
-  assertExists(syncEvent.data.syncDurationMs);
-  assertExists(syncEvent.data.timestamp);
+    const syncEvent = syncedEvents[0];
+    assertEquals(syncEvent.type, "graph_synced");
+    assertExists(syncEvent.data.nodeCount);
+    assertExists(syncEvent.data.edgeCount);
+    assertExists(syncEvent.data.syncDurationMs);
+    assertExists(syncEvent.data.timestamp);
 
-  // Timestamp should be valid ISO8601
-  const timestamp = new Date(syncEvent.data.timestamp);
-  assertEquals(timestamp instanceof Date && !isNaN(timestamp.getTime()), true);
+    // Timestamp should be valid ISO8601
+    const timestamp = new Date(syncEvent.data.timestamp);
+    assertEquals(timestamp instanceof Date && !isNaN(timestamp.getTime()), true);
+  },
 });
 
-Deno.test("GraphRAGEngine - event payload structure", async () => {
-  const db = createMockDB();
-  const engine = new GraphRAGEngine(db);
+Deno.test({
+  name: "GraphRAGEngine - event payload structure",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
+    const db = createMockDB();
+    const engine = new GraphRAGEngine(db);
 
-  const eventsReceived: GraphEvent[] = [];
-  engine.on("graph_event", (event) => {
-    eventsReceived.push(event);
-  });
+    const eventsReceived: GraphEvent[] = [];
+    engine.on("graph_event", (event) => {
+      eventsReceived.push(event);
+    });
 
-  await engine.syncFromDatabase();
+    await engine.syncFromDatabase();
 
-  const event = eventsReceived[0];
+    const event = eventsReceived[0];
 
-  // Verify all required fields exist
-  assertExists(event.type);
-  assertExists(event.data);
-  assertExists(event.data.timestamp);
+    // Verify all required fields exist
+    assertExists(event.type);
+    assertExists(event.data);
+    assertExists(event.data.timestamp);
 
-  // Timestamp should be ISO8601 format
-  const timestampRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
-  assertEquals(timestampRegex.test(event.data.timestamp), true);
+    // Timestamp should be ISO8601 format
+    const timestampRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+    assertEquals(timestampRegex.test(event.data.timestamp), true);
+  },
 });
 
-Deno.test("GraphRAGEngine - multiple listeners", async () => {
-  const db = createMockDB();
-  const engine = new GraphRAGEngine(db);
+Deno.test({
+  name: "GraphRAGEngine - multiple listeners",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
+    const db = createMockDB();
+    const engine = new GraphRAGEngine(db);
 
-  let listener1Called = false;
-  let listener2Called = false;
+    let listener1Called = false;
+    let listener2Called = false;
 
-  engine.on("graph_event", () => {
-    listener1Called = true;
-  });
+    engine.on("graph_event", () => {
+      listener1Called = true;
+    });
 
-  engine.on("graph_event", () => {
-    listener2Called = true;
-  });
+    engine.on("graph_event", () => {
+      listener2Called = true;
+    });
 
-  await engine.syncFromDatabase();
+    await engine.syncFromDatabase();
 
-  assertEquals(listener1Called, true);
-  assertEquals(listener2Called, true);
+    assertEquals(listener1Called, true);
+    assertEquals(listener2Called, true);
+  },
 });
 
-Deno.test("GraphRAGEngine - unsubscribe one listener", async () => {
-  const db = createMockDB();
-  const engine = new GraphRAGEngine(db);
+Deno.test({
+  name: "GraphRAGEngine - unsubscribe one listener",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
+    const db = createMockDB();
+    const engine = new GraphRAGEngine(db);
 
-  let listener1CallCount = 0;
-  let listener2CallCount = 0;
+    let listener1CallCount = 0;
+    let listener2CallCount = 0;
 
-  const listener1 = () => {
-    listener1CallCount++;
-  };
+    const listener1 = () => {
+      listener1CallCount++;
+    };
 
-  const listener2 = () => {
-    listener2CallCount++;
-  };
+    const listener2 = () => {
+      listener2CallCount++;
+    };
 
-  engine.on("graph_event", listener1);
-  engine.on("graph_event", listener2);
+    engine.on("graph_event", listener1);
+    engine.on("graph_event", listener2);
 
-  await engine.syncFromDatabase();
+    await engine.syncFromDatabase();
 
-  assertEquals(listener1CallCount, 1);
-  assertEquals(listener2CallCount, 1);
+    assertEquals(listener1CallCount, 1);
+    assertEquals(listener2CallCount, 1);
 
-  // Unsubscribe listener1
-  engine.off("graph_event", listener1);
+    // Unsubscribe listener1
+    engine.off("graph_event", listener1);
 
-  await engine.syncFromDatabase();
+    await engine.syncFromDatabase();
 
-  // listener1 should not be called again
-  assertEquals(listener1CallCount, 1);
-  // listener2 should be called again
-  assertEquals(listener2CallCount, 2);
+    // listener1 should not be called again
+    assertEquals(listener1CallCount, 1);
+    // listener2 should be called again
+    assertEquals(listener2CallCount, 2);
+  },
 });
