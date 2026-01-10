@@ -148,38 +148,77 @@ const matchScore = semanticScore * reliabilityFactor;
 - _Rationale :_ Si une capability ne marche pas (Reliability faible), elle ne doit pas être
   proposée, même si elle ressemble sémantiquement à la demande.
 
-### 3.2 Strategic Discovery (Passive Capability Suggestion)
+### 3.2 SHGAT - Scoring Unifié Tools & Capabilities (✅ Implémenté)
 
-**Location:** `src/graphrag/dag-suggester.ts` (Story 7.4)
+**Location:** `src/graphrag/algorithms/shgat.ts`, `src/mcp/algorithm-init/initializer.ts`
 
-Suggère des capabilities basées sur le comportement actuel de l'utilisateur.
+SHGAT (SuperHyperGraph Attention Networks) score les tools ET capabilities via message passing sur
+un n-SuperHyperGraph.
 
-```typescript
-// État actuel
-const discoveryScore = ToolsOverlap * (1 + StructuralBoost);
+#### Architecture
+
+```
+Intent Embedding (1024-dim BGE-M3)
+        │
+        ▼
+┌───────────────────────────────────────────────────────────┐
+│                    FORWARD PASS                           │
+│                                                           │
+│  UPWARD: V → E⁰ → E¹ → ... → Eᴸ                          │
+│  - Tools (V) envoient messages aux Capabilities (E⁰)      │
+│  - Capabilities propagent vers meta-capabilities (Eᵏ)     │
+│                                                           │
+│  DOWNWARD: Eᴸ → ... → E⁰ → V                             │
+│  - Meta-capabilities propagent signal vers children       │
+│  - Level-0 capabilities propagent vers tools connectés    │
+│                                                           │
+│  Attention multi-head par niveau (numHeads=4, numLayers=2)│
+└───────────────────────────────────────────────────────────┘
+        │
+        ▼
+  H_final (tool embeddings propagés)
+  E_final (capability embeddings propagés)
+        │
+        ▼
+  Score = cosine(intent, H_final[tool]) ou cosine(intent, E_final[cap])
 ```
 
-- **ToolsOverlap :** Ratio d'outils de la capability déjà présents dans le contexte.
-- **StructuralBoost (Spectral Clustering) :**
-  - Utilise le **Spectral Clustering** sur l'hypergraphe Tools-Capabilities.
-  - Si la capability est dans le même "Cluster Spectral" que les outils actifs → Boost significatif
-    (ex: +50%).
-  - _Pourquoi Spectral ?_ Mieux adapté que Louvain pour détecter les relations "soft" dans les
-    hypergraphes bipartites.
+#### Incidence Structure (Tool → Capability connections)
 
-- **⏳ Évolution planifiée : Full SHGAT (Attention Apprise)**
-  - Voir spikes `2025-12-17-superhypergraph-hierarchical-structures.md` et
-    `2025-12-21-capability-pathfinding-dijkstra.md`
-  - **Problème actuel :** Le scoring est "aveugle" à la query (PageRank = importance globale)
-  - **SHGAT** (SuperHyperGraph Attention Networks) :
-    - Attention contextuelle conditionnée sur l'intent
-    - Multi-head attention avec poids appris
-    - Entraîné sur les traces `episodic_events` (intent, context, outcome)
-    - Récursif sur les meta-capabilities (via edges `contains`)
-  - **Formule évoluée :**
-    ```typescript
-    const score = PageRank * 0.4 + LearnedAttention(intent, context, cap) * 0.6;
-    ```
+```typescript
+// buildMultiLevelIncidence() dans graph/incidence.ts
+toolToCapIncidence: Map<string, Set<string>>  // tool → caps qui le contiennent
+capToCapIncidence: Map<number, Map<string, Set<string>>>  // level k: child → parents
+```
+
+**Important** : Un tool connecté à plusieurs capabilities BÉNÉFICIE du message passing - le signal
+des capabilities se propage vers le tool via le downward pass.
+
+#### Training - Contrastive Learning avec Semi-Hard Negative Mining
+
+```typescript
+// Pour chaque trace (intent, positive_capability, outcome):
+// 1. Positive = la capability utilisée
+// 2. Negatives = autres capabilities/tools avec similarité intermédiaire
+
+// ⚠️ CRITICAL FIX (2026-01-09): Exclure les tools de la capability positive
+const positiveTools = capToTools.get(trace.capability_id);
+for (const [capId, emb] of capEmbeddings) {
+  if (capId === trace.capability_id) continue;  // Exclure positive
+  if (positiveTools.has(capId)) continue;       // ← FIX: Exclure tools du positive
+  // ... sample as potential negative
+}
+```
+
+**Bug corrigé** : Les tools dans `toolsUsed` de la capability positive étaient utilisés comme
+negatives, ce qui apprenait au modèle à les SUPPRIMER. Ex: `psql_query` (dans 7 capabilities)
+scorait 0.03 au lieu de 0.50.
+
+#### Persistence
+
+- **Params** : Sauvegardés dans `shgat_params` (PostgreSQL), ~137MB pour 605 tools
+- **Training** : Subprocess isolé (`spawn-training.ts`) pour éviter bloquer le main loop
+- **Sync Graph** : Au démarrage serveur uniquement (`syncFromDatabase()`)
 
 ---
 
@@ -290,36 +329,51 @@ Les valeurs utilisées dans les formules doivent être monitorées et ajustées.
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 5.2 SHGAT - Architecture Multi-Head
+### 5.2 SHGAT - Message Passing Architecture (Implémentée)
 
 ```
-                ┌─────────────────────────────┐
-                │         SHGAT               │
-                │   (1 instance, multi-head)  │
-                └─────────────────────────────┘
-                          │
-      ┌───────────────────┼───────────────────┐
-      ▼                   ▼                   ▼
-┌──────────┐       ┌──────────┐        ┌──────────┐
-│  Head 1  │       │  Head 2  │        │  Head 3  │
-│ semantic │       │ structure│        │ temporal │
-│embedding │       │pagerank  │        │cooccur.  │
-│          │       │spectral  │        │recency   │
-└──────────┘       └──────────┘        └──────────┘
-      │                   │                   │
-      └───────────────────┼───────────────────┘
-                          ▼
-                ┌─────────────────┐
-                │  Learned Fusion │
-                └─────────────────┘
-                          │
-                          ▼
-                    Final Score
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        n-SuperHyperGraph Structure                       │
+│                                                                          │
+│   Tools (V)              Capabilities (E⁰)        Meta-Caps (E¹...Eᴸ)   │
+│   ┌───┐ ┌───┐           ┌─────────────────┐      ┌─────────────────┐    │
+│   │t1 │ │t2 │ ───────── │   cap:db-query  │ ──── │  meta:database  │    │
+│   └───┘ └───┘           │  toolsUsed:[t1] │      └─────────────────┘    │
+│   ┌───┐                 └─────────────────┘                             │
+│   │t3 │ ─────────────── ┌─────────────────┐                             │
+│   └───┘                 │   cap:fs-ops    │                             │
+│                         │ toolsUsed:[t2,t3]│                             │
+│                         └─────────────────┘                             │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        SHGAT Forward Pass                                │
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │ UPWARD (V → E⁰ → E¹ → ... → Eᴸ)                                 │    │
+│  │                                                                  │    │
+│  │   Pour chaque niveau k, pour chaque head h:                     │    │
+│  │   E'ₖ = Σⱼ αᵢⱼ · Wₛₒᵤᵣ꜀ₑ · sourceⱼ    (attention-weighted sum) │    │
+│  │                                                                  │    │
+│  │   αᵢⱼ = softmax(LeakyReLU(aᵀ · [Wₛ·sⱼ || Wₜ·tᵢ]))             │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                              │                                          │
+│                              ▼                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │ DOWNWARD (Eᴸ → ... → E⁰ → V)                                    │    │
+│  │                                                                  │    │
+│  │   Même mécanique, direction inverse                             │    │
+│  │   Tools reçoivent signal des capabilities qui les contiennent   │    │
+│  │   + Residual connection (preserveDimResidual=0.3)               │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                              │                                          │
+│                              ▼                                          │
+│                    H_final, E_final (propagated embeddings)             │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Note** : Les algos de support (Spectral Clustering, Hypergraph PageRank, Co-occurrence) ne sont
-plus utilisés directement pour le scoring. Ils fournissent des **features** que SHGAT apprend à
-pondérer.
+**Multi-head** : 4 heads parallèles par niveau, concat puis projection.
+Chaque head apprend des patterns d'attention différents (pas semantic/structure/temporal séparés).
 
 **Spikes de référence :**
 

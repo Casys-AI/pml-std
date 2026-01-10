@@ -619,3 +619,72 @@ Deno.test("AC10: extractPathLevelFeatures + traceToTrainingExamples < 50ms for 1
   assertGreater(50, elapsed, `Overhead should be < 50ms, got ${elapsed.toFixed(2)}ms`);
   assertGreater(totalExamples, 200, "Should generate many examples from 100 traces");
 });
+
+// ============================================================================
+// capToTools Exclusion Test
+// ============================================================================
+
+Deno.test("traceToTrainingExamples - excludes anchor tools and similar tools from negatives", () => {
+  const trace: ExecutionTrace = {
+    id: "t1",
+    executedAt: new Date(),
+    success: true,
+    durationMs: 100,
+    decisions: [],
+    taskResults: [],
+    priority: 0.5,
+    executedPath: ["cap:anchor"],
+    capabilityId: "cap:anchor",
+  };
+
+  // Intent embedding - normalized unit vector
+  const intentEmbedding = new Array(1024).fill(0).map((_, i) => Math.sin(i * 0.01));
+  const pathFeatures = new Map();
+
+  // All embeddings with varying similarity to intent (for semi-hard range)
+  const allEmbeddings = new Map<string, number[]>();
+  allEmbeddings.set("cap:anchor", intentEmbedding.slice()); // Same as intent
+
+  // Owned tools - will be excluded via capToTools + cluster
+  allEmbeddings.set("tool:owned1", new Array(1024).fill(0).map((_, i) => Math.sin(i * 0.01 + 0.1)));
+  allEmbeddings.set("tool:similar", new Array(1024).fill(0).map((_, i) => Math.sin(i * 0.01 + 0.12)));
+
+  // Unrelated tools with ~0.3-0.6 similarity to intent (semi-hard range)
+  allEmbeddings.set("tool:unrelated1", new Array(1024).fill(0).map((_, i) => Math.sin(i * 0.02)));
+  allEmbeddings.set("tool:unrelated2", new Array(1024).fill(0).map((_, i) => Math.sin(i * 0.025)));
+  allEmbeddings.set("tool:unrelated3", new Array(1024).fill(0).map((_, i) => Math.sin(i * 0.03)));
+  allEmbeddings.set("tool:unrelated4", new Array(1024).fill(0).map((_, i) => Math.sin(i * 0.035)));
+  allEmbeddings.set("tool:unrelated5", new Array(1024).fill(0).map((_, i) => Math.sin(i * 0.04)));
+  allEmbeddings.set("tool:unrelated6", new Array(1024).fill(0).map((_, i) => Math.sin(i * 0.045)));
+  allEmbeddings.set("tool:unrelated7", new Array(1024).fill(0).map((_, i) => Math.sin(i * 0.05)));
+  allEmbeddings.set("tool:unrelated8", new Array(1024).fill(0).map((_, i) => Math.sin(i * 0.055)));
+
+  // capToTools: anchor owns tool:owned1
+  const capToTools = new Map<string, Set<string>>();
+  capToTools.set("cap:anchor", new Set(["tool:owned1"]));
+
+  // toolClusters: owned1 and similar are in same cluster (cosine > 0.7)
+  const toolClusters = new Map<string, Set<string>>();
+  toolClusters.set("tool:owned1", new Set(["tool:owned1", "tool:similar"]));
+  toolClusters.set("tool:similar", new Set(["tool:similar", "tool:owned1"]));
+
+  const examples = traceToTrainingExamples(
+    trace,
+    trace.executedPath!,
+    intentEmbedding,
+    pathFeatures,
+    allEmbeddings,
+    capToTools,
+    toolClusters,
+  );
+
+  assertEquals(examples.length, 1);
+
+  const negatives = examples[0].negativeCapIds ?? [];
+  // Owned tools must NOT appear in negatives
+  assertEquals(negatives.includes("tool:owned1"), false, "tool:owned1 should be excluded");
+  // Similar tools (in same cluster) must NOT appear in negatives
+  assertEquals(negatives.includes("tool:similar"), false, "tool:similar should be excluded via cluster");
+  // Unrelated tools CAN appear
+  assertGreater(negatives.length, 0, "Should have some negatives from unrelated tools");
+});

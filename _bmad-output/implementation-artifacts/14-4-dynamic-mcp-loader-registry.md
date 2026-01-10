@@ -1,6 +1,6 @@
 # Story 14.4: Dynamic MCP Loader with Dependency Installation
 
-Status: review
+Status: done
 
 > **Epic:** 14 - JSR Package Local/Cloud MCP Routing
 > **FR Coverage:** FR14-4 (Dynamic MCP import), FR14-10 (Caching via Deno)
@@ -628,6 +628,68 @@ packages/pml/mod.ts                    # Export loader
 3. **How to compute integrity hash?** Proposal: sha256 of package.json + main entry file (like npm's approach).
 
 4. **HIL in stdio mode?** The JSON-RPC loop must handle HIL prompts without breaking protocol. Proposal: Use stderr for prompts.
+
+---
+
+## Implementation Notes (2026-01-09)
+
+> **ADR Reference:** [ADR-059: Hybrid Routing - Server Analysis, Package Execution](../planning-artifacts/adrs/ADR-059-hybrid-routing-server-analysis-package-execution.md)
+
+### Per-Project State (Updated)
+
+**Original design:** Global state in `~/.pml/`
+
+**Current implementation:** Per-project state in `${workspace}/.pml/`
+
+| File | Original Path | Current Path |
+|------|---------------|--------------|
+| `deps.json` | `~/.pml/deps.json` | `${workspace}/.pml/deps.json` |
+| `mcp.lock` | `~/.pml/mcp.lock` | `${workspace}/.pml/mcp.lock` |
+| `client-id` | `~/.pml-client-id` | `${workspace}/.pml/client-id` |
+
+This ensures each project has its own isolated dependency state.
+
+### Hybrid Routing Architecture Change
+
+**Original design:** Package loads and executes everything locally.
+
+**Current implementation:** Server analyzes code, package executes client tools locally.
+
+```
+pml:execute(code)
+    │
+    ▼
+Package → Forward to Server (pml.casys.ai)
+    │
+    ▼
+Server analyzes (SWC → DAG)
+    │
+    ├─► All server tools → Server executes, returns result
+    │
+    └─► Any client tool → Returns { status: "execute_locally", code, dag }
+            │
+            ▼
+        Package executes in sandbox (this story's CapabilityLoader)
+            │
+            ├─► client tools → local execution (via CapabilityLoader)
+            └─► server tools → HTTP forward to cloud
+```
+
+The `CapabilityLoader` from this story is now used by `pml:execute` when the server
+returns `execute_locally`.
+
+### Registry Serves 3 MCP Types
+
+The registry endpoint `/api/registry/{fqdn}` now serves 3 types:
+
+| Type | Source | Response |
+|------|--------|----------|
+| `deno` | `capability_records` (code) | TypeScript code |
+| `stdio` | `mcp_server.connection_info` | JSON metadata (install command) |
+| `http` | `mcp_server.connection_info` | JSON metadata (proxy URL) |
+
+Tools like `filesystem:*` are `stdio` type with `routing: "client"` - they are
+installed and executed on the user's machine via `CapabilityLoader`.
 
 ---
 

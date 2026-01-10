@@ -1338,3 +1338,69 @@ User calls tavily:search
     │
     └─► Cloud executes with user's API key (never stored)
 ```
+
+---
+
+## Implementation Notes (2026-01-09)
+
+### Per-Project State (Implemented)
+
+**IMPORTANT:** All state is now per-project, NOT global.
+
+| File | Location | Purpose |
+|------|----------|---------|
+| `.pml.json` | `${workspace}/.pml.json` | Permissions, cloud URL |
+| `mcp.lock` | `${workspace}/.pml/mcp.lock` | Integrity tracking for client-routed MCPs |
+| `deps.json` | `${workspace}/.pml/deps.json` | Installed MCP dependencies |
+| `client-id` | `${workspace}/.pml/client-id` | Session client ID |
+
+**Rationale:**
+- Cohérence avec permissions déjà per-project
+- Isolation entre projets
+- Portabilité (clone = lockfile inclus)
+
+**Init updates .gitignore:**
+`pml init` ajoute automatiquement `.pml.json` et `.pml/` au `.gitignore` du projet.
+
+### Hybrid Routing (Implemented)
+
+See spike: `_bmad-output/planning-artifacts/spikes/spike-2026-01-09-pml-execute-hybrid-routing.md`
+
+**Key flow:**
+1. Package forwards `pml:execute` to server
+2. Server analyzes code (SWC → DAG)
+3. If client tools detected → returns `execute_locally`
+4. Package executes in sandbox with hybrid routing
+5. `mcp.*` calls routed: client→local, server→cloud
+
+**Files modified:**
+- `src/mcp/handlers/code-execution-handler.ts` - routing check
+- `src/mcp/handlers/execute-handler-facade.ts` - execute_locally response
+- `packages/pml/src/cli/stdio-command.ts` - local execution logic
+
+### MCP Types Clarification
+
+| Type | Description | codeUrl | install | Lockfile |
+|------|-------------|---------|---------|----------|
+| `deno` | TypeScript capability | ✅ Required | ❌ | ✅ Tracked |
+| `stdio` | External MCP server | ❌ | ✅ Required | ✅ Tracked |
+| `http` | Cloud proxy | ❌ | ❌ | ❌ Server-routed |
+
+**Note:** `http` type is server-routed and never reaches lockfile (always forwarded to cloud).
+
+### Story Status Updates
+
+| Story | Status | Notes |
+|-------|--------|-------|
+| 14.1 | ✅ Complete | Package, init, stdio commands |
+| 14.2 | ✅ Complete | Workspace resolution |
+| 14.3 | ✅ Complete | Routing + permission inference |
+| 14.3b | ✅ Complete | HIL approval flow via MCP response |
+| 14.4 | ✅ Complete | Dynamic loader with stdio/deno support |
+| 14.5 | ✅ Complete | Sandbox execution in Worker |
+| 14.6 | 🚧 Partial | HTTP serve (stub only) |
+| 14.7 | ✅ Complete | Registry + integrity tracking |
+| 14.8 | 🚧 Partial | E2E tests (some done, more needed) |
+| 14.9 | ⏳ Not started | Private MCP registration |
+| 14.10 | ⏳ Not started | Standalone distribution |
+| 14.11 | ⏳ Not started | Binary distribution |

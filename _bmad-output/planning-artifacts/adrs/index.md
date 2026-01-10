@@ -83,15 +83,22 @@ Index des décisions d'architecture du projet Casys PML.
 | 051  | [Unified Search Simplification](./ADR-051-unified-search-simplification.md)                 | accepted   | done           | Simplification recherche unifiée (SHGAT v1)           |
 | 052  | [Dynamic Capability Routing](./ADR-052-dynamic-capability-routing.md)                       | accepted   | done           | Routing capabilities via MCP proxy                    |
 | 053  | [SHGAT Subprocess Training](./ADR-053-shgat-subprocess-per-training.md)                     | accepted   | done           | Subprocess non-blocking training + PER                |
+| 054  | [Decision Logger Abstraction](./ADR-054-decision-logger-abstraction.md)                     | accepted   | done           | Unified decision logging interface                    |
+| 055  | [SHGAT PreserveDim 1024](./ADR-055-shgat-preservedim-1024-dimension.md)                     | accepted   | done           | Keep 1024-dim through message passing                 |
+| 056  | [InfoNCE Contrastive Training](./ADR-056-infonce-contrastive-training.md)                   | accepted   | done           | Contrastive loss for K-head training                  |
+| 057  | [Message Passing Backward](./ADR-057-message-passing-backward-training.md)                  | accepted   | done           | Backward pass for message passing layers              |
+| 058  | [BLAS FFI Matrix Acceleration](./ADR-058-blas-ffi-matrix-acceleration.md)                   | accepted   | done           | OpenBLAS FFI for 15x scoring speedup                  |
+| 059  | [Hybrid Routing Server Analysis](./ADR-059-hybrid-routing-server-analysis-package-execution.md) | accepted | done           | Server analyzes, package executes client tools        |
 
 ---
 
 ## By Status
 
-### Accepted (35)
+### Accepted (41)
 
 ADR-001, 002, 003, 004, 005, 006, 007, 008, 009, 010, 011, 012, 013, 014, 016, 020, 020b, 021, 021b,
-023, 024, 025, 026, 028, 030, 032, 036, 040, 041, 042, 043, 044, 045, 046, 047, 050, 051, 052, 053
+023, 024, 025, 026, 028, 030, 032, 036, 040, 041, 042, 043, 044, 045, 046, 047, 050, 051, 052, 053,
+054, 055, 056, 057, 058, 059
 
 ### Draft (3)
 
@@ -119,11 +126,11 @@ ADR-033, ADR-034, ADR-035, ADR-039, ADR-049
 
 ## By Implementation Status
 
-### Done (38)
+### Done (39)
 
 ADR-001, 002, 003, 004, 005, 007, 008, 009, 010, 011, 012, 013, 014, 015, 016, 018, 019, 020, 020b,
 021, 021b, 022, 023, 024, 025, 026, 030, 036, 038, 041, 042, 043, 044, 045, 047, 048, 050, 051, 052,
-053
+053, 054, 055, 056, 057, 058, 059
 
 ### In Progress (2)
 
@@ -145,4 +152,4 @@ ADR-027, 029, 031, 033, 034, 035, 037, 039, 040, 046, 049
   [architecture-decision-records-adrs.md](../architecture/architecture-decision-records-adrs.md)
 - **Numérotation dupliquée** : ADR-020 et ADR-021 ont des doublons (020b, 021b) - à renommer
 - Pour changer un status, éditer ce fichier ET ajouter frontmatter YAML dans l'ADR
-- **Couverture implémentation** : 38/53 (72%) done, 42/53 (79%) avec travail commencé ou terminé
+- **Couverture implémentation** : 39/54 (72%) done, 43/54 (80%) avec travail commencé ou terminé

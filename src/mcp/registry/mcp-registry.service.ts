@@ -351,11 +351,26 @@ export class McpRegistryService {
           hash: shortHash,
         });
       } else {
-        // MCP tool - derive from name (server:tool)
-        const [server, tool] = row.name.includes(":") ? row.name.split(":") : ["std", row.name];
+        // MCP tool - use server_id if available, otherwise derive from name
+        let server: string;
+        let tool: string;
+
+        if (row.server_id) {
+          // Use server_id from DB (preferred)
+          server = row.server_id;
+          tool = row.name.includes(":") ? row.name.split(":")[1] : row.name;
+        } else if (row.name.includes(":")) {
+          // Fallback: derive from name (server:tool format)
+          [server, tool] = row.name.split(":");
+        } else {
+          // Last resort: assume std
+          server = "std";
+          tool = row.name;
+        }
+
         fqdn = generateFQDN({
           org: "pml",
-          project: row.record_type === "capability" ? "cap" : "mcp",
+          project: "mcp", // MCP tools always use "mcp" project
           namespace: server,
           action: tool,
           hash: shortHash,

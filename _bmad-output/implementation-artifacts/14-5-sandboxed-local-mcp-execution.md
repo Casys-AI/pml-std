@@ -1,6 +1,6 @@
 # Story 14.5: Sandboxed Capability Code Execution
 
-Status: review
+Status: done
 
 > **Epic:** 14 - JSR Package Local/Cloud MCP Routing
 > **FR Coverage:** FR14-5 (Sandboxed execution for registry capability code)
@@ -605,6 +605,84 @@ Story 14.5 now uses **identical naming** to Phase 2.4:
 1. Move files from `packages/pml/src/sandbox/` to `lib/sandbox/`
 2. Update imports
 3. Done - no structural changes needed!
+
+---
+
+## Implementation Notes (2026-01-09)
+
+> **ADR Reference:** [ADR-059: Hybrid Routing - Server Analysis, Package Execution](../planning-artifacts/adrs/ADR-059-hybrid-routing-server-analysis-package-execution.md)
+
+### Hybrid Routing Integration
+
+The sandbox is now used as part of the hybrid routing architecture:
+
+```
+pml:execute(code)
+    │
+    ▼
+Server analyzes → Returns { status: "execute_locally", code, dag }
+    │
+    ▼
+Package: CapabilityLoader.executeInSandbox(code, args)
+    │
+    ▼
+┌─────────────────────────────────────┐
+│  SANDBOX (Deno Worker)              │  ◄── This story's implementation
+│  - permissions: "none"              │
+│  - mcp.* calls via RPC bridge       │
+└─────────────────────────────────────┘
+    │
+    ▼
+mcp.* calls routed via CapabilityLoader:
+  ├─► client tools (routing: "client") → StdioManager (local MCP servers)
+  └─► server tools (routing: "server") → HTTP forward to pml.casys.ai
+```
+
+When `pml:execute` receives `execute_locally` from the server, it uses this story's
+sandboxed execution to run the capability code securely.
+
+### Per-Project State
+
+All state is now per-project (not global):
+
+| File | Location |
+|------|----------|
+| `deps.json` | `${workspace}/.pml/deps.json` |
+| `mcp.lock` | `${workspace}/.pml/mcp.lock` |
+| `client-id` | `${workspace}/.pml/client-id` |
+
+The sandbox and CapabilityLoader receive `workspace` as an option to resolve
+these paths correctly.
+
+### Security Model with Hybrid Routing
+
+**Tout le code capability s'exécute TOUJOURS dans la sandbox** - que ce soit du code
+local ou retourné par le serveur via `execute_locally`.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  SANDBOX (Deno Worker, permissions: "none")                 │
+│  ─────────────────────────────────────────                  │
+│  Capability code                                            │
+│  - Aucun accès direct au système                            │
+│  - Seule sortie: mcp.* RPC                                  │
+│                                                             │
+│  Protection: Isolation totale via Worker                    │
+└─────────────────────────────────────────────────────────────┘
+              │
+              │ mcp.* RPC calls
+              ▼
+┌─────────────────────────────────────────────────────────────┐
+│  MCP SERVERS (accès système)                                │
+│  ──────────────────────────                                 │
+│  Local (stdio): filesystem, shell, etc.                     │
+│  Cloud (http): forward vers pml.casys.ai                    │
+│                                                             │
+│  Protection: HIL approval + Lockfile integrity              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+La sandbox isole le CODE. Le HIL + lockfile protège les ACTIONS (mcp.* calls).
 
 ---
 

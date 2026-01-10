@@ -182,23 +182,51 @@ export async function trainSHGATOnPathTraces(
   // Step 3: Extract path-level features
   const pathFeatures = extractPathLevelFeatures(traces);
 
-  // Step 4: Get ALL embeddings (capabilities + tools) for RANDOM negative mining
+  // Step 4: Get ALL embeddings (capabilities + tools) for negative mining
   const graphBuilder = (shgat as unknown as { graphBuilder: {
-    getCapabilityNodes: () => Map<string, { embedding: number[] }>;
+    getCapabilityNodes: () => Map<string, { embedding: number[]; toolsUsed?: string[] }>;
     getToolNodes: () => Map<string, { embedding: number[] }>;
   } }).graphBuilder;
 
   const allEmbeddings = new Map<string, number[]>();
 
-  // Add capability embeddings
+  // Add capability embeddings and build capToTools map
+  const capToTools = new Map<string, Set<string>>();
   for (const [capId, cap] of graphBuilder.getCapabilityNodes()) {
     if (cap.embedding) allEmbeddings.set(capId, cap.embedding);
+    capToTools.set(capId, new Set(cap.toolsUsed ?? []));
   }
 
-  // Add tool embeddings
+  // Add tool embeddings and build cosine clusters
+  const COSINE_THRESHOLD = 0.7;
+  const toolEmbeddings = new Map<string, number[]>();
   for (const [toolId, tool] of graphBuilder.getToolNodes()) {
-    if (tool.embedding) allEmbeddings.set(toolId, tool.embedding);
+    if (tool.embedding) {
+      allEmbeddings.set(toolId, tool.embedding);
+      toolEmbeddings.set(toolId, tool.embedding);
+    }
   }
+
+  // Build tool clusters using cosine similarity (semantic)
+  const toolClusters = new Map<string, Set<string>>();
+  for (const [toolId, toolEmb] of toolEmbeddings) {
+    const cluster = new Set<string>([toolId]);
+    for (const [otherId, otherEmb] of toolEmbeddings) {
+      if (otherId === toolId) continue;
+      let dot = 0, normA = 0, normB = 0;
+      for (let i = 0; i < Math.min(toolEmb.length, otherEmb.length); i++) {
+        dot += toolEmb[i] * otherEmb[i];
+        normA += toolEmb[i] * toolEmb[i];
+        normB += otherEmb[i] * otherEmb[i];
+      }
+      const sim = dot / (Math.sqrt(normA) * Math.sqrt(normB) + 1e-9);
+      if (sim > COSINE_THRESHOLD) {
+        cluster.add(otherId);
+      }
+    }
+    toolClusters.set(toolId, cluster);
+  }
+  log.debug(`[PER-Training] Built ${toolClusters.size} tool clusters (cosine > ${COSINE_THRESHOLD})`);
 
   // Step 5: Flatten paths and generate training examples
   const allExamples: TrainingExample[] = [];
@@ -208,6 +236,50 @@ export async function trainSHGATOnPathTraces(
   // Note: Since migration 030, intentEmbedding comes from capability via JOIN.
   // No need to regenerate embeddings - use trace.intentEmbedding directly.
   // This ensures perfect consistency when capabilities are renamed.
+
+  // Helper: compute percentile
+  const percentile = (arr: number[], p: number): number => {
+    if (arr.length === 0) return 0;
+    const sorted = [...arr].sort((a, b) => a - b);
+    const idx = Math.floor((p / 100) * (sorted.length - 1));
+    return sorted[idx];
+  };
+
+  // Helper: cosine similarity
+  const cosineSim = (a: number[], b: number[]): number => {
+    let dot = 0, normA = 0, normB = 0;
+    for (let i = 0; i < Math.min(a.length, b.length); i++) {
+      dot += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+    const denom = Math.sqrt(normA) * Math.sqrt(normB);
+    return denom > 0 ? dot / denom : 0;
+  };
+
+  // Compute adaptive thresholds from all traces
+  const allSims: number[] = [];
+  for (const trace of traces) {
+    const intentEmb = trace.intentEmbedding;
+    if (!intentEmb || intentEmb.length === 0) continue;
+    for (const [capId, emb] of allEmbeddings) {
+      if (capId === trace.capabilityId) continue;
+      allSims.push(cosineSim(intentEmb, emb));
+    }
+  }
+  let adaptiveMin = allSims.length > 0 ? percentile(allSims, 25) : 0.15;
+  let adaptiveMax = allSims.length > 0 ? percentile(allSims, 75) : 0.65;
+
+  // Ensure minimum spread of 0.3 (if too narrow, embeddings are too clustered)
+  const MIN_SPREAD = 0.3;
+  if (adaptiveMax - adaptiveMin < MIN_SPREAD) {
+    const mid = (adaptiveMin + adaptiveMax) / 2;
+    adaptiveMin = Math.max(0, mid - MIN_SPREAD / 2);
+    adaptiveMax = Math.min(1, mid + MIN_SPREAD / 2);
+    log.debug(`[PER-Training] Spread too narrow, expanded to: [${adaptiveMin.toFixed(2)}, ${adaptiveMax.toFixed(2)}]`);
+  }
+
+  log.debug(`[PER-Training] Adaptive thresholds: [${adaptiveMin.toFixed(2)}, ${adaptiveMax.toFixed(2)}]`);
 
   // Generate examples for each trace
   for (const trace of traces) {
@@ -224,8 +296,9 @@ export async function trainSHGATOnPathTraces(
     // Flatten hierarchical path
     const flatPath = await flattenExecutedPath(trace, traceStore);
 
-    // Generate multi-example (one per node) with RANDOM negative mining
-    const examples = traceToTrainingExamples(trace, flatPath, intentEmbedding, pathFeatures, allEmbeddings);
+    // Generate multi-example (one per node) with semi-hard negative mining
+    // Pass capToTools and toolClusters to exclude anchor capability's tools + similar tools
+    const examples = traceToTrainingExamples(trace, flatPath, intentEmbedding, pathFeatures, allEmbeddings, capToTools, toolClusters, adaptiveMin, adaptiveMax);
     for (const _ex of examples) {
       exampleToTraceId.push(trace.id);
     }
@@ -431,7 +504,11 @@ export function traceToTrainingExamples(
   flatPath: string[],
   intentEmbedding: number[],
   pathFeatures: Map<string, PathLevelFeatures>,
-  capEmbeddings?: Map<string, number[]>, // Optional: for RANDOM negative mining
+  allEmbeddings?: Map<string, number[]>, // Optional: for semi-hard negative mining (caps + tools)
+  capToTools?: Map<string, Set<string>>, // Optional: capability → toolsUsed for exclusion
+  toolClusters?: Map<string, Set<string>>, // Optional: tool → community members (Louvain)
+  semiHardMin: number = 0.15, // Adaptive threshold (P25)
+  semiHardMax: number = 0.65, // Adaptive threshold (P75)
 ): TrainingExample[] {
   if (flatPath.length === 0) {
     return [];
@@ -453,27 +530,77 @@ export function traceToTrainingExamples(
     adjustedOutcome = outcome * (0.5 + 0.5 * weight);
   }
 
-  const NUM_NEGATIVES = 4;
+  const NUM_NEGATIVES = 8;
+  const SEMI_HARD_MIN = semiHardMin; // Adaptive threshold (P25)
+  const SEMI_HARD_MAX = semiHardMax; // Adaptive threshold (P75)
 
-  // Pre-compute RANDOM negatives for the whole trace (same intent for all examples)
-  // Random negatives provide varied difficulty levels for learning
-  // (Hard negatives were too similar - all ~0.9 cosine - causing 51% accuracy)
-  let randomNegativeCapIds: string[] | undefined;
-  if (capEmbeddings && capEmbeddings.size > NUM_NEGATIVES) {
-    // RANDOM NEGATIVE SAMPLING: Select random capabilities (excluding executed path)
-    const candidateIds: string[] = [];
-    for (const [capId] of capEmbeddings) {
-      // Exclude all nodes in the executed path
-      if (flatPath.includes(capId)) continue;
-      candidateIds.push(capId);
+  // Helper: cosine similarity
+  const cosineSim = (a: number[], b: number[]): number => {
+    let dot = 0, normA = 0, normB = 0;
+    for (let i = 0; i < Math.min(a.length, b.length); i++) {
+      dot += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+    const denom = Math.sqrt(normA) * Math.sqrt(normB);
+    return denom > 0 ? dot / denom : 0;
+  };
+
+  // Pre-compute SEMI-HARD negatives for the whole trace (same intent for all examples)
+  // Semi-hard: negatives similar to ANCHOR (not intent) for challenging discrimination
+  let semiHardNegativeCapIds: string[] | undefined;
+  if (allEmbeddings && allEmbeddings.size > NUM_NEGATIVES) {
+    // Get tools to exclude: anchor capability's toolsUsed (they're related, not negatives)
+    const anchorTools = trace.capabilityId ? (capToTools?.get(trace.capabilityId) ?? new Set<string>()) : new Set<string>();
+
+    // Build expanded exclusion set: anchor tools + their community members (cosine clusters)
+    const excludedTools = new Set<string>();
+    for (const toolId of anchorTools) {
+      excludedTools.add(toolId);
+      const cluster = toolClusters?.get(toolId);
+      if (cluster) {
+        for (const member of cluster) {
+          excludedTools.add(member);
+        }
+      }
     }
 
-    // Fisher-Yates shuffle and take first NUM_NEGATIVES
-    for (let i = candidateIds.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [candidateIds[i], candidateIds[j]] = [candidateIds[j], candidateIds[i]];
+    // Compute similarity to INTENT for all candidates
+    const candidatesWithSim: Array<{ id: string; sim: number }> = [];
+    for (const [itemId, emb] of allEmbeddings) {
+      // Skip items in the executed path
+      if (flatPath.includes(itemId)) continue;
+      // Skip tools in the exclusion cluster (anchor's tools + community members)
+      if (excludedTools.has(itemId)) continue;
+      const sim = cosineSim(intentEmbedding, emb);
+      candidatesWithSim.push({ id: itemId, sim });
     }
-    randomNegativeCapIds = candidateIds.slice(0, NUM_NEGATIVES);
+
+    // Semi-hard negative mining: filter to P25-P75 similarity range
+    // PER handles curriculum learning by prioritizing harder examples within this range
+    const semiHard = candidatesWithSim.filter(
+      (c) => c.sim >= SEMI_HARD_MIN && c.sim <= SEMI_HARD_MAX
+    );
+
+    if (semiHard.length >= NUM_NEGATIVES) {
+      // Enough hard negatives: shuffle and take N
+      for (let i = semiHard.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [semiHard[i], semiHard[j]] = [semiHard[j], semiHard[i]];
+      }
+      semiHardNegativeCapIds = semiHard.slice(0, NUM_NEGATIVES).map((c) => c.id);
+    } else {
+      // Not enough hard negatives: sort by similarity descending and take top
+      const sorted = [...candidatesWithSim].sort((a, b) => b.sim - a.sim);
+      const needed = NUM_NEGATIVES - semiHard.length;
+      const rest = sorted
+        .filter((c) => !semiHard.some(s => s.id === c.id))
+        .slice(0, needed);
+      semiHardNegativeCapIds = [
+        ...semiHard.map((c) => c.id),
+        ...rest.map((c) => c.id),
+      ];
+    }
   }
 
   // Generate one example per node in the path
@@ -485,7 +612,7 @@ export function traceToTrainingExamples(
       contextTools: flatPath.slice(0, i), // Nodes before this point
       candidateId,
       outcome: adjustedOutcome,
-      negativeCapIds: randomNegativeCapIds,
+      negativeCapIds: semiHardNegativeCapIds,
     });
   }
 
@@ -547,7 +674,7 @@ interface CapabilityForTraining {
 export interface SubprocessPEROptions extends PERTrainingOptions {
   /** Capabilities with embeddings for SHGAT initialization */
   capabilities: CapabilityForTraining[];
-  /** Number of epochs (default: 1 for live, 3-5 for batch) */
+  /** Number of epochs (default: 3 for live with PER curriculum, 5+ for batch) */
   epochs?: number;
 }
 
@@ -622,12 +749,14 @@ export async function trainSHGATOnPathTracesSubprocess(
   // Step 3: Extract path-level features
   const pathFeatures = extractPathLevelFeatures(traces);
 
-  // Step 4: Get ALL embeddings (capabilities + tools) for RANDOM negative mining
+  // Step 4: Get ALL embeddings (capabilities + tools) for negative mining
   const allEmbeddings = new Map<string, number[]>();
 
-  // Add capability embeddings from options
+  // Add capability embeddings from options and build capToTools map
+  const capToTools = new Map<string, Set<string>>();
   for (const cap of capabilities) {
     if (cap.embedding) allEmbeddings.set(cap.id, cap.embedding);
+    capToTools.set(cap.id, new Set(cap.toolsUsed ?? []));
   }
 
   // Add tool embeddings from SHGAT graphBuilder
@@ -659,7 +788,8 @@ export async function trainSHGATOnPathTracesSubprocess(
     }
 
     const flatPath = await flattenExecutedPath(trace, traceStore);
-    const examples = traceToTrainingExamples(trace, flatPath, intentEmbedding, pathFeatures, allEmbeddings);
+    // Pass capToTools to exclude anchor capability's tools from negatives
+    const examples = traceToTrainingExamples(trace, flatPath, intentEmbedding, pathFeatures, allEmbeddings, capToTools);
 
     for (const _ex of examples) {
       exampleToTraceId.push(trace.id);

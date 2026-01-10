@@ -36,7 +36,7 @@ export interface HttpServerDependencies {
   config: ResolvedGatewayConfig;
   routeContext: Omit<RouteContext, "userId" | "eventsStream">;
   handleListTools: (request: unknown) => Promise<unknown>;
-  handleCallTool: (request: unknown, userId?: string) => Promise<unknown>;
+  handleCallTool: (request: unknown, userId?: string, isPackageClient?: boolean) => Promise<unknown>;
 }
 
 /**
@@ -54,6 +54,7 @@ export async function handleJsonRpcRequest(
   request: JsonRpcRequest,
   deps: HttpServerDependencies,
   userId?: string,
+  isPackageClient?: boolean,
 ): Promise<Record<string, unknown>> {
   const { id, method, params } = request;
 
@@ -91,7 +92,7 @@ export async function handleJsonRpcRequest(
     }
 
     if (method === "tools/call") {
-      const result = await deps.handleCallTool({ params }, userId);
+      const result = await deps.handleCallTool({ params }, userId, isPackageClient);
       if (result && typeof result === "object" && "error" in result) {
         return { jsonrpc: "2.0", id, error: (result as { error: unknown }).error };
       }
@@ -137,7 +138,7 @@ export async function startHttpServer(
   const appDeps: HonoAppDependencies = {
     routeContext: deps.routeContext,
     eventsStream: state.eventsStream,
-    handleJsonRpc: async (body: unknown, userId?: string) => {
+    handleJsonRpc: async (body: unknown, userId?: string, isPackageClient?: boolean) => {
       // Validate JsonRpcRequest structure before processing
       if (!isValidJsonRpcRequest(body)) {
         return {
@@ -146,7 +147,7 @@ export async function startHttpServer(
           error: { code: -32600, message: "Invalid JSON-RPC request structure" },
         };
       }
-      return handleJsonRpcRequest(body, deps, userId);
+      return handleJsonRpcRequest(body, deps, userId, isPackageClient);
     },
   };
 

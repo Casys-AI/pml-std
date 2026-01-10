@@ -43,6 +43,8 @@ export interface ExecuteRequest {
     timeout?: number;
     per_layer_validation?: boolean;
   };
+  /** Whether client is a registered PML package (hybrid routing) */
+  isPackageClient?: boolean;
 }
 
 // ============================================================================
@@ -91,7 +93,19 @@ export class ExecuteHandlerFacade {
       return await this.handleContinuation(request);
     }
 
-    if (request.code) {
+    // Check if code was explicitly provided (even if empty string)
+    if (typeof request.code === "string") {
+      // Empty code is an error
+      if (request.code.trim() === "") {
+        return {
+          status: "success",
+          result: null,
+          mode: "direct",
+          executionTimeMs: 0,
+          error_code: "EMPTY_CODE",
+          error: "Code cannot be empty",
+        };
+      }
       return await this.handleDirect(request);
     }
 
@@ -123,6 +137,7 @@ export class ExecuteHandlerFacade {
       options: {
         timeout: request.options?.timeout,
         perLayerValidation: request.options?.per_layer_validation,
+        isPackageClient: request.isPackageClient,
       },
     });
 
@@ -130,12 +145,41 @@ export class ExecuteHandlerFacade {
     // See TrainingSubscriber in telemetry/subscribers/training-subscriber.ts
 
     if (!result.success) {
+      // Check for CLIENT_TOOLS_REQUIRE_PACKAGE error
+      if (result.error?.code === "CLIENT_TOOLS_REQUIRE_PACKAGE") {
+        return {
+          status: "success", // MCP status (error is in result)
+          result: null,
+          mode: "direct",
+          executionTimeMs: 0,
+          error_code: "CLIENT_TOOLS_REQUIRE_PACKAGE",
+          client_tools: result.error?.details?.clientTools as string[] ?? [],
+          tools_used: result.error?.details?.toolsUsed as string[] ?? [],
+        };
+      }
+
+      // Include error information in response for debugging
       return {
-        status: "success", // MCP status
+        status: "success", // MCP status (call succeeded, but execution failed)
         result: null,
         mode: "direct",
         executionTimeMs: 0,
+        error_code: result.error?.code,
+        error: result.error?.message,
         toolFailures: result.data?.toolFailures,
+      };
+    }
+
+    // Handle execute_locally mode (hybrid routing)
+    if (result.data?.mode === "execute_locally") {
+      return {
+        status: "execute_locally",
+        code: result.data.code,
+        tools_used: result.data.toolsUsed,
+        client_tools: result.data.clientTools,
+        mode: "execute_locally",
+        executionTimeMs: result.data.executionTimeMs ?? 0,
+        dag: result.data.dag,
       };
     }
 

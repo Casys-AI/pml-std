@@ -1,6 +1,6 @@
 # Story 14.1: Package Scaffolding & CLI Init Command
 
-Status: in-progress
+Status: done
 
 ## Story
 
@@ -247,6 +247,76 @@ await main.parse(Deno.args);
 
 - [Source: docs/epics/epic-14-jsr-package-local-cloud-mcp-routing.md#Story-14.1]
 - [Source: docs/spikes/2025-12-23-jsr-package-local-mcp-routing.md#Package-JSR-Structure]
+
+---
+
+## Implementation Notes (2026-01-09)
+
+> **ADR Reference:** [ADR-059: Hybrid Routing - Server Analysis, Package Execution](../planning-artifacts/adrs/ADR-059-hybrid-routing-server-analysis-package-execution.md)
+
+### Init Updates .gitignore
+
+`pml init` now automatically adds PML entries to the project's `.gitignore`:
+```gitignore
+# PML (per-project config and state)
+.pml.json
+.pml/
+```
+
+This ensures per-project state is not committed to git.
+
+### Hybrid Routing Architecture Change
+
+**Original design:** Server executes everything.
+
+**Current implementation:** Server analyzes, package executes client tools.
+
+```
+pml:execute(code)
+    │
+    ▼
+Package → Forward to Server
+    │
+    ▼
+Server analyzes (SWC → DAG)
+    │
+    ├─► All server tools → Server executes, returns result
+    │
+    └─► Any client tool → Returns { status: "execute_locally", code, dag }
+            │
+            ▼
+        Package executes in sandbox
+            │
+            ├─► client tools → local execution (via CapabilityLoader)
+            └─► server tools → HTTP forward to cloud
+```
+
+See: `_bmad-output/planning-artifacts/spikes/spike-2026-01-09-pml-execute-hybrid-routing.md`
+
+### Per-Project State
+
+All state is now per-project, NOT global:
+
+| File | Location |
+|------|----------|
+| `.pml.json` | `${workspace}/.pml.json` |
+| `mcp.lock` | `${workspace}/.pml/mcp.lock` |
+| `deps.json` | `${workspace}/.pml/deps.json` |
+| `client-id` | `${workspace}/.pml/client-id` |
+
+### Registry Serves 3 MCP Types
+
+Le registry `/api/registry/{fqdn}` sert maintenant 3 types de MCP:
+
+| Type | Source | Response |
+|------|--------|----------|
+| `deno` | capability_records (code) | TypeScript code |
+| `stdio` | mcp_server.connection_info | JSON metadata (install command) |
+| `http` | mcp_server.connection_info | JSON metadata (proxy URL) |
+
+Les tools `filesystem:*` sont de type `stdio` avec `routing: "client"` - ils sont installés et exécutés sur la machine de l'utilisateur.
+
+Voir: `src/mcp/registry/mcp-registry.service.ts:enrichRow()`
 - [Source: docs/project-context.md#CLI-Usage]
 - [JSR Publishing Docs](https://jsr.io/docs/package-configuration)
 - [Deno Install Docs](https://docs.deno.com/runtime/reference/cli/install/)

@@ -87,6 +87,10 @@ import {
   DiscoverHandlerFacade,
 } from "./handlers/mod.ts";
 
+// Hybrid routing (Story 14 - package/server handshake)
+// NOTE: resolveRouting/getToolRouting moved to ExecuteDirectUseCase
+// StaticStructureBuilder dynamically imported where needed (discover handler)
+
 // Phase 3.2: Discover use cases (for facade initialization)
 import {
   DiscoverToolsUseCase,
@@ -597,10 +601,14 @@ export class PMLGatewayServer {
    * Handler: tools/call
    *
    * Routes to appropriate handler based on tool name.
+   * @param request - JSON-RPC request
+   * @param userId - User ID from auth
+   * @param isPackageClient - True if request came via x-api-key (PML package)
    */
   private async handleCallTool(
     request: unknown,
     userId?: string,
+    isPackageClient?: boolean,
   ): Promise<
     { content: Array<{ type: string; text: string }> } | {
       error: { code: number; message: string; data?: unknown };
@@ -623,7 +631,7 @@ export class PMLGatewayServer {
       log.info(`call_tool: ${name}`);
 
       // Route to handlers
-      const result = await this.routeToolCall(name, args, userId);
+      const result = await this.routeToolCall(name, args, userId, isPackageClient);
       transaction.finish();
       return result;
     } catch (error) {
@@ -646,6 +654,7 @@ export class PMLGatewayServer {
     name: string,
     args: unknown,
     userId?: string,
+    isPackageClient?: boolean,
   ): Promise<
     { content: Array<{ type: string; text: string }> } | {
       error: { code: number; message: string; data?: unknown };
@@ -680,7 +689,7 @@ export class PMLGatewayServer {
 
     // Code execution
     if (name === "pml:execute_code") {
-      return await handleExecuteCode(args, this.getCodeExecutionDeps());
+      return await handleExecuteCode(args, this.getCodeExecutionDeps(isPackageClient));
     }
 
     // Search tools
@@ -721,7 +730,13 @@ export class PMLGatewayServer {
         };
         options?: { timeout?: number; per_layer_validation?: boolean };
       };
-      const result = await this.executeHandlerFacade.handle(executeArgs);
+
+      // Story 14: Hybrid routing - pass isPackageClient to use case via facade
+      // Routing check is now in ExecuteDirectUseCase (clean architecture)
+      const result = await this.executeHandlerFacade.handle({
+        ...executeArgs,
+        isPackageClient,
+      });
       return {
         content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
       };
@@ -820,8 +835,9 @@ export class PMLGatewayServer {
 
   /**
    * Get code execution handler dependencies
+   * @param isPackageClient - True if request came from PML package (x-api-key auth)
    */
-  private getCodeExecutionDeps(): CodeExecutionDependencies {
+  private getCodeExecutionDeps(isPackageClient?: boolean): CodeExecutionDependencies {
     return {
       vectorSearch: this.vectorSearch,
       graphEngine: this.graphEngine,
@@ -833,6 +849,7 @@ export class PMLGatewayServer {
       contextBuilder: this.contextBuilder,
       toolSchemaCache: this.toolSchemaCache,
       codeAnalyzer: this.codeAnalyzer ?? undefined, // Phase 3.2: DI
+      isPackageClient, // Hybrid routing: determines execute_locally response
     };
   }
 
@@ -943,7 +960,8 @@ export class PMLGatewayServer {
         db: this.db,
       },
       handleListTools: (request: unknown) => this.handleListTools(request),
-      handleCallTool: (request: unknown, userId?: string) => this.handleCallTool(request, userId),
+      handleCallTool: (request: unknown, userId?: string, isPackageClient?: boolean) =>
+        this.handleCallTool(request, userId, isPackageClient),
     };
 
     const state: HttpServerState = {

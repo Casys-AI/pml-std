@@ -27,7 +27,7 @@ import {
   GraphBuilder,
   type HierarchyResult,
   type MultiLevelIncidence,
-} from "./shgat/graph/index.ts";
+} from "./shgat/graph/mod.ts";
 import {
   countParameters,
   exportParams as exportParamsHelper,

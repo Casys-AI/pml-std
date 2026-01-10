@@ -60,12 +60,12 @@ Le hash dans le FQDN sert a la verification d'integrite:
 | stdio MCP | Package npm compromis |
 | http MCP | Config modifiee (MITM, redirect vers fake API) |
 
-**Lockfile (`~/.pml/registry.lock`):**
+**Lockfile (`${workspace}/.pml/mcp.lock`):**
 
 Le hash seul ne protege pas le premier fetch (MITM peut retourner contenu malicieux + hash valide). Solution:
 
 1. **Premier fetch** via HTTPS (TLS protege)
-2. **Client stocke** le hash dans `~/.pml/registry.lock`
+2. **Client stocke** le hash dans `${workspace}/.pml/mcp.lock`
 3. **Fetches suivants** comparent avec lockfile
 4. **Mismatch** = erreur (attaque potentielle OU update legitime)
 
@@ -256,7 +256,7 @@ function cleanLockfile(lockfile: Lockfile, permissions: PmlPermissions): Lockfil
 
 **Given** first fetch of `pml.mcp.tavily.server.d7e8`
 **When** fetch succeeds
-**Then** client writes entry to `~/.pml/registry.lock`:
+**Then** client writes entry to `${workspace}/.pml/mcp.lock`:
 ```json
 {
   "pml.mcp.tavily.server.d7e8": {
@@ -407,7 +407,7 @@ function cleanLockfile(lockfile: Lockfile, permissions: PmlPermissions): Lockfil
   }
   ```
   - [x] 9.2: Create `packages/pml/src/lockfile/lockfile-manager.ts`
-  - [x] 9.3: `load(): Promise<Lockfile>` - Load from `~/.pml/mcp.lock`
+  - [x] 9.3: `load(): Promise<Lockfile>` - Load from `${workspace}/.pml/mcp.lock`
   - [x] 9.4: `save(lockfile: Lockfile): Promise<void>`
   - [x] 9.5: `addEntry(fqdn: string, entry: LockfileEntry): Promise<void>`
   - [x] 9.6: `getEntry(fqdn: string): LockfileEntry | null`
@@ -672,6 +672,68 @@ Le hash 4-char offre 65,536 combinaisons par namespace. Collision possible mais:
 
 ---
 
+## Implementation Notes (2026-01-09)
+
+> **ADR Reference:** [ADR-059: Hybrid Routing - Server Analysis, Package Execution](../planning-artifacts/adrs/ADR-059-hybrid-routing-server-analysis-package-execution.md)
+
+### Per-Project State
+
+All lockfile and dependency state is now per-project:
+
+| File | Location |
+|------|----------|
+| `mcp.lock` | `${workspace}/.pml/mcp.lock` |
+| `deps.json` | `${workspace}/.pml/deps.json` |
+| `client-id` | `${workspace}/.pml/client-id` |
+
+The `LockfileManager` now accepts a `workspace` option:
+
+```typescript
+const lockfileManager = new LockfileManager({ workspace });
+// Uses: ${workspace}/.pml/mcp.lock
+```
+
+### Registry Serves 3 MCP Types
+
+The registry endpoint `/api/registry/{fqdn}` derives metadata from two sources:
+
+| Source | What it provides |
+|--------|------------------|
+| `capability_records` | TypeScript code for `deno` type |
+| `mcp_server.connection_info` | Install command for `stdio`, proxy URL for `http` |
+
+Response format by type:
+
+| Type | Content-Type | Response |
+|------|--------------|----------|
+| `deno` | `application/typescript` | Raw TypeScript code |
+| `stdio` | `application/json` | `{ type: "stdio", install: {...}, routing: "client" }` |
+| `http` | `application/json` | `{ type: "http", proxyTo: "...", routing: "server" }` |
+
+### Hybrid Routing Integration
+
+The lockfile is used during `pml:execute` hybrid routing:
+
+```
+pml:execute(code)
+    │
+    ▼
+Package → Forward to Server
+    │
+    ▼
+Server returns { status: "execute_locally", tools_used, client_tools }
+    │
+    ▼
+Package: For each client_tool:
+    ├─► Check lockfile for integrity
+    ├─► If new → Fetch from registry, add to lockfile
+    └─► If changed → Return IntegrityApprovalRequired (HIL)
+```
+
+This ensures that even auto-approved tools are verified against the lockfile before execution.
+
+---
+
 ## Dev Agent Record
 
 ### Agent Model Used
@@ -694,6 +756,7 @@ Claude Opus 4.5
 | 2026-01-07 | Code Review: Deferred Task 4 (MiniTool serving) - already bundled client-side. Removed minitool-loader.ts from File List | Claude Opus 4.5 |
 | 2026-01-07 | Code Review: Added 8 follow-up items (2 HIGH, 4 MEDIUM, 2 LOW). Status remains review until HIGH fixed | Claude Opus 4.5 |
 | 2026-01-07 | Code Review Fixes: ALL 8 items fixed - routes /mcp/, Content-Type, HTTP 404, ETag full hash, cross-platform tests | Claude Opus 4.5 |
+| 2026-01-09 | Per-project lockfile: `~/.pml/mcp.lock` → `${workspace}/.pml/mcp.lock`. Same for deps.json and client-id. | Claude Opus 4.5 |
 
 ### File List
 

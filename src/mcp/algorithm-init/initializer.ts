@@ -350,31 +350,38 @@ export class AlgorithmInitializer {
     if (!this.shgat || !this.deps.graphEngine) return;
 
     try {
-      // Register all tools from graphEngine
+      // Register/update all tools from graphEngine with real embeddings
+      // NOTE: Tools from capabilities may have been registered with default embeddings
+      // during createSHGATFromCapabilities. We MUST update them with real embeddings.
       const graphToolIds = this.deps.graphEngine.getGraph().nodes();
       let registeredCount = 0;
+      let updatedCount = 0;
 
       for (const toolId of graphToolIds) {
-        if (!this.shgat.hasToolNode(toolId)) {
-          const toolNode = this.deps.graphEngine.getToolNode(toolId);
+        const toolNode = this.deps.graphEngine.getToolNode(toolId);
 
-          let embedding: number[];
-          if (toolNode?.embedding && toolNode.embedding.length > 0) {
-            embedding = toolNode.embedding;
-          } else {
-            const description = toolNode?.description ?? toolId.replace(":", " ");
-            embedding = this.deps.embeddingModel
-              ? await this.deps.embeddingModel.encode(description)
-              : new Array(1024).fill(0).map(() => Math.random() - 0.5);
-          }
+        let embedding: number[];
+        if (toolNode?.embedding && toolNode.embedding.length > 0) {
+          embedding = toolNode.embedding;
+        } else {
+          const description = toolNode?.description ?? toolId.replace(":", " ");
+          embedding = this.deps.embeddingModel
+            ? await this.deps.embeddingModel.encode(description)
+            : new Array(1024).fill(0).map(() => Math.random() - 0.5);
+        }
 
-          this.shgat.registerTool({ id: toolId, embedding });
+        const wasExisting = this.shgat.hasToolNode(toolId);
+        this.shgat.registerTool({ id: toolId, embedding });
+
+        if (wasExisting) {
+          updatedCount++;
+        } else {
           registeredCount++;
         }
       }
 
-      if (registeredCount > 0) {
-        log.info(`[AlgorithmInitializer] Registered ${registeredCount} MCP tools`);
+      if (registeredCount > 0 || updatedCount > 0) {
+        log.info(`[AlgorithmInitializer] Tools: ${registeredCount} new, ${updatedCount} updated with real embeddings`);
       }
 
       // Compute features
@@ -531,18 +538,136 @@ export class AlgorithmInitializer {
 
       log.info(`[AlgorithmInitializer] Training on ${traces.length} traces...`);
 
-      const capEmbeddings = new Map<string, number[]>();
+      // Build map of ALL embeddings (capabilities + tools) for negative sampling
+      const allEmbeddings = new Map<string, number[]>();
       for (const cap of this.capabilities) {
-        capEmbeddings.set(cap.id, cap.embedding);
+        allEmbeddings.set(cap.id, cap.embedding);
       }
 
+      // Add tools to negative pool for diversity (80% of nodes are tools)
+      // But we'll exclude tools from the anchor capability's toolsUsed when sampling
+      const toolNodes = this.shgat.getRegisteredToolIds();
+      for (const toolId of toolNodes) {
+        const toolEmb = this.deps.graphEngine?.getToolNode(toolId)?.embedding;
+        if (toolEmb && toolEmb.length > 0) {
+          allEmbeddings.set(toolId, toolEmb);
+        }
+      }
+      log.debug(`[Training] Negative pool: ${this.capabilities.length} caps + ${toolNodes.length} tools`);
+
+      // Build capability → toolsUsed map for exclusion during sampling
+      const capToTools = new Map<string, Set<string>>();
+      for (const cap of this.capabilities) {
+        capToTools.set(cap.id, new Set(cap.toolsUsed));
+      }
+
+      // Build tool clusters using cosine similarity (semantic)
+      // Exclude tools with similar descriptions from negatives
+      const COSINE_THRESHOLD = 0.7;
+      const toolClusters = new Map<string, Set<string>>();
+
+      // Get all tool embeddings
+      const toolEmbeddings = new Map<string, number[]>();
+      for (const [id, emb] of allEmbeddings) {
+        if (id.includes(":") && !this.capabilities.find(c => c.id === id)) {
+          toolEmbeddings.set(id, emb);
+        }
+      }
+
+      for (const [toolId, toolEmb] of toolEmbeddings) {
+        const cluster = new Set<string>([toolId]);
+        for (const [otherId, otherEmb] of toolEmbeddings) {
+          if (otherId === toolId) continue;
+          let dot = 0, normA = 0, normB = 0;
+          for (let i = 0; i < Math.min(toolEmb.length, otherEmb.length); i++) {
+            dot += toolEmb[i] * otherEmb[i];
+            normA += toolEmb[i] * toolEmb[i];
+            normB += otherEmb[i] * otherEmb[i];
+          }
+          const sim = dot / (Math.sqrt(normA) * Math.sqrt(normB) + 1e-9);
+          if (sim > COSINE_THRESHOLD) {
+            cluster.add(otherId);
+          }
+        }
+        toolClusters.set(toolId, cluster);
+      }
+      log.debug(`[Training] Built ${toolClusters.size} tool clusters (cosine > ${COSINE_THRESHOLD})`);
+
       const examples: TrainingExample[] = [];
-      const NUM_NEGATIVES = 4;
+      const NUM_NEGATIVES = 8;
+
+      // Helper: cosine similarity
+      const cosineSim = (a: number[], b: number[]): number => {
+        let dot = 0, normA = 0, normB = 0;
+        for (let i = 0; i < Math.min(a.length, b.length); i++) {
+          dot += a[i] * b[i];
+          normA += a[i] * a[i];
+          normB += b[i] * b[i];
+        }
+        const denom = Math.sqrt(normA) * Math.sqrt(normB);
+        return denom > 0 ? dot / denom : 0;
+      };
+
+      // Helper: compute percentile
+      const percentile = (arr: number[], p: number): number => {
+        if (arr.length === 0) return 0;
+        const sorted = [...arr].sort((a, b) => a - b);
+        const idx = Math.floor((p / 100) * (sorted.length - 1));
+        return sorted[idx];
+      };
+
+      // Compute global similarity distribution for adaptive thresholds
+      const allSims: number[] = [];
+      for (const trace of traces) {
+        if (!trace.intent_embedding) continue;
+        let intentEmb: number[];
+        try {
+          const cleaned = trace.intent_embedding.replace(/^\[|\]$/g, "");
+          intentEmb = cleaned.split(",").map(Number);
+        } catch { continue; }
+
+        // Get tools to exclude for this anchor capability
+        const anchorTools = capToTools.get(trace.capability_id) ?? new Set();
+
+        for (const [itemId, emb] of allEmbeddings) {
+          // Skip the anchor capability itself
+          if (itemId === trace.capability_id) continue;
+          // Skip tools that belong to this anchor capability
+          if (anchorTools.has(itemId)) continue;
+          allSims.push(cosineSim(intentEmb, emb));
+        }
+      }
+
+      // Adaptive thresholds: P25-P75 for semi-hard range (classic)
+      // PER will handle curriculum learning by prioritizing harder examples
+      let SEMI_HARD_MIN = allSims.length > 0 ? percentile(allSims, 25) : 0.15;
+      let SEMI_HARD_MAX = allSims.length > 0 ? percentile(allSims, 75) : 0.65;
+
+      // Ensure minimum spread of 0.1 for semi-hard range
+      const MIN_SPREAD = 0.1;
+      if (SEMI_HARD_MAX - SEMI_HARD_MIN < MIN_SPREAD) {
+        SEMI_HARD_MIN = SEMI_HARD_MAX - MIN_SPREAD;
+        log.debug(`[Training] Spread too narrow, expanded to: [${SEMI_HARD_MIN.toFixed(2)}, ${SEMI_HARD_MAX.toFixed(2)}]`);
+      }
+
+      // Log distribution
+      const easyCount = allSims.filter(s => s < SEMI_HARD_MIN).length;
+      const semiHardCount = allSims.filter(s => s >= SEMI_HARD_MIN && s <= SEMI_HARD_MAX).length;
+      const hardCount = allSims.filter(s => s > SEMI_HARD_MAX).length;
+      log.info(`[Training] Similarity distribution: easy=${easyCount} (< ${SEMI_HARD_MIN.toFixed(2)}), ` +
+        `semi-hard=${semiHardCount} [${SEMI_HARD_MIN.toFixed(2)}-${SEMI_HARD_MAX.toFixed(2)}], ` +
+        `hard=${hardCount} (> ${SEMI_HARD_MAX.toFixed(2)})`);
 
       for (const trace of traces) {
-        if (!capEmbeddings.has(trace.capability_id)) continue;
-        if (!trace.intent_embedding) continue;
+        // Ensure this is a valid capability (not a tool)
+        if (!capToTools.has(trace.capability_id)) continue;
 
+        // Get anchor embedding - required for anchor-based filtering
+        const anchorEmb = allEmbeddings.get(trace.capability_id);
+        if (!anchorEmb) continue;
+
+        // Parse intent embedding for training examples (model learns intent→capability)
+        if (!trace.intent_embedding) continue;
         let intentEmbedding: number[];
         try {
           const cleaned = trace.intent_embedding.replace(/^\[|\]$/g, "");
@@ -551,18 +676,60 @@ export class AlgorithmInitializer {
           continue;
         }
 
-        const candidateIds: string[] = [];
-        for (const [capId] of capEmbeddings) {
-          if (capId === trace.capability_id) continue;
-          candidateIds.push(capId);
+        // Get tools to exclude for this anchor capability
+        const anchorTools = capToTools.get(trace.capability_id)!;
+
+        // Build expanded exclusion set: anchor tools + their similar tools (cluster)
+        const excludedTools = new Set<string>();
+        for (const toolId of anchorTools) {
+          excludedTools.add(toolId);
+          const cluster = toolClusters.get(toolId);
+          if (cluster) {
+            for (const similarTool of cluster) {
+              excludedTools.add(similarTool);
+            }
+          }
         }
 
-        // Fisher-Yates shuffle
-        for (let i = candidateIds.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [candidateIds[i], candidateIds[j]] = [candidateIds[j], candidateIds[i]];
+        // Compute similarity to INTENT for all candidates
+        const candidatesWithSim: Array<{ id: string; sim: number }> = [];
+        for (const [itemId, emb] of allEmbeddings) {
+          // Skip the anchor capability itself
+          if (itemId === trace.capability_id) continue;
+          // Skip tools in the exclusion cluster (anchor's tools + similar tools)
+          if (excludedTools.has(itemId)) continue;
+          const sim = cosineSim(intentEmbedding, emb);
+          candidatesWithSim.push({ id: itemId, sim });
         }
-        const negativeCapIds = candidateIds.slice(0, NUM_NEGATIVES);
+
+        // Hard negative mining: filter to P80-P95 similarity range (most similar = hardest)
+        const semiHard = candidatesWithSim.filter(
+          (c) => c.sim >= SEMI_HARD_MIN && c.sim <= SEMI_HARD_MAX
+        );
+
+        let negativeCapIds: string[];
+        if (semiHard.length >= NUM_NEGATIVES) {
+          // Enough semi-hard negatives: shuffle and take N
+          for (let i = semiHard.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [semiHard[i], semiHard[j]] = [semiHard[j], semiHard[i]];
+          }
+          negativeCapIds = semiHard.slice(0, NUM_NEGATIVES).map((c) => c.id);
+        } else {
+          // Not enough semi-hard: use semi-hard + random from rest
+          const rest = candidatesWithSim.filter(
+            (c) => c.sim < SEMI_HARD_MIN || c.sim > SEMI_HARD_MAX
+          );
+          for (let i = rest.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [rest[i], rest[j]] = [rest[j], rest[i]];
+          }
+          const needed = NUM_NEGATIVES - semiHard.length;
+          negativeCapIds = [
+            ...semiHard.map((c) => c.id),
+            ...rest.slice(0, needed).map((c) => c.id),
+          ];
+        }
 
         examples.push({
           intentEmbedding,
@@ -578,28 +745,38 @@ export class AlgorithmInitializer {
         return;
       }
 
-      const allToolsFromExamples = new Set<string>();
-      for (const ex of examples) {
-        for (const tool of ex.contextTools) {
-          allToolsFromExamples.add(tool);
+      // Collect all tools already known from capabilities
+      const toolsInCaps = new Set<string>();
+      for (const cap of this.capabilities) {
+        for (const tool of cap.toolsUsed) {
+          toolsInCaps.add(tool);
         }
       }
 
-      const capsForWorker = this.capabilities.map((c, i) => ({
+      // Find additional tools from examples not in any capability
+      const additionalTools: string[] = [];
+      for (const ex of examples) {
+        for (const tool of ex.contextTools) {
+          if (!toolsInCaps.has(tool) && !additionalTools.includes(tool)) {
+            additionalTools.push(tool);
+          }
+        }
+      }
+
+      // Each capability keeps its own toolsUsed (no hack needed)
+      const capsForWorker = this.capabilities.map((c) => ({
         id: c.id,
         embedding: c.embedding,
-        toolsUsed:
-          i === 0
-            ? [...new Set([...c.toolsUsed, ...allToolsFromExamples])]
-            : c.toolsUsed,
+        toolsUsed: c.toolsUsed,
         successRate: c.successRate,
       }));
 
       const result = await spawnSHGATTraining({
         capabilities: capsForWorker,
         examples,
-        epochs: 10,
-        batchSize: 16,
+        epochs: 20,
+        batchSize: 32,
+        additionalTools, // Tools from examples not in any capability
       });
 
       if (result.success && this.shgat) {

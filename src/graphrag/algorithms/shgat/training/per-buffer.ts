@@ -33,7 +33,7 @@ export interface PERConfig {
 const DEFAULT_PER_CONFIG: PERConfig = {
   alpha: 0.6,
   beta: 0.4,
-  epsilon: 1e-6,
+  epsilon: 0.01, // Minimum priority floor (prevents starvation of "easy" examples)
   maxPriority: 1.0,
 };
 
@@ -138,6 +138,21 @@ export class PERBuffer<T> {
     const variance = this.priorities.reduce((sum, p) => sum + (p - mean) ** 2, 0) / n;
     const std = Math.sqrt(variance);
     return { mean, max, min, std };
+  }
+
+  /**
+   * Decay priorities toward mean to prevent starvation.
+   * Call once per epoch to ensure "easy" examples get re-evaluated periodically.
+   *
+   * p_i = p_i * decay + mean * (1 - decay)
+   *
+   * @param decay Decay factor (0.9 = slow decay, 0.5 = fast decay). Default: 0.95
+   */
+  decayPriorities(decay: number = 0.95): void {
+    const mean = this.priorities.reduce((a, b) => a + b, 0) / this.priorities.length;
+    for (let i = 0; i < this.priorities.length; i++) {
+      this.priorities[i] = this.priorities[i] * decay + mean * (1 - decay);
+    }
   }
 
   /**
