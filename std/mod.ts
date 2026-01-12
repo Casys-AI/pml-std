@@ -93,7 +93,7 @@ export { schemaTools } from "./schema.ts";
 export { diffTools } from "./diff.ts";
 
 // Agent tools (MCP Sampling)
-export { agentTools, setSamplingClient } from "./agent.ts";
+export { agentTools, createAgenticSamplingClient, setSamplingClient } from "./agent.ts";
 
 // Capability management (MCP HTTP Client + types)
 // Note: CapModule and PmlStdServer have been moved to src/mcp/handlers/cap-handler.ts

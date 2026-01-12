@@ -18,7 +18,7 @@
  */
 
 import { MiniToolsClient } from "./mcp-tools.ts";
-import { setSamplingClient } from "./std/mod.ts";
+import { createAgenticSamplingClient, setSamplingClient } from "./std/mod.ts";
 
 // ============================================================================
 // MCP Protocol Types
@@ -49,104 +49,14 @@ const pendingSamplingRequests = new Map<
 >();
 
 /**
- * Call LLM directly via API (OpenAI or Anthropic)
- */
-async function callLLMDirectly(params: {
-  messages: Array<{ role: "user" | "assistant"; content: string }>;
-  maxTokens?: number;
-}): Promise<{
-  content: Array<{ type: string; text?: string }>;
-  stopReason: "end_turn" | "tool_use" | "max_tokens";
-}> {
-  const openaiKey = Deno.env.get("OPENAI_API_KEY");
-  const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-
-  if (anthropicKey) {
-    // Call Anthropic API
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": anthropicKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: Deno.env.get("ANTHROPIC_MODEL") || "claude-sonnet-4-20250514",
-        max_tokens: params.maxTokens || 4096,
-        messages: params.messages,
-      }),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Anthropic API error: ${response.status} ${error}`);
-    }
-
-    const data = await response.json();
-    return {
-      content: data.content,
-      stopReason: data.stop_reason === "end_turn" ? "end_turn" : "max_tokens",
-    };
-  }
-
-  if (openaiKey) {
-    // Call OpenAI API
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${openaiKey}`,
-      },
-      body: JSON.stringify({
-        model: Deno.env.get("OPENAI_MODEL") || "gpt-4.1",
-        max_tokens: params.maxTokens || 4096,
-        messages: params.messages,
-      }),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`OpenAI API error: ${response.status} ${error}`);
-    }
-
-    const data = await response.json();
-    const choice = data.choices[0];
-    return {
-      content: [{ type: "text", text: choice.message.content }],
-      stopReason: choice.finish_reason === "stop" ? "end_turn" : "max_tokens",
-    };
-  }
-
-  throw new Error(
-    "No LLM API key configured. Set ANTHROPIC_API_KEY or OPENAI_API_KEY environment variable."
-  );
-}
-
-/**
- * Send a sampling request - calls LLM directly via API
- */
-async function sendSamplingRequest(params: {
-  messages: Array<{ role: "user" | "assistant"; content: string }>;
-  tools?: Array<{ name: string; description: string; inputSchema: Record<string, unknown> }>;
-  toolChoice?: "auto" | "required" | "none";
-  maxTokens?: number;
-  maxIterations?: number;
-  allowedToolPatterns?: string[];
-}): Promise<{
-  content: Array<{ type: string; text?: string; name?: string; input?: Record<string, unknown> }>;
-  stopReason: "end_turn" | "tool_use" | "max_tokens";
-}> {
-  return await callLLMDirectly(params);
-}
-
-/**
  * Initialize the sampling client for agent tools
+ *
+ * Uses createAgenticSamplingClient from lib/std/agent.ts which implements
+ * the full agentic loop with support for both Anthropic and OpenAI.
  */
 function initSamplingClient(): void {
-  setSamplingClient({
-    createMessage: sendSamplingRequest,
-  });
-  console.error("[mcp-std] Sampling client initialized for agent tools");
+  setSamplingClient(createAgenticSamplingClient());
+  console.error("[mcp-std] Agentic sampling client initialized (Anthropic + OpenAI support)");
 }
 
 // ============================================================================

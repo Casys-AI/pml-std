@@ -67,6 +67,390 @@ function getSamplingClient(): SamplingClient {
 }
 
 // =============================================================================
+// Agentic Loop Implementation
+// =============================================================================
+
+/**
+ * PML API base URL - configurable via environment variable
+ */
+const PML_API_URL = typeof Deno !== "undefined"
+  ? Deno.env.get("PML_API_URL") || "http://localhost:3003"
+  : "http://localhost:3003";
+
+/**
+ * PML tool definition for agent agentic loop
+ *
+ * This is the ONLY tool exposed to the LLM during agent_delegate calls.
+ * The LLM describes what it wants to do, and PML handles discovery + execution.
+ */
+const pmlExecuteTool = {
+  name: "pml_execute",
+  description:
+    "Execute any task using PML. Describe what you want to accomplish in natural language. " +
+    "PML will discover the right tools and execute them. You can also provide explicit code.",
+  input_schema: {
+    type: "object" as const,
+    properties: {
+      intent: {
+        type: "string",
+        description: "Natural language description of what to do. Required.",
+      },
+      code: {
+        type: "string",
+        description:
+          "Optional: explicit mcp.* code. Example: 'return await mcp.filesystem.read_file({path: \"config.json\"});'",
+      },
+    },
+    required: ["intent"],
+  },
+};
+
+/**
+ * Execute a tool via PML API
+ *
+ * Requires PML_API_KEY env var for authentication in cloud mode.
+ * In local mode (no GITHUB_CLIENT_ID), auth is bypassed.
+ */
+async function executePmlTool(input: {
+  intent: string;
+  code?: string;
+}): Promise<{ success: boolean; result?: unknown; error?: string }> {
+  try {
+    // Build headers with optional API key
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const apiKey = typeof Deno !== "undefined" ? Deno.env.get("PML_API_KEY") : undefined;
+    if (apiKey) {
+      headers["x-api-key"] = apiKey;
+    }
+
+    const response = await fetch(`${PML_API_URL}/api/mcp`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: Date.now(),
+        method: "tools/call",
+        params: {
+          name: "pml:execute",
+          arguments: { intent: input.intent, code: input.code },
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { success: false, error: `PML API error: ${response.status} ${errorText}` };
+    }
+
+    const data = await response.json();
+    if (data.error) {
+      return { success: false, error: data.error.message || JSON.stringify(data.error) };
+    }
+
+    const result = data.result;
+    if (result?.content?.[0]?.text) {
+      try {
+        return { success: true, result: JSON.parse(result.content[0].text) };
+      } catch {
+        return { success: true, result: result.content[0].text };
+      }
+    }
+    return { success: true, result };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+/**
+ * Anthropic agentic loop implementation
+ */
+async function runAnthropicAgenticLoop(params: {
+  messages: Array<{ role: "user" | "assistant"; content: string }>;
+  maxTokens: number;
+  maxIterations: number;
+  apiKey: string;
+  model: string;
+}): Promise<{
+  content: Array<{ type: string; text?: string }>;
+  stopReason: "end_turn" | "tool_use" | "max_tokens";
+}> {
+  type ContentBlock = { type: "text"; text: string } | { type: "tool_use"; id: string; name: string; input: Record<string, unknown> };
+  type ToolResultBlock = { type: "tool_result"; tool_use_id: string; content: string; is_error?: boolean };
+  type MessageContent = string | Array<ContentBlock | ToolResultBlock>;
+
+  const messages: Array<{ role: "user" | "assistant"; content: MessageContent }> = params.messages.map((m) => ({
+    role: m.role,
+    content: m.content,
+  }));
+
+  for (let iteration = 0; iteration < params.maxIterations; iteration++) {
+    console.error(`[agent] Anthropic agentic loop iteration ${iteration + 1}/${params.maxIterations}`);
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": params.apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: params.model,
+        max_tokens: params.maxTokens,
+        messages,
+        tools: [pmlExecuteTool],
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Anthropic API error: ${response.status} ${error}`);
+    }
+
+    const data = await response.json();
+    const stopReason = data.stop_reason as "end_turn" | "tool_use" | "max_tokens";
+    const content = data.content as ContentBlock[];
+
+    if (stopReason !== "tool_use") {
+      console.error(`[agent] Anthropic loop ended: ${stopReason}`);
+      return { content, stopReason: stopReason === "end_turn" ? "end_turn" : "max_tokens" };
+    }
+
+    const toolCalls = content.filter((c): c is ContentBlock & { type: "tool_use" } => c.type === "tool_use");
+    if (toolCalls.length === 0) {
+      return { content, stopReason: "tool_use" };
+    }
+
+    messages.push({ role: "assistant", content });
+
+    const toolResults: ToolResultBlock[] = [];
+    for (const toolCall of toolCalls) {
+      console.error(`[agent] Executing: ${toolCall.name}`, toolCall.input);
+      if (toolCall.name === "pml_execute") {
+        const pmlResult = await executePmlTool(toolCall.input as { intent: string; code?: string });
+        toolResults.push({
+          type: "tool_result",
+          tool_use_id: toolCall.id,
+          content: JSON.stringify(pmlResult),
+          is_error: !pmlResult.success,
+        });
+      } else {
+        toolResults.push({
+          type: "tool_result",
+          tool_use_id: toolCall.id,
+          content: JSON.stringify({ error: `Unknown tool: ${toolCall.name}` }),
+          is_error: true,
+        });
+      }
+    }
+
+    messages.push({ role: "user", content: toolResults });
+  }
+
+  console.error("[agent] Anthropic loop: max iterations reached");
+  return {
+    content: [{ type: "text", text: "Max iterations reached without completing the task." }],
+    stopReason: "max_tokens",
+  };
+}
+
+/**
+ * OpenAI agentic loop implementation
+ */
+async function runOpenAIAgenticLoop(params: {
+  messages: Array<{ role: "user" | "assistant"; content: string }>;
+  maxTokens: number;
+  maxIterations: number;
+  apiKey: string;
+  model: string;
+}): Promise<{
+  content: Array<{ type: string; text?: string }>;
+  stopReason: "end_turn" | "tool_use" | "max_tokens";
+}> {
+  // OpenAI message format
+  type OpenAIMessage =
+    | { role: "user" | "assistant" | "system"; content: string }
+    | { role: "assistant"; content: string | null; tool_calls: Array<{ id: string; type: "function"; function: { name: string; arguments: string } }> }
+    | { role: "tool"; tool_call_id: string; content: string };
+
+  const messages: OpenAIMessage[] = params.messages.map((m) => ({
+    role: m.role,
+    content: m.content,
+  }));
+
+  // OpenAI tool format
+  const tools = [{
+    type: "function" as const,
+    function: {
+      name: pmlExecuteTool.name,
+      description: pmlExecuteTool.description,
+      parameters: pmlExecuteTool.input_schema,
+    },
+  }];
+
+  for (let iteration = 0; iteration < params.maxIterations; iteration++) {
+    console.error(`[agent] OpenAI agentic loop iteration ${iteration + 1}/${params.maxIterations}`);
+
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${params.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: params.model,
+        max_tokens: params.maxTokens,
+        messages,
+        tools,
+        tool_choice: "auto",
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`OpenAI API error: ${response.status} ${error}`);
+    }
+
+    const data = await response.json();
+    const choice = data.choices[0];
+    const finishReason = choice.finish_reason;
+    const message = choice.message;
+
+    // No tool calls - return the result
+    if (finishReason !== "tool_calls" || !message.tool_calls || message.tool_calls.length === 0) {
+      console.error(`[agent] OpenAI loop ended: ${finishReason}`);
+      return {
+        content: [{ type: "text", text: message.content || "" }],
+        stopReason: finishReason === "stop" ? "end_turn" : "max_tokens",
+      };
+    }
+
+    // Add assistant message with tool calls
+    messages.push({
+      role: "assistant",
+      content: message.content,
+      tool_calls: message.tool_calls,
+    });
+
+    // Execute each tool call
+    for (const toolCall of message.tool_calls) {
+      const functionName = toolCall.function.name;
+      let functionArgs: Record<string, unknown>;
+
+      try {
+        functionArgs = JSON.parse(toolCall.function.arguments);
+      } catch {
+        functionArgs = { intent: toolCall.function.arguments };
+      }
+
+      console.error(`[agent] Executing: ${functionName}`, functionArgs);
+
+      if (functionName === "pml_execute") {
+        const pmlResult = await executePmlTool(functionArgs as { intent: string; code?: string });
+        messages.push({
+          role: "tool",
+          tool_call_id: toolCall.id,
+          content: JSON.stringify(pmlResult),
+        });
+      } else {
+        messages.push({
+          role: "tool",
+          tool_call_id: toolCall.id,
+          content: JSON.stringify({ error: `Unknown tool: ${functionName}` }),
+        });
+      }
+    }
+  }
+
+  console.error("[agent] OpenAI loop: max iterations reached");
+  return {
+    content: [{ type: "text", text: "Max iterations reached without completing the task." }],
+    stopReason: "max_tokens",
+  };
+}
+
+/**
+ * Create an agentic sampling client that implements the full agentic loop
+ *
+ * Supports both Anthropic and OpenAI APIs.
+ * The client handles tool execution via PML recursive calls.
+ */
+export function createAgenticSamplingClient(): SamplingClient {
+  return {
+    async createMessage(params) {
+      const anthropicKey = typeof Deno !== "undefined" ? Deno.env.get("ANTHROPIC_API_KEY") : undefined;
+      const openaiKey = typeof Deno !== "undefined" ? Deno.env.get("OPENAI_API_KEY") : undefined;
+
+      const maxTokens = params.maxTokens || 4096;
+      const maxIterations = params.maxIterations || 5;
+      const enableTools = params.toolChoice !== "none";
+
+      // If no tools requested, just do a simple call
+      if (!enableTools) {
+        if (anthropicKey) {
+          const response = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": anthropicKey,
+              "anthropic-version": "2023-06-01",
+            },
+            body: JSON.stringify({
+              model: Deno.env.get("ANTHROPIC_MODEL") || "claude-sonnet-4-20250514",
+              max_tokens: maxTokens,
+              messages: params.messages,
+            }),
+          });
+          if (!response.ok) throw new Error(`Anthropic API error: ${response.status}`);
+          const data = await response.json();
+          return { content: data.content, stopReason: data.stop_reason === "end_turn" ? "end_turn" : "max_tokens" };
+        }
+        if (openaiKey) {
+          const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${openaiKey}` },
+            body: JSON.stringify({
+              model: Deno.env.get("OPENAI_MODEL") || "gpt-4.1",
+              max_tokens: maxTokens,
+              messages: params.messages,
+            }),
+          });
+          if (!response.ok) throw new Error(`OpenAI API error: ${response.status}`);
+          const data = await response.json();
+          return {
+            content: [{ type: "text", text: data.choices[0].message.content }],
+            stopReason: data.choices[0].finish_reason === "stop" ? "end_turn" : "max_tokens",
+          };
+        }
+        throw new Error("No LLM API key configured. Set ANTHROPIC_API_KEY or OPENAI_API_KEY.");
+      }
+
+      // Tools requested - run agentic loop
+      if (anthropicKey) {
+        return runAnthropicAgenticLoop({
+          messages: params.messages,
+          maxTokens,
+          maxIterations,
+          apiKey: anthropicKey,
+          model: Deno.env.get("ANTHROPIC_MODEL") || "claude-sonnet-4-20250514",
+        });
+      }
+
+      if (openaiKey) {
+        return runOpenAIAgenticLoop({
+          messages: params.messages,
+          maxTokens,
+          maxIterations,
+          apiKey: openaiKey,
+          model: Deno.env.get("OPENAI_MODEL") || "gpt-4.1",
+        });
+      }
+
+      throw new Error("No LLM API key configured. Set ANTHROPIC_API_KEY or OPENAI_API_KEY.");
+    },
+  };
+}
+
+// =============================================================================
 // Helper Functions
 // =============================================================================
 
