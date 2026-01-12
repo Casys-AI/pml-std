@@ -94,12 +94,14 @@ Add to your `.mcp.json`:
 | schema | Schema inference | infer, validate, generate |
 | resilience | Reliability | retry, rate_limit, circuit_breaker |
 
-### AI/Agent Tools
+### Scripting Tools
 
 | Category | Description | Examples |
 |----------|-------------|----------|
-| agent | LLM-powered | delegate, analyze, classify, summarize |
 | python | Python execution | exec, eval, pip, script |
+| agent | LLM-powered | delegate, analyze, classify, summarize |
+
+> **Note:** The `agent` category requires [MCP Sampling](https://modelcontextprotocol.io/specification/2025-11-25/client/sampling). Use with [PML](https://pml.casys.ai) which handles sampling server-side, or a client that supports sampling (VS Code Copilot). Claude Code doesn't support sampling yet ([tracking issue](https://github.com/anthropics/claude-code/issues/1785)).
 
 ## TypeScript Usage
 
