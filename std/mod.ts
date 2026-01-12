@@ -369,4 +369,4 @@ export class MiniToolsClient {
 }
 
 /** Default client instance with all tools */
-export const defaultClient = new MiniToolsClient();
+export const defaultClient: MiniToolsClient = new MiniToolsClient();

@@ -16,8 +16,7 @@
     ],
     "exclude": [
       "**/*_test.ts",
-      "**/*.bench.ts",
-      "std/cap.ts"
+      "**/*.bench.ts"
     ]
   },
   "imports": {

@@ -166,4 +166,4 @@ export class MiniToolsMCP implements MCPClientBase {
 /**
  * Default MiniToolsMCP instance
  */
-export const miniToolsMCP = new MiniToolsMCP();
+export const miniToolsMCP: MiniToolsMCP = new MiniToolsMCP();

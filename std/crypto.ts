@@ -10,7 +10,7 @@
  * @module lib/std/crypto
  */
 
-import * as bcrypt from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
+import * as bcrypt from "npm:bcryptjs@2.4.3";
 import type { MiniTool } from "./types.ts";
 
 // BIP39 wordlist (English - 2048 words)
