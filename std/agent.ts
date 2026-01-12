@@ -527,17 +527,51 @@ export const agentTools: MiniTool[] = [
       const client = getSamplingClient();
 
       // Build the prompt with goal and context
+      // IMPORTANT: The LLM only has access to pml_execute tool.
+      // It must use pml_execute to perform any action.
       const systemPrompt = `You are an autonomous agent. Your goal: ${goal}
 
 ${context ? `Context:\n${JSON.stringify(context, null, 2)}` : ""}
 
+## How to Execute Tasks
+
+Use **pml_execute** to perform actions. You can do simple tasks or complex multi-step workflows.
+
+Parameters:
+- \`intent\`: What you want to do (natural language) - REQUIRED
+- \`code\`: TypeScript code with multiple mcp.* calls - OPTIONAL
+
+Simple (intent only - PML discovers the right tool):
+- pml_execute({ intent: "read config.json" })
+- pml_execute({ intent: "get git status" })
+
+Complex workflow (intent + code with multiple MCP calls):
+\`\`\`
+pml_execute({
+  intent: "analyze the project structure",
+  code: \`
+    const files = await mcp.filesystem.read_directory({path: 'src/'});
+    const pkg = await mcp.filesystem.read_file({path: 'package.json'});
+    const git = await mcp.std.git_status({});
+    return { files, package: JSON.parse(pkg), gitStatus: git };
+  \`
+})
+\`\`\`
+
+The code parameter lets you chain multiple MCP operations in a single execution.
+
 ${
         allowedTools
-          ? `You may use these tools: ${(allowedTools as string[]).join(", ")}`
-          : "You may use any available tools."
+          ? `Focus on tasks related to: ${(allowedTools as string[]).join(", ")}`
+          : ""
       }
 
-Work step by step. When you have completed the goal, provide your final answer.`;
+## Instructions
+
+1. Think step by step about how to achieve the goal
+2. Use pml_execute for each action you need to perform
+3. Analyze the results and continue until the goal is achieved
+4. When done, provide your final answer as text (no tool call)`;
 
       // Per MCP spec: Send sampling request with tools parameter
       // The CLIENT handles the agentic loop:
