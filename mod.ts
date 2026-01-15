@@ -90,23 +90,5 @@ export {
   runCommand,
 } from "./src/tools/mod.ts";
 
-// Re-export capability types
-export type {
-  CapListItem,
-  CapListOptions,
-  CapListResponse,
-  CapLookupOptions,
-  CapLookupResponse,
-  CapMergeOptions,
-  CapMergeResponse,
-  CapRenameOptions,
-  CapRenameResponse,
-  CapTool,
-  CapToolResult,
-  CapWhoisOptions,
-  CapWhoisResponse,
-  OnCapabilityMerged,
-} from "./src/tools/mod.ts";
-
 /** Alias for backward compatibility */
 export { allTools as systemTools } from "./src/tools/mod.ts";

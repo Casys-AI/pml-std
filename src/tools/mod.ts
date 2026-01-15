@@ -50,24 +50,8 @@ export { diffTools } from "./diff.ts";
 // Agent tools (MCP Sampling)
 export { agentTools, createAgenticSamplingClient, setSamplingClient } from "./agent.ts";
 
-// Capability management - moved to src/mcp/handlers/cap-handler.ts
-// Types re-exported from gateway for backward compat
-export type {
-  CapListItem,
-  CapListOptions,
-  CapListResponse,
-  CapLookupOptions,
-  CapLookupResponse,
-  CapMergeOptions,
-  CapMergeResponse,
-  CapRenameOptions,
-  CapRenameResponse,
-  CapTool,
-  CapToolResult,
-  CapWhoisOptions,
-  CapWhoisResponse,
-  OnCapabilityMerged,
-} from "../../../../src/mcp/handlers/cap-handler.ts";
+// Capability management moved to pml:discover and pml:admin
+// Types no longer exported - use pml gateway directly
 
 // Python execution tools
 export { pythonTools } from "./python.ts";
